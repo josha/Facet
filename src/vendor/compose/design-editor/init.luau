@@ -8,12 +8,24 @@ local Editor = require "@self/editor"
 local UI = require "@self/ui"
 local RobloxLibrary = require "@self/roblox-library"
 local Roblox3DLibrary = require "@self/roblox-3d-library"
+local Devices = require "@self/devices"
+local Canvas = require "@self/canvas"
+local Prompt = require "@self/prompt"
+local ThemePanel = require "@self/theme-panel"
 
 export type Environment = Environment.Environment
 export type Values = Environment.Values
 export type Point = UI.Point
 export type Editor = Editor.Editor
 export type Device = Editor.Device
+export type Frame = Canvas.Frame
+export type FrameContext = Canvas.Context
+export type PromptRequest = Prompt.Request
+export type PromptOptions = Prompt.Options
+export type PromptResult = Prompt.Result
+export type ThemeValue = ThemePanel.Value
+export type ThemeField = ThemePanel.Field
+export type ThemeStore = ThemePanel.Store
 export type Preview = Editor.Preview
 export type Sequences = Roblox3DLibrary.Sequences
 export type Options = Editor.Options & { environment: Environment.Environment }
@@ -22,9 +34,11 @@ export type Workspace = {
 	environment: Environment.Environment,
 	library: Design.Library,
 	root: string,
-	stageSize: UI.Point?,
 	devices: { Editor.Device }?,
 	device: string?,
+	frame: ((Editor.Device, Compose.ReadOnlyValue<number>) -> Canvas.Context)?,
+	prompt: Prompt.Options?,
+	theme: ThemePanel.Store?,
 	bindings: { [string]: Design.Resolved }?,
 	previews: { Editor.Preview }?,
 	token: ((name: string) -> Design.Literal)?,
@@ -58,8 +72,7 @@ local function create(
 	return {
 		root = result.root,
 		session = result.session,
-		stage = result.stage,
-		scene = result.scene,
+		canvas = result.canvas,
 		dispose = function()
 			if disposed then
 				return
@@ -90,14 +103,15 @@ local function kit(name: string, open: () -> Workspace): Kit
 					link.write(current, Design.emit(initial, library))
 				end
 			end
-			local devices = workspace.devices
+			local devices = workspace.devices or Devices.all
 			local options: Options = {
 				runtime = workspace.runtime,
 				environment = workspace.environment,
-				stageSize = workspace.stageSize
-					or if devices ~= nil and devices[1] ~= nil then devices[1].size else { X = 390, Y = 844 },
 				devices = devices,
 				device = workspace.device,
+				frame = workspace.frame,
+				prompt = workspace.prompt,
+				theme = workspace.theme,
 				bindings = workspace.bindings,
 				previews = workspace.previews,
 				token = workspace.token,
@@ -128,6 +142,7 @@ local function kit(name: string, open: () -> Workspace): Kit
 end
 
 return {
+	devices = Devices,
 	create = create,
 	kit = kit,
 	robloxLibrary = RobloxLibrary,

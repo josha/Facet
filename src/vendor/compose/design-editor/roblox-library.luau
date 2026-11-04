@@ -57,36 +57,26 @@ return function(runtime: Compose.Runtime, environment: Environment.Environment):
 
 	local function sized(props: Props, instance: Compose.Node)
 		ui.set(instance, "BackgroundTransparency", 1)
-		local width, height = 0, 0
-		local fillWidth, fillHeight = false, false
-		apply(props.width, function(value: Design.Literal?)
-			width = numberOf(value) or 0
-		end)
-		apply(props.height, function(value: Design.Literal?)
-			height = numberOf(value) or 0
-		end)
-		apply(props.fillWidth, function(value: Design.Literal?)
-			fillWidth = value == true
-		end)
-		apply(props.fillHeight, function(value: Design.Literal?)
-			fillHeight = value == true
-		end)
-		ui.set(
-			instance,
-			"Size",
-			ui.values.udim2(if fillWidth then 1 else 0, width, if fillHeight then 1 else 0, height)
-		)
-		if width == 0 and not fillWidth then
+		Compose.watch(function(use: Compose.Use)
+			local function read(property: Resolved?): Design.Literal?
+				return if property == nil
+					then nil
+					elseif property.readable then use(property.readable)
+					else property.literal
+			end
+			local width, height = numberOf(read(props.width)) or 0, numberOf(read(props.height)) or 0
+			local fillWidth, fillHeight = read(props.fillWidth) == true, read(props.fillHeight) == true
 			ui.set(
 				instance,
-				"AutomaticSize",
-				if height == 0 and not fillHeight
-					then ui.values.enum("AutomaticSize", "XY")
-					else ui.values.enum("AutomaticSize", "X")
+				"Size",
+				ui.values.udim2(if fillWidth then 1 else 0, width, if fillHeight then 1 else 0, height)
 			)
-		elseif height == 0 and not fillHeight then
-			ui.set(instance, "AutomaticSize", ui.values.enum("AutomaticSize", "Y"))
-		end
+			local automatic = if width == 0 and not fillWidth
+				then if height == 0 and not fillHeight then "XY" else "X"
+				elseif height == 0 and not fillHeight then "Y"
+				else "None"
+			ui.set(instance, "AutomaticSize", ui.values.enum("AutomaticSize", automatic))
+		end)
 		apply(props.background, function(value: Design.Literal?)
 			local parsed = if type(value) == "string" then color(value) else nil
 			if parsed then

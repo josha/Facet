@@ -4,28 +4,30 @@ local UI = require "./ui"
 
 local Compose = require "../core"
 local Design = require "../design"
-local Stage = require "./stage"
-local Stage3D = require "./stage3d"
+local Canvas = require "./canvas"
+local Devices = require "./devices"
 local Layers = require "./layers"
 local LibraryPanel = require "./library-panel"
 local Inspector = require "./inspector"
+local Prompt = require "./prompt"
+local ThemePanel = require "./theme-panel"
 
 export type Editor = {
 	root: Compose.Node,
 	session: Design.Session,
-	stage: Stage.Stage?,
-	scene: Stage3D.Scene?,
+	canvas: Canvas.Canvas,
 	dispose: () -> (),
 }
 
-export type Device = { name: string, size: UI.Point, select: (() -> ())? }
+export type Device = Devices.Profile
 
 export type Preview = { name: string, choices: { string }, initial: string?, select: (choice: string) -> () }
 
 export type Options = {
-	stageSize: UI.Point,
+	stageSize: UI.Point?,
 	devices: { Device }?,
 	device: string?,
+	frame: ((Device, Compose.ReadOnlyValue<number>) -> Canvas.Context)?,
 	bindings: { [string]: Design.Resolved }?,
 	previews: { Preview }?,
 	token: ((name: string) -> Design.Literal)?,
@@ -34,6 +36,8 @@ export type Options = {
 	slots: { [string]: () -> unknown }?,
 	onExport: ((source: string) -> ())?,
 	link: Design.LinkStore?,
+	prompt: Prompt.Options?,
+	theme: ThemePanel.Store?,
 	runtime: Compose.Runtime,
 }
 
@@ -43,16 +47,10 @@ return function(ui: UI.UI)
 	local size = Theme.size
 
 	local function chip(name: string, text: string, primary: boolean): Compose.Node
-		local button = ui.new "TextButton"
-		ui.set(button, "Name", name)
+		local button = Theme.button(name, text, if primary then color.white else color.text)
 		ui.set(button, "AutomaticSize", ui.values.enum("AutomaticSize", "X"))
 		ui.set(button, "Size", ui.values.udim2(0, 0, 0, 30))
-		ui.set(button, "BorderSizePixel", 0)
-		ui.set(button, "AutoButtonColor", false)
 		ui.set(button, "BackgroundTransparency", if primary then 0 else 1)
-		ui.set(button, "Text", text)
-		ui.set(button, "TextColor3", if primary then color.white else color.text)
-		ui.set(button, "TextSize", size.text)
 		ui.set(button, "FontFace", if primary then Theme.font.bold else Theme.font.medium)
 		Theme.corner(button, 6)
 		Theme.pad(button, if primary then 14 else 10)
@@ -69,7 +67,7 @@ return function(ui: UI.UI)
 	local function group(name: string, order: number, alignment: unknown): Compose.Node
 		local frame = Theme.frame(name)
 		ui.set(frame, "AutomaticSize", ui.values.enum("AutomaticSize", "X"))
-		ui.set(frame, "Size", ui.values.udim2(0, 0, 1, 0))
+		ui.set(frame, "Size", ui.values.udim2(0, 0, 0, size.toolbar / 2))
 		ui.set(frame, "LayoutOrder", order)
 		local layout = Theme.list(
 			frame,
@@ -82,19 +80,21 @@ return function(ui: UI.UI)
 	end
 
 	return function(library: Design.Library, initial: Design.Document, parent: Compose.Node, options: Options): Editor
+		local remembered = ui.call(parent, "GetAttribute", "ComposeDesignTextSize")
+		local textSize = if type(remembered) == "number" and remembered == remembered
+			then math.clamp(remembered, 15, 19)
+			else 15
+		ui.setTextSize(textSize)
 		local session = Design.session(library, initial)
 		local root = Theme.frame("ComposeDesign", color.canvas)
 		ui.set(root, "Size", ui.values.udim2(1, 0, 1, 0))
 		local toolbar = Theme.frame("Toolbar", color.panel)
-		ui.set(toolbar, "Size", ui.values.udim2(1, 0, 0, size.toolbar))
-		ui.set(toolbar, "Parent", root)
+		Theme.place(toolbar, root, ui.values.udim2(1, 0, 0, size.toolbar))
 		local toolRule = Theme.frame("Rule", color.divider)
 		ui.set(toolRule, "AnchorPoint", ui.values.vector2(0, 1))
-		ui.set(toolRule, "Position", ui.values.udim2(0, 0, 1, 0))
-		ui.set(toolRule, "Size", ui.values.udim2(1, 0, 0, 1))
-		ui.set(toolRule, "Parent", toolbar)
+		Theme.place(toolRule, toolbar, ui.values.udim2(1, 0, 0, 1), ui.values.udim2(0, 0, 1, 0))
 		local leftTools = group("Insert", 1, ui.values.enum("HorizontalAlignment", "Left"))
-		ui.set(leftTools, "Position", ui.values.udim2(0, size.gutter, 0, 0))
+		ui.set(leftTools, "Position", ui.values.udim2(0, size.gutter, 0, size.toolbar / 2))
 		ui.set(leftTools, "Parent", toolbar)
 		local brand = Theme.label("◆", color.accent, 18, Theme.font.bold)
 		ui.set(brand, "Name", "Brand")
@@ -106,34 +106,20 @@ return function(ui: UI.UI)
 		ui.set(rightTools, "AnchorPoint", ui.values.vector2(1, 0))
 		ui.set(rightTools, "Position", ui.values.udim2(1, -size.gutter, 0, 0))
 		ui.set(rightTools, "Parent", toolbar)
-		local heading = Theme.label("", color.text, size.title, Theme.font.bold)
-		ui.set(heading, "Name", "DocumentTitle")
-		ui.set(heading, "AnchorPoint", ui.values.vector2(0.5, 0.5))
-		ui.set(heading, "Position", ui.values.udim2(0.5, 0, 0.5, 0))
-		ui.set(heading, "Size", ui.values.udim2(0, 320, 0, 20))
-		ui.set(heading, "TextXAlignment", ui.values.enum("TextXAlignment", "Center"))
-		ui.set(heading, "RichText", true)
-		ui.set(heading, "Parent", toolbar)
 		local function side(name: string, title: string, anchor: number): (Compose.Node, Compose.Node)
 			local frame = Theme.frame(name, color.panel)
 			ui.set(frame, "AnchorPoint", ui.values.vector2(anchor, 0))
 			ui.set(frame, "Position", ui.values.udim2(anchor, 0, 0, size.toolbar))
-			ui.set(frame, "Size", ui.values.udim2(0, size.side, 1, -size.toolbar - size.status))
-			ui.set(frame, "Parent", root)
+			Theme.place(frame, root, ui.values.udim2(0, size.side, 1, -size.toolbar - size.status))
 			local rule = Theme.frame("Rule", color.divider)
 			ui.set(rule, "AnchorPoint", ui.values.vector2(1 - anchor, 0))
-			ui.set(rule, "Position", ui.values.udim2(1 - anchor, 0, 0, 0))
-			ui.set(rule, "Size", ui.values.udim2(0, 1, 1, 0))
-			ui.set(rule, "Parent", frame)
+			Theme.place(rule, frame, ui.values.udim2(0, 1, 1, 0), ui.values.udim2(1 - anchor, 0, 0, 0))
 			local caption = Theme.label(title, color.text, size.small, Theme.font.bold)
 			ui.set(caption, "Name", "Caption")
 			ui.set(caption, "Position", ui.values.udim2(0, size.gutter + 4, 0, 0))
-			ui.set(caption, "Size", ui.values.udim2(1, -2 * size.gutter, 0, size.header))
-			ui.set(caption, "Parent", frame)
+			Theme.place(caption, frame, ui.values.udim2(1, -2 * size.gutter, 0, size.header))
 			local body = Theme.frame "Body"
-			ui.set(body, "Position", ui.values.udim2(0, 0, 0, size.header))
-			ui.set(body, "Size", ui.values.udim2(1, -1, 1, -size.header))
-			ui.set(body, "Parent", frame)
+			Theme.place(body, frame, ui.values.udim2(1, -1, 1, -size.header), ui.values.udim2(0, 0, 0, size.header))
 			return frame, body
 		end
 		local libraryFrame, libraryBody = side("LibraryPanel", "Library", 0)
@@ -149,95 +135,79 @@ return function(ui: UI.UI)
 		ui.set(center, "Parent", root)
 		local status = Theme.frame("StatusBar", color.panel)
 		ui.set(status, "AnchorPoint", ui.values.vector2(0, 1))
-		ui.set(status, "Position", ui.values.udim2(0, 0, 1, 0))
-		ui.set(status, "Size", ui.values.udim2(1, 0, 0, size.status))
-		ui.set(status, "Parent", root)
+		Theme.place(status, root, ui.values.udim2(1, 0, 0, size.status), ui.values.udim2(0, 0, 1, 0))
 		local statusRule = Theme.frame("Rule", color.divider)
-		ui.set(statusRule, "Size", ui.values.udim2(1, 0, 0, 1))
-		ui.set(statusRule, "Parent", status)
+		Theme.place(statusRule, status, ui.values.udim2(1, 0, 0, 1))
 		local problem = Theme.label("", color.tertiary, size.small)
 		ui.set(problem, "Name", "Problem")
 		ui.set(problem, "Position", ui.values.udim2(0, size.gutter, 0, 0))
 		ui.set(problem, "Size", ui.values.udim2(0.5, -size.gutter - 40, 1, 0))
 		ui.set(problem, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
 		ui.set(problem, "Parent", status)
-		local zoomLabel = ui.new "TextButton"
-		ui.set(zoomLabel, "Name", "Zoom")
-		ui.set(zoomLabel, "BackgroundTransparency", 1)
-		ui.set(zoomLabel, "AutoButtonColor", false)
+		local zoomLabel = Theme.button("Zoom", "", color.secondary, size.small)
 		ui.set(zoomLabel, "AnchorPoint", ui.values.vector2(0.5, 0))
 		ui.set(zoomLabel, "Position", ui.values.udim2(0.5, 0, 0, 0))
 		ui.set(zoomLabel, "Size", ui.values.udim2(0, 64, 0, size.status))
-		ui.set(zoomLabel, "TextColor3", color.secondary)
-		ui.set(zoomLabel, "TextSize", size.small)
 		ui.set(zoomLabel, "FontFace", Theme.font.bold)
 		ui.set(zoomLabel, "Parent", status)
-		local hint = Theme.label(
-			"⇧1 Fit   ⌘Z Undo   ⌘D Duplicate   ⌫ Delete   Tab Next   Esc Parent",
-			color.tertiary,
-			size.small
-		)
-		ui.set(hint, "Name", "Shortcuts")
-		ui.set(hint, "AnchorPoint", ui.values.vector2(1, 0))
-		ui.set(hint, "Position", ui.values.udim2(1, -size.gutter, 0, 0))
-		ui.set(hint, "Size", ui.values.udim2(0.4, 0, 1, 0))
-		ui.set(hint, "TextXAlignment", ui.values.enum("TextXAlignment", "Right"))
-		ui.set(hint, "Parent", status)
-		local syncButton = ui.new "TextButton"
-		ui.set(syncButton, "Name", "Sync")
-		ui.set(syncButton, "BackgroundTransparency", 1)
-		ui.set(syncButton, "AutoButtonColor", false)
+		local heading = Theme.label("", color.text, size.small, Theme.font.bold)
+		ui.set(heading, "Name", "DocumentTitle")
+		ui.set(heading, "AnchorPoint", ui.values.vector2(1, 0))
+		ui.set(heading, "Position", ui.values.udim2(1, -size.gutter, 0, 0))
+		ui.set(heading, "Size", ui.values.udim2(0.25, 0, 1, 0))
+		ui.set(heading, "TextXAlignment", ui.values.enum("TextXAlignment", "Right"))
+		ui.set(heading, "RichText", true)
+		ui.set(heading, "Parent", status)
+		local syncButton = Theme.button("Sync", "", nil, size.small)
 		ui.set(syncButton, "AnchorPoint", ui.values.vector2(0, 0))
 		ui.set(syncButton, "Position", ui.values.udim2(0.5, 40, 0, 0))
 		ui.set(syncButton, "Size", ui.values.udim2(0, 160, 0, size.status))
-		ui.set(syncButton, "TextSize", size.small)
 		ui.set(syncButton, "FontFace", Theme.font.bold)
-		ui.set(syncButton, "Text", "")
 		ui.set(syncButton, "Parent", status)
 		ui.set(root, "Parent", parent)
-		type View = {
-			zoom: Compose.Value<number>,
-			fit: () -> (),
-			zoomTo: (scale: number, around: UI.Point?) -> (),
-			dispose: () -> (),
+		local devices = options.devices
+			or if options.stageSize then { Devices.custom("Canvas", options.stageSize) } else Devices.all
+		local canvasOptions: Canvas.Options = {
+			devices = devices,
+			device = options.device,
+			frame = options.frame,
+			bindings = options.bindings,
+			token = options.token,
+			resolveToken = options.resolveToken,
+			slots = options.slots,
 		}
-		local stage: Stage.Stage? = nil
-		local scene: Stage3D.Scene? = nil
-		local view: View
-		if library.space == "3d" then
-			local built = Stage3D(ui)(session, center, {
-				accent = color.accent,
-				token = options.token,
-				resolveToken = options.resolveToken,
-				bindings = options.bindings,
-				slots = options.slots,
-			})
-			scene = built
-			view = { zoom = built.zoom, fit = built.fit, zoomTo = built.zoomTo, dispose = built.dispose }
-		else
-			local built = Stage(ui)(session, center, {
-				size = options.stageSize,
-				accent = color.accent,
-				token = options.token,
-				resolveToken = options.resolveToken,
-				bindings = options.bindings,
-				slots = options.slots,
-			})
-			stage = built
-			view = { zoom = built.zoom, fit = built.fit, zoomTo = built.zoomTo, dispose = built.dispose }
-		end
+		local view = Canvas(ui, session, center, canvasOptions)
 		local layers = Layers(ui)(session, left)
+		local prompt = if options.prompt
+			then Prompt.create(
+				ui,
+				session,
+				view,
+				center,
+				options.prompt,
+				function(source: string, device: Device, parent: Compose.Node): () -> ()
+					return Compose.withOwner(ui.owner, function(): () -> ()
+						local draft = Design.session(library, Design.parse(source, library))
+						draft.selectMany {}
+						local frame = table.clone(canvasOptions)
+						frame.devices, frame.device, frame.readOnly = { device }, device.id, true
+						return Canvas(ui, draft, parent, frame).dispose
+					end)
+				end
+			)
+			else nil
 		local libraryPanel = LibraryPanel(ui)(session, libraryBody)
+		local theme = if options.theme then ThemePanel.create(ui, libraryBody, options.theme) else nil
 		local inspector = Inspector(ui)(session, right, {
 			tokens = options.tokens,
 			play = function(sequence: string)
-				local flat = stage
+				local flat = view.current().stage
 				if flat then
 					flat.play(sequence)
 				end
 			end,
 			measure = function(id: string, key: string): number?
-				local flat = stage
+				local flat = view.current().stage
 				local instance: Compose.Node? = if flat then flat.nodes[id] else nil
 				if instance == nil then
 					return nil
@@ -258,7 +228,7 @@ return function(ui: UI.UI)
 			order: number,
 			container: Compose.Node,
 			primary: boolean,
-			run: () -> ()
+			run: () -> ...unknown
 		): Compose.Node
 			local button = chip(name, text, primary)
 			ui.set(button, "LayoutOrder", order)
@@ -292,25 +262,21 @@ return function(ui: UI.UI)
 			end)
 			previewOrder += 1
 		end
-		local devices = options.devices
-		if devices and #devices > 0 and stage then
-			local flat = stage
-			local names: { string } = {}
-			for _, device in devices do
-				table.insert(names, device.name)
-			end
+		local deviceButton: Compose.Node? = nil
+		if #devices > 1 then
 			ui.set(divider(previewOrder), "Parent", leftTools)
 			previewOrder += 1
-			cycling("Device", names, options.device, function(choice: string)
-				for _, device in devices do
-					if device.name == choice then
-						flat.resize(device.size)
-						if device.select then
-							device.select()
-						end
-					end
-				end
+			deviceButton = action("Device", view.current().device.name, previewOrder, leftTools, false, function()
+				local at = table.find(devices, view.device:peek()) or 1
+				view.select(devices[at % #devices + 1].id)
 			end)
+			previewOrder += 1
+			local gridButton: Compose.Node? = nil
+			gridButton = action("AllDevices", "All devices", previewOrder, leftTools, false, function()
+				view.showAll(not view.all:peek())
+				ui.set(assert(gridButton), "Text", if view.all:peek() then "Single device" else "All devices")
+			end)
+			previewOrder += 1
 		end
 		local previews = options.previews
 		if previews then
@@ -318,18 +284,29 @@ return function(ui: UI.UI)
 				cycling(preview.name, preview.choices, preview.initial, preview.select)
 			end
 		end
-		local undo = action("Undo", "Undo", 1, rightTools, false, function()
-			session.undo()
-		end)
-		local redo = action("Redo", "Redo", 2, rightTools, false, function()
-			session.redo()
-		end)
+		local undo = action("Undo", "Undo", 1, rightTools, false, session.undo)
+		local redo = action("Redo", "Redo", 2, rightTools, false, session.redo)
 		ui.set(divider(3), "Parent", rightTools)
-		local _ = action("Duplicate", "Duplicate", 4, rightTools, false, function()
-			session.duplicate()
-		end)
-		local _ = action("Delete", "Delete", 5, rightTools, false, function()
-			session.remove()
+		local _ = action("Duplicate", "Duplicate", 4, rightTools, false, session.duplicate)
+		local _ = action("Delete", "Delete", 5, rightTools, false, session.remove)
+		local textControl: Compose.Node? = nil
+		if theme then
+			local opened = false
+			local _ = action("Theme", "Theme", 9, rightTools, false, function()
+				opened = not opened
+				ui.set(theme.root, "Visible", opened)
+				ui.set(libraryPanel.root, "Visible", not opened)
+			end)
+		end
+		textControl = action("TextSize", `Text {textSize}`, 8, rightTools, false, function()
+			local chosen = if textSize < 17 then 17 elseif textSize < 19 then 19 else 15
+			local changed =
+				assert(options.runtime.host.render.setAttribute, "Design text size requires host attributes")
+			local ok, failure = changed(parent, "ComposeDesignTextSize", chosen)
+			assert(ok, failure)
+			textSize = chosen
+			ui.setTextSize(chosen)
+			ui.set(assert(textControl), "Text", `Text {chosen}`)
 		end)
 		local exportHandler = options.onExport
 		if exportHandler then
@@ -345,7 +322,7 @@ return function(ui: UI.UI)
 		local context = ui.new "InputContext"
 		ui.set(context, "Name", "ComposeDesignShortcuts")
 		ui.set(context, "Sink", true)
-		local function bind(name: string, run: () -> (), keys: { { unknown } })
+		local function bind(name: string, run: () -> ...unknown, keys: { { unknown } })
 			local inputAction = ui.new "InputAction"
 			ui.set(inputAction, "Name", name)
 			for _, combo in keys do
@@ -371,9 +348,11 @@ return function(ui: UI.UI)
 			)
 			ui.set(inputAction, "Parent", context)
 		end
-		bind("Delete", function()
-			session.remove()
-		end, { { ui.values.enum("KeyCode", "Delete") }, { ui.values.enum("KeyCode", "Backspace") } })
+		bind(
+			"Delete",
+			session.remove,
+			{ { ui.values.enum("KeyCode", "Delete") }, { ui.values.enum("KeyCode", "Backspace") } }
+		)
 		local function command(key: string, shifted: boolean?): { { unknown } }
 			local chords: { { unknown } } = {}
 			for _, modifier in { "LeftControl", "RightControl", "LeftMeta", "RightMeta", "LeftSuper", "RightSuper" } do
@@ -391,26 +370,16 @@ return function(ui: UI.UI)
 			end
 			return chords
 		end
-		bind("Duplicate", function()
-			session.duplicate()
-		end, command "D")
-		bind("Undo", function()
-			session.undo()
-		end, command "Z")
-		bind("Copy", function()
-			session.copy()
-		end, command "C")
-		bind("Paste", function()
-			session.paste()
-		end, command "V")
+		bind("Duplicate", session.duplicate, command "D")
+		bind("Undo", session.undo, command "Z")
+		bind("Copy", session.copy, command "C")
+		bind("Paste", session.paste, command "V")
 		bind("Wrap", function()
 			if not ui.keyDown { "LeftShift", "RightShift" } then
 				session.wrap()
 			end
 		end, command "G")
-		bind("Unwrap", function()
-			session.unwrap()
-		end, command("G", true))
+		bind("Unwrap", session.unwrap, command("G", true))
 		bind("MoveUp", function()
 			session.shift(-1)
 		end, { { ui.values.enum("KeyCode", "Up"), ui.values.enum("KeyCode", "LeftAlt") } })
@@ -419,12 +388,8 @@ return function(ui: UI.UI)
 		end, { { ui.values.enum("KeyCode", "Down"), ui.values.enum("KeyCode", "LeftAlt") } })
 		local redoKeys = command("Z", true)
 		table.insert(redoKeys, { ui.values.enum("KeyCode", "Y"), ui.values.enum("KeyCode", "LeftControl") })
-		bind("Redo", function()
-			session.redo()
-		end, redoKeys)
-		bind("Fit", function()
-			view.fit()
-		end, { { ui.values.enum("KeyCode", "One"), ui.values.enum("KeyCode", "LeftShift") } })
+		bind("Redo", session.redo, redoKeys)
+		bind("Fit", view.fit, { { ui.values.enum("KeyCode", "One"), ui.values.enum("KeyCode", "LeftShift") } })
 		bind("Actual", function()
 			view.zoomTo(1)
 		end, { { ui.values.enum("KeyCode", "Zero"), ui.values.enum("KeyCode", "LeftShift") } })
@@ -447,12 +412,7 @@ return function(ui: UI.UI)
 			session.selectRelative "previous"
 		end, { { ui.values.enum("KeyCode", "Tab"), ui.values.enum("KeyCode", "LeftShift") } })
 		ui.set(context, "Parent", root)
-		table.insert(
-			connections,
-			ui.connect(zoomLabel, "Activated", function()
-				view.fit()
-			end)
-		)
+		table.insert(connections, ui.connect(zoomLabel, "Activated", view.fit))
 		local scheduler = options.runtime.scheduler(ui.owner)
 		scheduler.after(0, view.fit)
 		local linkStore = options.link
@@ -470,6 +430,12 @@ return function(ui: UI.UI)
 			)
 		end
 		local owner = Compose.createRootOwner(function()
+			if deviceButton then
+				local button = deviceButton
+				Compose.watch(function(use: Compose.Use)
+					ui.set(button, "Text", use(view.device).name)
+				end)
+			end
 			if link then
 				local active = link
 				Compose.watch(function(use: Compose.Use)
@@ -513,8 +479,7 @@ return function(ui: UI.UI)
 		return {
 			root = root,
 			session = session,
-			stage = stage,
-			scene = scene,
+			canvas = view,
 			dispose = function()
 				release()
 				if unlink then
@@ -523,9 +488,15 @@ return function(ui: UI.UI)
 				for _, connection in connections do
 					connection:Disconnect()
 				end
+				if prompt then
+					prompt.dispose()
+				end
 				view.dispose()
 				layers.dispose()
 				libraryPanel.dispose()
+				if theme then
+					theme.dispose()
+				end
 				inspector.dispose()
 				ui.destroy(root)
 			end,

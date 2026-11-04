@@ -26,7 +26,7 @@ local function equalLiteral(left: Design.Literal?, right: Design.Literal?): bool
 	return true
 end
 
-local function equalList<T>(left: { T }?, right: { T }?): boolean
+local function equalList<T>(left: { T }?, right: { T }?, compare: ((T, T) -> boolean)?): boolean
 	if left == nil or right == nil then
 		return left == right
 	end
@@ -34,7 +34,7 @@ local function equalList<T>(left: { T }?, right: { T }?): boolean
 		return false
 	end
 	for index, item in left do
-		if item ~= right[index] then
+		if if compare then not compare(item, right[index]) else item ~= right[index] then
 			return false
 		end
 	end
@@ -44,19 +44,6 @@ end
 local function equalValue(left: Design.Value?, right: Design.Value?): boolean
 	if left == nil or right == nil then
 		return left == right
-	end
-	local args, other = left.args, right.args
-	if args and other then
-		if #args ~= #other then
-			return false
-		end
-		for index, item in args do
-			if not equalLiteral(item, other[index]) then
-				return false
-			end
-		end
-	elseif args ~= other then
-		return false
 	end
 	return equalLiteral(left.literal, right.literal)
 		and left.input == right.input
@@ -70,6 +57,7 @@ local function equalValue(left: Design.Value?, right: Design.Value?): boolean
 		and left.play == right.play
 		and equalList(left.fields, right.fields)
 		and equalList(left.nodes, right.nodes)
+		and equalList(left.args, right.args, equalLiteral)
 end
 
 export type Inspector = {
@@ -87,7 +75,7 @@ return function(ui: UI.UI)
 	local Theme = require "./theme"(ui)
 	local color = Theme.color
 	local size = Theme.size
-	local LABEL = 112
+	local LABEL = 128
 	local GROUPS = { "Layout", "Auto layout", "Fill", "Text", "Image", "Interaction" }
 
 	local function describe(value: Design.Value?): string
@@ -253,20 +241,7 @@ return function(ui: UI.UI)
 			return frame
 		end
 		local function field(text: string, commit: (string) -> (), mono: boolean?): Compose.Node
-			local created = ui.new "TextBox"
-			ui.set(created, "BackgroundColor3", color.field)
-			ui.set(created, "BorderSizePixel", 0)
-			ui.set(created, "Text", text)
-			ui.set(created, "PlaceholderText", "—")
-			ui.set(created, "PlaceholderColor3", color.tertiary)
-			ui.set(created, "TextColor3", color.text)
-			ui.set(created, "TextSize", size.text)
-			ui.set(created, "FontFace", if mono then Theme.font.mono else Theme.font.medium)
-			ui.set(created, "ClearTextOnFocus", false)
-			ui.set(created, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
-			ui.set(created, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
-			Theme.corner(created, 4)
-			Theme.pad(created, 8)
+			local created = Theme.field(text, mono)
 			local ring = Theme.stroke(created, color.accent, 1, 1)
 			track {
 				ui.connect(created, "Focused", function()
@@ -288,19 +263,11 @@ return function(ui: UI.UI)
 			activate: () -> (),
 			transparency: number?
 		): Compose.Node
-			local created = ui.new "TextButton"
-			ui.set(created, "Name", name)
-			ui.set(created, "BorderSizePixel", 0)
-			ui.set(created, "AutoButtonColor", false)
-			ui.set(created, "Text", "")
+			local created = Theme.button(name, "", nil, size.small)
 			ui.set(created, "BackgroundTransparency", transparency or 0)
 			Theme.corner(created, 4)
 			track(Theme.hover(created, rest, over, transparency))
-			track {
-				ui.connect(created, "Activated", function()
-					activate()
-				end),
-			}
+			track { ui.connect(created, "Activated", activate) }
 			return created
 		end
 		local function toggle(on: boolean, set: boolean, activate: () -> ()): Compose.Node
@@ -336,12 +303,6 @@ return function(ui: UI.UI)
 				ui.set(segment, "LayoutOrder", index)
 				ui.set(segment, "Size", ui.values.udim2(0, 0, 1, 0))
 				ui.set(segment, "Text", humanize(option))
-				ui.set(segment, "TextSize", size.small)
-				ui.set(segment, "TextScaled", true)
-				local cap = ui.new "UITextSizeConstraint"
-				ui.set(cap, "MaxTextSize", size.small)
-				ui.set(cap, "MinTextSize", 8)
-				ui.set(cap, "Parent", segment)
 				Theme.pad(segment, 4, 4, 0, 0)
 				ui.set(segment, "FontFace", if active then Theme.font.bold else Theme.font.medium)
 				ui.set(segment, "TextColor3", if active then color.text else color.secondary)
@@ -409,7 +370,7 @@ return function(ui: UI.UI)
 					end
 				end
 			end
-			local header = block("Header", 56)
+			local header = block("Header", 72)
 			Theme.pad(header, size.gutter, size.gutter, 10, 10)
 			local badge = Theme.frame("Badge", color.accentSoft)
 			ui.set(badge, "Size", ui.values.udim2(0, 28, 0, 28))
@@ -428,25 +389,19 @@ return function(ui: UI.UI)
 			ui.set(name, "BackgroundTransparency", 1)
 			ui.set(name, "TextSize", size.title)
 			ui.set(name, "FontFace", Theme.font.bold)
-			ui.set(name, "Position", ui.values.udim2(0, 36, 0, 0))
-			ui.set(name, "Size", ui.values.udim2(1, -36, 0, 20))
-			ui.set(name, "Parent", header)
+			Theme.place(name, header, ui.values.udim2(1, -36, 0, 26), ui.values.udim2(0, 36, 0, 0))
 			local kindLabel = Theme.label(node.kind, color.tertiary, size.small)
-			ui.set(kindLabel, "Position", ui.values.udim2(0, 44, 0, 20))
-			ui.set(kindLabel, "Size", ui.values.udim2(1, -44, 0, 16))
-			ui.set(kindLabel, "Parent", header)
+			Theme.place(kindLabel, header, ui.values.udim2(1, -44, 0, 24), ui.values.udim2(0, 44, 0, 26))
 			local function section(title: string)
-				local frame = block(title, 36)
+				local frame = block(title, 40)
 				local rule = Theme.frame("Rule", color.divider)
-				ui.set(rule, "Size", ui.values.udim2(1, 0, 0, 1))
-				ui.set(rule, "Parent", frame)
+				Theme.place(rule, frame, ui.values.udim2(1, 0, 0, 1))
 				local caption = Theme.label(title, color.text, size.small, Theme.font.bold)
 				ui.set(caption, "Position", ui.values.udim2(0, size.gutter, 0, 12))
-				ui.set(caption, "Size", ui.values.udim2(1, -2 * size.gutter, 0, 18))
-				ui.set(caption, "Parent", frame)
+				Theme.place(caption, frame, ui.values.udim2(1, -2 * size.gutter, 0, 24))
 			end
 			local function row(key: string, title: string): (Compose.Node, Compose.Node)
-				local frame = block(key, 32)
+				local frame = block(key, 40)
 				Theme.pad(frame, size.gutter)
 				local caption = Theme.label(title, color.secondary, size.small)
 				ui.set(caption, "Name", "Label")
@@ -485,12 +440,10 @@ return function(ui: UI.UI)
 					local picker = segmented(lists, current, function(chosen: string)
 						session.bind { from = chosen, key = if bind then bind.key else "id" }
 					end)
-					ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
-					ui.set(picker, "Parent", slot)
+					Theme.place(picker, slot, ui.values.udim2(1, 0, 1, 0))
 				else
 					local empty = Theme.label("No list inputs", color.tertiary, size.small)
-					ui.set(empty, "Size", ui.values.udim2(1, 0, 1, 0))
-					ui.set(empty, "Parent", slot)
+					Theme.place(empty, slot, ui.values.udim2(1, 0, 1, 0))
 				end
 				if bind then
 					local keyRow = row("Key", "Key")
@@ -498,8 +451,7 @@ return function(ui: UI.UI)
 					local keyBox = field(bind.key, function(text: string)
 						session.bind { from = bind.from, key = text }
 					end, true)
-					ui.set(keyBox, "Size", ui.values.udim2(1, 0, 1, 0))
-					ui.set(keyBox, "Parent", keySlot)
+					Theme.place(keyBox, keySlot, ui.values.udim2(1, 0, 1, 0))
 				end
 			end
 			local grouped: { [string]: { string } } = {}
@@ -562,7 +514,6 @@ return function(ui: UI.UI)
 								glyphOf(property) .. "  " .. if named then "◎ " .. named.name else describe(property)
 							)
 							ui.set(pill, "TextColor3", color.accent)
-							ui.set(pill, "TextSize", size.small)
 							ui.set(pill, "FontFace", Theme.font.bold)
 							ui.set(pill, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
 							ui.set(pill, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
@@ -591,8 +542,6 @@ return function(ui: UI.UI)
 							ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
 							ui.set(picker, "Text", (if current then humanize(current) else "Auto") .. "  ▾")
 							ui.set(picker, "TextColor3", if current then color.text else color.tertiary)
-							ui.set(picker, "TextSize", size.small)
-							ui.set(picker, "FontFace", Theme.font.medium)
 							ui.set(picker, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
 							Theme.pad(picker, 8)
 							ui.set(picker, "Parent", slot)
@@ -604,8 +553,7 @@ return function(ui: UI.UI)
 									session.change(key, { literal = chosen })
 								end
 							)
-							ui.set(picker, "Size", ui.values.udim2(1, 0, 1, 0))
-							ui.set(picker, "Parent", slot)
+							Theme.place(picker, slot, ui.values.udim2(1, 0, 1, 0))
 						elseif entry.type == "number" then
 							local box = field(
 								if type(literal) == "number" then tostring(literal) else "",
@@ -702,17 +650,14 @@ return function(ui: UI.UI)
 								ui.set(cell, "Size", ui.values.udim2(0, 0, 1, 0))
 								Theme.pad(cell, 16, 4)
 								local tag = Theme.label(axis, color.tertiary, size.small, Theme.font.bold)
-								ui.set(tag, "Position", ui.values.udim2(0, -12, 0, 0))
-								ui.set(tag, "Size", ui.values.udim2(0, 10, 1, 0))
-								ui.set(tag, "Parent", cell)
+								Theme.place(tag, cell, ui.values.udim2(0, 10, 1, 0), ui.values.udim2(0, -12, 0, 0))
 								ui.set(cell, "Parent", slot)
 							end
 						elseif entry.type == "string" then
 							local box = field(if type(literal) == "string" then literal else "", function(text: string)
 								session.change(key, if text == "" then nil else { literal = text })
 							end)
-							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
-							ui.set(box, "Parent", slot)
+							Theme.place(box, slot, ui.values.udim2(1, 0, 1, 0))
 						elseif
 							entry.type == "datatype"
 							and entry.datatype ~= nil
@@ -737,8 +682,7 @@ return function(ui: UI.UI)
 								ui.set(cell, "LayoutOrder", index)
 								ui.set(cell, "Size", ui.values.udim2(1, 0, 0, 28))
 								local indexLabel = Theme.label(tostring(index), color.tertiary, size.small)
-								ui.set(indexLabel, "Size", ui.values.udim2(0, 14, 1, 0))
-								ui.set(indexLabel, "Parent", cell)
+								Theme.place(indexLabel, cell, ui.values.udim2(0, 14, 1, 0))
 								local function change(next: Design.Literal)
 									local changed = table.clone(components)
 									changed[index] = next
@@ -770,7 +714,6 @@ return function(ui: UI.UI)
 									ui.set(bind, "Size", ui.values.udim2(0, 20, 1, 0))
 									ui.set(bind, "Position", ui.values.udim2(1, -20, 0, 0))
 									ui.set(bind, "Text", "◆")
-									ui.set(bind, "TextSize", size.small)
 									ui.set(bind, "TextColor3", if name then color.accent else color.tertiary)
 									ui.set(bind, "Parent", cell)
 								end
@@ -793,8 +736,7 @@ return function(ui: UI.UI)
 								end,
 								true
 							)
-							ui.set(box, "Size", ui.values.udim2(1, 0, 1, 0))
-							ui.set(box, "Parent", slot)
+							Theme.place(box, slot, ui.values.udim2(1, 0, 1, 0))
 						elseif
 							entry.type == "content"
 							and type(literal) == "table"
@@ -808,7 +750,6 @@ return function(ui: UI.UI)
 							local found = Design.document.find(value.root, childId)
 							ui.set(open, "Text", "◇ " .. (if found then found.name else childId))
 							ui.set(open, "TextColor3", color.accent)
-							ui.set(open, "TextSize", size.small)
 							ui.set(open, "Parent", slot)
 						elseif entry.type == "content" and contentKind ~= nil then
 							local add = pressable("AddContent", color.panel, color.hover, function()
@@ -817,12 +758,10 @@ return function(ui: UI.UI)
 							ui.set(add, "Size", ui.values.udim2(1, 0, 1, 0))
 							ui.set(add, "Text", "+ " .. contentKind)
 							ui.set(add, "TextColor3", color.accent)
-							ui.set(add, "TextSize", size.small)
 							ui.set(add, "Parent", slot)
 						else
 							local hint = Theme.label("Not bound", color.tertiary, size.small)
-							ui.set(hint, "Size", ui.values.udim2(1, 0, 1, 0))
-							ui.set(hint, "Parent", slot)
+							Theme.place(hint, slot, ui.values.udim2(1, 0, 1, 0))
 						end
 						local available = choices(value, entry, tokens)
 						if mixed[key] then
@@ -855,7 +794,6 @@ return function(ui: UI.UI)
 								"Text",
 								if entry.type == "event" then "⚡" elseif entry.tokens then "◆" else "⛓"
 							)
-							ui.set(link, "TextSize", size.small)
 							ui.set(link, "FontFace", Theme.font.bold)
 							ui.set(link, "TextColor3", if bound then color.accent else color.tertiary)
 							ui.set(link, "Parent", line)
@@ -876,7 +814,6 @@ return function(ui: UI.UI)
 							ui.set(moves, "AnchorPoint", ui.values.vector2(1, 0.5))
 							ui.set(moves, "Position", ui.values.udim2(1, -28, 0.5, 0))
 							ui.set(moves, "Text", "〜")
-							ui.set(moves, "TextSize", size.small)
 							ui.set(moves, "FontFace", Theme.font.bold)
 							ui.set(moves, "TextColor3", if current.motion then color.accent else color.tertiary)
 							ui.set(moves, "Parent", line)
@@ -896,7 +833,6 @@ return function(ui: UI.UI)
 					if advancedOpen then `Advanced  ▾  {#advancedKeys}` else `Advanced  ▸  {#advancedKeys}`
 				)
 				ui.set(toggle, "TextColor3", color.secondary)
-				ui.set(toggle, "TextSize", size.small)
 				ui.set(toggle, "FontFace", Theme.font.bold)
 				ui.set(toggle, "Size", ui.values.udim2(1, -2 * size.gutter, 0, 28))
 				ui.set(toggle, "Position", ui.values.udim2(0, size.gutter, 0, 4))
@@ -926,7 +862,6 @@ return function(ui: UI.UI)
 					local autoplay = if entry.autoplay then "  ·  on show" else ""
 					ui.set(start, "Text", `▶  {sequenceId}   {steps} {plural}{autoplay}`)
 					ui.set(start, "TextColor3", color.text)
-					ui.set(start, "TextSize", size.small)
 					ui.set(start, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
 					ui.set(start, "Size", ui.values.udim2(1, -2 * size.gutter, 0, 28))
 					ui.set(start, "Position", ui.values.udim2(0, size.gutter, 0, 2))

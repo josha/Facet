@@ -33,16 +33,16 @@ return function(ui: UI.UI)
 	}
 
 	Theme.size = {
-		toolbar = 48,
+		toolbar = 88,
 		status = 26,
-		side = 300,
-		row = 28,
+		side = 340,
+		row = 32,
 		header = 40,
 		radius = 6,
 		gutter = 12,
-		text = 12,
-		small = 11,
-		title = 13,
+		text = 15,
+		small = 14,
+		title = 17,
 	}
 
 	local glyph: { [string]: string } = {
@@ -104,8 +104,16 @@ return function(ui: UI.UI)
 		return frame
 	end
 
-	function Theme.label(text: string, color: unknown, size: number?, font: unknown?): Compose.Node
-		local label = ui.new "TextLabel"
+	function Theme.place(target: Compose.Node, parent: unknown, size: unknown, position: unknown?)
+		if position ~= nil then
+			ui.set(target, "Position", position)
+		end
+		ui.set(target, "Size", size)
+		ui.set(target, "Parent", parent)
+	end
+
+	function Theme.label(text: string, color: unknown, size: number?, font: unknown?, kind: string?): Compose.Node
+		local label = ui.new(kind or "TextLabel")
 		ui.set(label, "BackgroundTransparency", 1)
 		ui.set(label, "BorderSizePixel", 0)
 		ui.set(label, "Text", text)
@@ -115,6 +123,26 @@ return function(ui: UI.UI)
 		ui.set(label, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
 		ui.set(label, "TextTruncate", ui.values.enum("TextTruncate", "AtEnd"))
 		return label
+	end
+
+	function Theme.button(name: string, text: string, color: unknown?, size: number?): Compose.Node
+		local button = Theme.label(text, color or Theme.color.text, size, nil, "TextButton")
+		ui.set(button, "Name", name)
+		ui.set(button, "AutoButtonColor", false)
+		ui.set(button, "TextXAlignment", ui.values.enum("TextXAlignment", "Center"))
+		return button
+	end
+
+	function Theme.field(text: string, mono: boolean?): Compose.Node
+		local field = Theme.label(text, Theme.color.text, nil, if mono then Theme.font.mono else nil, "TextBox")
+		ui.set(field, "BackgroundTransparency", 0)
+		ui.set(field, "BackgroundColor3", Theme.color.field)
+		ui.set(field, "PlaceholderText", "—")
+		ui.set(field, "PlaceholderColor3", Theme.color.tertiary)
+		ui.set(field, "ClearTextOnFocus", false)
+		Theme.corner(field, 4)
+		Theme.pad(field, 8)
+		return field
 	end
 
 	function Theme.hover(button: Compose.Node, rest: unknown, over: unknown, transparency: number?): { UI.Connection }
