@@ -325,6 +325,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local root = Host.Frame(
 			ctx.props(spec, KEYS, { Name = "Sheet", BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
 		)
+
+		root:SetAttribute("FacetSheet", true)
+		runtime.connect(root, "AttributeChanged", function(name: string)
+			local wanted = root:GetAttribute("FacetPresent")
+			if name == "FacetPresent" and type(wanted) == "boolean" then
+				spec.isPresented:set(wanted)
+			end
+		end)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.isPresented, function(phase)
 				return modalFor(spec, detent, prepared, nil, phase, root)

@@ -78,10 +78,10 @@ whole source trees. Put independent reads in one call. In Play, drive a route
 and collect its errors, state and UI findings in one call that returns a short
 report, rather than one probe per call. Wait for an outcome inside that call,
 within the host's time limit, instead of polling it across calls, and send an
-input and its capture together when the host allows. To check every screen,
-pass each screen's writable presentation cell to
-`Facet.review.screens({ Shop = shopOpen, Garage = garageOpen })` in one Client
-call; it opens, reviews and closes each and returns build errors and findings.
+input and its capture together when the host allows. To check every screen in
+one Client call, run `Facet.review.screens()`: it opens, reviews and closes each
+mounted Sheet and returns build errors and findings. For other screens, pass
+`{ Name = presentedCell }`.
 Capture a screen when its report needs a visual check or after a visual change,
 not after every step; each capture is resent with every later call.
 
@@ -94,8 +94,11 @@ that shows no content, or a control that is missing, as a construction error to
 find, not a style to adjust. In the Client data model, `Facet.review.screen().text`
 provides layout and design findings, including compact-layout findings when the
 host shows only one size; run it on each changed screen, including during
-gameplay. Its `empty-screen` and `runtime-error` findings mean a screen failed
-to build; fix that before anything else. Fix each `high` finding, such as a
+gameplay. Its `empty-screen`, `build-failed` and `runtime-error` findings mean
+a screen or control failed to build; fix that before anything else. A control
+that fails to build shows a red placeholder with its error while the rest of the
+screen still builds, so collect every failure from one Play session and fix them
+together before restarting Play. Fix each `high` finding, such as a
 composition that does not fit a phone, before building the next screen. If the host's command
 tool cannot require modules, call it from a temporary client script and read its
 output.

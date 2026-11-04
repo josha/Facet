@@ -1,12 +1,8 @@
 --!strict
--- Search the Facet documents under ServerStorage.FacetDocs from Studio. The Studio
--- command thread cannot require modules in Edit, so this ships as text:
---   local search = loadstring(game.ServerStorage.FacetDocs["search.luau"].Value)()
---   return search("Sheet detents")                    -- best sections and other matching paths
---   return search.read("docs/reference/nodes/Sheet.props.md") -- one whole document
 
 type Doc = { path: string, name: string, text: string }
 type Section = { path: string, heading: string, text: string, score: number }
+type Ranked = { doc: Doc, score: number }
 
 local root: Instance = game:GetService("ServerStorage"):WaitForChild("FacetDocs")
 local loaded: { Doc }? = nil
@@ -80,7 +76,7 @@ local function find(query: string, budget: number?): string
 	local terms = termsOf(query)
 	assert(#terms > 0, "search needs at least one word")
 	local limit = budget or 4000
-	local ranked: { { doc: Doc, score: number } } = {}
+	local ranked: { Ranked } = {}
 	for _, doc in documents() do
 		local lower = string.lower(doc.text)
 		local score, matched = 0, 0
@@ -99,7 +95,7 @@ local function find(query: string, budget: number?): string
 	if #ranked == 0 then
 		return ("No document mentions every word of %q. Try fewer or different words."):format(query)
 	end
-	table.sort(ranked, function(a, b): boolean
+	table.sort(ranked, function(a: Ranked, b: Ranked): boolean
 		return a.score > b.score or (a.score == b.score and #a.doc.text < #b.doc.text)
 	end)
 	local candidates: { Section } = {}

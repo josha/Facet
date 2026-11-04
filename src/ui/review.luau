@@ -262,8 +262,7 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 					rule = "build-failed",
 					severity = "high",
 					path = if named and type(path) == "string" then path else "?",
-					detail = "This control failed to build and shows nothing: "
-						.. string.sub((string.gsub(reason, "%s+", " ")), 1, 300),
+					detail = "This control failed to build: " .. string.sub((string.gsub(reason, "%s+", " ")), 1, 300),
 					rect = NO_RECT,
 				})
 			end
@@ -321,9 +320,42 @@ end
 export type ScreenTarget = { set: (unknown, boolean) -> () } | { open: () -> (), close: (() -> ())? }
 export type ScreensOptions = { root: Instance?, settle: number? }
 
--- Opens each named screen in turn, reviews it and closes it, so one call checks every screen.
-local function screens(targets: { [string]: ScreenTarget }, options: ScreensOptions?): string
+
+local function mountedSheets(): { [string]: ScreenTarget }
+	local found: { [string]: ScreenTarget } = {}
+	local ok, players = call(dataModel(), "GetService", "Players")
+	local has, gui = call(if ok then read(players, "LocalPlayer") else nil, "FindFirstChildOfClass", "PlayerGui")
+	local listed, descendants = call(if has then gui else nil, "GetDescendants")
+	if listed and type(descendants) == "table" then
+		for _, item in descendants do
+			local marked, sheet = call(item, "GetAttribute", "FacetSheet")
+			if marked and sheet == true then
+				local name = text(read(item, "Name")) or "Sheet"
+				while found[name] ~= nil do
+					name ..= "+"
+				end
+				local node = item :: Instance
+				found[name] = {
+					open = function()
+						node:SetAttribute("FacetPresent", nil)
+						node:SetAttribute("FacetPresent", true)
+					end,
+					close = function()
+						node:SetAttribute("FacetPresent", false)
+					end,
+				}
+			end
+		end
+	end
+	return found
+end
+
+local function screens(given: { [string]: ScreenTarget }?, options: ScreensOptions?): string
 	local wait = assert(task and task.wait, "Facet review.screens runs in Play, where task.wait is available")
+	local targets = given or mountedSheets()
+	if next(targets) == nil then
+		return "No screens: pass { Name = presentedCell }, or mount Sheets so review.screens can find them."
+	end
 	local settle = if options and options.settle then options.settle else 0.5
 	local reviewOptions: ReviewOptions? = if options then { root = options.root } else nil
 	local names: { string } = {}

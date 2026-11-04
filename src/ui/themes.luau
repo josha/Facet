@@ -706,7 +706,7 @@ local function rulesFor(
 				properties.Transparency = types.NumberSequence.new(alpha)
 			end
 			rule(".facet-" .. role .. "::UIGradient", properties)
-			-- A status surface's text uses the status partner color, so the chrome gradient must not shade its fill.
+
 			rule(".facet-status-surface.facet-" .. role .. "::UIGradient", {
 				Color = types.ColorSequence.new(types.Color3.new(1, 1, 1)),
 				Transparency = types.NumberSequence.new(0),

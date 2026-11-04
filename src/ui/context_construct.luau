@@ -83,17 +83,59 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			then table.clone(defaults :: { [unknown]: unknown })
 			else {}
 		local consumed = consumedFor(behavioralKeys)
+		local unknown: { string }? = nil
 		for key, value in (spec :: unknown) :: { [unknown]: unknown } do
 			if type(key) == "number" then
 				result[#result + 1] = value
 			elseif type(key) ~= "string" or not consumed[key] then
 				if type(key) == "string" and string.match(key, "^[a-z]") then
-					error(unknownOption(key, consumed), 0)
+					local list = unknown or {}
+					unknown = list
+					table.insert(list, key)
 				end
 				result[key] = value
 			end
 		end
+		if unknown then
+			table.sort(unknown)
+			local messages: { string } = {}
+			for _, key in unknown do
+				table.insert(messages, unknownOption(key, consumed))
+			end
+			error(table.concat(messages, "\n"), 0)
+		end
 		return (result :: unknown) :: P
+	end
+
+	local function strictNow(): boolean
+		local mode = ctx.config.buildMode
+		if mode then
+			return mode.strict
+		end
+		return ctx.config.strictBuild ~= false
+	end
+	local function failedControl(control: string, failure: unknown): Instance
+		local message = string.sub((string.gsub(tostring(failure), "^[%w%._]+:%d+: ", "")), 1, 400)
+		if ctx.config.onError then
+			ctx.config.onError(failure)
+		elseif task and task.spawn then
+			task.spawn(error, `Facet UI.{control} failed to build and shows a placeholder: {message}`, 0)
+		end
+		local types = ctx.types
+		local label = ctx.Host.TextLabel {
+			Name = `FacetFailed{control}`,
+			Text = `Facet UI.{control} failed: {message}`,
+			TextWrapped = true,
+			TextXAlignment = types.Enum.TextXAlignment.Left,
+			TextSize = 14,
+			TextColor3 = types.Color3.new(1, 1, 1),
+			BackgroundColor3 = types.Color3.fromRGB(170, 30, 50),
+			BackgroundTransparency = 0,
+			Size = types.UDim2.new(1, 0, 0, 0),
+			AutomaticSize = types.Enum.AutomaticSize.Y,
+		}
+		label:SetAttribute("FacetError", message)
+		return label
 	end
 	function ctx.build<P, N>(control: string, build: (P) -> N, spec: P?, name: string?): N
 		if spec ~= nil and type(spec) ~= "table" then
@@ -137,8 +179,14 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 				end
 			end
 		end
-		local node = build((fields :: unknown) :: P)
+		local built, node = pcall(build, (fields :: unknown) :: P)
 		building = outer
+		if not built then
+			if strictNow() then
+				error(node, 0)
+			end
+			node = (failedControl(control, node) :: unknown) :: N
+		end
 		if track and (type(node) == "userdata" or type(node) == "table") then
 			track(node :: Instance)
 		end

@@ -172,6 +172,8 @@ export type Config = {
 	motionLevel: (Input<MotionLevel> | Input<MotionLevel?>)?,
 	pressHaptic: (HapticEffect | HapticKind)?,
 	onError: ((unknown) -> ())?,
+	strictBuild: boolean?,
+	buildMode: { strict: boolean }?,
 	environment: EnvironmentPreview?,
 	keyboardNavigation: boolean?,
 	translator: Input<Translator?>?,
