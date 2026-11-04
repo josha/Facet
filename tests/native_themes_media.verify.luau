@@ -2783,6 +2783,37 @@ return function(verifyHarness: Verify.Harness)
 		end
 
 		describe("native parity paint", function()
+			it("outlines an off switch track only when its fill matches the surface", {
+				id = "native_themes_media::native parity paint::outlines an off switch track only when its fill matches the surface",
+				run = function()
+					local h = harness()
+					local function sheetWith(control: { r: number, g: number, b: number }): any
+						local base = themes.neutralPackage()
+						local palette = base.style.themes[1]
+						assert(palette.extra).control = control
+						return (sheetFor(h, themeState(base)))
+					end
+					local function has(sheet: any, selector: string): boolean
+						for _, node in sheet:GetChildren() do
+							if table.find(string.split(node.Selector, ", "), selector) ~= nil then
+								return true
+							end
+						end
+						return false
+					end
+					local colors, extra = neutralColors()
+					local blended = sheetWith(colors.surface)
+					expect(style(blended, ".facet-toggle-switch::UIStroke").Color):toBe(
+						color(h.engine, extra.contentSecondary)
+					)
+					expect(style(blended, ".facet-toggle-switch.facet-toggle-on::UIStroke").Transparency):toBe(1)
+					local s = colors.surface
+					local distinct =
+						sheetWith(if s.r + s.g + s.b > 1.5 then { r = 0, g = 0, b = 0 } else { r = 1, g = 1, b = 1 })
+					expect(has(distinct, ".facet-toggle-switch::UIStroke")):toBe(false)
+				end,
+			})
+
 			it("compiles the button role and appearance vocabulary to palette rules above their base states", {
 				id = "native_themes_media::native parity paint::compiles the button role and appearance vocabulary to palette rules above their base states",
 				run = function()
