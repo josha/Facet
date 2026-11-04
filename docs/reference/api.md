@@ -27,6 +27,17 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 `Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles (phone, tablet, monitor, 10-foot TV, handheld and VR, with their insets and input mode), and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).
 
+`Facet.DesignContext.extension` accepts a `Facet.DesignExtension`. It uses
+Compose Design's `extend` API to add consumer kinds and their source prelude.
+`Facet.DesignKind` types a kind and its fields. `Facet.DesignResolved` types
+the props that its editor builder receives. Pass the same extended library to
+emit, parse, render and the Design editor. Existing kind names cannot be replaced.
+
+`Path.points` and `RadialMenu.skin` accept whole theme tokens. A points token
+can hold a list whose curve handles come from theme values. A skin token holds
+the public RadialMenu skin table. Inline token expressions inside these tables
+need Compose Design support; use a whole token for the table.
+
 `Facet.review.screen(options?)` reads the live screen and reports design
 patterns that make it look generic, such as facts joined in one text and
 items without a visual. `review.analyze(snapshot)` is the pure form. See

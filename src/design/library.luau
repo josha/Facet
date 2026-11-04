@@ -229,6 +229,7 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 			default = field.default,
 			datatype = if field.type == "color" then "Color3" else nil,
 			also = also,
+			tokens = field.tokens,
 		}
 		if field.perRow ~= nil then
 			result.perRow = field.perRow
@@ -730,7 +731,7 @@ local function create(context: Context): Design.Library
 	if tokens ~= nil then
 		table.insert(prelude, tokens.require)
 	end
-	return {
+	local library: Design.Library = {
 		name = "Facet",
 		parameter = "UI",
 		parameterType = "Facet.Controls",
@@ -778,6 +779,7 @@ local function create(context: Context): Design.Library
 		},
 		kinds = kinds,
 	}
+	return if context.extension ~= nil then Design.extend(library, context.extension) else library
 end
 
 return {
