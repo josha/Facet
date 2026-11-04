@@ -7,10 +7,26 @@ local function Demo(c: Context): Instance
 	local remaining, charges = Compose.cell(6), Compose.cell(2)
 	local world = Compose.cell(false)
 	local clock = c.app.runtime.clock({ step = 0.05 })
-	local started = Compose.cell(0)
+	local started = Compose.cell(clock:peek() - 6)
 	Compose.watch(function(use: CatalogTypes.Use)
 		remaining:set(math.max(0, 6 - (use(clock) - use(started))))
 	end)
+	local available = Compose.formula(function(use: CatalogTypes.Use): boolean
+		return use(remaining) <= 0 and use(charges) > 0
+	end)
+	local function activate()
+		if available:peek() then
+			started:set(clock:peek())
+			charges:set(charges:peek() - 1)
+		end
+	end
+	local action = Host.InputAction "HUDAction" {
+		Type = Enum.InputActionType.Bool,
+		Enabled = available,
+		Pressed = activate,
+		Host.InputBinding { KeyCode = Enum.KeyCode.E },
+		Host.InputBinding { KeyCode = Enum.KeyCode.ButtonX },
+	}
 	local help = {
 		title = "Action",
 		body = "Inspect the action before using it.",
@@ -23,6 +39,7 @@ local function Demo(c: Context): Instance
 		gap = "m",
 		align = "stretch",
 		width = "fill",
+		Host.InputContext "HUDInputs" { Priority = c.Facet.inputPriority.belowControls, Sink = true, action },
 		UI.Text { text = "Use the action. Hover, select, or long-press it to inspect its details.", wrap = true },
 		UI.Button "ActionSlot" {
 			label = "",
@@ -31,11 +48,10 @@ local function Demo(c: Context): Instance
 			AutomaticSize = Enum.AutomaticSize.None,
 			cooldown = { remaining = remaining, total = 6 },
 			charges = charges,
+			shortcutHint = action,
+			enabled = available,
 			help = help,
-			onActivate = function()
-				started:set(clock:peek())
-				charges:set(math.max(0, charges:peek() - 1))
-			end,
+			onActivate = activate,
 		},
 		UI.Button {
 			label = "Restore charges",

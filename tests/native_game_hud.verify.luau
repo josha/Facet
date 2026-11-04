@@ -70,6 +70,34 @@ return function(harness: Verify.Harness)
 			end
 		end,
 	})
+	harness:case("cooldown rejects invalid model values", {
+		id = "native_game_hud::cooldown-validation",
+		run = function(test)
+			local values = {
+				{ remaining = math.huge, total = 10, charges = 1 },
+				{ remaining = 0 / 0, total = 10, charges = 1 },
+				{ remaining = 5, total = 0, charges = 1 },
+				{ remaining = 5, total = -1, charges = 1 },
+				{ remaining = 5, total = math.huge, charges = 1 },
+				{ remaining = 5, total = 0 / 0, charges = 1 },
+				{ remaining = 5, total = 10, charges = -1 },
+				{ remaining = 5, total = 10, charges = 1.5 },
+			}
+			for _, value in values do
+				local state = nativeApp()
+				test:defer(state.dispose)
+				Verify.expect(function()
+					state.runtime.mount(function()
+						return state.UI.Button {
+							label = "Action",
+							cooldown = { remaining = value.remaining, total = value.total },
+							charges = value.charges,
+						}
+					end, state.target)
+				end):toThrow()
+			end
+		end,
+	})
 	harness:case("cooldown footprint stays near Button and tears down", {
 		id = "native_game_hud::footprint",
 		run = function()
@@ -184,6 +212,43 @@ return function(harness: Verify.Harness)
 			replacement:Destroy()
 			state.dispose()
 			Verify.expect(state.engine.census().connections):toBe(0)
+		end,
+	})
+	harness:case("removing world content preserves borrowed layers and their children", {
+		id = "native_game_hud::borrowed-world-surfaces",
+		run = function()
+			for _, kind in { "BillboardGui", "SurfaceGui" } do
+				local state = nativeApp()
+				local layer: BillboardGui | SurfaceGui = state.engine.new(kind)
+				layer.Parent = state.target
+				local retained: TextLabel = state.engine.new("TextLabel")
+				retained.Parent = layer
+				local shown = state.Compose.cell(true)
+				local stop = state.runtime.mount(function()
+					local sheet = state.Host.StyleSheet {}
+					return state.Host.ScreenGui {
+						sheet,
+						state.Host.StyleLink { StyleSheet = state.Compose.static(sheet) },
+						state.Compose.show(shown, function()
+							return state.UI.worldSurface(layer, function()
+								return state.UI.Text { text = "Nameplate" }
+							end)
+						end),
+					}
+				end, state.target)
+				Verify.expect(#layer:GetChildren()):toBe(3)
+				shown:set(false)
+				Verify.expect(#layer:GetChildren()):toBe(1)
+				Verify.expect(retained.Parent):toBe(layer)
+				shown:set(true)
+				Verify.expect(#layer:GetChildren()):toBe(3)
+				stop()
+				Verify.expect(layer.Parent):toBe(state.target)
+				Verify.expect(#layer:GetChildren()):toBe(1)
+				layer:Destroy()
+				state.dispose()
+				Verify.expect(state.engine.census().connections):toBe(0)
+			end
 		end,
 	})
 	harness:case("world surface performance scene updates 64 portals without rebuilding layers", {
