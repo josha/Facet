@@ -213,8 +213,9 @@ local function recentErrors(): { string }
 		return messages
 	end
 	local seen: { [string]: boolean } = {}
-	for index = #history, math.max(1, #history - 300), -1 do
-		local entry = history[index]
+	local entries = history :: { unknown }
+	for index = #entries, math.max(1, #entries - 300), -1 do
+		local entry = entries[index]
 		local message = text(read(entry, "message"))
 		if message ~= nil and string.find(tostring(read(entry, "messageType")), "Error", 1, true) ~= nil then
 			local line = string.sub((string.gsub(message, "%s+", " ")), 1, 300)
@@ -240,14 +241,15 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 		end
 	end
 	if not shown then
-		table.insert(findings, {
+		local finding: ReviewFinding = {
 			rule = "empty-screen",
 			severity = "high",
 			path = "PlayerGui",
 			detail = "No text is visible. If a mounted screen should show content, a build error stopped it; "
 				.. "read the runtime errors below and the console before adjusting layout.",
 			rect = NO_RECT,
-		})
+		}
+		table.insert(findings, finding)
 	end
 	local game = dataModel()
 	local ok, players = call(game, "GetService", "Players")
@@ -258,13 +260,14 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 			local failed, reason = call(item, "GetAttribute", "FacetError")
 			if failed and type(reason) == "string" and reason ~= "" then
 				local named, path = call(item, "GetFullName")
-				table.insert(findings, {
+				local finding: ReviewFinding = {
 					rule = "build-failed",
 					severity = "high",
 					path = if named and type(path) == "string" then path else "?",
 					detail = "This control failed to build: " .. string.sub((string.gsub(reason, "%s+", " ")), 1, 300),
 					rect = NO_RECT,
-				})
+				}
+				table.insert(findings, finding)
 			end
 			if isA(item, "ViewportFrame") and read(item, "Visible") ~= false then
 				local tint = 0
@@ -277,26 +280,28 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 				end
 				if tint > 0.2 then
 					local named, path = call(item, "GetFullName")
-					table.insert(findings, {
+					local finding: ReviewFinding = {
 						rule = "tinted-preview-light",
 						severity = "medium",
 						path = if named and type(path) == "string" then path else "ViewportFrame",
 						detail = "A preview's Ambient or LightColor is tinted, so it shows its subject in shifted colors. "
 							.. "Keep both near white where the player judges or chooses colors.",
 						rect = NO_RECT,
-					})
+					}
+					table.insert(findings, finding)
 				end
 			end
 		end
 	end
 	for _, message in recentErrors() do
-		table.insert(findings, {
+		local finding: ReviewFinding = {
 			rule = "runtime-error",
 			severity = "high",
 			path = "LogService",
 			detail = "Recent client error: " .. message,
 			rect = NO_RECT,
-		})
+		}
+		table.insert(findings, finding)
 	end
 	return findings
 end
@@ -334,15 +339,16 @@ local function mountedSheets(): { [string]: ScreenTarget }
 					name ..= "+"
 				end
 				local node = item :: Instance
-				found[name] = {
-					open = function()
+				local target: { open: () -> (), close: (() -> ())? } = {
+					open = function(): ()
 						node:SetAttribute("FacetPresent", nil)
 						node:SetAttribute("FacetPresent", true)
 					end,
-					close = function()
+					close = function(): ()
 						node:SetAttribute("FacetPresent", false)
 					end,
 				}
+				found[name] = target
 			end
 		end
 	end
