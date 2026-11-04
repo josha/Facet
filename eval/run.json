@@ -16,7 +16,8 @@
           "{evidence}/agent.rbxlx"
         ],
         "place": "{evidence}/agent.rbxlx",
-        "keep": true
+        "keep": true,
+        "device": "hd_1080"
       },
       "overlay": [
         "../artifacts/facetbench/run-inputs",
@@ -40,7 +41,8 @@
           "{evidence}/agent.rbxlx"
         ],
         "place": "{evidence}/agent.rbxlx",
-        "keep": true
+        "keep": true,
+        "device": "hd_1080"
       },
       "overlay": [
         "../artifacts/facetbench/run-inputs",

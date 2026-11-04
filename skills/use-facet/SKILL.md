@@ -58,15 +58,19 @@ operation. Demonstration callbacks do not implement a production transaction.
 
 Keep the project's source and sync path. Edit persistent source; Play-only
 changes are not the delivered result. Split modules by responsibility and
-lifetime. Each tool call resends the session so far, so work in batches: when
-modules are independent and the next Play session will check them together,
-write them in one call within the host's size limit. Write a module that relies
-on an option or API you have not yet seen work in its own call, and check it
-before reusing its pattern.
+lifetime. Each tool call resends the session so far, so the number of calls,
+not the size of each, sets most of the cost. Work in large batches: write each
+module whole in one call, and write independent modules that the next Play
+session will check together in the same call, within the host's size limit.
+Write a module that relies on an option or API you have not yet seen work in
+its own call, and check it before reusing its pattern.
 
-Read the relevant source range before patching. An exact-text patch should
+Read the relevant source range before patching. Group the patches for one
+module, or for modules fixed together, into one call. An exact-text patch should
 assert that its old text occurs once. Return focused diagnostics rather than
-whole source trees. Batch independent reads or probes when that is useful.
+whole source trees. Put independent reads in one call. In Play, drive a route
+and collect its errors, state and UI findings in one call that returns a short
+report, rather than one probe per call.
 
 In Play, exercise the changed routes and inspect errors. Treat a mounted surface
 that shows no content, or a control that is missing, as a construction error to
