@@ -680,7 +680,8 @@ return function(
 			use: ComposeTypes.Use
 		): { package: ThemeTypes.ReadOnlyThemePackage, rules: { NativeRule }, tokens: { [string]: Color3? } }
 			local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
-			local package = forDistance(authored or neutral, if read(distant, use) == true then "ten-foot" else "near")
+			local base = authored or neutral
+			local package = if read(distant, use) == true then forDistance(base, "ten-foot") else base
 			local rules = compiledRules(package, read<<string?>>(settings.theme, use))
 			local tokens: { [string]: Color3? } = rules[1].tokens or {}
 			local hovering = read(settings.hover, use)

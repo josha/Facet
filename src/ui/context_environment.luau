@@ -74,7 +74,8 @@ return function(
 		if authored ~= nil then
 			local theme = authored
 			config.theme = Compose.formula(function(use: ComposeTypes.Use): Theme.ReadOnlyThemePackage
-				return themes.forDistance(readTheme(theme, use), if distance(use) then "ten-foot" else "near")
+				local package = readTheme(theme, use)
+				return if distance(use) then themes.forDistance(package, "ten-foot") else package
 			end, support.sameBesidesPalettes)
 		end
 	end)

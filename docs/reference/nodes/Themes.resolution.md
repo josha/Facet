@@ -24,3 +24,5 @@ The call is idempotent, cached for frozen themes, and reversible. Applying the s
 twice does not compound the scale. Returning to 1080p returns the original near package.
 `forDistance` and `forResolution` compose in either order. A ten-foot package keeps its reading
 ladder and gains the resolution factor; changing distance preserves the chosen resolution.
+Controls and StyleSheets keep the distance already selected on a supplied package.
+Automatic ten-foot detection applies the ladder without compounding that distance.
