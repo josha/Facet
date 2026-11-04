@@ -978,18 +978,12 @@ type ReceiptInput = {
 	assetRevision: Json.Object,
 	moderation: unknown,
 	actor: string,
-	gate: Gate?,
 }
 
-local function writeReceipt(
-	env: Environment,
-	config: Json.Object,
-	facts: Facts,
-	input: ReceiptInput
-): (string, Json.Object)
+local function recordRelease(env: Environment, config: Json.Object, facts: Facts, input: ReceiptInput): number
 	local version = str(facts.sourceVersion)
 	local commit = str(facts.headCommit)
-	local gate = input.gate
+	local gate = facts.gate
 	local operationId = lastSegment(input.operationPath or "")
 	local receipt = ordered({
 		{ "schema", RECEIPT_SCHEMA },
@@ -1027,10 +1021,6 @@ local function writeReceipt(
 	Files.makeDirectory(env.receipts)
 	local path = Files.join(env.receipts, ("%s-%s.json"):format(version, string.sub(commit, 1, 7)))
 	Files.writeAtomic(path, Json.pretty(receipt))
-	return path, receipt
-end
-
-local function recordVersion(env: Environment, config: Json.Object, receipt: Json.Object)
 	local versions = Json.arrayField(config, "versions")
 	if versions == nil then
 		local fresh = Json.array()
@@ -1048,6 +1038,8 @@ local function recordVersion(env: Environment, config: Json.Object, receipt: Jso
 		})
 	)
 	saveConfig(env.config, config)
+	env.say("  receipt " .. shown(env, path))
+	return 0
 end
 
 local function cmdStage(env: Environment, invocation: Cli.Invocation): number
@@ -1489,7 +1481,7 @@ local function cmdCreate(env: Environment, arguments: Arguments): number
 	Json.set(config, "assetId", created)
 	saveConfig(env.config, config)
 	say(("  created assetId %s (revision %s)"):format(str(created), str(raw(asset, "revisionId"))))
-	local path, receipt = writeReceipt(env, config, facts, {
+	return recordRelease(env, config, facts, {
 		operationPath = operationPath,
 		assetRevision = ordered({
 			{ "revisionId", Json.field(asset, "revisionId") },
@@ -1497,11 +1489,7 @@ local function cmdCreate(env: Environment, arguments: Arguments): number
 		}),
 		moderation = Json.field(Json.field(asset, "moderationResult"), "moderationState"),
 		actor = arguments.actor or "maintainer",
-		gate = facts.gate,
 	})
-	recordVersion(env, config, receipt)
-	say("  receipt " .. shown(env, path))
-	return 0
 end
 
 local function versionsOf(payload: Json.Object): Json.Array
@@ -1612,16 +1600,12 @@ local function cmdPublish(env: Environment, arguments: Arguments): number
 		local number = versionNumber(found)
 		local moderation = Json.field(Json.field(found, "moderationResult"), "moderationState")
 		say(("  observed version %s (moderation %s)"):format(number, str(moderation)))
-		local path, receipt = writeReceipt(env, config, facts, {
+		return recordRelease(env, config, facts, {
 			operationPath = nil,
 			assetRevision = ordered({ { "revisionId", number }, { "revisionPath", Json.field(found, "path") } }),
 			moderation = moderation,
 			actor = arguments.actor or "maintainer",
-			gate = facts.gate,
 		})
-		recordVersion(env, config, receipt)
-		say("  receipt " .. shown(env, path))
-		return 0
 	end
 
 	local body, contentType = modelPart(env, request)
@@ -1639,7 +1623,7 @@ local function cmdPublish(env: Environment, arguments: Arguments): number
 			)
 		)
 	end
-	local path, receipt = writeReceipt(env, config, facts, {
+	return recordRelease(env, config, facts, {
 		operationPath = operationPath,
 		assetRevision = ordered({
 			{ "revisionId", Json.field(asset, "revisionId") },
@@ -1647,11 +1631,7 @@ local function cmdPublish(env: Environment, arguments: Arguments): number
 		}),
 		moderation = moderation,
 		actor = arguments.actor or "maintainer",
-		gate = facts.gate,
 	})
-	recordVersion(env, config, receipt)
-	say("  receipt " .. shown(env, path))
-	return 0
 end
 
 local function cmdRollback(env: Environment): number
@@ -2458,6 +2438,10 @@ local function studioCase(
 		return
 	end
 	Verify.expect(revisionOf(written[#written])):toBe(revision)
+	local versions = Json.arrayField(loadConfig(work.env.config), "versions") or {}
+	Verify.expect(#versions):toBe(1)
+	Verify.expect(Json.field(versions[1], "assetRevision")):toBe(revision)
+	Verify.expect(work.output[#work.output]):toBe("  receipt " .. shown(work.env, written[#written].path))
 end
 
 type Reading = { tier: string, status: string, treeDirty: boolean }
@@ -2656,6 +2640,10 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(polls):toBe(2)
 			Verify.expect(#versions):toBe(1)
 			Verify.expect(Json.stringField(versions[1], "version")):toBe(real().version)
+			local written = storedReceipts(work)
+			Verify.expect(#written):toBe(1)
+			Verify.expect(Json.field(versions[1], "assetRevision")):toBe(revisionOf(written[1]))
+			Verify.expect(work.output[#work.output]):toBe("  receipt " .. shown(work.env, written[1].path))
 			Verify.expect(uploaded ~= nil and uploaded.bodyBytes > Files.size(work.env.model))
 				:toBeTrueWith("the POST did not carry the model file")
 		end,
@@ -2703,6 +2691,10 @@ register = function(harness: Verify.Harness, prefix: string): ()
 			end
 			local gateRun = Json.field(latest.receipt, "gateRun")
 			Verify.expect(revisionOf(latest)):toBe("2")
+			local versions = Json.arrayField(loadConfig(work.env.config), "versions") or {}
+			Verify.expect(#versions):toBe(1)
+			Verify.expect(Json.field(versions[1], "assetRevision")):toBe("2")
+			Verify.expect(work.output[#work.output]):toBe("  receipt " .. shown(work.env, latest.path))
 			Verify.expect(Json.stringField(gateRun, "status")):toBe("PASS")
 			Verify.expect(Json.stringField(gateRun, "commit")):toBe(facts.commit)
 			Verify.expect(string.find(Files.read(latest.path), SELFTEST_KEY, 1, true) == nil)
