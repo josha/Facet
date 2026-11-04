@@ -7,12 +7,13 @@ local function Demo(c: Context): Instance
 	local remaining, charges = Compose.cell(6), Compose.cell(2)
 	local world = Compose.cell(false)
 	local clock = c.app.runtime.clock({ step = 0.05 })
+	local env = UI.environment()
 	local started = Compose.cell(clock:peek() - 6)
 	Compose.watch(function(use: CatalogTypes.Use)
 		remaining:set(math.max(0, 6 - (use(clock) - use(started))))
 	end)
 	local available = Compose.formula(function(use: CatalogTypes.Use): boolean
-		return use(remaining) <= 0 and use(charges) > 0
+		return use(remaining) <= 0 and use(charges) > 0 and not use(env.gameplaySuspended)
 	end)
 	local function activate()
 		if available:peek() then

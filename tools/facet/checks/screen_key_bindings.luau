@@ -60,6 +60,11 @@ local READ_ONLY_PROBES: { [string]: string } = {
 
 local PINS: { Pin } = {
 	{
+		path = "examples/facet-lab/src/game_hud_demo.luau",
+		count = 2,
+		reason = "the action slot recipe owns E and ButtonX bindings in its InputContext, enabled only with a ready cooldown, a charge and gameplay input not suspended",
+	},
+	{
 		path = "examples/facet-lab/src/minimap_demo.luau",
 		count = 2,
 		reason = "the minimap recipe owns M and ButtonY bindings in its game InputContext, enabled only while the HUD is available and gameplay input is not suspended",
