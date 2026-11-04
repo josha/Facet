@@ -208,6 +208,7 @@ export type Extent = LayoutTypes.Extent
 export type StackProps = LayoutProps.StackProps
 export type ScreenProps = LayoutProps.ScreenProps
 export type ZStackProps = LayoutProps.ZStackProps
+export type GroupProps = LayoutProps.GroupProps
 export type ScrollViewProps = LayoutProps.ScrollViewProps
 export type GridProps = LayoutProps.GridProps
 export type AdaptiveStackProps = LayoutProps.AdaptiveStackProps

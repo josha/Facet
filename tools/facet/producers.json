@@ -28,6 +28,7 @@
     {"id": "word-data", "tier": "full", "run": "lute run tools/facet words --check", "why": "the generated word lists match their pinned source archive"},
     {"id": "public-allowlist", "tier": "full", "run": "lute run tools/facet check public-allowlist", "why": "public and private paths match the allowlist"},
     {"id": "public-surface", "tier": "full", "run": "lute run tools/engine/check_public_surface.luau", "why": "the exported surface matches tools/public_surface.txt"},
+    {"id": "group-costs", "tier": "full", "run": "lute run tools/engine/group_costs.luau", "why": "native group transparency preserves container resource and idle work costs"},
     {"id": "standalone-builds", "tier": "full", "kind": "build", "run": "lute run tools/facet build standalone", "why": "every example place builds and boots"},
     {"id": "facet-lab-build", "tier": "full", "kind": "build", "run": "lute run tools/facet build lab", "why": "the Facet Lab place builds with full option coverage"},
     {"id": "package-build", "tier": "full", "environment": "package", "kind": "build", "run": "lute run tools/facet package build --verify", "why": "the Roblox Package builds from the staged sources"},

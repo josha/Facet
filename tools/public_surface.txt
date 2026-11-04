@@ -188,6 +188,7 @@ controls(runtime).Divider : function
 controls(runtime).ErrorBoundary : function
 controls(runtime).Flash : function
 controls(runtime).Grid : function
+controls(runtime).Group : function
 controls(runtime).HStack : function
 controls(runtime).Image : function
 controls(runtime).Label : function
@@ -381,6 +382,7 @@ type GestureKind
 type GestureOptions
 type Gradient
 type GridProps
+type GroupProps
 type GroupedOptions
 type HapticKind
 type HelpRow

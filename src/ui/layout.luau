@@ -377,6 +377,21 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		return frame
 	end)
 
+	UI.Group = ctx.construct("Group", function(spec: LayoutProps.GroupProps): CanvasGroup
+		local properties, children = split(spec, { "groupTransparency", "width", "height", "padding" })
+		local size, automatic = kit.extent(spec, "hug", "hug")
+		local native: Engine.CanvasGroupNativeProps = {
+			BorderSizePixel = 0,
+			Size = size,
+			AutomaticSize = automatic,
+			GroupTransparency = spec.groupTransparency,
+		}
+		return kit.plain(
+			Host.CanvasGroup(kit.assemble(native, properties, { kit.insets(spec.padding) }, children)),
+			properties
+		)
+	end)
+
 	UI.ZStack = ctx.construct("ZStack", function(spec: LayoutProps.ZStackProps): Frame
 		local properties, children = split(spec, { "padding", "width", "height", "alignH", "alignV" })
 		local size, automatic = kit.extent(spec, "hug", "hug")

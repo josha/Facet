@@ -13,6 +13,13 @@ export type Distribute = Types.Distribute
 export type Edge = Types.Edge
 export type Axis = "x" | "y" | "xy"
 export type StackCorners = number | "pill" | "square" | "control" | "panel"
+export type GroupOptions = {
+	groupTransparency: Types.ValueNumber?,
+	width: Types.Input<Extent>?,
+	height: Types.Input<Extent>?,
+	maxWidth: Types.ValueNumber?,
+	padding: Types.Input<Padding>?,
+}
 export type StackOptions = {
 	padding: Types.Input<Padding>?,
 	surface: ("surface" | "panel" | "pane")?,

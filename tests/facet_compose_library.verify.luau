@@ -483,6 +483,41 @@ return function(verifyHarness: Verify.Harness)
 						return built
 					end).dispose)
 				end
+		verifyHarness:case("imports edits exports and renders readable group transparency", {
+			id = "facet_compose_library::imports edits exports and renders readable group transparency",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context): unknown
+					local library = live(ctx)
+					Verify.expect(library.kinds.Group.children):toBe("list")
+					Verify.expect(library.kinds.Group.fields.groupTransparency.type):toBe("number")
+					local value = Design.document.setContract(Design.document.new("Strip", library, "Group"), library, {
+						inputs = { { id = "dim", kind = "readable", type = "number", required = true } },
+						outputs = {},
+					})
+					for _, kind in { "Image", "Text", "Button" } do
+						value = Design.document.insert(value, library, "n1", kind)
+					end
+					value = Design.document.change(value, library, "n1", "groupTransparency", { input = "dim" })
+					local source = Design.emit(value, library)
+					value = Design.parse(source, library)
+					Verify.expect(Design.emit(value, library)):toBe(source)
+					value = Design.document.change(value, library, "n1", "groupTransparency", { literal = 0.7 })
+					local edited = Design.emit(value, library)
+					Verify.expect(Design.emit(Design.parse(edited, library), library)):toBe(edited)
+					Verify.expect(edited == source):toBe(false)
+					value = Design.document.change(value, library, "n1", "groupTransparency", { input = "dim" })
+					Verify.expect(Design.emit(value, library)):toBe(source)
+					local dim = Facet.Compose.cell(0.4)
+					local built = Design.render(value, library, { bindings = { dim = { readable = dim } } })
+					assert(typeof(built) == "Instance" and built:IsA("CanvasGroup"))
+					Verify.expect(built.GroupTransparency):toBe(0.4)
+					Verify.expect(built:FindFirstChild("Image") ~= nil):toBe(true)
+					Verify.expect(built:FindFirstChild("Text") ~= nil):toBe(true)
+					Verify.expect(built:FindFirstChild("Button") ~= nil):toBe(true)
+					dim:set(0.8)
+					Verify.expect(built.GroupTransparency):toBe(0.8)
+					return built
+				end).dispose)
 			end,
 		})
 

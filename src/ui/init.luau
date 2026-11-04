@@ -77,6 +77,7 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 				"HStack",
 				"Screen",
 				"ZStack",
+				"Group",
 				"ScrollView",
 				"Grid",
 				"AdaptiveStack",

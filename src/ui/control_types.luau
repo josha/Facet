@@ -134,6 +134,7 @@ export type Controls = {
 	Travel: Constructor<ZoomTravelProps.TravelPropsInput, Frame>,
 	NavigationSplitView: Constructor<NavigationProps.NavigationSplitViewPropsInput, Frame>,
 	Screen: Constructor<LayoutProps.ScreenPropsInput, Frame>,
+	Group: Constructor<LayoutProps.GroupPropsInput, CanvasGroup>,
 	VStack: Constructor<LayoutProps.StackPropsInput, Frame>,
 	HStack: Constructor<LayoutProps.StackPropsInput, Frame>,
 	ZStack: Constructor<LayoutProps.ZStackPropsInput, Frame>,

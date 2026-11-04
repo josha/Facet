@@ -58,6 +58,7 @@ local FAMILIES: { Family } = {
 		output = "src/ui/layout_props.luau",
 		modules = { Layout = "./layout_types" },
 		recipes = {
+			{ name = "GroupProps", native = "CanvasGroupProps", parts = { "Layout.GroupOptions" } },
 			{ name = "StackProps", native = "FrameProps", parts = { "Layout.StackOptions" } },
 			{ name = "ScreenProps", native = "FrameProps", parts = { "Layout.ScreenOptions" } },
 			{ name = "ZStackProps", native = "FrameProps", parts = { "Layout.ZStackOptions" } },

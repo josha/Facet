@@ -1839,6 +1839,18 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 		}),
 	},
+	Group = {
+		category = "Layout",
+		container = true,
+		defaults = { height = 160, width = "fill", groupTransparency = 0 },
+		fields = {
+			groupTransparency = { type = "number", label = "Group transparency", order = 1 },
+			width = { type = "value", label = "Width", order = 2, format = "extent" },
+			height = { type = "value", label = "Height", order = 3, format = "extent" },
+			padding = { type = "value", label = "Padding", order = 4, format = "padding" },
+			maxWidth = { type = "number", label = "Maximum width", order = 5 },
+		},
+	},
 	ZStack = {
 		category = "Layout",
 		container = true,

@@ -4956,27 +4956,6 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 	},
-	ZStack = {
-		family = "layout",
-		alias = "ZStack (layers)",
-		purpose = "Layers children in one box; each layer aligns inside it (AnchorPoint + scale Position).",
-		alternatives = "A stack when the children should not overlap.",
-		scenarios = { "containers" },
-		snippet = 'UI.ZStack { alignH = "end", alignV = "start", plate, badge }',
-		base = function(c: Context)
-			return {
-				width = 140,
-				height = 96,
-				plate(c, "facet-panel", 140, 96),
-				c.UI.Badge { label = "New", appearance = "status", status = "accent" },
-			}
-		end,
-		axes = {
-			{ key = "alignH", values = { "start", "center", "end" } },
-			{ key = "alignV", values = { "start", "center", "end" } },
-		},
-		states = { { name = "padding s", props = properties { padding = "s" } } },
-	},
 	Spacer = {
 		family = "layout",
 		alias = "Spacer",
@@ -6069,6 +6048,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 }
 
+require("./catalog_groups")(PAGE_DATA, plate, properties, ART)
 local outlines = require("./catalog_outline")(PAGE_DATA, NONE, properties)
 PAGE_DATA.Outline = outlines.outline
 local rewardPage: PageDefinition = outlines.rewardSequence
@@ -6101,7 +6081,18 @@ for _, name in { "VirtualList", "VirtualGrid", "Table", "Outline" } do
 end
 
 for _, name in
-	{ "Screen", "VStack", "HStack", "ZStack", "ScrollView", "Grid", "AdaptiveStack", "ViewThatFits", "ErrorBoundary" }
+	{
+		"Screen",
+		"Group",
+		"VStack",
+		"HStack",
+		"ZStack",
+		"ScrollView",
+		"Grid",
+		"AdaptiveStack",
+		"ViewThatFits",
+		"ErrorBoundary",
+	}
 do
 	table.insert(assert(PAGE_DATA[name].states), {
 		name = "width 480 capped at 280",
