@@ -8,6 +8,7 @@ local motion = require("./motion")
 local freeze = require("./freeze")
 local support = require("./theme_support")
 local gameplayHold = require("./gameplay_hold")
+local displayScale = require("./theme_distance")
 
 local ANCHOR_KEYS: { [string]: boolean } = {
 	target = true,
@@ -608,7 +609,8 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return tenFoot(use)
 		end)
 		local metricScale = derived(function(use: ComposeTypes.Use): number
-			return if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1
+			local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(config.theme, use)
+			return displayScale.resolutionScale(package) * (if use(isTenFoot) then adaptive.TEN_FOOT_SCALE else 1)
 		end)
 		local textService = config.services
 		local function textFactor(role: string, use: ComposeTypes.Use): number
