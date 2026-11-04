@@ -7,7 +7,7 @@ local controls = require("./controls")
 local derived = require("./fields")
 local icons = require("../ui/icons")
 local Motion = require("./motion")
-local Native3D = require("./native3d")
+local Roblox3D = require("../vendor/compose/design-editor/roblox-3d-library")
 local robloxTypes = require("../ui/roblox_types")
 
 type Literal = Design.Literal
@@ -289,6 +289,41 @@ local function enumItem(types: Types.RobloxTypes, enumName: string, item: string
 		end
 	end
 	return nil
+end
+
+local function native3dKinds(): { [string]: Types.DerivedKind }
+	local schema = Roblox3D.schema()
+	local mappings: { [string]: { [string]: string } } = {
+		Model = {},
+		Part = {
+			Size = "size",
+			Color = "color",
+			Material = "material",
+			Transparency = "transparency",
+			CanCollide = "canCollide",
+		},
+		PointLight = { Brightness = "brightness", Range = "range", Color = "color" },
+	}
+	local result: { [string]: Types.DerivedKind } = {}
+	for name, mapping in mappings do
+		local kind = schema.kinds[name]
+		local fields: { [string]: Types.DerivedField } = {}
+		for property, key in mapping do
+			local field = kind.fields[key]
+			fields[property] = {
+				type = if property == "Material" or property == "Size" then "datatype" else field.type,
+				options = field.options,
+				datatype = if property == "Material"
+					then "Enum.Material"
+					elseif property == "Size" then "Vector3"
+					else nil,
+			}
+		end
+		result[name] = { children = kind.children == "list", fields = fields }
+	end
+	result.Part.fields.CFrame = { type = "datatype", datatype = "CFrame" }
+	result.Part.fields.Anchored = { type = "boolean" }
+	return result
 end
 
 local function create(context: Context): Design.Library
@@ -733,7 +768,7 @@ local function create(context: Context): Design.Library
 	local host = context.host
 	if host ~= nil then
 		local hostKinds = table.clone(derived.host)
-		for className, entry in Native3D.kinds() do
+		for className, entry in native3dKinds() do
 			hostKinds[className] = entry
 		end
 		for className, entry in hostKinds do
