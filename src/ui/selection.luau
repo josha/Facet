@@ -481,6 +481,17 @@ return function(ctx: Shared.Context): Selection
 		end
 		local owner = assert(Compose.currentOwner())
 		local tracking: ComposeTypes.Owner? = nil
+		local function forward(container: ScrollingFrame): boolean
+			if container:GetAttribute("FacetSelectionOwner") == true then
+				return false
+			end
+			local target = entryOf(container, if record then record.node else nil)
+			if target == nil then
+				return false
+			end
+			service.SelectedObject = target
+			return true
+		end
 		local function track(current: GuiObject): ()
 			if tracking then
 				ComposeTypes.owner.dispose(tracking)
@@ -504,22 +515,16 @@ return function(ctx: Shared.Context): Selection
 					for _, source in sources do
 						use(source)
 					end
-					if service.SelectedObject == current and not shown(current) then
+					if service.SelectedObject ~= current then
+						return
+					end
+					if not shown(current) then
 						schedule()
+					elseif current:IsA("ScrollingFrame") then
+						forward(current)
 					end
 				end)
 			end)
-		end
-		local function forward(container: ScrollingFrame): boolean
-			if container:GetAttribute("FacetSelectionOwner") == true then
-				return false
-			end
-			local target = entryOf(container, if record then record.node else nil)
-			if target == nil then
-				return false
-			end
-			service.SelectedObject = target
-			return true
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			local current = use(selectedObject)
@@ -532,6 +537,9 @@ return function(ctx: Shared.Context): Selection
 					track(current)
 				end
 			else
+				if current and current:IsA("ScrollingFrame") then
+					track(current)
+				end
 				schedule()
 			end
 		end)

@@ -222,6 +222,33 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	describe("scroll entry", function()
+		it("forwards a scrolling frame selected during a non-interactable presentation once the presentation ends", {
+			id = "native_focus_model::scroll entry::forwards a scrolling frame selected during a non-interactable presentation once the presentation ends",
+			run = function()
+				local w = setup(function(UI, Host)
+					return UI.Screen "Page" {
+						Host.Frame {
+							Name = "Presenting",
+							Interactable = false,
+							Host.ScrollingFrame {
+								Name = "Strip",
+								UI.Button "First" { label = "First" },
+								UI.Button "Second" { label = "Second" },
+							},
+						},
+					}
+				end)
+				local strip = w.find("Strip")
+				w.gui.SelectedObject = strip
+				expect((w.selected())):toBe("Strip")
+				w.find("Presenting").Interactable = true
+				expect((w.selected())):toBe("First")
+				w.stop()
+			end,
+		})
+	end)
+
 	describe("leaving the gamepad", function()
 		it("drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD", {
 			id = "native_focus_model::leaving the gamepad::drops a pad selection when the preferred input leaves the gamepad, so the engine cannot eat typed WASD",
