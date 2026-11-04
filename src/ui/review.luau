@@ -203,11 +203,81 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 	return { width = width, height = height, elements = elements, touch = touch }
 end
 
+local NO_RECT: Rules.ReviewRect = { x = 0, y = 0, width = 0, height = 0 }
+
+local function recentErrors(): { string }
+	local ok, log = call(dataModel(), "GetService", "LogService")
+	local found, history = call(if ok then log else nil, "GetLogHistory")
+	local messages: { string } = {}
+	if not found or type(history) ~= "table" then
+		return messages
+	end
+	local seen: { [string]: boolean } = {}
+	for index = #history, math.max(1, #history - 300), -1 do
+		local entry = history[index]
+		local message = text(read(entry, "message"))
+		if message ~= nil and string.find(tostring(read(entry, "messageType")), "Error", 1, true) ~= nil then
+			local line = string.sub((string.gsub(message, "%s+", " ")), 1, 300)
+			if not seen[line] then
+				seen[line] = true
+				table.insert(messages, line)
+				if #messages == 3 then
+					break
+				end
+			end
+		end
+	end
+	return messages
+end
+
+local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
+	local findings: { ReviewFinding } = {}
+	local shown = false
+	for _, element in snapshot.elements do
+		if element.visible and element.text ~= nil and element.text.content ~= "" then
+			shown = true
+			break
+		end
+	end
+	if not shown then
+		table.insert(findings, {
+			rule = "empty-screen",
+			severity = "high",
+			path = "PlayerGui",
+			detail = "No text is visible. If a mounted screen should show content, a build error stopped it; "
+				.. "read the runtime errors below and the console before adjusting layout.",
+			rect = NO_RECT,
+		})
+	end
+	for _, message in recentErrors() do
+		table.insert(findings, {
+			rule = "runtime-error",
+			severity = "high",
+			path = "LogService",
+			detail = "Recent client error: " .. message,
+			rect = NO_RECT,
+		})
+	end
+	return findings
+end
+
 return table.freeze({
 	analyze = Rules.analyze,
 	collect = collect,
 	screen = function(options: ReviewOptions?): ReviewReport
-		return Rules.analyze(collect(options))
+		local snapshot = collect(options)
+		local report = Rules.analyze(snapshot)
+		local extra = runtimeFindings(snapshot)
+		if #extra == 0 then
+			return report
+		end
+		local lines: { string } = {}
+		for index, finding in extra do
+			table.insert(report.findings, index, finding)
+			table.insert(lines, ("[%s] %s: %s"):format(finding.severity, finding.rule, finding.detail))
+		end
+		report.text = table.concat(lines, "\n") .. "\n" .. report.text
+		return report
 	end,
 	fixes = Rules.fixes,
 })
