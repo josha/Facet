@@ -8,7 +8,10 @@ unchanged.
 Plan the brief as connected player routes. Identify each route's entry, shared
 state, accepted game effect, cancellation or failure, and return. Track the
 required routes that remain incomplete. The first working route is a checkpoint
-toward the complete brief.
+toward the complete brief. After it works, if more required routes remain than
+you can build and check, give each a minimal working entry and result before
+deepening a route that already works. A missing route is not offset by polish
+elsewhere. Fix a defect that blocks later routes first.
 
 1. Read the required guidance and the task chapters for the first route. Resolve
    unfamiliar library options from their public contracts. Check unfamiliar
@@ -24,7 +27,10 @@ toward the complete brief.
    Request a capture when rendering is ready. Inspect the returned image at its actual size.
    A text response, object bounds or an image from an earlier state does not
    verify the current appearance. Test a short or narrow supported layout before
-   copying a layout pattern. Keep a coherent visual language across the world
+   copying a layout pattern. When the host can change the viewport size or
+   emulate an input, check the first finished screen at one compact size and
+   with controller-only focus before reusing its layout. Skip this when the
+   brief supports one form factor and one input. Keep a coherent visual language across the world
    and UI, with a composition suited to each task. Check the main subject, next
    action, readable terms and gameplay clearance. Revise weak composition before
    adding decorative detail.
