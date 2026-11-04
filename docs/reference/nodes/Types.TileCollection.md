@@ -6,7 +6,7 @@ Types.TileCollection contract and option values.
 
 The pinned Compose module includes `TileCollection`, which owns the nonempty cells
 in a world-space tile viewport, and `focusNeighbor`, a pure directional rectangle
-search. Their contracts live in the pinned Compose [API reference](../../../skills/compose/references/api.md).
+search. Their contracts live in the pinned Compose [API reference](https://github.com/voidmeld/compose/blob/3310cdc5a9974fa9f0e42904160990a47b84f3df/docs/api.md).
 Virtual Monitors uses `TileCollection` for the Facet Flap course.
 
 The exported Luau types include `Facet`, `ComposeModule`, `ComposeRobloxModule`,
