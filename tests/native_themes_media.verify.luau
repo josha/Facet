@@ -1300,6 +1300,52 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("pauses the shared shimmer when all skeletons are hidden", {
+			id = "native_themes_media::native themes and media::pauses the shared shimmer when all skeletons are hidden",
+			run = function()
+				local engine = engineLib.new()
+				local runtime = Roblox.createRuntime(engine)
+				local UI = Facet.controls(runtime, { types = engine.types })
+				local Host = Facet.host(runtime)
+				local baseline = engineLib.connections(engine.heartbeat)
+				local stop, screen = runtime.mount(function()
+					return Host.ScreenGui {
+						Host.Frame "Hidden" { Visible = false, UI.Skeleton "One" {} },
+						Host.Frame "Shown" { UI.Skeleton "Two" { Visible = false } },
+					}
+				end, engine.new("Folder"))
+				local hidden = assert(screen:FindFirstChild("Hidden"))
+				local shown = assert(screen:FindFirstChild("Shown"))
+				local one = assert(hidden:FindFirstChild("One"))
+				local two = assert(shown:FindFirstChild("Two"))
+				assert(hidden:IsA("Frame") and one:IsA("Frame") and two:IsA("Frame"))
+				local shimmer = assert(one:FindFirstChild("Shimmer", true))
+				assert(shimmer:IsA("UIGradient"))
+				expect(engineLib.connections(engine.heartbeat)):toBe(baseline)
+				two.Visible = true
+				expect(engineLib.connections(engine.heartbeat) > baseline):toBe(true)
+				hidden.Visible = true
+				two.Visible = false
+				local before = shimmer.Offset
+				engine.heartbeat:Fire(0.2)
+				expect(shimmer.Offset == before):toBe(false)
+				hidden.Visible = false
+				expect(engineLib.connections(engine.heartbeat)):toBe(baseline)
+				one.Parent = shown
+				expect(engineLib.connections(engine.heartbeat) > baseline):toBe(true)
+				screen.Enabled = false
+				expect(engineLib.connections(engine.heartbeat)):toBe(baseline)
+				before = shimmer.Offset
+				engine.heartbeat:Fire(0.2)
+				expect(shimmer.Offset):toBe(before)
+				screen.Enabled = true
+				expect(engineLib.connections(engine.heartbeat) > baseline):toBe(true)
+				stop()
+				runtime:dispose()
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
+			end,
+		})
+
 		it("animates skeletons with one shared Compose clock and honors reduced motion", {
 			id = "native_themes_media::native themes and media::animates skeletons with one shared Compose clock and honors reduced motion",
 			run = function()
