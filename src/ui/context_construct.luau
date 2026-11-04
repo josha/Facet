@@ -127,13 +127,12 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			Text = `Facet UI.{control} failed: {message}`,
 			TextWrapped = true,
 			TextXAlignment = types.Enum.TextXAlignment.Left,
-			TextSize = 14,
-			TextColor3 = types.Color3.new(1, 1, 1),
-			BackgroundColor3 = types.Color3.fromRGB(170, 30, 50),
 			BackgroundTransparency = 0,
 			Size = types.UDim2.new(1, 0, 0, 0),
 			AutomaticSize = types.Enum.AutomaticSize.Y,
 		}
+		tag(label, "type-caption")
+		tag(label, "role-destructive")
 		label:SetAttribute("FacetError", message)
 		return label
 	end

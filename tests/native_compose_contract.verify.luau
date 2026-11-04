@@ -15,6 +15,51 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 
+	verifyHarness:case("failed controls use the live theme caption and destructive palette roles", {
+		id = "native_compose_contract::failed controls use the live theme caption and destructive palette roles",
+		run = function()
+			local context = require("../src/ui/context")
+			local styleRules = require("./lib/style_rules")
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local package = Compose.cell(Facet.themes.neutralPackage())
+			local failures: { unknown } = {}
+			local label: TextLabel? = nil
+			local sheet: StyleSheet? = nil
+			local stop = runtime.mount(function()
+				local ctx = context(Compose, runtime, {
+					types = engine.types,
+					theme = package,
+					strictBuild = false,
+					onError = function(failure: unknown)
+						table.insert(failures, failure)
+					end,
+				})
+				local failed = ctx.build("Broken", function(_: {}): Instance
+					error("broken control", 0)
+				end, {})
+				assert(failed:IsA("TextLabel"))
+				label = failed
+				sheet = Facet.themes.createStyleSheet(runtime, package, { types = engine.types })
+				return ctx.Host.Frame { failed, assert(sheet) }
+			end, engine.new("ScreenGui"))
+			local failed = assert(label)
+			local styles = assert(sheet)
+			Verify.expect(failures):toEqual({ "broken control" })
+			Verify.expect(failed:GetAttribute("FacetError")):toBe("broken control")
+			Verify.expect(styleRules.resolve(styles, failed, "TextSize")):toBe(14)
+			Verify.expect(styleRules.resolve(styles, failed, "TextColor3")):toBe("$FacetColor_onDanger")
+			Verify.expect(styleRules.resolve(styles, failed, "BackgroundColor3")):toBe("$FacetColor_danger")
+			local larger = Facet.themes.neutralPackage()
+			larger.metrics.typography.caption.size = 23
+			package:set(larger)
+			Verify.expect(styleRules.resolve(styles, failed, "TextSize")):toBe(23)
+			Verify.expect(failed.Text):toBe("Facet UI.Broken failed: broken control")
+			stop()
+			runtime:dispose()
+		end,
+	})
+
 	verifyHarness:case("holds the native size that passed readiness when an observation is deferred", {
 		id = "native_compose_contract::holds the native size that passed readiness when an observation is deferred",
 		run = function()
