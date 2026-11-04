@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "f6681cd2b2ed9e0af1caf2c304591277bdca6446",
+  "commit": "26ea57d98dca05ad9620a6cfc930681003ab60b6",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "17586ba71f52ebf6136982f4d621f4bdf5981b15771d8118bc68e1931d6f07d1",
@@ -155,7 +155,7 @@
     "src/roblox/datatypes/font.luau": "cb6d5e9f80494a1bed2ea66442f4dc9122728ede612572c688d81cc089d174a7",
     "src/roblox/datatypes/init.luau": "764626e3e48d11aab953b542ff82dc284a153fa4ef8ba3bb79eef1855d4223f5",
     "src/roblox/datatypes/misc.luau": "365986dd7febc744f2b48636f5b9fbde1ff77d0075b4205aad5709a6e281adf6",
-    "src/roblox/datatypes/names.luau": "d7dc8989e6b2c1f10e3e667fb9c3650383d77456c142265c7160ce916c344995",
+    "src/roblox/datatypes/names.luau": "d2aec57b9e51e221d8bbe2b21c1d3d03c01104551608a12a8a2a6eab5e2913b2",
     "src/roblox/datatypes/query.luau": "acc5230cf242179677b1a805a178ae55d922d2d1234ec3f398cfd2f317d3b3d1",
     "src/roblox/datatypes/random.luau": "096ac57743d1d2526d198ae1e549fc3810ee6f0c7cd43fe2517c75b5daa944e3",
     "src/roblox/datatypes/sequence.luau": "165f7c7a80e258c880af5bdc0de7364b5f6bf910c5732ff402faa7a8669dfe5c",
@@ -200,7 +200,7 @@
     "src/roblox/reflection-snapshot.luau": "bc1b695435c5b8cdb32bb3c56db9fb63179ee378b95ab54775962532cda49942",
     "src/roblox/reflection.luau": "9524675fc76b1e0cb3c34ba3cf72f3a865718f7b364327dab6ca2bbae81eb6e9",
     "src/roblox/report-channel.luau": "67de59a8c821d0911f87672534e61c5138290bccd343a4399a530f7f0005dd29",
-    "src/roblox/scheduler.luau": "020f8b4ff8a745644652a7478d7b371f1b60625ab55764cd33ecce63ef72f828",
+    "src/roblox/scheduler.luau": "5c0c5c172e349ab3f8b271acea8f2dad194abcb5869b52b18df82bae8d64a949",
     "src/roblox/spatial-fakes.luau": "b26e11960489422f402ed7a47da9de2ccfeb2ebf8c9c90b7b41036476c2910d2",
     "src/roblox/spatial-query-fakes.luau": "6509c0bc80f5f44a007692a70e292125b91288c9bc97069479f36db308647fbc",
     "src/roblox/text-content.luau": "fe841c8b02859d46dcf8fab4b4b56e18c5fa5bf0702dc88a13a18a61812584ea",
