@@ -320,7 +320,6 @@ end
 export type ScreenTarget = { set: (unknown, boolean) -> () } | { open: () -> (), close: (() -> ())? }
 export type ScreensOptions = { root: Instance?, settle: number? }
 
-
 local function mountedSheets(): { [string]: ScreenTarget }
 	local found: { [string]: ScreenTarget } = {}
 	local ok, players = call(dataModel(), "GetService", "Players")
