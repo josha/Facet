@@ -620,6 +620,11 @@ local function rulesFor(
 	rule(".facet-role-onIndicator >> .facet-button-glyph >> .facet-path", { Color3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-glyph >> .facet-path", { Color3 = c("contentSecondary") })
 	rule(".facet-progress-ring-fill", { Color3 = c("accent") })
+	for _, role in { "accent", "success", "warning", "danger" } do
+		local selector = ".facet-progress-role-" .. role
+		rule(selector .. " >> .facet-fill", { BackgroundColor3 = c(role) })
+		rule(selector .. " >> .facet-progress-ring-fill", { Color3 = c(role) })
+	end
 	rule(".facet-progress-gauge-needle", { Color3 = c("content") })
 	rule(".facet-progress-gauge-hub", { BackgroundColor3 = c("content"), BackgroundTransparency = 0 })
 	rule(".facet-icon", { ImageColor3 = c("content"), BackgroundTransparency = 1 })

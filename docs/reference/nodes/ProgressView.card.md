@@ -10,7 +10,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.ProgressView "ProgressView" { value = 0.8 }
 ```
 
-Key options: `value`, `min`, `max`, `presentation`.
+Key options: `value`, `min`, `max`, `presentation`, `role`.
 
 Use diameter only with circular, gauge or spinner presentation.  A gauge is a dial: an arc of `sweep` degrees (240) with a needle on the value.
 

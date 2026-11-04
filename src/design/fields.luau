@@ -1871,6 +1871,7 @@ local derived: Types.Derived = {
 				min = { type = "number" },
 				needle = { type = "boolean" },
 				presentation = { type = "choice", options = { "bar", "circular", "gauge", "spinner" } },
+				role = { type = "choice", options = { "accent", "success", "warning", "danger" } },
 				segments = { type = "number" },
 				showValue = { type = "boolean" },
 				sweep = { type = "number" },

@@ -83,6 +83,7 @@ export type PathOptions = {
 export type Trail = { read delay: number?, read duration: number? }
 export type ProgressViewOptions = {
 	value: Types.ValueNumber?,
+	role: Types.Input<"accent" | "success" | "warning" | "danger">?,
 	min: Types.ValueNumber?,
 	max: Types.ValueNumber?,
 	presentation: "bar" | "circular" | "gauge" | "spinner"?,

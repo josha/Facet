@@ -576,6 +576,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			children,
 			ctx.props(spec, {
 				"value",
+				"role",
 				"min",
 				"max",
 				"presentation",
@@ -603,6 +604,27 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end),
 			})
 		)
+		if spec.role ~= nil then
+			local previous: string?
+			local function applyRole(use: ComposeTypes.Use?)
+				local role = read(spec.role, use) or "accent"
+				assert(
+					role == "accent" or role == "success" or role == "warning" or role == "danger",
+					"Facet ProgressView role must be accent, success, warning or danger"
+				)
+				if previous then
+					root:RemoveTag(previous)
+				end
+				local tag = "facet-progress-role-" .. role
+				root:AddTag(tag)
+				previous = tag
+			end
+			if dynamic(spec.role) then
+				Compose.watch(applyRole)
+			else
+				applyRole()
+			end
+		end
 		if timeline then
 			root:AddTag("facet-progress-indeterminate")
 			ctx.playWhileShown(timeline, root)
