@@ -328,6 +328,7 @@ export type DesignValue = ComposeDesign.Value
 export type DesignField = ComposeDesign.Field
 export type DesignKind = ComposeDesign.Kind
 export type DesignResolved = ComposeDesign.Resolved
+export type DesignRegistered = FacetDesign.RegisteredDesign
 export type DesignExtension = FacetDesign.Extension
 export type DesignLiteral = ComposeDesign.Literal
 export type DesignInput = ComposeDesign.Input

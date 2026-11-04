@@ -28,6 +28,14 @@ export type Derived = { controls: { [string]: DerivedKind }, host: { [string]: D
 
 export type Seed = { kind: string, props: { [string]: Literal }?, children: { Seed }? }
 
+export type RegisteredDesign = {
+	contract: Design.Contract,
+	call: string,
+	prelude: { string }?,
+	category: string?,
+	build: (UI: unknown, props: { [string]: unknown }, name: string) -> unknown,
+}
+
 export type ControlSpec = {
 	category: string,
 	defaults: { [string]: Literal },
@@ -50,6 +58,7 @@ export type Context = {
 	tokens: Tokens?,
 	motion: Motion?,
 	extension: Library.Extension?,
+	designs: { [string]: RegisteredDesign }?,
 }
 
 export type Motion = {

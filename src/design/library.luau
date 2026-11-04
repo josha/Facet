@@ -90,6 +90,18 @@ local LITERAL_KINDS: { [string]: string } = {
 	boolean = "boolean",
 }
 
+local INPUT_FIELDS: { [Design.InputType]: Design.FieldType } = {
+	string = "string",
+	number = "number",
+	boolean = "boolean",
+	color = "color",
+	image = "string",
+	vector3 = "vector3",
+	list = "value",
+	record = "value",
+	slot = "content",
+}
+
 local function derivedFields(name: string): { [string]: Types.DerivedField }
 	local found = derived.controls[name]
 	return if found ~= nil then found.fields else {}
@@ -896,6 +908,55 @@ local function create(context: Context): Design.Library
 		},
 		kinds = kinds,
 	}
+	local registrations: { [string]: Types.RegisteredDesign } = context.designs or {}
+	for name, registered in registrations do
+		local fields: { [string]: Design.Field } = {}
+		local defaults: { [string]: Literal } = {}
+		for order, input in registered.contract.inputs do
+			local field: Design.Field = {
+				type = if input.options ~= nil then "choice" else INPUT_FIELDS[input.type],
+				options = input.options,
+				datatype = if input.type == "color" then "Color3" elseif input.type == "vector3" then "Vector3" else nil,
+				luauType = input.luauType,
+				order = order,
+			}
+			fields[input.id] = field
+			if input.preview ~= nil then
+				defaults[input.id] = input.preview
+			end
+		end
+		for order, output in registered.contract.outputs do
+			fields[output.id] = { type = "event", order = #registered.contract.inputs + order }
+		end
+		local kind: Design.Kind = {
+			fields = fields,
+			defaults = defaults,
+			children = "none",
+			category = registered.category or "Game",
+			call = registered.call,
+			build = function(props: { [string]: Resolved }, _children: { unknown }, nodeName: string): unknown
+				local values: { [string]: unknown } = {}
+				for key, resolved in props do
+					local field = fields[key]
+					local datatype = if field then field.datatype else nil
+					values[key] = if resolved.value ~= nil
+						then resolved.value
+						elseif resolved.literal ~= nil then (if datatype
+							then convert(datatype, resolved.literal)
+							else copy(resolved.literal))
+						else binding(resolved, datatype)
+				end
+				for _, input in registered.contract.inputs do
+					local resolved = props[input.id]
+					if input.kind ~= "value" and resolved ~= nil and resolved.literal ~= nil then
+						values[input.id] = Compose.cell(values[input.id])
+					end
+				end
+				return registered.build(context.UI, values, nodeName)
+			end,
+		}
+		library = Design.extend(library, { kinds = { [name] = kind }, prelude = registered.prelude })
+	end
 	return if context.extension ~= nil then Design.extend(library, context.extension) else library
 end
 

@@ -351,6 +351,7 @@ type DesignMotion
 type DesignNode
 type DesignOutput
 type DesignPlayer
+type DesignRegistered
 type DesignResolved
 type DesignSeed
 type DesignSequence

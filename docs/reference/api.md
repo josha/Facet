@@ -49,6 +49,11 @@ Compose Design's `extend` API to add consumer kinds and their source prelude.
 the props that its editor builder receives. Pass the same extended library to
 emit, parse, render and the Design editor. Existing kind names cannot be replaced.
 
+`Facet.DesignContext.designs` maps kind names to `Facet.DesignRegistered`
+entries. Each entry supplies a registered Design contract, source call and
+builder. The builder receives the same controls, resolved props and node name.
+See [registered Designs](nodes/Design-library.extensions.md#registered-designs).
+
 `Path.points` and `RadialMenu.skin` accept whole theme tokens. A points token
 can hold a list whose curve handles come from theme values. A skin token holds
 the public RadialMenu skin table. Inline token expressions inside these tables

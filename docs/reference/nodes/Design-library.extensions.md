@@ -27,6 +27,19 @@ Design's `Extension` contract. Facet calls `Design.extend` after it builds the
 Facet library. An extension adds kinds and prelude lines. It cannot replace an
 existing kind.
 
+## Registered Designs
+
+`context.designs` maps kind names to `Facet.DesignRegistered` entries with
+`contract`, `call`, `build` and optional `prelude` and `category`.
+Facet derives fields and calls `Design.extend`. Names must be unique.
+
+`build(UI, props, name)` receives the context's controls and resolved props.
+Bindings keep their identity; readable or cell previews become cells.
+Outputs become callbacks.
+`call` names the emitted constructor; `prelude` loads it. Use the same controls.
+
+## Custom kinds
+
 For example, assume a game exports a named component `Game.Emblem(name)(props)`
 with a string `label`. Its editor builder can use the same component:
 

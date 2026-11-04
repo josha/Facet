@@ -902,6 +902,78 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("composes registered host Designs with shared controls and named actions", {
+			id = "facet_compose_library::composes registered host Designs with shared controls and named actions",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local balance = Facet.Compose.cell(42)
+					local chosen = 0
+					local registration: Facet.DesignRegistered = {
+						contract = {
+							inputs = {
+								{ id = "label", kind = "value", type = "string", preview = "Open" },
+								{ id = "balance", kind = "readable", type = "number", preview = 0 },
+							},
+							outputs = { { id = "onChoose" } },
+						},
+						call = "Game.Surface",
+						prelude = { 'local Game = require "../GameDesigns"' },
+						build = function(UI: unknown, props: { [string]: unknown }, name: string): unknown
+							Verify.expect(UI == ctx.UI):toBe(true)
+							Verify.expect(props.balance == balance):toBe(true)
+							local label = props.label
+							local callback = props.onChoose :: (...Facet.DesignLiteral) -> ()
+							assert(type(label) == "string")
+							return ctx.UI.Button(name) {
+								label = label,
+								onActivate = function()
+									callback()
+								end,
+							}
+						end,
+					}
+					local library =
+						Kit.library({ UI = ctx.UI, types = ctx.types, designs = { Surface = registration } })
+					local value =
+						Design.document.setContract(Design.document.new("Parent", library, "VStack"), library, {
+							inputs = {
+								{ id = "title", kind = "value", type = "string", required = true },
+								{ id = "balance", kind = "readable", type = "number", required = true },
+							},
+							outputs = { { id = "onOpen" } },
+						})
+					value = Design.document.insert(value, library, "n1", "Surface")
+					local child = value.root.children[#value.root.children]
+					value = Design.document.change(value, library, child.id, "label", { input = "title" })
+					value = Design.document.change(value, library, child.id, "balance", { input = "balance" })
+					value = Design.document.change(value, library, child.id, "onChoose", { output = "onOpen" })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, 'Game.Surface "Surface"', 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					local built = Design.render(value, library, {
+						inputs = { title = "Edit row" },
+						bindings = { balance = { readable = balance } },
+						outputs = {
+							onOpen = function()
+								chosen += 1
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance")
+					local button = assert(built:FindFirstChild("Surface"))
+					assert(button:IsA("TextButton"))
+					Verify.expect(button.Text):toBe("Edit row")
+					engine.environment.fire(VerifyRoblox.assertInstance(button), "Activated")
+					Verify.expect(chosen):toBe(1)
+					Verify.expect(offline().kinds.Surface):toBe(nil)
+					local collision: Facet.DesignContext = { UI = {}, designs = { Text = registration } }
+					local ok = pcall(Kit.library, collision)
+					Verify.expect(ok):toBe(false)
+					return built
+				end).dispose)
+			end,
+		})
+
 		verifyHarness:case("registers consumer leaves with typed props and lossless source", {
 			id = "facet_compose_library::registers consumer leaves with typed props and lossless source",
 			run = function(test: Verify.Context)
