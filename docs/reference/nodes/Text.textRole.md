@@ -9,6 +9,9 @@ Text.textRole option values and behavior.
   Both together cause an error.
 - `textSize` as a number sets `TextSize` in pixels. `"fit"` and
   `{ fit = { cap, floor } }` fit the text to its box. See [Text-fit](Text-fit.md).
+- Native `TextSize` accepts a live numeric input and overrides the size from
+  `textRole` or numeric `textSize`. The role still supplies the other
+  typography properties. This follows the theme's native property precedence.
 - `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can

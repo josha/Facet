@@ -58,7 +58,8 @@ Kinds:
 - When the context has `host`, the Roblox classes `Frame`, `TextLabel`,
   `ImageLabel`, `ScrollingFrame` and the UI layout objects are kinds in the
   category `Roblox`. They emit `Host.Frame "Name" { ... }`.
-- With `host`, native `Model`, `Part` and `PointLight` are also kinds.
+- With `host`, native `Model`, `Part`, `PointLight`, `SurfaceLight`, `Texture`
+  and `Decal` are also kinds.
   See [native scene documents](Design-library.scenes.md).
 
 Whole views:
@@ -82,6 +83,9 @@ Whole views:
 
 The game keeps its state and server validation. Give state to a design as
 contract inputs. Receive events as contract outputs.
+
+See [Text sizes](Text.textRole.md), [NavBar slots](NavBar.reference.md)
+and [live tags](../api.md).
 
 
 Use [consumer kinds and theme tables](Design-library.extensions.md) for

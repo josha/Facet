@@ -535,8 +535,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		if onBack ~= nil and type(onBack) ~= "function" and not Compose.isValue(onBack) then
 			error(`Facet {where}: onBack must be a function or a writable boolean cell`, 0)
 		end
-		if spec.trailing ~= nil and not parts.instance(spec.trailing) then
-			error(`Facet {where}: trailing is one GuiObject; put a cluster in a frame`, 0)
+		local trailingContent = if type(spec.trailing) == "function" then spec.trailing() else spec.trailing
+		if trailingContent ~= nil and (not parts.instance(trailingContent) or not trailingContent:IsA("GuiObject")) then
+			error(`Facet {where}: trailing is one GuiObject or a factory that returns one; put a cluster in a frame`, 0)
+		end
+		if spec.trailing ~= nil and trailingContent == nil then
+			error(`Facet {where}: trailing factory must return one GuiObject`, 0)
 		end
 		for _, key in { "leading", "center" } do
 			local slot = (spec :: { [unknown]: unknown })[key]
@@ -642,7 +646,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local stacked = Compose.cell(false)
 		local rootChildren: { Types.Child } = { primaryFrame }
 		local trailingFrame: ScrollingFrame? = nil
-		if spec.trailing then
+		if trailingContent then
 			local trailing = Host.ScrollingFrame "Trailing" {
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
@@ -659,7 +663,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					HorizontalAlignment = E.HorizontalAlignment.Left,
 					SortOrder = E.SortOrder.LayoutOrder,
 				},
-				spec.trailing,
+				trailingContent,
 			}
 			trailingFrame = trailing
 			table.insert(rootChildren, trailing)

@@ -500,6 +500,7 @@ type StepState
 type StepperCellProps
 type StepperProps
 type StepperRequestProps
+type StyleTags
 type Tab
 type TabPlacement
 type TabSelectionIndicator

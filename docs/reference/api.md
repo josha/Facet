@@ -27,9 +27,15 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 `Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles (phone, tablet, monitor, 10-foot TV, handheld and VR, with their insets and input mode), and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).
 
+`Facet.StyleTags` types fixed or live style tags: a string, a string list,
+a readable value or a formula. `Facet.tag` replaces its own live tags and
+keeps other tags on the instance. Compose owns the live subscription.
+`Design.document.bindTags` binds a string or named string list input or row field.
+
 `Facet.DesignContext.space = "3d"` selects Compose Design's 3D stage and an
 `Instance` return type for scene documents. With `context.host`, the library
-includes native `Model`, `Part` and `PointLight` kinds. `Pagination` accepts
+includes native `Model`, `Part`, `PointLight`, `SurfaceLight`, `Texture` and
+`Decal` kinds. `Pagination` accepts
 positional children, including `UIFlexItem`.
 
 `Facet.DesignContext.extension` accepts a `Facet.DesignExtension`. It uses

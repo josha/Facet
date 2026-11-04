@@ -343,6 +343,7 @@ export type DesignKit = {
 	seeds: (kind: string) -> { DesignSeed },
 	motion: (Controls) -> DesignMotion,
 }
+export type StyleTags = SharedTypes.Input<string | { string }>
 export type Facet = {
 	VERSION: string,
 	COMPOSE_COMMIT: string,
@@ -350,7 +351,7 @@ export type Facet = {
 	Roblox: ComposeRobloxModule,
 	design: () -> DesignKit,
 	composeDesign: () -> DesignStudioKit,
-	tag: <T>(instance: T, tags: { string }) -> T,
+	tag: <T>(instance: T, tags: StyleTags) -> T,
 	controls: (Runtime, ControlOptions?) -> Controls,
 	host: (Runtime) -> Host,
 	app: (AppOptions?) -> App,
@@ -395,16 +396,6 @@ local USED = {
 	"withRootOwner",
 }
 
-local function tag<T>(instance: T, tags: { string }): T
-	if typeof(instance) == "Instance" then
-		local tagged: Instance = instance
-		for _, name in tags do
-			tagged:AddTag(name)
-		end
-	end
-	return instance
-end
-
 local recipes: { arithmetic: { parse: (unknown) -> number? } } =
 	freeze({ arithmetic = freeze({ parse = arithmetic.parse }) })
 
@@ -423,6 +414,40 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		error("Facet.bind: pass the Compose Roblox module from the same Compose copy as the second argument", 2)
 	end
 	local themes = bindThemes(core)
+	local readTags = require("@self/ui/input_read")(core.isValue)
+	local function tag<T>(instance: T, tags: StyleTags): T
+		if typeof(instance) == "Instance" then
+			local tagged: Instance = instance
+			local previous: { [string]: true } = {}
+			local function apply(current: string | { string })
+				local names = if type(current) == "string" then { current } else current
+				local nextTags: { [string]: true } = {}
+				for _, name in names do
+					assert(type(name) == "string", "Facet.tag: tags must contain strings")
+					if previous[name] or not tagged:HasTag(name) then
+						nextTags[name] = true
+					end
+				end
+				for name in previous do
+					if not nextTags[name] then
+						tagged:RemoveTag(name)
+					end
+				end
+				for name in nextTags do
+					tagged:AddTag(name)
+				end
+				previous = nextTags
+			end
+			if core.isValue(tags) or type(tags) == "function" then
+				core.watch(function(use: Use)
+					apply(readTags<<string | { string }>>(tags, use))
+				end)
+			else
+				apply(readTags<<string | { string }>>(tags))
+			end
+		end
+		return instance
+	end
 	local function controls(runtime: Runtime, options: ControlOptions?): Controls
 		return createControls(core, runtime, options)
 	end

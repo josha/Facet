@@ -104,7 +104,7 @@ export type NavBarOptions = {
 	titleSize: string?,
 	leading: GuiObject?,
 	center: GuiObject?,
-	trailing: GuiObject?,
+	trailing: (GuiObject | (() -> GuiObject))?,
 	gap: number?,
 	padding: number?,
 	surface: ("surface" | "panel" | "pane")?,

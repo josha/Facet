@@ -1405,7 +1405,6 @@ local derived: Types.Derived = {
 				surface = { type = "choice", options = { "surface", "panel", "pane" } },
 				title = { type = "string" },
 				titleSize = { type = "string" },
-				trailing = { type = "value" },
 			},
 		},
 		NavigationSplitView = {

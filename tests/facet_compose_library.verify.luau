@@ -195,6 +195,267 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet library in Compose Design", function()
+		local sceneProperties: { [string]: { [string]: Facet.DesignLiteral } } = {
+			Part = {
+				Color = "#123456",
+				Transparency = 0.4,
+				Anchored = true,
+				CanCollide = false,
+				CastShadow = false,
+				Reflectance = 0.2,
+			},
+			PointLight = { Color = "#123456", Brightness = 3, Range = 24, Shadows = true, Enabled = false },
+			SurfaceLight = {
+				Color = "#123456",
+				Brightness = 3,
+				Range = 24,
+				Shadows = true,
+				Enabled = false,
+				Face = "Top",
+				Angle = 75,
+			},
+			Decal = { Texture = "rbxassetid://123", Color3 = "#123456", Transparency = 0.4, Face = "Front", ZIndex = 2 },
+			Texture = {
+				Texture = "rbxassetid://123",
+				Color3 = "#123456",
+				Transparency = 0.4,
+				Face = "Top",
+				ZIndex = 2,
+				StudsPerTileU = 3,
+				StudsPerTileV = 4,
+				OffsetStudsU = 1,
+				OffsetStudsV = 2,
+			},
+		}
+		for className, properties in sceneProperties do
+			verifyHarness:case("authors native scene properties for " .. className, {
+				id = "facet_compose_library::authors native scene properties for " .. className,
+				run = function(test: Verify.Context)
+					local amount = Facet.Compose.cell<<Facet.DesignLiteral?>>(0.4)
+					local target: { [string]: unknown }? = nil
+					test:defer(mount(function(ctx: Context): unknown
+						local Host = ctx.runtime.constructors
+						local library = Kit.library({
+							UI = ctx.UI,
+							types = ctx.types,
+							space = "3d",
+							host = function(name: string, layer: string, props: { [unknown]: unknown }): unknown
+								return Host[name](props, layer)
+							end,
+						})
+						local value = Design.document.new("SceneProperties", library, "Part")
+						local id = "n1"
+						if className ~= "Part" then
+							value, id = Design.document.insert(value, library, id, className)
+						end
+						for key, literal in properties do
+							value = Design.document.change(value, library, id, key, { literal = literal })
+						end
+						value = Design.document.setContract(value, library, {
+							inputs = { { id = "amount", kind = "readable", type = "number" } },
+							outputs = {},
+						})
+						local liveProperty = if className == "Part"
+							then "Reflectance"
+							elseif className == "PointLight" or className == "SurfaceLight" then "Brightness"
+							else "Transparency"
+						value = Design.document.change(value, library, id, liveProperty, { input = "amount" })
+						local code = Design.emit(value, library)
+						Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+						local built = Design.render(value, library, { bindings = { amount = { readable = amount } } })
+						assert(typeof(built) == "Instance")
+						local node = if className == "Part"
+							then built
+							else assert(built:FindFirstChildWhichIsA(className))
+						local actual = (node :: unknown) :: { [string]: unknown }
+						for key, literal in properties do
+							local expected: unknown = if key == liveProperty then 0.4 else literal
+							if key == "Color" or key == "Color3" then
+								expected = ctx.types.Color3.fromHex("123456")
+							elseif key == "Face" then
+								expected = if literal == "Top"
+									then ctx.types.Enum.NormalId.Top
+									else ctx.types.Enum.NormalId.Front
+							end
+							Verify.expect(actual[key]):toBe(expected)
+						end
+						target = actual
+						return built
+					end).dispose)
+					amount:set(0.7)
+					local key = if className == "Part"
+						then "Reflectance"
+						elseif className == "PointLight" or className == "SurfaceLight" then "Brightness"
+						else "Transparency"
+					Verify.expect(assert(target)[key]):toBe(0.7)
+				end,
+			})
+		end
+
+		verifyHarness:case("keeps native TextSize live beside a typography role", {
+			id = "facet_compose_library::keeps native TextSize live beside a typography role",
+			run = function(test: Verify.Context)
+				local size = Facet.Compose.cell<<Facet.DesignLiteral?>>(23)
+				local label: TextLabel? = nil
+				test:defer(mount(function(ctx: Context): unknown
+					local library = live(ctx)
+					local value = Design.document.new("SizedText", library, "Text")
+					value = Design.document.setContract(value, library, {
+						inputs = { { id = "size", kind = "readable", type = "number" } },
+						outputs = {},
+					})
+					value = Design.document.change(value, library, "n1", "textRole", { literal = "title" })
+					value = Design.document.change(value, library, "n1", "textSize", { literal = 17 })
+					value = Design.document.change(value, library, "n1", "TextSize", { input = "size" })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, "TextSize = props.size", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					local built = Design.render(value, library, { bindings = { size = { readable = size } } })
+					assert(typeof(built) == "Instance" and built:IsA("TextLabel"))
+					Verify.expect(built:HasTag("facet-type-title")):toBe(true)
+					Verify.expect(built.TextSize):toBe(23)
+					label = built
+					local Host = ctx.runtime.constructors
+					local sheet =
+						Facet.themes.createStyleSheet(ctx.runtime, Facet.themes.neutralPackage(), { types = ctx.types })
+					return Host.Frame { sheet, Host.StyleLink { StyleSheet = Facet.Compose.static(sheet) }, built }
+				end).dispose)
+				Verify.expect(assert(label):GetStyled("TextSize")):toBe(23)
+				size:set(31)
+				Verify.expect(assert(label).TextSize):toBe(31)
+				Verify.expect(assert(label):GetStyled("TextSize")):toBe(31)
+			end,
+		})
+
+		verifyHarness:case("binds tag lists until the Compose owner is disposed", {
+			id = "facet_compose_library::binds tag lists until the Compose owner is disposed",
+			run = function(test: Verify.Context)
+				local tags = Facet.Compose.cell({ "consumer-owned", "first", "second" })
+				local direct = Facet.Compose.cell<<string | { string }>>("direct")
+				local evaluations = 0
+				local node: Frame? = nil
+				local mounted = mount(function(ctx: Context): unknown
+					local frame = ctx.UI.HStack {}
+					Facet.tag(frame, "consumer-owned")
+					Facet.tag(frame, { "fixed" })
+					Facet.tag(frame, direct)
+					Facet.tag(frame, function(use: Facet.Use): { string }
+						evaluations += 1
+						return use(tags)
+					end)
+					node = frame
+					return frame
+				end)
+				test:defer(mounted.dispose)
+				local frame = assert(node)
+				Verify.expect(frame:HasTag("first")):toBe(true)
+				Verify.expect(frame:HasTag("second")):toBe(true)
+				Verify.expect(frame:HasTag("direct")):toBe(true)
+				direct:set({ "updated" })
+				Verify.expect(frame:HasTag("direct")):toBe(false)
+				Verify.expect(frame:HasTag("updated")):toBe(true)
+				tags:set({ "second", "third" })
+				Verify.expect(frame:HasTag("first")):toBe(false)
+				Verify.expect(frame:HasTag("second")):toBe(true)
+				Verify.expect(frame:HasTag("third")):toBe(true)
+				tags:set({})
+				Verify.expect(frame:HasTag("second")):toBe(false)
+				Verify.expect(frame:HasTag("third")):toBe(false)
+				Verify.expect(frame:HasTag("consumer-owned")):toBe(true)
+				Verify.expect(frame:HasTag("fixed")):toBe(true)
+				mounted.dispose()
+				local stoppedAt = evaluations
+				tags:set({ "late" })
+				Verify.expect(evaluations):toBe(stoppedAt)
+			end,
+		})
+
+		verifyHarness:case("accepts emitted bound tag formulas and replaces owned tags", {
+			id = "facet_compose_library::accepts emitted bound tag formulas and replaces owned tags",
+			run = function(test: Verify.Context)
+				local current = Facet.Compose.cell({ id = "rail", paint = "rail-hot" })
+				local rail: Frame? = nil
+				test:defer(mount(function(ctx: Context): unknown
+					local library = live(ctx)
+					local value = Design.document.new("Rail", library, "HStack")
+					value = Design.document.setContract(value, library, {
+						inputs = {
+							{
+								id = "rails",
+								kind = "readable",
+								type = "list",
+								fields = { { id = "id", type = "string" }, { id = "paint", type = "string" } },
+							},
+						},
+						outputs = {},
+					})
+					local child
+					value, child = Design.document.insert(value, library, "n1", "HStack")
+					value = Design.document.bind(value, library, "n1", { from = "rails", key = "id" })
+					value = Design.document.bindTags(value, library, child, { item = "paint" })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, "return use(current).paint", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					local node = ctx.UI.HStack "Rail" {}
+					node:AddTag("consumer-owned")
+					Verify.expect(Facet.tag(node, function(use: Facet.Use): string
+						return use(current).paint
+					end)):toBe(node)
+					rail = node
+					Verify.expect(node:HasTag("rail-hot")):toBe(true)
+					return node
+				end).dispose)
+				current:set({ id = "rail", paint = "rail-cold" })
+				local node = assert(rail)
+				Verify.expect(node:HasTag("rail-hot")):toBe(false)
+				Verify.expect(node:HasTag("rail-cold")):toBe(true)
+				Verify.expect(node:HasTag("consumer-owned")):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("authors NavBar trailing as content and a caller slot", {
+			id = "facet_compose_library::authors NavBar trailing as content and a caller slot",
+			run = function(test: Verify.Context)
+				for _, form in { "child", "slot", "direct" } do
+					test:defer(mount(function(ctx: Context): unknown
+						if form == "direct" then
+							local action = ctx.UI.Button "Action" { label = "Filter" }
+							return ctx.UI.NavBar { title = "Collection", trailing = action }
+						end
+						local library = live(ctx)
+						local value = Design.document.new("Navigation", library, "NavBar")
+						if form == "child" then
+							value = Design.document.content(value, library, "n1", "trailing", "Button")
+						else
+							value = Design.document.setContract(value, library, {
+								inputs = { { id = "actions", kind = "value", type = "slot", required = true } },
+								outputs = {},
+							})
+							value = Design.document.change(value, library, "n1", "trailing", { input = "actions" })
+						end
+						local code = Design.emit(value, library)
+						Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+						local calls = 0
+						local built = Design.render(value, library, {
+							bindings = {
+								actions = {
+									slot = function(): unknown
+										calls += 1
+										return ctx.UI.Button "Action" { label = "Filter" }
+									end,
+								},
+							},
+						})
+						assert(typeof(built) == "Instance")
+						local trailing = assert(built:FindFirstChild("Trailing"))
+						Verify.expect(trailing:FindFirstChildWhichIsA("TextButton") ~= nil):toBe(true)
+						Verify.expect(calls):toBe(if form == "slot" then 1 else 0)
+						return built
+					end).dispose)
+				end
+			end,
+		})
+
 		verifyHarness:case("keeps Pagination native children through source and rendering", {
 			id = "facet_compose_library::keeps Pagination native children through source and rendering",
 			run = function(test: Verify.Context)
