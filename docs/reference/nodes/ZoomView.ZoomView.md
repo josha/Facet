@@ -11,6 +11,10 @@ the viewport. The control uses one UIScale and native scrolling.
   Without it, the view starts at fit. A zoom must be positive and finite.
 - `focus`: an optional content point, or a readable. A change centres that
   point. Zoom keeps the current point fixed on screen until an edge stops it.
+- `preferredSelection`: an optional GuiObject or readable nullable target.
+  When the root is selected, D-pad or A enters this target if it is a visible,
+  selectable content descendant. Otherwise entry selects the visible content
+  target nearest the viewport centre. Native navigation controls later moves.
 - `minZoom`: a positive finite scale. Without it, the minimum is fit.
   `maxZoom` is 4 by default. `minZoom` cannot exceed `maxZoom`.
 - `doubleTapZoom`: the closer scale for a double tap. The default is twice

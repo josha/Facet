@@ -3465,6 +3465,7 @@ local derived: Types.Derived = {
 				followTransition = { type = "boolean" },
 				maxZoom = { type = "number" },
 				minZoom = { type = "number" },
+				preferredSelection = { type = "node" },
 				zoom = { type = "value" },
 			},
 		},

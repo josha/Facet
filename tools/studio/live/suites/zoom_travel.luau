@@ -36,7 +36,7 @@ type TravelState = {
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
 
-local function zoomSetup(t: Live, captureCamera: boolean?): ZoomState
+local function zoomSetup(t: Live, captureCamera: boolean?, entryTargets: boolean?): ZoomState
 	local state: ZoomState
 	local stage = t.mount(function(UI: Controls, Host: Host, C: ComposeModule): Instance
 		local zoom = C.cell(1)
@@ -81,6 +81,14 @@ local function zoomSetup(t: Live, captureCamera: boolean?): ZoomState
 					BackgroundColor3 = Color3.fromRGB(45, 70, 90),
 					tile,
 					UI.Text { text = "BOARD", Position = UDim2.fromOffset(20, 20), Size = UDim2.fromOffset(120, 60) },
+					if entryTargets
+						then UI.Button {
+							Name = "CornerTile",
+							label = "Corner",
+							Position = UDim2.fromOffset(0, 0),
+							Size = UDim2.fromOffset(60, 60),
+						}
+						else nil,
 				}
 			end,
 		}
@@ -644,9 +652,19 @@ local zoomGamepad: ZoomCase = {
 	id = "zoom-gamepad",
 	contracts = {},
 	setup = function(t: Live): ZoomState
-		return zoomSetup(t)
+		return zoomSetup(t, nil, true)
 	end,
-	steps = { afterTrigger = afterZoom, afterStick = afterPan, afterFit = afterZoom },
+	steps = {
+		afterTrigger = afterZoom,
+		afterStick = afterPan,
+		afterFit = afterZoom,
+		afterDpadEntry = function(t: Live, state: ZoomState)
+			t.check("D-pad enters the centre tile", GuiService.SelectedObject == state.tile, GuiService.SelectedObject)
+		end,
+		afterAEntry = function(t: Live, state: ZoomState)
+			t.check("A enters the centre tile", GuiService.SelectedObject == state.tile, GuiService.SelectedObject)
+		end,
+	},
 }
 
 local travelPointer: TravelCase = {

@@ -119,7 +119,7 @@ return function(harness: Verify.Harness)
 		}
 		local expected: { [string]: string } = {
 			["keyboard-gamepad-place-and-cancel"] = "ButtonA,DPadDown,ButtonA,ButtonA,ButtonB",
-			["zoom-gamepad"] = "ButtonR1,Stick2Right,ButtonY",
+			["zoom-gamepad"] = "ButtonR1,Stick2Right,ButtonY,DPadDown,ButtonA",
 			["travel-gamepad"] = "ButtonA,ButtonA",
 			["shuffle-gamepad"] = "ButtonA,ButtonA,ButtonA",
 			["sidebar-dpad-to-collections"] = "DPadDown",

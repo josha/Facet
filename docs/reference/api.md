@@ -43,6 +43,10 @@ includes native `Model`, `Part`, `PointLight`, `SurfaceLight`, `Texture` and
 `Decal` kinds. `Pagination` accepts
 positional children, including `UIFlexItem`.
 
+`ZoomView.preferredSelection` sets its optional console entry target. D-pad
+or A on the root enters that visible selectable or the selectable nearest
+the viewport centre. NavigationSplitView's divider is pointer-only.
+
 `Facet.DesignContext.extension` accepts a `Facet.DesignExtension`. It uses
 Compose Design's `extend` API to add consumer kinds and their source prelude.
 `Facet.DesignKind` types a kind and its fields. `Facet.DesignResolved` types

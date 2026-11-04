@@ -18,6 +18,13 @@ return function(
 			press(t, { "ButtonY" })
 			settle(30)
 			step("afterFit")
+			press(t, { "DPadDown" })
+			settle(4)
+			step("afterDpadEntry")
+			select(assert(state.view))
+			press(t, { "ButtonA" })
+			settle(4)
+			step("afterAEntry")
 		end,
 		["travel-gamepad"] = function(t, state)
 			local root = assert(assert(state.content).Parent).Parent

@@ -10,7 +10,7 @@ local engineLib = require("./lib/native_engine")
 local geometry = require("../src/ui/zoom_geometry")
 local travelGeometry = require("../src/ui/travel_geometry")
 
-local function inputWorld(content: ((Facet.Host, Facet.Controls) -> GuiObject)?)
+local function inputWorld(content: ((Facet.Host, Facet.Controls) -> GuiObject)?, preferred: Shared.Input<GuiObject?>?)
 	local engine = engineLib.new({ lenientProperties = true })
 	local C = Facet.Compose
 	local runtime = Facet.Roblox.createRuntime(engine)
@@ -39,6 +39,7 @@ local function inputWorld(content: ((Facet.Host, Facet.Controls) -> GuiObject)?)
 			controls = controls,
 			enabled = enabled,
 			zoom = zoom,
+			preferredSelection = preferred,
 			doubleTapZoom = 2,
 			contentSize = V2.new(1000, 1000),
 			content = function(): GuiObject
@@ -99,6 +100,98 @@ end
 
 return function(harness: Verify.Harness)
 	harness:suite("zoom and travel", function()
+		harness:case("D-pad and A enter a board at its viewport centre or preferred visible target", {
+			id = "zoom_travel::console board entry",
+			run = function(t)
+				local preferred = Facet.Compose.cell<<GuiObject?>>(nil)
+				local world = inputWorld(function(Host, _UI)
+					local children: { GuiObject } = {}
+					for index = 1, 225 do
+						children[index] = Host.TextButton { Name = "Cell" .. index, Selectable = true }
+					end
+					return Host.Frame("Board")(children)
+				end, preferred)
+				t:defer(world.stop)
+				local V2, E = world.engine.types.Vector2, world.engine.types.Enum
+				local board = assert(world.view:FindFirstChild("Board", true))
+				local cells: { GuiObject } = {}
+				for index = 1, 225 do
+					local cell = assert(board:FindFirstChild("Cell" .. index))
+					assert(cell:IsA("GuiObject"))
+					cells[index] = cell
+					world.engine.environment.poke(
+						VerifyRoblox.assertInstance(cell),
+						"AbsolutePosition",
+						V2.new(20 + ((index - 1) % 15) * 24, 30 + math.floor((index - 1) / 15) * 24)
+					)
+					world.engine.environment.poke(VerifyRoblox.assertInstance(cell), "AbsoluteSize", V2.new(20, 20))
+				end
+				local action: Instance? = nil
+				for _, node in world.player:GetDescendants() do
+					if node:IsA("InputAction") and node.Name == "ZoomEnter" then
+						action = node
+					end
+				end
+				local enter = VerifyRoblox.assertInstance(assert(action))
+				local enterAction = assert(action) :: InputAction
+				local keys: { [Enum.KeyCode]: boolean } = {}
+				for _, binding in enterAction:GetChildren() do
+					if binding:IsA("InputBinding") then
+						keys[binding.KeyCode] = true
+					end
+				end
+				for _, key in
+					{ E.KeyCode.DPadUp, E.KeyCode.DPadDown, E.KeyCode.DPadLeft, E.KeyCode.DPadRight, E.KeyCode.ButtonA }
+				do
+					t:expect(keys[key]):toBe(true)
+				end
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(cells[129])
+				preferred:set(cells[1])
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(cells[1])
+				cells[1].Visible = false
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(cells[129])
+				cells[1].Visible = true
+				world.engine.environment.poke(
+					VerifyRoblox.assertInstance(cells[1]),
+					"AbsolutePosition",
+					V2.new(-1000, -1000)
+				)
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(cells[129])
+				cells[129].Interactable = false
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject == cells[129]):toBe(false)
+				preferred:set(world.outer)
+				cells[129].Interactable = true
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(cells[129])
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(cells[129])
+				world.engine.environment.poke(VerifyRoblox.assertInstance(world.view), "AbsoluteWindowSize", V2.zero)
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(world.view)
+				world.engine.environment.poke(
+					VerifyRoblox.assertInstance(world.view),
+					"AbsoluteWindowSize",
+					V2.new(400, 400)
+				)
+				world.enabled:set(false)
+				world.gui.SelectedObject = world.view
+				world.engine.environment.fire(enter, "Pressed")
+				t:expect(world.gui.SelectedObject):toBe(world.view)
+			end,
+		})
+
 		harness:case("rectangle focus retargets from the painted viewport at unchanged scale", function(t)
 			local world = inputWorld()
 			t:defer(world.stop)

@@ -77,6 +77,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			"content",
 			"zoom",
 			"focus",
+			"preferredSelection",
 			"minZoom",
 			"maxZoom",
 			"doubleTapZoom",
@@ -790,7 +791,54 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		local function active(use: Shared.Use): boolean
 			return use(selected) == root and ctx.read(spec.enabled, use) ~= false and not blocked()
 		end
-		runtime.connect(root, "SelectionGained", function() end)
+		local function visibleTarget(node: GuiObject): boolean
+			if not node.Selectable or not node:IsDescendantOf(canvas) or not ctx.available(node) then
+				return false
+			end
+			local low, high = node.AbsolutePosition, node.AbsolutePosition + node.AbsoluteSize
+			local at: Instance? = node.Parent
+			while at do
+				if at:IsA("GuiObject") and (at == root or at.ClipsDescendants) then
+					local position = at.AbsolutePosition
+					local size = if at == root then root.AbsoluteWindowSize else at.AbsoluteSize
+					low = V2.new(math.max(low.X, position.X), math.max(low.Y, position.Y))
+					high = V2.new(math.min(high.X, position.X + size.X), math.min(high.Y, position.Y + size.Y))
+				end
+				at = at.Parent
+			end
+			return high.X > low.X and high.Y > low.Y
+		end
+		local function enterContent()
+			if not gui or gui.SelectedObject ~= root or not enabled() then
+				return
+			end
+			local target = ctx.read<<GuiObject?>>(spec.preferredSelection)
+			if target and visibleTarget(target) then
+				gui.SelectedObject = target
+				return
+			end
+			local centre = root.AbsolutePosition + root.AbsoluteWindowSize / 2
+			local nearest = math.huge
+			target = nil
+			for _, node in canvas:GetDescendants() do
+				if node:IsA("GuiObject") and visibleTarget(node) then
+					local distance = (node.AbsolutePosition + node.AbsoluteSize / 2 - centre).Magnitude
+					if distance < nearest then
+						nearest, target = distance, node
+					end
+				end
+			end
+			if target then
+				gui.SelectedObject = target
+			end
+		end
+		ctx.action(root, "ZoomEnter", {
+			E.KeyCode.DPadUp,
+			E.KeyCode.DPadDown,
+			E.KeyCode.DPadLeft,
+			E.KeyCode.DPadRight,
+			E.KeyCode.ButtonA,
+		}, active, enterContent, { sink = true, priority = 250 })
 		for _, entry in
 			{
 				{ name = "ZoomIn", key = E.KeyCode.Equals, pad = E.KeyCode.ButtonR1, direction = 1 },

@@ -315,8 +315,8 @@ return function(live: any, suite: string, options: Options): any
 			settle(20)
 		end
 		live.step("wide")
-		GuiService.SelectedObject = value.root.Resize
-		press(t, { "Period", "Period" })
+		local dividerPoint = centre(value.root.Resize)
+		io.drag(dividerPoint, dividerPoint + Vector2.new(32, 0))
 		live.step("resized")
 		local function firstStop(root: Instance): GuiObject
 			for _, node in root:GetDescendants() do

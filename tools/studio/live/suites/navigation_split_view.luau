@@ -184,7 +184,12 @@ local cases: { any } = {
 					)
 					resizable:set(true)
 					t.settle()
-					t.check(name .. " resizing restored", root.Resize.Selectable and root.Resize.Grip.Visible)
+					t.check(
+						name .. " resizing restored",
+						not root.Resize.Selectable
+							and root.Resize.Grip.Visible
+							and root.Resize:FindFirstChildWhichIsA("UIDragDetector").Enabled
+					)
 				end
 			end
 		end,
@@ -683,12 +688,12 @@ local cases: { any } = {
 					math.abs(s.width - s.root.Sidebar.AbsoluteSize.X) >= 8,
 					{ before = s.width, after = s.root.Sidebar.AbsoluteSize.X }
 				)
-				t.check("focus stays on divider", GuiService.SelectedObject == s.root.Resize)
+				t.check("divider stays pointer-only", not s.root.Resize.Selectable)
 			end,
 			divider = function(t: any, s: any)
 				t.check(
-					"pane crossing stops at divider",
-					GuiService.SelectedObject == s.root.Resize,
+					"pane crossing enters detail",
+					GuiService.SelectedObject ~= nil and GuiService.SelectedObject:IsDescendantOf(s.root.Detail),
 					GuiService.SelectedObject
 				)
 				t.check("ring targets grip", s.root.Resize:GetAttribute("FacetFocusPart") == "Grip")

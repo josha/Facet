@@ -612,6 +612,7 @@ return function(harness: Verify.Harness)
 		send.Name, back.Name, send.Parent, back.Parent = "Send", "Return", root, root
 		local selected: GuiObject? = nil
 		local events: { string } = {}
+		local waits: { number } = {}
 		local drivers = require("../tools/studio/live/zoom_travel_drivers")(function(name)
 			table.insert(events, name)
 		end, function(_, keys, frames)
@@ -621,16 +622,21 @@ return function(harness: Verify.Harness)
 				t:expect(frames):toBe(30)
 			end
 		end, function(frames)
-			t:expect(frames >= 30):toBe(true)
+			table.insert(waits, frames)
 		end, function(node)
 			selected = node
 		end)
 		drivers["zoom-gamepad"](nil, { view = view })
-		t:expect(table.concat(events, ",")):toBe("ButtonR1,afterTrigger,Stick2Right,afterStick,ButtonY,afterFit")
+		t:expect(table.concat(events, ",")):toBe(
+			"ButtonR1,afterTrigger,Stick2Right,afterStick,ButtonY,afterFit,DPadDown,afterDpadEntry,ButtonA,afterAEntry"
+		)
+		t:expect(waits):toEqual({ 30, 30, 4, 4 })
 		table.clear(events)
+		table.clear(waits)
 		drivers["travel-gamepad"](nil, { content = tile })
 		t:expect(selected == back):toBe(true)
 		t:expect(table.concat(events, ",")):toBe("ButtonA,afterSend,ButtonA,afterReturn")
+		t:expect(waits):toEqual({ 40, 40 })
 	end)
 	harness:case("F-030 virtual target replacement and removal end Travel ownership", function(t)
 		local native = engineLib.new()
