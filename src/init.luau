@@ -11,6 +11,7 @@ export type CameraPose = CameraRigTypes.CameraPose
 export type CameraRigOptions = CameraRigTypes.CameraRigOptions
 export type CameraRig = CameraRigTypes.CameraRig
 local SharedTypes = require("@self/ui/types")
+local updateStyleTags = require("@self/ui/style_tags")
 local CollectionProps = require("@self/ui/collection_props")
 local SpatialProps = require("@self/ui/spatial_grid_props")
 local ContentProps = require("@self/ui/content_props")
@@ -420,23 +421,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 			local tagged: Instance = instance
 			local previous: { [string]: true } = {}
 			local function apply(current: string | { string })
-				local names = if type(current) == "string" then { current } else current
-				local nextTags: { [string]: true } = {}
-				for _, name in names do
-					assert(type(name) == "string", "Facet.tag: tags must contain strings")
-					if previous[name] or not tagged:HasTag(name) then
-						nextTags[name] = true
-					end
-				end
-				for name in previous do
-					if not nextTags[name] then
-						tagged:RemoveTag(name)
-					end
-				end
-				for name in nextTags do
-					tagged:AddTag(name)
-				end
-				previous = nextTags
+				previous = updateStyleTags(tagged, current, previous)
 			end
 			if core.isValue(tags) or type(tags) == "function" then
 				core.watch(function(use: Use)

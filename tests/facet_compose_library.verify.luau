@@ -413,6 +413,36 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("replaces bound input tags through public Design rendering", {
+			id = "facet_compose_library::replaces bound input tags through public Design rendering",
+			run = function(test: Verify.Context)
+				local paint = Facet.Compose.cell<<Facet.DesignLiteral?>>("rail-hot")
+				local rail: Instance? = nil
+				test:defer(mount(function(ctx: Context): unknown
+					local library = live(ctx)
+					local value = Design.document.new("Rail", library, "HStack")
+					value = Design.document.setContract(value, library, {
+						inputs = { { id = "paint", kind = "readable", type = "string" } },
+						outputs = {},
+					})
+					value = Design.document.bindTags(value, library, "n1", { input = "paint" })
+					local code = Design.emit(value, library)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					local built = Design.render(value, library, { bindings = { paint = { readable = paint } } })
+					assert(typeof(built) == "Instance")
+					built:AddTag("consumer-owned")
+					rail = built
+					Verify.expect(built:HasTag("rail-hot")):toBe(true)
+					return built
+				end).dispose)
+				paint:set("rail-cold")
+				local node = assert(rail)
+				Verify.expect(node:HasTag("rail-hot")):toBe(false)
+				Verify.expect(node:HasTag("rail-cold")):toBe(true)
+				Verify.expect(node:HasTag("consumer-owned")):toBe(true)
+			end,
+		})
+
 		verifyHarness:case("authors NavBar trailing as content and a caller slot", {
 			id = "facet_compose_library::authors NavBar trailing as content and a caller slot",
 			run = function(test: Verify.Context)

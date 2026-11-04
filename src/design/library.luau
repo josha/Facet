@@ -9,6 +9,7 @@ local icons = require("../ui/icons")
 local Motion = require("./motion")
 local Roblox3D = require("../vendor/compose/design-editor/roblox-3d-library")
 local robloxTypes = require("../ui/roblox_types")
+local updateStyleTags = require("../ui/style_tags")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -847,6 +848,7 @@ local function create(context: Context): Design.Library
 	if tokens ~= nil then
 		table.insert(prelude, tokens.require)
 	end
+	local appliedTags: { [Instance]: { [string]: true } } = setmetatable({}, { __mode = "k" })
 	local library: Design.Library = {
 		name = "Facet",
 		parameter = "UI",
@@ -862,9 +864,7 @@ local function create(context: Context): Design.Library
 			call = "Facet.tag",
 			apply = function(built: unknown, tags: { string })
 				if typeof(built) == "Instance" then
-					for _, name in tags do
-						built:AddTag(name)
-					end
+					appliedTags[built] = updateStyleTags(built, tags, appliedTags[built])
 				end
 			end,
 		},
