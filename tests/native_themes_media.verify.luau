@@ -2793,24 +2793,19 @@ return function(verifyHarness: Verify.Harness)
 						assert(palette.extra).control = control
 						return (sheetFor(h, themeState(base)))
 					end
-					local function has(sheet: any, selector: string): boolean
-						for _, node in sheet:GetChildren() do
-							if table.find(string.split(node.Selector, ", "), selector) ~= nil then
-								return true
-							end
-						end
-						return false
-					end
 					local colors, extra = neutralColors()
 					local blended = sheetWith(colors.surface)
-					expect(style(blended, ".facet-toggle-switch::UIStroke").Color):toBe(
-						color(h.engine, extra.contentSecondary)
+					local outline = style(blended, ".facet-toggle-switch::UIStroke")
+					expect(outline.Color):toBe(color(h.engine, extra.contentSecondary))
+					expect(style(blended, ".facet-toggle-switch.facet-toggle-on::UIStroke").Color):toBe(
+						color(h.engine, extra.selection or colors.accent)
 					)
-					expect(style(blended, ".facet-toggle-switch.facet-toggle-on::UIStroke").Transparency):toBe(1)
 					local s = colors.surface
-					local distinct =
-						sheetWith(if s.r + s.g + s.b > 1.5 then { r = 0, g = 0, b = 0 } else { r = 1, g = 1, b = 1 })
-					expect(has(distinct, ".facet-toggle-switch::UIStroke")):toBe(false)
+					local fill = if s.r + s.g + s.b > 1.5 then { r = 0, g = 0, b = 0 } else { r = 1, g = 1, b = 1 }
+					local hidden = style(sheetWith(fill), ".facet-toggle-switch::UIStroke")
+					expect(hidden.Color):toBe(color(h.engine, fill))
+					expect(hidden.Thickness):toBe(outline.Thickness)
+					expect(hidden.Transparency):toBe(outline.Transparency)
 				end,
 			})
 
