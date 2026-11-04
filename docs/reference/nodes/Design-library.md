@@ -110,6 +110,7 @@ For example, assume a game exports a named component `Game.Emblem(name)(props)`
 with a string `label`. Its editor builder can use the same component:
 
 ```luau
+local kit = Facet.design()
 local emblem: Facet.DesignKind = {
     fields = { label = { type = "string", default = "Emblem" } },
     defaults = { label = "Emblem" },
