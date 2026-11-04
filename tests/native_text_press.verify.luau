@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	local expect = Verify.expect
@@ -10,43 +11,16 @@ return function(verifyHarness: Verify.Harness)
 		KeyCode = { Escape = "Escape", ButtonB = "ButtonB", Unknown = "Unknown" },
 	}
 
-	local function signal(): any
-		local listeners: { { c: { connected: boolean, Disconnect: () -> () }, fn: (...any) -> () } } = {}
-		return {
-			Connect = function(_: any, callback: (...any) -> ())
-				local c = { connected = true }
-				function c.Disconnect()
-					c.connected = false
-				end
-				table.insert(listeners, { c = c, fn = callback })
-				return c
-			end,
-			Fire = function(_, ...)
-				for _, item in table.clone(listeners) do
-					if item.c.connected then
-						item.fn(...)
-					end
-				end
-			end,
-			live = function(): number
-				local n = 0
-				for _, item in listeners do
-					n += if item.c.connected then 1 else 0
-				end
-				return n
-			end,
-		}
-	end
-
 	local function probe(text: string?, policy: string?, handlers: any?)
+		local environment = VerifyRoblox.testEnvironment({ handlerErrors = "raise" })
 		local writes: { string } = {}
 		local state: any = { Text = text or "12.5 km", CursorPosition = -1, SelectionStart = -1 }
 		local focused, mouseDown = false, false
-		local p: any = {}
+		local p: any = { environment = environment }
 		local instance = setmetatable({
-			Focused = signal(),
-			FocusLost = signal(),
-			InputBegan = signal(),
+			Focused = environment.newSignal(),
+			FocusLost = environment.newSignal(),
+			InputBegan = environment.newSignal(),
 			IsFocused = function()
 				return focused
 			end,
@@ -65,9 +39,9 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 		local uis = {
-			InputBegan = signal(),
-			InputChanged = signal(),
-			InputEnded = signal(),
+			InputBegan = environment.newSignal(),
+			InputChanged = environment.newSignal(),
+			InputEnded = environment.newSignal(),
 			IsMouseButtonPressed = function(_, kind)
 				return kind == "MB1" and mouseDown
 			end,
@@ -166,7 +140,7 @@ return function(verifyHarness: Verify.Harness)
 				p.mouseUp()
 				p.capture()
 				expect(#p.writes):toBe(0)
-				expect((p.uis.InputEnded.live())):toBe(0)
+				expect((p.environment.connectionsOf(p.uis.InputEnded))):toBe(0)
 				local d = probe("12.5 km", "all")
 				d.handle.disabledState = true
 				d.capture()
@@ -179,7 +153,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local p = probe("12.5 km", "none")
 				p.instance.InputBegan:Fire({ UserInputType = "Touch", Position = { X = 50, Y = 20 } })
-				expect(p.uis.InputEnded.live() + p.uis.InputChanged.live() + p.uis.InputBegan.live()):toBe(0)
+				expect(
+					p.environment.connectionsOf(p.uis.InputEnded)
+						+ p.environment.connectionsOf(p.uis.InputChanged)
+						+ p.environment.connectionsOf(p.uis.InputBegan)
+				):toBe(0)
 			end,
 		})
 	end)
@@ -206,7 +184,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(`{table.concat(log, " ")} | {p.caret()} {p.instance:IsFocused()} {#p.writes}`):toBe(
 					"press:pointer | 5 -1 true 0"
 				)
-				expect((p.uis.InputChanged.live())):toBe(0)
+				expect((p.environment.connectionsOf(p.uis.InputChanged))):toBe(0)
 			end,
 		})
 
@@ -247,7 +225,9 @@ return function(verifyHarness: Verify.Harness)
 				expect(`{table.concat(refused, " ")} {r.instance:IsFocused()}`):toBe("press:pointer begin true")
 				local n, never = scrubProbe("press")
 				n.mouseDown()
-				expect(`{table.concat(never, " ")} {n.uis.InputChanged.live()}`):toBe("press:pointer 0")
+				expect(`{table.concat(never, " ")} {n.environment.connectionsOf(n.uis.InputChanged)}`):toBe(
+					"press:pointer 0"
+				)
 			end,
 		})
 
