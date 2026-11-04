@@ -332,8 +332,10 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 	if edge ~= nil and rawequal(edge[1], value) then
 		consumer.reads = following
 	else
-		edge = consumer[at]
-		if edge == nil or not rawequal(edge[1], value) then
+		local previous = consumer[at]
+		if previous ~= nil and rawequal(previous[1], value) then
+			edge = previous
+		else
 			if type(value) ~= "table" or node.version == nil then
 				return notANode("use", value)
 			end
@@ -348,9 +350,7 @@ local function use<T>(value: Types.ReadOnlyValue<T>): T
 	if update ~= nil then
 		update(node)
 	end
-	if edge ~= nil then
-		edge.version = node.version
-	end
+	edge.version = node.version
 	local cached = value.cache
 	if cached == nil then
 		return Nodes.readCached(value)
@@ -602,6 +602,8 @@ function LISTENER.run(leader: Node)
 	end
 	runListeners(leader, producer)
 end
+
+LISTENER.runIn = LISTENER.run
 
 local CELL_LISTENER = {}
 CELL_LISTENER.__index = CELL_LISTENER

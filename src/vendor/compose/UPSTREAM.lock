@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "9d7a963f1e8c58b5e5327fb9801872c2613a2ce1",
+  "commit": "198c954a083699ac879a42fdf45154fab56fb955",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -46,7 +46,7 @@
     "core/reactive/cell.luau": "a0e2276d721b65a8f63b7a0211a69ed8f04a51f015d51cbfb86b74d2a57ff7ce",
     "core/reactive/evaluation.luau": "05670e8e420c9578f2c751515031f87a02a57adb1277c0718b621f108d081bd5",
     "core/reactive/formula.luau": "f34e6c22d9a0090b28d9c0aae9ea65ca18c42eabe25d978c558aec4961763490",
-    "core/reactive/graph.luau": "187a1ea746715b8dd81f263f4f54fa67311ae733bc7a148120f60c655e655464",
+    "core/reactive/graph.luau": "7848578d535b1aec145acad828ec60406b58943e386d9f53d2df6ad386240e82",
     "core/reactive/node.luau": "11dd33eebfef5564450634a998c5160a0f5344c56345a69dee82367601799a45",
     "core/reactive/profile.luau": "5ad6c0fc3c406e4010d37ba632d88978ba6a9e43bca6069ceb0e9b8b6941254b",
     "core/reactive/reactor.luau": "48bc41263387cbddb1cbc1f4a00ebeb6d5cc7341b168faacb92971ef159526e3",
@@ -123,9 +123,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "df4fd47d28e3963488db2a8aebbf792faf00fc57137487b08c629000dfbf1773",
-    "references/consumer-guides.md": "b3729a011c58b10787187c1188866a134d7b609aef3001d85eef0985f563d2a1",
+    "references/api.md": "1ca75572fd7ec20d74fc3949e28cd67372888b8e08f24a6a2c16b373b5f21068",
+    "references/consumer-guides.md": "36aacd477f887d954b95c18d4f80aac220410bb3b3d9841cd76e52407c8f2bc3",
     "references/design.md": "d071e5bb4b1fc0b056c175cd6c38cd963a53594c700e833270345b32a6e2364c",
-    "references/ownership.md": "d7553e84f375c480d445e0dede219b09806eb6143861cb7a5ee358b667bb0b6c"
+    "references/ownership.md": "25900c84f7b01500e7a03ea8d22bd0959e7aea24f89e46b70559c53ef9900ed3"
   }
 }
