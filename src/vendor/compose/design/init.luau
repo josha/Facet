@@ -33,6 +33,7 @@ export type Resolved = Types.Resolved
 export type Row = Types.Row
 export type Node = Types.Node
 export type Document = Types.Document
+export type RootVariant = Types.RootVariant
 export type History = History.History
 export type Extension = Library.Extension
 export type EmitOptions = Source.EmitOptions

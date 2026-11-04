@@ -34,6 +34,25 @@ end
 return function(value: Types.Document, library: Types.Library, context: Context?): unknown
 	local supplied: { [string]: Literal } = if context and context.inputs then context.inputs else {}
 	local bindings: { [string]: Resolved } = if context and context.bindings then context.bindings else {}
+	local variant = value.rootVariant
+	if variant then
+		local declared = assert(Document.input(value, variant.input))
+		local binding = bindings[variant.input]
+		assert(binding == nil or binding.readable == nil, "A root variant needs a static enum binding")
+		local selected = if binding
+			then binding.value or binding.literal
+			else supplied[variant.input] or declared.preview
+		assert(
+			type(selected) == "string" and table.find(assert(declared.options), selected) ~= nil,
+			"A root variant needs an enum option"
+		)
+		if selected == variant.value then
+			value = table.clone(value)
+			value.root = table.clone(value.root)
+			value.root.kind = variant.kind
+			value.root.props = variant.props
+		end
+	end
 	local live = context ~= nil and context.bindings ~= nil
 	local outputs: { [string]: (args: { Literal }) -> () } = if context and context.outputs then context.outputs else {}
 	local slots: { [string]: () -> unknown } = if context and context.slots then context.slots else {}
@@ -107,7 +126,8 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			return if use then use(rows) else rows:peek()
 		end
 		if Document.input(value, from) == nil and item ~= nil then
-			return rowsOf((if use then use(item) else item:peek())[from])
+			local selected = string.match(from, "^[%w]+%.([%w_]+)$") or from
+			return rowsOf((if use then use(item) else item:peek())[selected])
 		end
 		return rowsOf(inputValue(from, use))
 	end
@@ -193,7 +213,13 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			property.literal, property.input, property.item, property.output, property.token
 		local target = property.node
 		if target ~= nil then
-			return { node = references[target] }
+			return {
+				node = Core.formula(function(use: Use): unknown
+					local captured = use(references[target])
+					assert(captured ~= nil, "Node reference is not captured")
+					return captured
+				end),
+			}
 		end
 		local source = property.nodeFrom
 		if source ~= nil then
@@ -209,7 +235,9 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				node = Core.formula(function(use: Use): unknown
 					local chosen = if held ~= nil then use(held) else inputValue(source, use)
 					local cell = if type(chosen) == "string" then byName[chosen] else nil
-					return if cell then use(cell) else nil
+					local captured = if cell then use(cell) else nil
+					assert(captured ~= nil, "Node reference is not captured")
+					return captured
 				end),
 			}
 		end
@@ -234,15 +262,26 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				local reactive = false
 				for index, component in current do
 					local tokenName = Datatype.token(component)
-					if tokenName ~= nil and type(index) == "number" then
-						local resolver = resolveToken
-						local resolved: Resolved = if resolver
-							then resolver(tokenName)
-							else {
-								literal = assert(token, "This design reads theme tokens; supply a token resolver")(
-									tokenName
-								),
-							}
+					local inputName = Datatype.input(component)
+					if (tokenName ~= nil or inputName ~= nil) and type(index) == "number" then
+						local resolved: Resolved
+						if inputName then
+							local preview: Resolved = { literal = inputs[inputName] }
+							resolved = bindings[inputName] or preview
+						else
+							local componentToken = assert(tokenName)
+							local resolver = resolveToken
+							if resolver then
+								resolved = resolver(componentToken)
+							else
+								local preview: Resolved = {
+									literal = assert(token, "This design reads theme tokens; supply a token resolver")(
+										componentToken
+									),
+								}
+								resolved = preview
+							end
+						end
 						components[index] = resolved
 						reactive = reactive or resolved.readable ~= nil
 					end
@@ -266,7 +305,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 						local number = if readable
 							then (if use then use(readable) else readable:peek())
 							else if resolved.value ~= nil then resolved.value else resolved.literal
-						assert(type(number) == "number", `Datatype component {index} needs a numeric token`)
+						assert(type(number) == "number", `Datatype component {index} needs a numeric token or input`)
 						result[index] = number
 					end
 					return result

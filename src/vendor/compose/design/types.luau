@@ -5,7 +5,7 @@ local Core = require "../core"
 type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 
 export type Literal = string | number | boolean | { [string | number]: Literal }
-export type DatatypeComponent = number | { token: string }
+export type DatatypeComponent = number | { token: string } | { input: string }
 
 export type Value = {
 	literal: Literal?,
@@ -152,6 +152,7 @@ export type Input = {
 	fields: { ItemField }?,
 	required: boolean?,
 	luauType: string?,
+	options: { string }?,
 }
 
 export type Output = { id: string, args: { InputType }?, row: string? }
@@ -186,7 +187,10 @@ export type Document = {
 	state: { State }?,
 	sequences: { Sequence }?,
 	root: Node,
+	rootVariant: RootVariant?,
 }
+
+export type RootVariant = { input: string, value: string, kind: string, props: { [string]: Value } }
 
 export type EmitOptions = {
 	name: string?,
