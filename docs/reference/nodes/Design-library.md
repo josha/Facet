@@ -45,6 +45,7 @@ Fields:
   control's prop type, in the groups `Control` and `Roblox`.
 - A callback prop named `onSomething` is an event field. Bind it to a
   contract output.
+- See [event fields](Design-library.events.md) for Toggle and Picker bindings.
 - A Roblox enum or datatype prop is a datatype field. Its literal is an enum
   item name, such as `"Y"`, or a list of numbers, such as `{ 1, 0, 0, 48 }`.
   The library converts it with the Roblox datatypes in `context.types`. The

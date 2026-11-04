@@ -11,6 +11,10 @@ icon size of the rung plus the `xs` space. Without `controlSize` the box is 24
 pixels. The label, row, hint, enabled and common button styling
 options apply.
 
+The Facet Design library exposes `onChange` as an event field. Bind it to a
+named boolean output. The host action accepts the request by updating the
+readable `value` input.
+
 `controlSize` also sizes the switch. The track is the rung `iconSize` plus 4
 pixels high, its width scales 38 by 24 to that height, and the knob is 6 pixels
 smaller than the track. Without `controlSize`, the switch is 38 by 24 pixels.

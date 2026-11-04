@@ -483,6 +483,129 @@ return function(verifyHarness: Verify.Harness)
 						return built
 					end).dispose)
 				end
+		verifyHarness:case("round trips Toggle requests from readable inputs to one named host action", {
+			id = "facet_compose_library::round trips Toggle requests from readable inputs to one named host action",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					Verify.expect(Kit.controls.Toggle.fields.onChange.type):toBe("event")
+					Verify.expect(library.kinds.Toggle.fields.onChange.type):toBe("event")
+					local value =
+						Design.document.setContract(Design.document.new("Setting", library, "Toggle"), library, {
+							inputs = { { id = "checked", kind = "readable", type = "boolean", required = true } },
+							outputs = { { id = "onChecked", args = { "boolean" } } },
+						})
+					value = Design.document.change(value, library, "n1", "presentation", { literal = "button" })
+					value = Design.document.change(value, library, "n1", "value", { input = "checked" })
+					value = Design.document.change(value, library, "n1", "onChange", { output = "onChecked" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					Verify.expect(parsed.root.props.value.input):toBe("checked")
+					Verify.expect(parsed.root.props.onChange.output):toBe("onChecked")
+					local checked = Facet.Compose.cell(false)
+					local readable = Facet.Compose.formula(function(use: Facet.Use): boolean
+						return use(checked)
+					end)
+					local calls = 0
+					local built = Design.render(parsed, library, {
+						bindings = { checked = { readable = readable } },
+						outputs = {
+							onChecked = function(args: { Facet.DesignLiteral })
+								calls += 1
+								Verify.expect(args):toEqual({ true })
+								local nextValue = args[1]
+								assert(type(nextValue) == "boolean")
+								checked:set(nextValue)
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance" and built:IsA("TextButton"))
+					Verify.expect(built:HasTag("facet-selected")):toBe(false)
+					engine.environment.fire(VerifyRoblox.assertInstance(built), "Activated")
+					Verify.expect(calls):toBe(1)
+					Verify.expect(checked:peek()):toBe(true)
+					Verify.expect(built:HasTag("facet-selected")):toBe(true)
+					checked:set(false)
+					Verify.expect(built:HasTag("facet-selected")):toBe(false)
+					Verify.expect(calls):toBe(1)
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("round trips generic Picker changes with readable options and one named host action", {
+			id = "facet_compose_library::round trips generic Picker changes with readable options and one named host action",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					Verify.expect(Kit.controls.Picker.fields.onChange.type):toBe("event")
+					Verify.expect(library.kinds.Picker.fields.onChange.type):toBe("event")
+					local value =
+						Design.document.setContract(Design.document.new("Setting", library, "Picker"), library, {
+							inputs = {
+								{ id = "selected", kind = "cell", type = "string", required = true },
+								{
+									id = "options",
+									kind = "readable",
+									type = "list",
+									required = true,
+									fields = { { id = "label", type = "string" }, { id = "value", type = "string" } },
+								},
+							},
+							outputs = { { id = "onSelected", args = { "string" } } },
+						})
+					value = Design.document.change(value, library, "n1", "selected", { input = "selected" })
+					value = Design.document.change(value, library, "n1", "options", { input = "options" })
+					value = Design.document.change(value, library, "n1", "onChange", { output = "onSelected" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					Verify.expect(parsed.root.props.options.input):toBe("options")
+					Verify.expect(parsed.root.props.onChange.output):toBe("onSelected")
+					local selected = Facet.Compose.cell("first")
+					local options: Facet.DesignLiteral = {
+						{ label = "First", value = "first" },
+						{ label = "Second", value = "second" },
+					}
+					local sourceOptions = Facet.Compose.cell(options)
+					local readableOptions = Facet.Compose.formula(function(use: Facet.Use): Facet.DesignLiteral
+						return use(sourceOptions)
+					end)
+					local calls = 0
+					local built = Design.render(parsed, library, {
+						bindings = { selected = { readable = selected }, options = { readable = readableOptions } },
+						outputs = {
+							onSelected = function(args: { Facet.DesignLiteral })
+								calls += 1
+								Verify.expect(args):toEqual({ "second" })
+								Verify.expect(selected:peek()):toBe("second")
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance")
+					local second = assert(built:FindFirstChild("second", true))
+					assert(second:IsA("TextButton"))
+					Verify.expect(second:HasTag("facet-selected")):toBe(false)
+					engine.environment.fire(VerifyRoblox.assertInstance(second), "Activated")
+					Verify.expect(calls):toBe(1)
+					Verify.expect(selected:peek()):toBe("second")
+					Verify.expect(second:HasTag("facet-selected")):toBe(true)
+					engine.environment.fire(VerifyRoblox.assertInstance(second), "Activated")
+					Verify.expect(calls):toBe(1)
+					selected:set("first")
+					Verify.expect(second:HasTag("facet-selected")):toBe(false)
+					Verify.expect(calls):toBe(1)
+					sourceOptions:set({ { label = "First", value = "first" }, { label = "Updated", value = "second" } })
+					local label = assert(second:FindFirstChild("Title", true))
+					assert(label:IsA("TextLabel"))
+					Verify.expect(label.Text):toBe("Updated")
+					Verify.expect(calls):toBe(1)
+					return built
+				end).dispose)
+			end,
+		})
+
 		verifyHarness:case("imports edits exports and renders readable group transparency", {
 			id = "facet_compose_library::imports edits exports and renders readable group transparency",
 			run = function(test: Verify.Context)

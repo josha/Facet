@@ -976,6 +976,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			style = "segmented",
 		},
 		fields = nativeFields(8, {
+			onChange = { type = "event", label = "Changed", order = 25 },
 			selected = { type = "string", label = "Initial selection", order = 1 },
 			options = { type = "value", label = "Options", order = 2, format = "json" },
 			style = {
@@ -1643,6 +1644,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "value",
 		defaults = { label = "Notifications", value = true },
 		fields = nativeFields(4, {
+			onChange = { type = "event", label = "Change requested", order = 28 },
 			label = { type = "string", label = "Label", order = 1 },
 			value = { type = "boolean", label = "Initial value", order = 2 },
 			presentation = {
