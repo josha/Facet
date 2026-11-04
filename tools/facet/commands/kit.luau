@@ -241,7 +241,7 @@ to have a fresh reviewer judge how a screen looks.
 	for name, options in Props.load(".") do
 		result.writes["StudioDocs/docs/reference/nodes/" .. name .. ".props.md.txt"] = Props.render(name, options)
 	end
-	result.writes["StudioDocs/search.luau"] = Files.text("tools/facet/lib/studio_docs_search.luau")
+	result.writes["StudioDocs/search.luau.txt"] = Files.text("tools/facet/lib/studio_docs_search.luau")
 	return result
 end
 
@@ -403,12 +403,7 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				Verify.expect(docsBuild.ok):toBeTrueWith(docsBuild.stderr .. docsBuild.stdout)
 				local installed = Lute.model.read(Files.read(Files.join(out, "docs.rbxlx")))
 				for target, contents in chosen.writes do
-					if target == "StudioDocs/search.luau" then
-						local node = Lute.model.find(installed, "ServerStorage/FacetDocs/search")
-						if node == nil or node.className ~= "ModuleScript" then
-							table.insert(missingReferences, "ServerStorage/FacetDocs/search")
-						end
-					elseif string.sub(target, 1, #"StudioDocs/") == "StudioDocs/" then
+					if string.sub(target, 1, #"StudioDocs/") == "StudioDocs/" then
 						local path = "ServerStorage/FacetDocs/" .. string.sub(target, #"StudioDocs/" + 1, -5)
 						local node = Lute.model.find(installed, path)
 						if

@@ -27,8 +27,8 @@ Read a theme asset only when adapting it. Retrieve exact control contracts as
 needed; an example does not cover every option or integration. Everything you
 read stays in context for the rest of the session. Look up a control's contract
 when you are about to use it rather than every route up front. In Studio,
-`require(ServerStorage.FacetDocs.search)("Sheet detents")` returns only the
-matching sections.
+`loadstring(ServerStorage.FacetDocs["search.luau"].Value)()("Sheet detents")`
+returns only the matching sections.
 
 | Task | Read and adapt |
 | --- | --- |
@@ -45,7 +45,7 @@ Read [compact compositions](references/compact-compositions.md) when room is
 constrained, [advanced compositions](references/advanced-compositions.md) for
 richer navigation, forms or spatial UI, and [runtime details](references/runtime-details.md)
 for integration contracts. With a shell, search unknown names with
-`lute run tools/facet docs --search TERM`; in Studio, use `FacetDocs.search`.
+`lute run tools/facet docs --search TERM`; in Studio, use `FacetDocs["search.luau"]`.
 Do not guess filenames.
 Use [filesystem workflow](references/FILESYSTEM_WORKFLOW.md) when its tooling
 is available and the project uses saved source files.

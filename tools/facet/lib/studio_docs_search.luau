@@ -1,13 +1,14 @@
 --!strict
--- Search the Facet documents in this folder from Studio.
---   local search = require(game.ServerStorage.FacetDocs.search)
+-- Search the Facet documents under ServerStorage.FacetDocs from Studio. The Studio
+-- command thread cannot require modules in Edit, so this ships as text:
+--   local search = loadstring(game.ServerStorage.FacetDocs["search.luau"].Value)()
 --   return search("Sheet detents")                    -- best sections and other matching paths
 --   return search.read("docs/reference/nodes/Sheet.props.md") -- one whole document
 
 type Doc = { path: string, name: string, text: string }
 type Section = { path: string, heading: string, text: string, score: number }
 
-local root = script.Parent
+local root: Instance = game:GetService("ServerStorage"):WaitForChild("FacetDocs")
 local loaded: { Doc }? = nil
 
 local function documents(): { Doc }
@@ -16,7 +17,7 @@ local function documents(): { Doc }
 	end
 	local list: { Doc } = {}
 	for _, item in root:GetDescendants() do
-		if item:IsA("StringValue") then
+		if item:IsA("StringValue") and item.Name ~= "search.luau" then
 			local parts: { string } = {}
 			local node: Instance? = item
 			while node ~= nil and node ~= root do
