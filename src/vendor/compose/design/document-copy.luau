@@ -52,6 +52,22 @@ local function copyNode(node: Node): Node
 		children[index] = copyNode(child)
 	end
 	local bind = node.bind
+	local variant: Types.RowVariant? = nil
+	if node.rowVariant then
+		local cases: { Types.VariantCase } = {}
+		for _, alternative in node.rowVariant.cases do
+			local wrapper = table.clone(node)
+			wrapper.rowVariant = nil
+			wrapper.props = alternative.props
+			wrapper.children = alternative.children
+			local copied = copyNode(wrapper)
+			table.insert(
+				cases,
+				{ value = alternative.value, kind = alternative.kind, props = copied.props, children = copied.children }
+			)
+		end
+		variant = { item = node.rowVariant.item, cases = cases }
+	end
 	return {
 		id = node.id,
 		kind = node.kind,
@@ -65,6 +81,9 @@ local function copyNode(node: Node): Node
 		tags = if node.tags then table.clone(node.tags) else nil,
 		hidden = node.hidden,
 		locked = node.locked,
+		rowVariant = variant,
+		tagBinding = if node.tagBinding then copyValue(node.tagBinding) else nil,
+		slot = node.slot,
 	}
 end
 
@@ -77,6 +96,7 @@ local function copyFields(source: { Types.ItemField }): { Types.ItemField }
 			type = field.type,
 			fields = if nested then copyFields(nested) else nil,
 			luauType = field.luauType,
+			options = if field.options then table.clone(field.options) else nil,
 		}
 	end
 	return list
@@ -149,7 +169,15 @@ local function copyDocument(value: Document): Document
 		for key, property in variant.props do
 			props[key] = copyValue(property)
 		end
-		alternative = { input = variant.input, value = variant.value, kind = variant.kind, props = props }
+		local children: { Node }? = nil
+		if variant.children then
+			children = {}
+			for _, child in variant.children do
+				table.insert(children, copyNode(child))
+			end
+		end
+		alternative =
+			{ input = variant.input, value = variant.value, kind = variant.kind, props = props, children = children }
 	end
 	return {
 		schema = "compose-design/1",

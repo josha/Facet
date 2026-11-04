@@ -149,17 +149,7 @@ local function singleCleanup(
 	end
 end
 
-local function classify(host: Host.Host, node: Node, key: string): Host.KeyKind
-	local events = host.events
-	if events == nil then
-		return "property"
-	end
-	local classifyKey = events.classifyKey
-	if classifyKey == nil then
-		return "property"
-	end
-	return classifyKey(node, key)
-end
+local classify = Host.classifyKey
 
 type Target = {
 	registry: Registry,

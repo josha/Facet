@@ -92,6 +92,17 @@ local function checkFields(fields: { Types.ItemField }?)
 	end
 	for _, field in fields do
 		checkTypeName(field.luauType)
+		if field.options then
+			assert(
+				field.type == "string" and field.luauType == nil and #field.options >= 2,
+				"Item options need a text enum"
+			)
+			local seen: { [string]: true } = {}
+			for _, option in field.options do
+				assert(#option > 0 and not seen[option], "Item options must be unique nonempty text")
+				seen[option] = true
+			end
+		end
 		checkFields(field.fields)
 	end
 end
@@ -211,7 +222,15 @@ local function checkOutputs(value: Document, current: Literal, key: string, coll
 		return
 	end
 	if current["$template"] ~= nil then
-		assert(collection ~= nil, `{key} renders a cell outside a collection`)
+		return
+	end
+	local input = current["$input"]
+	if input ~= nil then
+		assert(
+			type(input) == "string" and inputOf(value, input) ~= nil,
+			`{key} reads unknown record input {tostring(input)}`
+		)
+		assert(next(current) == "$input" and next(current, "$input") == nil, "A record input marker holds only $input")
 		return
 	end
 	for _, item in current do
@@ -444,19 +463,67 @@ function document.validate(value: Document, library: Library): Document
 	local references: { [string]: string } = {}
 	local liveCandidates: { string } = {}
 	local nodeNames: { [string]: string } = {}
-	local function visit(node: Node, depth: number, collection: Types.Input?)
+	local function visit(node: Node, depth: number, collection: Types.Input?, alternative: boolean?, rowRoot: boolean?)
 		assert(depth <= MAX_DEPTH, "Designs nest at most 32 levels")
 		count += 1
 		assert(count <= MAX_NODES, "A design holds at most 500 nodes")
 		local number = tonumber(string.match(node.id, "^n(%d+)$"))
-		assert(number ~= nil and not seen[node.id], "Node ids must be unique")
+		assert(number ~= nil and (alternative == true or not seen[node.id]), "Node ids must be unique")
 		seen[node.id] = true
 		nodeNames[node.id] = node.name
 		highest = math.max(highest, number)
+		if node.slot then
+			local input = assert(inputOf(value, node.slot), "Slot children need an input")
+			assert(input.type == "slot" and input.kind == "value", "Slot children need a slot input")
+			assert(node.kind == "$slot" and node.name == node.slot, "Slot children keep their input name")
+			assert(
+				node ~= value.root and #node.children == 0 and next(node.props) == nil,
+				"A slot is an ordinary child factory"
+			)
+			assert(
+				node.bind == nil
+					and node.when == nil
+					and node.rowVariant == nil
+					and node.tags == nil
+					and node.tagBinding == nil
+					and node.nameField == nil
+					and node.nameInput == nil,
+				"Slot children carry only their input"
+			)
+			return
+		end
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		assert(#node.name > 0 and #node.name <= 120, "A node needs a name")
 		assert(node.hidden == nil or type(node.hidden) == "boolean", "Hidden is a boolean")
 		assert(node.locked == nil or type(node.locked) == "boolean", "Locked is a boolean")
+		if node.tagBinding then
+			assert(library.tags ~= nil and node.tags == nil, "Bound tags need library tags and replace fixed tags")
+			local binding = node.tagBinding
+			assert(
+				present(binding) == 1
+					and (binding.input ~= nil or binding.item ~= nil)
+					and binding.motion == nil
+					and binding.path == nil,
+				"Tags bind an input or item field"
+			)
+			checkValue(value, { type = "value" }, binding, collection, "tags")
+			local typed: string? = nil
+			local luauType: string? = nil
+			if binding.input then
+				local input = assert(inputOf(value, binding.input))
+				typed, luauType = input.type, input.luauType
+			else
+				for _, field in assert(collection).fields or {} do
+					if field.id == binding.item then
+						typed, luauType = field.type, field.luauType
+					end
+				end
+			end
+			assert(
+				typed == "string" or (typed == "list" and luauType ~= nil),
+				"Tags need text or a list with a named string list type"
+			)
+		end
 		local nameField = node.nameField
 		if nameField ~= nil then
 			local list = assert(collection, `{node.name} takes its name from an item outside a collection template`)
@@ -612,18 +679,63 @@ function document.validate(value: Document, library: Library): Document
 		end
 		for _, child in node.children do
 			if cells[child.id] then
-				visit(child, depth + 1, own or collection)
+				visit(child, depth + 1, own or collection, nil, own ~= nil)
 				continue
 			end
 			local isRow = rowCollection ~= nil and child.id == rowId
 			assert(
+				child.slot == nil or (kind.children == "list" and not isRow and node.bind == nil),
+				"Slot factories are ordinary layout children"
+			)
+			assert(
 				child.when == nil or (kind.children == "list" and not isRow),
 				`{child.name} is shown conditionally only inside a list container, outside its row`
 			)
-			visit(child, depth + 1, if isRow then rowCollection else nested)
+			visit(
+				child,
+				depth + 1,
+				if isRow then rowCollection else nested,
+				nil,
+				isRow
+					or (
+						kind.children == "template"
+						and ((node.bind ~= nil and node.bind.row == nil) or kind.iteration ~= nil)
+					)
+			)
+		end
+		local variant = node.rowVariant
+		if variant then
+			assert(rowRoot == true, "Row variants belong to the root of a row template")
+			local list = assert(collection, "Row variants need a collection item")
+			local options: { string }? = nil
+			for _, field in list.fields or {} do
+				if field.id == variant.item and field.type == "string" then
+					options = field.options
+				end
+			end
+			local choices = assert(options, "Row variants need a declared text enum field")
+			assert(#variant.cases > 0 and #variant.cases < #choices, "Row variants keep a default enum option")
+			local selected: { [string]: true } = {}
+			for _, case in variant.cases do
+				assert(
+					table.find(choices, case.value) ~= nil and not selected[case.value],
+					"Row variants select distinct enum options"
+				)
+				selected[case.value] = true
+				local wrapper = table.clone(node)
+				wrapper.rowVariant = nil
+				wrapper.kind, wrapper.props, wrapper.children = case.kind, case.props, case.children
+				visit(wrapper, depth, collection, true)
+			end
 		end
 	end
 	visit(value.root, 0, nil)
+	local variant = value.rootVariant
+	if variant and variant.children then
+		for _, child in variant.children do
+			visit(child, 1, nil)
+		end
+	end
 	assert(value.nextId > highest, "Next node id must exceed every node id")
 	for target, key in references do
 		assert(seen[target], `{key} references unknown node {target}`)
@@ -635,7 +747,6 @@ function document.validate(value: Document, library: Library): Document
 		assert(names[name] == nil or names[name] == candidate, `Two chosen nodes share the name {name}`)
 		names[name] = candidate
 	end
-	local variant = value.rootVariant
 	if variant then
 		local input = assert(inputOf(value, variant.input), "A root variant needs an enum input")
 		assert(
@@ -651,15 +762,19 @@ function document.validate(value: Document, library: Library): Document
 				and (alternative.children == "list" or alternative.children == "slot"),
 			"Root variants need list or slot kinds"
 		)
-		assert(
-			root.bind == nil and #root.children == 1 and root.children[1].when == nil,
-			"Root variants share one unconditional content node"
-		)
+		assert(root.bind == nil, "Root variants cannot repeat the root")
+		if variant.children == nil then
+			assert(
+				#root.children == 1 and root.children[1].when == nil,
+				"Root variants without children share one unconditional content node"
+			)
+		end
 		local copy = copyDocument(value)
 		local copied = assert(copy.rootVariant)
 		copy.rootVariant = nil
 		copy.root.kind = variant.kind
 		copy.root.props = copied.props
+		copy.root.children = copied.children or copy.root.children
 		document.validate(copy, library)
 	end
 	return value
@@ -668,6 +783,13 @@ end
 function document.setRootVariant(value: Document, library: Library, variant: Types.RootVariant?): Document
 	local copy = copyDocument(value)
 	copy.rootVariant = variant
+	return document.validate(copyDocument(copy), library)
+end
+
+function document.setRowVariant(value: Document, library: Library, id: string, variant: Types.RowVariant?): Document
+	local copy = copyDocument(value)
+	local node = assert(document.find(copy.root, id), "Choose a row node")
+	node.rowVariant = variant
 	return document.validate(copyDocument(copy), library)
 end
 
@@ -707,6 +829,22 @@ function document.find(root: Node, id: string): (Node?, Node?, number?)
 			return found, parent, at
 		end
 	end
+	if root.rowVariant then
+		for _, case in root.rowVariant.cases do
+			local wrapper = table.clone(root)
+			wrapper.rowVariant = nil
+			wrapper.children = case.children
+			for index, child in case.children do
+				if child.id == id then
+					return child, wrapper, index
+				end
+				local found, parent, at = document.find(child, id)
+				if found then
+					return found, parent, at
+				end
+			end
+		end
+	end
 	return nil, nil, nil
 end
 
@@ -718,6 +856,13 @@ function document.nodes(root: Node): { Row }
 		table.insert(rows, { node = node, depth = depth })
 		for _, child in node.children do
 			visit(child, depth + 1)
+		end
+		if node.rowVariant then
+			for _, case in node.rowVariant.cases do
+				for _, child in case.children do
+					visit(child, depth + 1)
+				end
+			end
 		end
 	end
 	visit(root, 0)
@@ -907,7 +1052,36 @@ function document.tag(value: Document, library: Library, id: string, tags: { str
 		end
 	end
 	node.tags = if tags ~= nil and #tags > 0 then table.clone(tags) else nil
+	node.tagBinding = nil
 	return document.validate(nextValue, library)
+end
+
+function document.bindTags(value: Document, library: Library, id: string, binding: Value?): Document
+	local copy = copyDocument(value)
+	local node = assert(document.find(copy.root, id), "Choose a node")
+	node.tags = nil
+	node.tagBinding = if binding then copyValue(binding) else nil
+	return document.validate(copy, library)
+end
+
+function document.insertSlot(
+	value: Document,
+	library: Library,
+	parentId: string,
+	input: string,
+	at: number?
+): (Document, string)
+	local copy = copyDocument(value)
+	local parent = assert(document.find(copy.root, parentId), "Choose a container")
+	assert(assert(library.kinds[parent.kind]).children == "list", "Slot children need a list container")
+	local id = `n{copy.nextId}`
+	copy.nextId += 1
+	table.insert(
+		parent.children,
+		math.clamp(at or #parent.children + 1, 1, #parent.children + 1),
+		{ id = id, kind = "$slot", name = input, slot = input, props = {}, children = {} }
+	)
+	return document.validate(copy, library), id
 end
 
 function document.rename(value: Document, library: Library, id: string, name: string): Document

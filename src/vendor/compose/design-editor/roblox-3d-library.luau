@@ -407,18 +407,6 @@ local function categories(): { string }
 	return { "Structure", "Light", "Surface", "Effect", "Audio" }
 end
 
-local calls: { [string]: string } = {}
-for name in kinds() do
-	calls[name] = "Design." .. name
-end
-
-local function named(source: { [string]: Design.Kind }): { [string]: Design.Kind }
-	for name, kind in source do
-		kind.call = calls[name]
-	end
-	return source
-end
-
 local lightBindings: Bindings = {
 	color = { property = "Color", convert = "color" },
 	brightness = { property = "Brightness", convert = "number" },
@@ -498,6 +486,10 @@ local meshBindings: Bindings = {
 }
 
 local function schema(): Design.Library
+	local definitions = kinds()
+	for name, kind in definitions do
+		kind.call = "Design." .. name
+	end
 	return {
 		name = "Roblox3D",
 		containerKind = "Model",
@@ -509,7 +501,7 @@ local function schema(): Design.Library
 		cell = "Compose.Cell",
 		space = "3d",
 		categories = categories(),
-		kinds = named(kinds()),
+		kinds = definitions,
 	}
 end
 
@@ -903,11 +895,7 @@ local function create(
 			end)
 			describe(model, props)
 			local offsets: { [Compose.Node]: { number } } = {}
-			for _, child in children do
-				if child ~= nil then
-					ui.set(child, "Parent", model)
-				end
-			end
+			attach(model, children)
 			for _, part in ui.descendants(model) do
 				if part ~= primary and ui.isA(part, "BasePart") then
 					offsets[part] = ui.components(ui.get(part, "CFrame"))

@@ -143,15 +143,14 @@ end
 local function fieldsLiteral(fields: { Types.ItemField }): Record
 	local list: Record = {}
 	for _, field in fields do
-		local item: Record = { id = field.id, type = field.type }
-		if field.luauType ~= nil then
-			item.luauType = field.luauType
-		end
 		local nested = field.fields
-		if nested then
-			item.fields = fieldsLiteral(nested)
-		end
-		list[#list + 1] = item
+		list[#list + 1] = {
+			id = field.id,
+			type = field.type,
+			luauType = field.luauType,
+			options = if field.options then table.clone(field.options) else nil,
+			fields = if nested then fieldsLiteral(nested) else nil,
+		}
 	end
 	return list
 end
@@ -159,10 +158,16 @@ end
 local function contractLiteral(contract: Types.Contract): Literal
 	local inputs: Record = {}
 	for _, input in contract.inputs do
-		local entry: Record = { id = input.id, kind = input.kind, type = input.type }
-		if input.luauType ~= nil then
-			entry.luauType = input.luauType
-		end
+		local fields = input.fields
+		local entry = {
+			id = input.id,
+			kind = input.kind,
+			type = input.type,
+			luauType = input.luauType,
+			preview = input.preview,
+			required = if input.required then true else nil,
+			fields = if fields then fieldsLiteral(fields) else nil,
+		}
 		if input.options then
 			local options: Record = {}
 			for index, option in input.options do
@@ -170,26 +175,11 @@ local function contractLiteral(contract: Types.Contract): Literal
 			end
 			entry.options = options
 		end
-		local preview = input.preview
-		if preview ~= nil then
-			entry.preview = preview
-		end
-		if input.required then
-			entry.required = true
-		end
-		local fields = input.fields
-		if fields then
-			entry.fields = fieldsLiteral(fields)
-		end
 		inputs[#inputs + 1] = entry
 	end
 	local outputs: Record = {}
 	for _, output in contract.outputs do
-		local item: Record = { id = output.id }
-		local row = output.row
-		if row ~= nil then
-			item.row = row
-		end
+		local item = { id = output.id, row = output.row }
 		local args = output.args
 		if args then
 			local list: Record = {}
@@ -200,15 +190,13 @@ local function contractLiteral(contract: Types.Contract): Literal
 		end
 		outputs[#outputs + 1] = item
 	end
-	local result: Record = { inputs = inputs, outputs = outputs }
-	return result
+	return { inputs = inputs, outputs = outputs }
 end
 
 local function stateLiteral(state: { Types.State }): Literal
 	local list: Record = {}
 	for index, entry in state do
-		local item: Record = { id = entry.id, type = entry.type, initial = entry.initial }
-		list[index] = item
+		list[index] = { id = entry.id, type = entry.type, initial = entry.initial }
 	end
 	return list
 end
@@ -218,28 +206,16 @@ local function sequencesLiteral(sequences: { Types.Sequence }): Literal
 	for index, sequence in sequences do
 		local steps: Record = {}
 		for at, step in sequence.steps do
-			local entry: Record = {}
-			local function put(key: string, found: string?)
-				if found ~= nil then
-					entry[key] = found
-				end
-			end
-			put("delay", step.delay)
-			put("duration", step.duration)
-			put("easing", step.easing)
-			put("state", step.state)
-			put("output", step.output)
-			local to = step.to
-			if to ~= nil then
-				entry.to = to
-			end
-			steps[at] = entry
+			steps[at] = {
+				delay = step.delay,
+				duration = step.duration,
+				easing = step.easing,
+				state = step.state,
+				output = step.output,
+				to = step.to,
+			}
 		end
-		local record: Record = { id = sequence.id, steps = steps }
-		if sequence.autoplay then
-			record.autoplay = true
-		end
-		entries[index] = record
+		entries[index] = { id = sequence.id, steps = steps, autoplay = if sequence.autoplay then true else nil }
 	end
 	return entries
 end
@@ -261,10 +237,24 @@ local function scalar(library: Library, kind: string): string
 	return "string"
 end
 
+local function enumType(options: { string }?): string?
+	if options == nil then
+		return nil
+	end
+	local choices: { string } = {}
+	for _, option in options do
+		table.insert(choices, literal(option))
+	end
+	return table.concat(choices, " | ")
+end
+
 local function flatRowType(library: Library, fields: { Types.ItemField }): string
 	local pieces: { string } = {}
 	for _, field in fields do
-		local shape = field.luauType
+		local shape: string? = enumType(field.options)
+		if shape == nil then
+			shape = field.luauType
+		end
 		local nested = field.fields
 		if shape == nil and nested ~= nil and #nested > 0 then
 			local child = flatRowType(library, nested)
@@ -284,7 +274,10 @@ local function rowType(library: Library, fields: { Types.ItemField }, depth: num
 	local lines = { "{" }
 	for _, field in fields do
 		local prefix = string.rep("\t", level + 1) .. field.id .. ": "
-		local shape = field.luauType
+		local shape: string? = enumType(field.options)
+		if shape == nil then
+			shape = field.luauType
+		end
 		local nested = field.fields
 		if shape == nil and nested ~= nil and #nested > 0 then
 			local width = (level + 1) * 4 + #field.id + 3
@@ -404,7 +397,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	local rowTypesAt = #lines + 1
 	local header: Record = { name = value.name, contract = contractLiteral(value.contract) }
 	local editor: Record = {}
-	Read.editorNodes(value.root, "root", function(node: Node, path: string)
+	local function recordEditor(node: Node, path: string)
 		local input = if node.nameInput then Document.input(value, node.nameInput) else nil
 		local name = if node.nameField or (input and input.required) then node.name else nil
 		if node.hidden or node.locked or name then
@@ -414,7 +407,14 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				name = name,
 			}
 		end
-	end)
+	end
+	Read.editorNodes(value.root, "root", recordEditor)
+	if value.rootVariant and value.rootVariant.children then
+		local wrapper = table.clone(value.root)
+		wrapper.rowVariant = nil
+		wrapper.props, wrapper.children = value.rootVariant.props, value.rootVariant.children
+		Read.editorNodes(wrapper, "alternative", recordEditor)
+	end
 	if next(editor) ~= nil then
 		header.editor = editor
 	end
@@ -436,6 +436,13 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		nodeNames[node.id] = node.name
 		for _, child in node.children do
 			nameNodes(child)
+		end
+		if node.rowVariant then
+			for _, case in node.rowVariant.cases do
+				for _, child in case.children do
+					nameNodes(child)
+				end
+			end
 		end
 	end
 	nameNodes(value.root)
@@ -460,6 +467,14 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		for _, child in node.children do
 			collect(child)
 		end
+		if node.rowVariant then
+			for _, case in node.rowVariant.cases do
+				local wrapper = table.clone(node)
+				wrapper.rowVariant = nil
+				wrapper.props, wrapper.children = case.props, case.children
+				collect(wrapper)
+			end
+		end
 	end
 	collect(value.root)
 	local variant = value.rootVariant
@@ -468,6 +483,8 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		alternative = table.clone(value.root)
 		alternative.kind = variant.kind
 		alternative.props = variant.props
+		alternative.children = variant.children or value.root.children
+		nameNodes(alternative)
 		collect(alternative)
 	end
 	table.sort(referencedIds)
@@ -602,12 +619,26 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		local written
 		local function rowBody(level: number): string
 			local body = emit(template, level + 1)
+			local branches: { string } = {}
+			if template.rowVariant then
+				for _, case in template.rowVariant.cases do
+					local wrapper = table.clone(template)
+					wrapper.rowVariant = nil
+					wrapper.kind, wrapper.props, wrapper.children = case.kind, case.props, case.children
+					table.insert(
+						branches,
+						`{tabs(level + 1)}if current:peek().{template.rowVariant.item} == {literal(case.value)} then\n{tabs(
+							level + 2
+						)}return {emit(wrapper, level + 2)}\n{tabs(level + 1)}end\n`
+					)
+				end
+			end
 			local source = if from then string.match(from, "%.([%w_]+)$") or from else nil
 			local alias = if source then `row_{source}` else nil
 			local declaration = if alias and string.find(body, `use({alias})`, 1, true)
 				then `{tabs(level + 1)}local {alias} = current\n`
 				else ""
-			return declaration .. `{tabs(level + 1)}return {body}`
+			return declaration .. table.concat(branches, "") .. `{tabs(level + 1)}return {body}`
 		end
 		if not rowFunctions then
 			written = `function({parameter})\n{rowBody(depth)}\n{tabs(depth)}end`
@@ -625,6 +656,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			return literal(current)
 		end
 		local output = current["$output"]
+		local input = current["$input"]
+		if type(input) == "string" then
+			return `props.{input}`
+		end
 		if type(output) == "string" then
 			return callback(output, if current["$row"] == true then "current:peek()" else "...", depth)
 		end
@@ -782,25 +817,49 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	end
 	local function tagged(node: Node, depth: number): string
 		local tags, tagging = node.tags, library.tags
-		if tags == nil or tagging == nil then
+		if (tags == nil and node.tagBinding == nil) or tagging == nil then
 			return emitNode(node, depth)
 		end
 		local inner = tabs(depth + 1)
 		local quoted: { string } = {}
-		for _, tag in tags do
+		for _, tag in tags or {} do
 			table.insert(quoted, string.format("%q", tag))
 		end
-		local list = "{ " .. table.concat(quoted, ", ") .. " }"
-		return `{tagging.call}(\n{inner}{emitNode(node, depth + 1)},\n{inner}{list}\n{tabs(depth)})`
+		local list = if node.tagBinding
+			then expression(node.tagBinding, depth + 1, (depth + 1) * 4)
+			else "{ " .. table.concat(quoted, ", ") .. " }"
+		local body = emitNode(node, depth + 1)
+		if node.tagBinding and not string.find(body, "\n", 1, true) then
+			local bound = expression(node.tagBinding, depth, depth * 4 + #tagging.call + #body + 3)
+			if string.sub(bound, 1, 8) == "function" then
+				return `{tagging.call}({body}, {bound})`
+			end
+		end
+		local single = `{tagging.call}({body}, {list})`
+		if not string.find(single, "\n", 1, true) and depth * 4 + #single <= WIDTH then
+			return single
+		end
+		return `{tagging.call}(\n{inner}{body},\n{inner}{list}\n{tabs(depth)})`
 	end
 	local sharedContent: Node? = nil
 	emit = function(node: Node, depth: number): string
+		if node.slot then
+			local call = `props.{node.slot}()`
+			return if assert(Document.input(value, node.slot)).required
+				then call
+				else `if props.{node.slot} then {call} else nil`
+		end
 		if node == sharedContent then
 			return "rootContent()"
 		end
 		if referenced[node.id] then
 			local inner = tabs(depth + 1)
-			return `capture(\n{inner}"{node.id}",\n{inner}{tagged(node, depth + 1)}\n{tabs(depth)})`
+			local body = tagged(node, depth + 1)
+			local single = `capture("{node.id}", {body})`
+			if not string.find(body, "\n", 1, true) and depth * 4 + #single <= WIDTH then
+				return single
+			end
+			return `capture(\n{inner}"{node.id}",\n{inner}{body}\n{tabs(depth)})`
 		end
 		return tagged(node, depth)
 	end
@@ -977,7 +1036,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		table.insert(lines, "\t" .. controls)
 	end
 	local contentSource: string? = nil
-	if variant then
+	if variant and variant.children == nil then
 		local content = value.root.children[1]
 		contentSource = emit(content, 2)
 		sharedContent = content
@@ -1005,14 +1064,17 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		for _, id in referencedIds do
 			table.insert(cells, `{id} = {newCell}<<{library.returnType}?>>(nil)`)
 		end
-		table.insert(
-			lines,
-			"\tlocal refs: { [string]: "
-				.. `{library.cell}<{library.returnType}?>`
-				.. " } = { "
-				.. table.concat(cells, ", ")
-				.. " }"
-		)
+		local prefix = "\tlocal refs: { [string]: " .. `{library.cell}<{library.returnType}?>` .. " } = "
+		local single = prefix .. "{ " .. table.concat(cells, ", ") .. " }"
+		if #single + 3 <= WIDTH then
+			table.insert(lines, single)
+		else
+			table.insert(lines, prefix .. "{")
+			for _, cell in cells do
+				table.insert(lines, "\t\t" .. cell .. ",")
+			end
+			table.insert(lines, "\t}")
+		end
 		table.insert(lines, `\tlocal function capture(id: string, node: {library.returnType}): {library.returnType}`)
 		table.insert(lines, "\t\trefs[id]:set(node)")
 		table.insert(lines, "\t\treturn node")
@@ -1104,8 +1166,13 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	for _, definition in lateHoisted do
 		table.insert(lines, definition)
 	end
-	if contentSource and variant and alternativeSource then
-		table.insert(lines, `\tlocal function rootContent(): {library.returnType}\n\t\treturn {contentSource}\n\tend`)
+	if variant and alternativeSource then
+		if contentSource then
+			table.insert(
+				lines,
+				`\tlocal function rootContent(): {library.returnType}\n\t\treturn {contentSource}\n\tend`
+			)
+		end
 		table.insert(
 			lines,
 			`\tif props.{variant.input} == {literal(variant.value)} then\n\t\treturn {alternativeSource}\n\tend`

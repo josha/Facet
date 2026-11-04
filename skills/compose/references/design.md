@@ -58,11 +58,32 @@ not overwrite the module. Keep every edit inside the shapes below.
   column record.
 - Row actions: `rowActions = function(current) return { ... } end`.
 - A style tag: `<tag>(<node>, { "tag-name" })`, where `<tag>` is the library's
-  tag call (Facet: `Facet.tag`).
+  tag call (Facet: `Facet.tag`). Tags can also read `props.paint` or
+  `function(use) return use(current).paint end`. Prepare the string or string
+  list in the caller; the document contains no tag selection expression.
+  `Design.document.bindTags` stores the input or item binding. For a list,
+  declare a named string-list `luauType` in the library prelude.
 - A node reference: `refs.nN`, with the node wrapped in `capture("nN", <node>)`.
 - A static root variant: a required string input declares enum `options`.
   `Design.document.setRootVariant` selects one alternative kind and its props
-  for a matching option. Both roots share one content function and one name.
+  for a matching option. An optional `children` list gives the alternative its
+  own content tree and distinct node ids. Without it, both roots share one
+  content function. Both forms keep one direct root name.
+- A row variant: the row item's string field declares enum `options`.
+  `Design.document.setRowVariant` stores `{ item, cases }` on the row root.
+  Each case has `value`, `kind`, `props` and `children`. The row factory chooses
+  a case once from `current:peek().kind`, then returns the selected root with
+  the same name. Other enum options use the ordinary row. Include the kind in
+  the caller's key if changing it must replace a retained row. Arbitrary
+  conditions and variants outside row roots are custom code.
+- A caller slot inside a layout: `props.body()` at an ordinary child position
+  in Frame/VStack/HStack/ZStack or another list container. Optional slots use
+  `if props.body then props.body() else nil`, checking only factory presence.
+  `Design.document.insertSlot` stores a `$slot` node with `slot = "body"`.
+  The factory runs under the active owner and adds no wrapper node.
+- An input inside a literal page record: `label = props.title` beside a
+  document-owned `content = function() return <node> end`. The literal marker
+  is `{ ["$input"] = "title" }`; it names one input and contains no other keys.
 - A content property that holds a subtree: `glyph = function() return <node> end`.
   The node is a child of the control in the editor.
 - A moving value: `<follow>(state.id, "role")`, where `<follow>` is the
@@ -102,3 +123,7 @@ If parsing fails, the editor treats the module as custom code. If the emitted
 source differs, the editor rewrites the module in its own format on the next
 edit. A library can provide a command for this check. Facet provides
 `lute run tools/facet design check <module>`.
+
+Multiple typed node references emit width-aware cell tables. Their declarations
+and the supported tree forms keep their bytes after formatting and parse/emit.
+Keep library preludes and supplied source snippets formatted as well.

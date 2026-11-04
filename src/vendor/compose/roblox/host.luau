@@ -131,8 +131,35 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		writeMember(node, key, default)
 	end
 
+	local function nameOf(node: Node): string
+		local ok, name = pcall(readMember, node, "Name")
+		return if ok and type(name) == "string" then name else classNameOf(node)
+	end
+
 	local function insertChild(parent: Node, child: Node, _position: number?)
-		writeMember(child, "Parent", parent)
+		local ok, failure = pcall(writeMember, child, "Parent", parent)
+		if ok then
+			return
+		end
+		if string.find(tostring(failure), "Parent property", 1, true) == nil then
+			error(failure, 0)
+		end
+		error(
+			Compose.formatDiagnostic(
+				"host/node-destroyed",
+				("%s was placed in %s after it was destroyed"):format(nameOf(child), nameOf(parent)),
+				{
+					node = nameOf(child),
+					parent = nameOf(parent),
+					cause = tostring(failure),
+					contract = "a node lives in one place; destroying the branch that holds it destroys the node",
+					fix = "build the node inside the builder, page or component that places it, so each "
+						.. "branch makes its own; a node made once outside a show, switch or page and placed "
+						.. "in two branches is gone after the first branch closes",
+				}
+			),
+			0
+		)
 	end
 
 	local function removeChild(_parent: Node, child: Node)

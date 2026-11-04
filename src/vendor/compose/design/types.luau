@@ -142,7 +142,7 @@ export type Library = {
 export type InputKind = "value" | "readable" | "cell"
 export type InputType = "string" | "number" | "boolean" | "color" | "image" | "vector3" | "list" | "record" | "slot"
 
-export type ItemField = { id: string, type: InputType, fields: { ItemField }?, luauType: string? }
+export type ItemField = { id: string, type: InputType, fields: { ItemField }?, luauType: string?, options: { string }? }
 
 export type Input = {
 	id: string,
@@ -176,7 +176,13 @@ export type Node = {
 	tags: { string }?,
 	hidden: boolean?,
 	locked: boolean?,
+	rowVariant: RowVariant?,
+	tagBinding: Value?,
+	slot: string?,
 }
+
+export type VariantCase = { value: string, kind: string, props: { [string]: Value }, children: { Node } }
+export type RowVariant = { item: string, cases: { VariantCase } }
 
 export type Document = {
 	schema: "compose-design/1",
@@ -190,7 +196,13 @@ export type Document = {
 	rootVariant: RootVariant?,
 }
 
-export type RootVariant = { input: string, value: string, kind: string, props: { [string]: Value } }
+export type RootVariant = {
+	input: string,
+	value: string,
+	kind: string,
+	props: { [string]: Value },
+	children: { Node }?,
+}
 
 export type EmitOptions = {
 	name: string?,
