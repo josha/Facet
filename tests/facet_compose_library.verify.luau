@@ -286,7 +286,8 @@ return function(verifyHarness: Verify.Harness)
 					end
 					local parsed = Design.parse(code, library)
 					Verify.expect(Design.emit(parsed, library)):toBe(code)
-					local built = Design.render(parsed, library, { inputs = { brightness = brightness } })
+					local built =
+						Design.render(parsed, library, { bindings = { brightness = { readable = brightness } } })
 					assert(typeof(built) == "Instance" and built:IsA("Model"))
 					local actual = assert(built:FindFirstChildWhichIsA("Part"))
 					Verify.expect(actual.CFrame):toBe(ctx.types.CFrame.new(2, 3, 4, 0, 0, -1, 0, 1, 0, 1, 0, 0))
@@ -325,8 +326,9 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 					local value = Design.document.new("Transforms", library, "Part")
-					local forms: { { Facet.DesignLiteral } } = { {}, { 1, 2, 3 }, { 1, 2, 3, 0, 0, 0, 1 } }
+					local forms: { Facet.DesignLiteral } = { {}, { 1, 2, 3 }, { 1, 2, 3, 0, 0, 0, 1 } }
 					for _, components in forms do
+						assert(type(components) == "table")
 						value = Design.document.change(value, library, "n1", "CFrame", { literal = components })
 						local code = Design.emit(value, library)
 						local parsed = Design.parse(code, library)
@@ -345,7 +347,7 @@ return function(verifyHarness: Verify.Harness)
 					local code = Design.emit(value, library)
 					local parsed = Design.parse(code, library)
 					Verify.expect(Design.emit(parsed, library)):toBe(code)
-					local built = Design.render(parsed, library, { inputs = { x = x } })
+					local built = Design.render(parsed, library, { bindings = { x = { readable = x } } })
 					assert(typeof(built) == "Instance" and built:IsA("Part"))
 					Verify.expect(built.CFrame.Position.X):toBe(5)
 					part = built
