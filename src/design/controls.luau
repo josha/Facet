@@ -225,7 +225,9 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			disclose = { type = "boolean", label = "Disclosure indicator", order = 22 },
 			textSize = { type = "number", label = "Text size", order = 23 },
-			help = { type = "string", label = "Help", order = 24 },
+			help = { type = "value", label = "Help", order = 24, format = "json" },
+			cooldown = { type = "value", label = "Cooldown", order = 35, format = "json" },
+			charges = { type = "number", label = "Charges", order = 36 },
 			row = { type = "value", label = "Row content", order = 25, format = "json" },
 			controlSize = {
 				type = "choice",

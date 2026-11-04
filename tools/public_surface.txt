@@ -261,6 +261,7 @@ controls(runtime).sequence : function
 controls(runtime).shake : function
 controls(runtime).toward : function
 controls(runtime).worldAnchor : function
+controls(runtime).worldSurface : function
 type ActionRole
 type Activate
 type Adaptive
@@ -327,6 +328,7 @@ type CompositionProps
 type ControlOptions
 type ControlSize
 type Controls
+type Cooldown
 type DateRangePreset
 type DateTimePickerDismissReason
 type DateTimePickerProps
@@ -381,6 +383,8 @@ type Gradient
 type GridProps
 type GroupedOptions
 type HapticKind
+type HelpRow
+type HelpSpec
 type HierarchyOptions
 type Host
 type IdentityCollectionSpec

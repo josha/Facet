@@ -124,3 +124,56 @@ rule, and `Facet.AuthoredRuleProperties` types the properties of that rule.
 `Facet.WorldAnchorPoint` types one point of a world anchor.
 `Facet.SplitColumn` names a NavigationSplitView column: `"sidebar"` or
 `"detail"`.
+
+For an action slot, use `UI.Button` with `cooldown = { remaining, total }` and
+optional `charges`. `Facet.Cooldown` accepts bound numbers. `total` must be
+finite and positive; `remaining` must be finite. The bottom-to-top sweep shows
+the clamped remaining fraction. It follows model updates with `motion.fast`
+and `motion.easing.trail`, and snaps with reduced motion. It does not run a
+game timer or disable the action. Bind `enabled` to the game's availability
+rule. `charges` accepts a bound nonnegative integer, including zero. Use
+`icon`, `glyph`, and `shortcutHint` for the subject and native InputAction hint.
+The sweep uses the theme's scrim paint. Theme rules can target
+`.facet-cooldown` and `.facet-charges` for separate paint.
+
+`Facet.HelpSpec` adds optional `rows = { { label, value } }`, `cost`, `cooldown`,
+and `flavour` to the existing `title`, required `body`, `shortcut`, `edge`, and
+`align`. `Facet.HelpRow` names a row. Text fields accept bound strings. Include
+units and labels in cost and cooldown strings. Button Help uses one pattern
+for pointer dwell, native selection, and touch long-press. It uses the existing
+tooltip theme, safe overlay bounds, edge flipping, and touch clearance.
+Keep details brief enough for the viewport; use a Popover or Sheet for long
+or interactive content.
+
+`UI.worldSurface(layer, content)` returns a Folder to include in the mounted
+tree. `layer` is a native BillboardGui or SurfaceGui. `content` builds one
+Instance in a Compose portal to that layer. The portal shares Compose ownership
+and the controls provider. Its StyleLink follows the nearest mounted
+StyleLink, including StyleSheet replacement. The layer is borrowed: removing
+the Folder removes the portal content and link, and leaves the layer standing.
+Create a layer through Host in the same tree to give it the same lifetime.
+Keep interactive layers in PlayerGui and set Adornee to a world target.
+SurfaceGui input also requires the target's CanQuery to be true.
+
+```luau
+local Host = runtime.constructors
+local layer = Host.BillboardGui {
+    Adornee = Compose.static(target), Size = UDim2.fromOffset(220, 48),
+    MaxDistance = 80, Active = true,
+}
+return Host.Folder {
+    Compose.portal(playerGui, function() return { layer } end),
+    UI.worldSurface(layer, function()
+        return UI.Button { label = "Interact", onActivate = interact }
+    end),
+}
+```
+
+Use this inside the existing app mount. Native layers own world projection,
+occlusion, distance limits, and input. No Facet projection loop is added.
+`examples/performance/world_surfaces.luau` builds a configurable number of
+nameplates under one mount and supplies a shared update command. The HUD spec
+runs 64 layers and checks teardown. This is a resource and lifecycle scene;
+it does not establish a device frame-time budget. Native BillboardGui and
+SurfaceGui cache unchanged content; frequent text updates invalidate that
+cache. Use bounded distance and update only when the displayed value changes.
