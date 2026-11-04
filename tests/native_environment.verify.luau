@@ -19,37 +19,12 @@ return function(verifyHarness: Verify.Harness)
 	local Compose: ComposeModule = Facet.Compose
 	local adaptive = Facet.adaptive
 
-	local function signal()
-		local handlers: { () -> () } = {}
-		return {
-			Connect = function(_, fn: () -> ())
-				table.insert(handlers, fn)
-				return {
-					Disconnect = function()
-						local index = table.find(handlers, fn)
-						if index then
-							table.remove(handlers, index)
-						end
-					end,
-				}
-			end,
-			Fire = function(_self: any)
-				for _, fn in table.clone(handlers) do
-					fn()
-				end
-			end,
-			count = function()
-				return #handlers
-			end,
-		}
-	end
-
 	local function world(services: { [string]: any }?, options: { [string]: any }?)
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local input = engine.new("UserInputService")
-		local frames = { Heartbeat = signal() }
+		local frames = { Heartbeat = engine.environment.newSignal() }
 		local config: { [string]: any } = {
 			types = engine.types,
 			guiService = gui,
@@ -639,7 +614,7 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(binding.anchor:peek().visible):toBe(false)
 				binding.dispose()
 				binding.dispose()
-				Verify.expect((w.frames.Heartbeat.count())):toBe(0)
+				Verify.expect((w.engine.environment.connectionsOf(w.frames.Heartbeat))):toBe(0)
 				w.stop()
 			end,
 		})
@@ -674,10 +649,10 @@ return function(verifyHarness: Verify.Harness)
 				local stop = owned(w.runtime, function()
 					binding = w.UI.worldAnchor({ target = part })
 				end)
-				Verify.expect((w.frames.Heartbeat.count())):toBe(1)
+				Verify.expect((w.engine.environment.connectionsOf(w.frames.Heartbeat))):toBe(1)
 				Verify.expect(binding.anchor:peek().visible):toBe(true)
 				stop()
-				Verify.expect((w.frames.Heartbeat.count())):toBe(0)
+				Verify.expect((w.engine.environment.connectionsOf(w.frames.Heartbeat))):toBe(0)
 				Verify.expect(binding.anchor:peek().visible):toBe(false)
 				w.stop()
 			end,
@@ -973,6 +948,7 @@ return function(verifyHarness: Verify.Harness)
 						end
 						stop()
 						w.stop()
+						Verify.expect(w.engine.environment.connectionsOf(w.frames.Heartbeat)):toBe(0)
 						Verify.expect(w.engine.census().connections):toBe(0)
 					end,
 				})
