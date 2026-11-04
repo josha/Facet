@@ -53,6 +53,9 @@ Analyzer.VENDOR = { "src/vendor/", "tools/vendor/" }
 Analyzer.KINDS = { TypeError = true, SyntaxError = true }
 
 function Analyzer.isLute(path: string): boolean
+	if path == "tools/facet/lib/studio_docs_search.luau" then
+		return false
+	end
 	for _, prefix in Analyzer.LUTE_RUNTIME do
 		if stringext.hasPrefix(path, prefix) then
 			return true
