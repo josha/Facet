@@ -35,7 +35,7 @@ return function(verifyHarness: Verify.Harness)
 						table.insert(failures, failure)
 					end,
 				})
-				local failed = ctx.build("Broken", function(_: {}): Instance
+				local failed = ctx.build("Button", function(_: {}): Instance
 					error("broken control", 0)
 				end, {})
 				assert(failed:IsA("TextLabel"))
@@ -54,7 +54,7 @@ return function(verifyHarness: Verify.Harness)
 			larger.metrics.typography.caption.size = 23
 			package:set(larger)
 			Verify.expect(styleRules.resolve(styles, failed, "TextSize")):toBe(23)
-			Verify.expect(failed.Text):toBe("Facet UI.Broken failed: broken control")
+			Verify.expect(failed.Text):toBe("Facet UI.Button failed: broken control")
 			stop()
 			runtime:dispose()
 		end,
