@@ -441,6 +441,42 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("keeps native design field metadata independent across controls", {
+			id = "facet_compose_library::keeps native design field metadata independent across controls",
+			run = function()
+				local seen: { [unknown]: boolean } = {}
+				for _, spec in Kit.controls do
+					for _, key in
+						{
+							"BackgroundColor3",
+							"BackgroundTransparency",
+							"Visible",
+							"Rotation",
+							"ClipsDescendants",
+							"LayoutOrder",
+						}
+					do
+						local field = spec.fields[key]
+						if field then
+							Verify.expect(seen[field]):toBe(nil)
+							seen[field] = true
+						end
+					end
+				end
+				Verify.expect(Kit.controls.VirtualList.fields.BackgroundColor3):toEqual({
+					type = "color",
+					label = "Background color",
+					order = 11,
+					format = "color",
+				})
+				Verify.expect(Kit.controls.AdaptiveStack.fields.LayoutOrder):toEqual({
+					type = "number",
+					label = "Layout order",
+					order = 11,
+				})
+			end,
+		})
+
 		verifyHarness:case("inserts every Facet control with its defaults into a valid design", {
 			id = "facet_compose_library::inserts every Facet control with its defaults into a valid design",
 			run = function()
