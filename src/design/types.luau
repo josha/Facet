@@ -43,6 +43,7 @@ export type ControlSpec = {
 
 export type Context = {
 	UI: unknown,
+	space: ("2d" | "3d")?,
 	types: RobloxTypes?,
 	host: ((className: string, name: string, props: { [unknown]: unknown }) -> unknown)?,
 	provide: ((content: unknown) -> unknown)?,

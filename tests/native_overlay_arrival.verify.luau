@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
@@ -11,39 +12,16 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 
-	type Ticker = engineLib.Signal<number> & { count: () -> number }
-
-	local function signal(): Ticker
-		local handlers: { (number) -> () } = {}
-		return {
-			Connect = function(_: unknown, fn: (number) -> ())
-				table.insert(handlers, fn)
-				return {
-					Disconnect = function(_: unknown)
-						local index = table.find(handlers, fn)
-						if index then
-							table.remove(handlers, index)
-						end
-					end,
-				}
-			end,
-			Fire = function(_self: unknown)
-				for _, fn in table.clone(handlers) do
-					fn(1 / 60)
-				end
-			end,
-			count = function()
-				return #handlers
-			end,
-		}
-	end
+	type Ticker = VerifyRoblox.Signal<number>
 
 	local function world(build: (Facet.Controls) -> Facet.Child, render: boolean?)
 		local engine = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
-		local frames: { Heartbeat: Ticker, PreRender: Ticker? } =
-			{ Heartbeat = signal(), PreRender = if render then signal() else nil }
+		local frames: { Heartbeat: Ticker, PreRender: Ticker? } = {
+			Heartbeat = engine.environment.newSignal(),
+			PreRender = if render then engine.environment.newSignal() else nil,
+		}
 		if render then
 			engine.heartbeat = assert(frames.PreRender)
 		end
@@ -121,7 +99,7 @@ return function(verifyHarness: Verify.Harness)
 			end
 			Verify.expect(require("./lib/fade").of(row)):toBe(0)
 			stop()
-			Verify.expect(render.count()):toBe(0)
+			Verify.expect(engine.environment.connectionsOf(render)):toBe(0)
 		end)
 		verifyHarness:case("waits for deferred geometry before the first painted frame", function()
 			local screen, frames, stop, engine = world(function(UI: FacetControls)
@@ -163,7 +141,7 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(group.Interactable):toBe(true)
 			Verify.expect(group:FindFirstChildWhichIsA("CanvasGroup") == nil):toBe(true)
 			stop()
-			Verify.expect(render.count()):toBe(0)
+			Verify.expect(engine.environment.connectionsOf(render)):toBe(0)
 		end)
 		verifyHarness:case("holds a newly presented surface hidden until the next frame, when the theme styles apply", {
 			id = "native_overlay_arrival::presented surfaces arrive styled::holds a newly presented surface hidden until the next frame, when the theme styles apply",
@@ -194,7 +172,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(`{kind} hidden {hidden(screen, inner)}`):toBe(`{kind} hidden true`)
 					frames.Heartbeat:Fire(1 / 60)
 					Verify.expect(`{kind} hidden {hidden(screen, inner)}`):toBe(`{kind} hidden false`)
-					Verify.expect((frames.Heartbeat.count())):toBe(0)
+					Verify.expect((engine.environment.connectionsOf(frames.Heartbeat))):toBe(0)
 					stop()
 				end
 			end,
@@ -204,7 +182,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_overlay_arrival::presented surfaces arrive styled::releases its frame hook when the surface closes before the first frame",
 			run = function()
 				local open = Compose.cell(false)
-				local _, frames, stop = world(function(UI: FacetControls)
+				local _, frames, stop, engine = world(function(UI: FacetControls)
 					local confirm: Facet.AlertSpec = {
 						title = "Sell the crop?",
 						isPresented = open,
@@ -213,9 +191,9 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Alert "Confirm"(confirm)
 				end)
 				open:set(true)
-				Verify.expect(frames.Heartbeat.count() >= 1):toBe(true)
+				Verify.expect(engine.environment.connectionsOf(frames.Heartbeat) >= 1):toBe(true)
 				open:set(false)
-				Verify.expect((frames.Heartbeat.count())):toBe(0)
+				Verify.expect((engine.environment.connectionsOf(frames.Heartbeat))):toBe(0)
 				stop()
 			end,
 		})
@@ -230,7 +208,7 @@ return function(verifyHarness: Verify.Harness)
 						local engine = engineLib.new()
 						local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 						local gui = engine.new("GuiService")
-						local frames = { Heartbeat = signal() }
+						local frames = { Heartbeat = engine.environment.newSignal() }
 						local UI = Facet.controls(runtime, {
 							types = engine.types,
 							guiService = gui,

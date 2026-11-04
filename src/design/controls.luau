@@ -920,6 +920,8 @@ local controls: { [string]: Types.ControlSpec } = {
 	},
 	Pagination = {
 		category = "Navigation",
+		container = true,
+		seeds = {},
 		state = "page",
 		defaults = { form = "numbers", page = 1, pageCount = 8 },
 		fields = nativeFields(7, {

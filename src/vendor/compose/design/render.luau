@@ -51,6 +51,7 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			value.root = table.clone(value.root)
 			value.root.kind = variant.kind
 			value.root.props = variant.props
+			value.root.children = variant.children or value.root.children
 		end
 	end
 	local live = context ~= nil and context.bindings ~= nil
@@ -152,13 +153,21 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		for _, child in node.children do
 			collect(child)
 		end
+		if node.rowVariant then
+			for _, case in node.rowVariant.cases do
+				local wrapper = table.clone(node)
+				wrapper.rowVariant = nil
+				wrapper.props, wrapper.children = case.props, case.children
+				collect(wrapper)
+			end
+		end
 	end
 	collect(value.root)
 	local function carriesOutput(current: Literal): boolean
 		if type(current) ~= "table" then
 			return false
 		end
-		if current["$output"] ~= nil or current["$template"] ~= nil then
+		if current["$output"] ~= nil or current["$template"] ~= nil or current["$input"] ~= nil then
 			return true
 		end
 		for _, item in current do
@@ -177,6 +186,18 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 	local function withCallbacks(current: Literal, row: ReadOnlyValue<Row>?, owner: Types.Node): unknown
 		if type(current) ~= "table" then
 			return current
+		end
+		local input = current["$input"]
+		if type(input) == "string" then
+			local binding = bindings[input]
+			if binding then
+				if binding.value ~= nil then
+					return binding.value
+				elseif binding.readable ~= nil then
+					return binding.readable
+				end
+			end
+			return inputValue(input, nil)
 		end
 		local template = current["$template"]
 		if type(template) == "string" then
@@ -420,6 +441,25 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		if context and context.exclude and context.exclude(node) then
 			return nil
 		end
+		if node.slot then
+			local binding = bindings[node.slot]
+			local factory = if binding then binding.slot else slots[node.slot]
+			assert(
+				factory ~= nil or not assert(Document.input(value, node.slot)).required,
+				"A required slot child needs a factory"
+			)
+			return if factory then factory() else nil
+		end
+		if node.rowVariant then
+			local selected = assert(item, "Row variants need an item"):peek()[node.rowVariant.item]
+			for _, case in node.rowVariant.cases do
+				if selected == case.value then
+					node = table.clone(node)
+					node.kind, node.props, node.children = case.kind, case.props, case.children
+					break
+				end
+			end
+		end
 		local kind = assert(library.kinds[node.kind], `Unknown {library.name} kind {node.kind}`)
 		local props: { [string]: Resolved } = {}
 		local cells: { [string]: true } = {}
@@ -556,6 +596,34 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 		local tags, tagging = node.tags, library.tags
 		if tags ~= nil and tagging ~= nil then
 			tagging.apply(built, tags)
+		end
+		if node.tagBinding and tagging then
+			local resolved = resolve(node.tagBinding, item, node, nil)
+			local function apply(current: unknown)
+				local tags: { string } = {}
+				if type(current) == "string" then
+					table.insert(tags, current)
+				elseif type(current) == "table" then
+					for _, tag in current do
+						assert(type(tag) == "string", "Bound tags contain text")
+						table.insert(tags, tag)
+					end
+				end
+				tagging.apply(built, tags)
+			end
+			local readable = resolved.readable
+			if readable and live then
+				Core.watch(function(use: Use)
+					apply(use(readable))
+				end)
+			else
+				apply(
+					if readable
+						then readable:peek()
+						elseif resolved.value ~= nil then resolved.value
+						else resolved.literal
+				)
+			end
 		end
 		local captured = references[node.id]
 		if captured ~= nil then

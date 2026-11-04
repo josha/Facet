@@ -2601,40 +2601,26 @@ return function(verifyHarness: Verify.Harness)
 		it("a disclosure given an Instance as content shows it again after a collapse", {
 			id = "native_navigation::native navigation controls::a disclosure given an Instance as content shows it again after a collapse",
 			run = function()
-				local expanded = Compose.cell(true)
-				local inside: any
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					inside = Host.TextLabel "Inside" { Text = "Inside" }
-					return UI.DisclosureGroup { expanded = expanded, label = "Details", content = inside }
-				end)
-				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
-				expect((inside:IsDescendantOf(world.screen))):toBe(true)
-				expanded:set(false)
-				world.engine.heartbeat:Fire(1)
-				expect((not world.engine.environment.isAlive(inside))):toBe(false)
-				expanded:set(true)
-				expect((inside:IsDescendantOf(world.screen))):toBe(true)
-				world.stop()
-			end,
-		})
-
-		it("a collapsible view given an Instance as content shows it again after a collapse", {
-			id = "native_navigation::native navigation controls::a collapsible view given an Instance as content shows it again after a collapse",
-			run = function()
-				local expanded = Compose.cell(true)
-				local inside: any
-				local world = setup(function(UI: FacetControls, Host: RobloxHost)
-					inside = Host.TextLabel "Inside" { Text = "Inside" }
-					return UI.CollapsibleView { expanded = expanded, label = "Summary", content = inside }
-				end)
-				world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
-				expect((inside:IsDescendantOf(world.screen))):toBe(true)
-				expanded:set(false)
-				world.engine.heartbeat:Fire(1)
-				expect((not world.engine.environment.isAlive(inside))):toBe(false)
-				expanded:set(true)
-				expect((inside:IsDescendantOf(world.screen))):toBe(true)
-				world.stop()
+				for _, sample in
+					{ { collapsible = false, label = "Details" }, { collapsible = true, label = "Summary" } }
+				do
+					local expanded = Compose.cell(true)
+					local inside: TextLabel
+					local world = setup(function(UI: FacetControls, Host: RobloxHost)
+						inside = Host.TextLabel "Inside" { Text = "Inside" }
+						return if sample.collapsible
+							then UI.CollapsibleView { expanded = expanded, label = sample.label, content = inside }
+							else UI.DisclosureGroup { expanded = expanded, label = sample.label, content = inside }
+					end)
+					world.engine.environment.poke(VerifyRoblox.assertInstance(world.gui), "ReducedMotionEnabled", true)
+					expect((inside:IsDescendantOf(world.screen))):toBe(true)
+					expanded:set(false)
+					world.engine.heartbeat:Fire(1)
+					expect((not world.engine.environment.isAlive(VerifyRoblox.assertInstance(inside)))):toBe(false)
+					expanded:set(true)
+					expect((inside:IsDescendantOf(world.screen))):toBe(true)
+					world.stop()
+				end
 			end,
 		})
 

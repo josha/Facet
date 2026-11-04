@@ -202,6 +202,18 @@ local function typeNameOf(host: Host, value: unknown): string
 	return typeof(value)
 end
 
+local function classifyKey(host: Host, node: Node, key: string): KeyKind
+	local events = host.events
+	if events == nil then
+		return "property"
+	end
+	local classify = events.classifyKey
+	if classify == nil then
+		return "property"
+	end
+	return classify(node, key)
+end
+
 local function describeNode(host: Host, node: unknown): string
 	local describe = host.describeNode
 	if describe ~= nil and (type(node) == "table" or type(node) == "userdata") then
@@ -217,4 +229,5 @@ return {
 	validate = validate,
 	describeNode = describeNode,
 	typeNameOf = typeNameOf,
+	classifyKey = classifyKey,
 }

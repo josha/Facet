@@ -31,6 +31,8 @@ local source = kit.Design.emit(document, library, { name = "Shop" })
 Child modes:
 
 - Stacks, grids and other containers take a list of children.
+- Pagination takes a list of positional children. Use a native `UIFlexItem`
+  child when the control must fill its parent layout.
 - Dialog, Sheet, Popover, Callout, DisclosureGroup, CollapsibleView, Card and
   RowActions take one content node. The control builds it when it presents
   the content.
@@ -56,6 +58,8 @@ Kinds:
 - When the context has `host`, the Roblox classes `Frame`, `TextLabel`,
   `ImageLabel`, `ScrollingFrame` and the UI layout objects are kinds in the
   category `Roblox`. They emit `Host.Frame "Name" { ... }`.
+- With `host`, native `Model`, `Part` and `PointLight` are also kinds.
+  See [native scene documents](Design-library.scenes.md).
 
 Whole views:
 
