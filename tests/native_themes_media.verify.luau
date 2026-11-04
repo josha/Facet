@@ -1318,12 +1318,15 @@ return function(verifyHarness: Verify.Harness)
 				local UI = Facet.controls(runtime, { types = engine.types })
 				local Host = Facet.host(runtime)
 				local baseline = engineLib.connections(engine.heartbeat)
-				local stop, screen = runtime.mount(function()
-					return Host.ScreenGui {
+				local root: ScreenGui? = nil
+				local stop = runtime.mount(function()
+					root = Host.ScreenGui {
 						Host.Frame "Hidden" { Visible = false, UI.Skeleton "One" {} },
 						Host.Frame "Shown" { UI.Skeleton "Two" { Visible = false } },
 					}
+					return root
 				end, engine.new("Folder"))
+				local screen = assert(root)
 				local hidden = assert(screen:FindFirstChild("Hidden"))
 				local shown = assert(screen:FindFirstChild("Shown"))
 				local one = assert(hidden:FindFirstChild("One"))
