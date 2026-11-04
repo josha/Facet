@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "a5f0a9497d19a52340af87ce85e38066c7f9bbc9",
+  "commit": "d645e280238a30e19920013739675e0d710a6940",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -129,9 +129,9 @@
   },
   "docs": {
     "SKILL.md": "a3277af0c096e2c640b1a0fb22c1739ffbf57603e81aab8ec9d7324d9f7ac590",
-    "references/api.md": "daf3962e421a21fb8ad5ce7110e448990604bc6db50d27b7d5d26a2b24768fab",
-    "references/consumer-guides.md": "1481b78af53198b866f98c8060dfffda830ee6805b95ae29cd2143f9dfa6a5f2",
+    "references/api.md": "9b24720649548c53d73f54bbd9d39d69020f6cc511929665b6fcda5715753257",
+    "references/consumer-guides.md": "50daa76d50e6589a3fe2706bd6271ea95eab181a47e30188e95bfb3647f66d13",
     "references/design.md": "c70ea5d999d8d158692aaf5346cef01c3a61e33fdfb106c8c4fd06840e4c4bb6",
-    "references/ownership.md": "8c9398d065c4415080a5bef02a8b0a2728ba622c22108b16d61b7a627f5b7f28"
+    "references/ownership.md": "0801c27ed45d4eb2ce6c204ea95617d8a149f74711e7a5eb611dddcdc1124006"
   }
 }
