@@ -92,6 +92,12 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 						)
 				end
 				local ready = if node:IsA("ImageLabel")
+						and (
+							fetched:peek()
+							or node.Image == ""
+							or (row:IsA("CanvasGroup") and row.GroupTransparency == 1)
+							or row:GetAttribute("FacetCollectionReady") == false
+						)
 					then Compose.formula(function(use: ComposeTypes.Use): boolean
 						use(size)
 						use(assert(loaded))

@@ -603,8 +603,18 @@ return function(verifyHarness: Verify.Harness)
 				local Host = Facet.host(runtime)
 				local image: ImageLabel? = nil
 				local other: Frame? = nil
+				local provider = native.new("ContentProvider")
+				native.environment.fakeOn(provider, "GetAssetFetchStatus", function(_self: unknown, content: string)
+					return if content == "rbxassetid://12"
+						then native.types.Enum.AssetFetchStatus.Failure
+						else native.types.Enum.AssetFetchStatus.Success
+				end)
 				local stop = runtime.mount(function()
-					local ctx = context(Compose, runtime, { types = native.types, motionLevel = "normal" })
+					local ctx = context(Compose, runtime, {
+						types = native.types,
+						motionLevel = "normal",
+						services = { ContentProvider = provider },
+					})
 					local row = Host.Frame { Attributes = { FacetCollectionRow = true, FacetCollectionReady = true } }
 					other = Host.Frame { Parent = Compose.static(row), Attributes = { FacetCollectionRow = true } }
 					local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
