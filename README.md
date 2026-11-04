@@ -136,17 +136,17 @@ covers this route.
 
 - **[`examples/virtual_monitors/`](examples/virtual_monitors/)**: four apps for
   game discovery, a 3D avatar editor, an agent chat and Facet Flap. It uses every
-  public Facet name, and a test checks this. Open the checked-in
-  [Virtual Monitors](examples/places/Facet-VirtualMonitors.rbxl) place in Studio.
+  public Facet name, and a test checks this.
 - **[`examples/facet_farm/`](examples/facet_farm/)**: a farming game with crops,
-  tools and a seed market. Open the checked-in
-  [Facet Farm](examples/places/Facet-Farm.rbxl) place in Studio. Rebuild the
-  maintained places with `lute run tools/facet build places`.
+  tools and a seed market.
 - **[`examples/consumer/`](examples/consumer/)**: the smallest complete project.
 - **`examples/gallery/`**: every demo and every shipped theme. Build it with
   `rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl`.
 - **`examples/gallery/examples/`**: the tutorial programs the guide teaches,
   smallest first.
+
+Run `lute run tools/facet build places` to build the maintained places in
+`examples/places`, then open a place in Studio.
 
 ## Documentation
 

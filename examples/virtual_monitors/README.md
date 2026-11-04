@@ -96,9 +96,7 @@ lute run tools/facet build places
 open -a RobloxStudio examples/places/Facet-VirtualMonitors.rbxl
 ```
 
-The checked-in [Virtual Monitors build](../places/Facet-VirtualMonitors.rbxl)
-contains all four apps, including Facet Flap. `lute run tools/facet build places` rebuilds
-it with the other examples.
+The place contains all four apps, including Facet Flap.
 
 Press Play in Studio. The showcase needs no character and stays local and
 unpublished. The project file sets `VoiceChatService.EnableDefaultVoice` to

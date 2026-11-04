@@ -6,12 +6,22 @@ return function(verifyHarness: Verify.Harness)
 	local process = require("@std/process")
 	local json = require("@std/json")
 	local Lute = require("../tools/vendor/verify/src/lute")
+	local Zlib = require("../tools/facet/lib/zlib")
 
 	local DIR = process.env.FACET_FOCUS_ATLAS or "tests/fixtures/focus_atlas"
 	local FAMILIES = { "dpad", "stick", "keys" }
 
+	local function recordingText(source: string): string
+		if string.sub(source, 1, 2) == "\31\139" then
+			return buffer.tostring(Zlib.gunzip(buffer.fromstring(source)))
+		end
+		return source
+	end
+
 	local function load(file: string): any
-		return Lute.parse(fs.readFileToString(`{DIR}/{file}`)) :: any
+		local path = `{DIR}/{file}`
+		local source = fs.readFileToString(if fs.exists(path) then path else path .. ".gz")
+		return Lute.parse(recordingText(source)) :: any
 	end
 
 	local function entryOf(atlas: any, container: string): string?
@@ -137,6 +147,17 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("focus recording scenes", function()
+		verifyHarness:case("reads raw and gzip recordings without changing their JSON bytes", {
+			id = "native_focus_walk::focus recording scenes::reads raw and gzip recordings without changing their JSON bytes",
+			run = function()
+				local source =
+					'{"path":"PreviewRoot/Tea/é","rect":[0,-0.5,1436.000015258789],"stops":[],"entry":null}\n'
+				Verify.expect(recordingText(source)):toBe(source)
+				local compressed = buffer.tostring(Zlib.gzip(buffer.fromstring(source)))
+				Verify.expect(recordingText(compressed)):toBe(source)
+				Verify.expect(Lute.parse(recordingText(compressed))):toEqual(Lute.parse(source))
+			end,
+		})
 		verifyHarness:case("keeps discovery on the recorded page after a sibling tab receives focus", {
 			id = "native_focus_walk::focus recording scenes::keeps discovery on the recorded page after a sibling tab receives focus",
 			run = function()
@@ -189,8 +210,13 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	local atlases: { string } = {}
+	local seen: { [string]: boolean } = {}
 	for _, entry in fs.listDirectory(DIR) do
-		table.insert(atlases, entry.name)
+		local name = string.gsub(entry.name, "%.gz$", "")
+		if not seen[name] then
+			seen[name] = true
+			table.insert(atlases, name)
+		end
 	end
 	table.sort(atlases)
 	for _, file in atlases do

@@ -12,8 +12,8 @@ buy seeds, harvests give experience, and each level unlocks a new crop.
   tools, a Sheet seed market, an Alert on level up and Toast harvest notes.
 - `theme.luau` is the game's theme package and its art colours.
 
-Open the checked-in [Facet Farm place](../places/Facet-Farm.rbxl) in Studio.
-Rebuild it with the other examples from the repository root:
+Build from the repository root, then open `examples/places/Facet-Farm.rbxl`
+in Studio:
 
 ```sh
 lute run tools/facet build places
