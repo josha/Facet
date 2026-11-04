@@ -258,7 +258,9 @@ function themes.neutralPackage(): ThemeTypes.ThemePackage
 	return copy(neutral)
 end
 
-themes.forDistance = themeDistance(neutral)
+local display = themeDistance.create(neutral)
+themes.forDistance = display.forDistance
+themes.forResolution = display.forResolution
 
 local definitions = defineThemes(neutral, themes.SCHEMA, themes.TYPE_ROLES)
 themes.define = definitions.define
@@ -1352,6 +1354,7 @@ return function(Compose: typeof(ComposeTypes)): ThemeTypes.Themes
 		REQUIRED_TYPE_ROLES = themes.REQUIRED_TYPE_ROLES,
 		neutralPackage = themes.neutralPackage,
 		forDistance = themes.forDistance,
+		forResolution = themes.forResolution,
 		define = themes.define,
 		checkCoverage = themes.checkCoverage,
 		resolveIcon = themes.resolveIcon,

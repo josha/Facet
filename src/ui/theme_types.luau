@@ -364,6 +364,7 @@ export type Themes = {
 	REQUIRED_TYPE_ROLES: { string },
 	neutralPackage: () -> ThemePackage,
 	forDistance: (package: ReadOnlyThemePackage, distance: "near" | "ten-foot") -> ReadOnlyThemePackage,
+	forResolution: (package: ReadOnlyThemePackage, width: number, height: number) -> ReadOnlyThemePackage,
 	define: (definition: ThemeDefinition | ThemePackage) -> (ThemePackage?, ThemeReport),
 	checkCoverage: (package: ThemePackage, needs: { CoverageNeed }) -> CoverageReport,
 	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,

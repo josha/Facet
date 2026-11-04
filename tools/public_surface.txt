@@ -90,6 +90,7 @@ adaptive : table(frozen)
   adaptive.navPlacement : function
   adaptive.orientationFor : function
   adaptive.overscanInsets : function
+  adaptive.resolutionScale : function
   adaptive.sizeClass : function
   adaptive.sizeClassAtLeast : function
 app : function
@@ -158,6 +159,7 @@ themes : table
   themes.createStyleSheet : function
   themes.define : function
   themes.forDistance : function
+  themes.forResolution : function
   themes.neutralPackage : function
   themes.resolveIcon : function
   themes.skin : function
