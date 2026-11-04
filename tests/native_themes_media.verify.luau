@@ -595,6 +595,47 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end)
 
+		it("keeps cached images ready when a visible row changes its image or parent", {
+			id = "native_themes_media::native themes and media::keeps cached images ready when a visible row changes its image or parent",
+			run = function()
+				local native = engineLib.new()
+				local runtime = Roblox.createRuntime(native)
+				local Host = Facet.host(runtime)
+				local image: ImageLabel? = nil
+				local other: Frame? = nil
+				local stop = runtime.mount(function()
+					local ctx = context(Compose, runtime, { types = native.types, motionLevel = "normal" })
+					local row = Host.Frame { Attributes = { FacetCollectionRow = true, FacetCollectionReady = true } }
+					other = Host.Frame { Parent = Compose.static(row), Attributes = { FacetCollectionRow = true } }
+					local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
+					image = artwork
+					native.environment.poke(
+						FixtureRoblox.assertInstance(artwork),
+						"AbsoluteSize",
+						native.types.Vector2.new(28, 28)
+					)
+					native.environment.poke(FixtureRoblox.assertInstance(artwork), "IsLoaded", true)
+					require("../src/ui/media_readiness")(ctx, artwork)
+					artwork.Parent = row
+					return row
+				end, native.new("ScreenGui"))
+				local artwork = assert(image)
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+				expect(artwork.ImageTransparency):toBe(0)
+				artwork.Image = "rbxassetid://11"
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+				expect(artwork.ImageTransparency):toBe(0)
+				artwork.Parent = assert(other)
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+				expect(artwork.ImageTransparency):toBe(0)
+				native.environment.poke(FixtureRoblox.assertInstance(artwork), "IsLoaded", false)
+				artwork.Image = "rbxassetid://12"
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(false)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("reveals a fetched collection image when native IsLoaded stays false", function(_own, t)
 			local prepare = require("../src/ui/media_readiness")
 			local callable: unknown = prepare
