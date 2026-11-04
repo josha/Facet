@@ -1,7 +1,7 @@
 # Public API
 
-For a component and the runtime setup, start with the [quickstart](https://github.com/voidmeld/compose/blob/9d7a963f1e8c58b5e5327fb9801872c2613a2ce1/docs/quickstart.md).
-For calls, types and failure behavior, use the [API reference](https://github.com/voidmeld/compose/blob/9d7a963f1e8c58b5e5327fb9801872c2613a2ce1/docs/api.md).
+For a component and the runtime setup, start with the [quickstart](https://github.com/voidmeld/compose/blob/198c954a083699ac879a42fdf45154fab56fb955/docs/quickstart.md).
+For calls, types and failure behavior, use the [API reference](https://github.com/voidmeld/compose/blob/198c954a083699ac879a42fdf45154fab56fb955/docs/api.md).
 Host constructors belong to the runtime. Reactive helpers belong to core.
 
-To change Compose itself, follow [AGENTS](https://github.com/voidmeld/compose/blob/9d7a963f1e8c58b5e5327fb9801872c2613a2ce1/AGENTS.md).
+To change Compose itself, follow [AGENTS](https://github.com/voidmeld/compose/blob/198c954a083699ac879a42fdf45154fab56fb955/AGENTS.md).
