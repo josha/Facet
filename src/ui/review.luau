@@ -302,23 +302,84 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 	return findings
 end
 
+local function screen(options: ReviewOptions?): ReviewReport
+	local snapshot = collect(options)
+	local report = Rules.analyze(snapshot)
+	local extra = runtimeFindings(snapshot)
+	if #extra == 0 then
+		return report
+	end
+	local lines: { string } = {}
+	for index, finding in extra do
+		table.insert(report.findings, index, finding)
+		table.insert(lines, ("[%s] %s: %s"):format(finding.severity, finding.rule, finding.detail))
+	end
+	report.text = table.concat(lines, "\n") .. "\n" .. report.text
+	return report
+end
+
+export type ScreenTarget = { set: (unknown, boolean) -> () } | { open: () -> (), close: (() -> ())? }
+export type ScreensOptions = { root: Instance?, settle: number? }
+
+-- Opens each named screen in turn, reviews it and closes it, so one call checks every screen.
+local function screens(targets: { [string]: ScreenTarget }, options: ScreensOptions?): string
+	local wait = assert(task and task.wait, "Facet review.screens runs in Play, where task.wait is available")
+	local settle = if options and options.settle then options.settle else 0.5
+	local reviewOptions: ReviewOptions? = if options then { root = options.root } else nil
+	local names: { string } = {}
+	for name in targets do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	local out: { string } = {}
+	for _, name in names do
+		local target = (targets[name] :: unknown) :: {
+			set: ((unknown, boolean) -> ())?,
+			open: (() -> ())?,
+			close: (() -> ())?,
+		}
+		local function toggle(open: boolean)
+			if target.set then
+				target.set(target, open)
+			elseif open then
+				assert(target.open, "a screen target needs a writable cell or an open function")()
+			elseif target.close then
+				target.close()
+			end
+		end
+		local opened, failure = pcall(toggle, true)
+		wait(settle)
+		local lines = { ("== %s"):format(name) }
+		if not opened then
+			table.insert(lines, "[high] open-failed: " .. tostring(failure))
+		end
+		local reviewed, report = pcall(screen, reviewOptions)
+		if reviewed then
+			local shown = 0
+			for _, finding in report.findings do
+				if finding.severity ~= "low" and shown < 5 then
+					shown += 1
+					local detail = string.sub((string.gsub(finding.detail, "%s+", " ")), 1, 200)
+					table.insert(lines, ("[%s] %s: %s"):format(finding.severity, finding.rule, detail))
+				end
+			end
+			if shown == 0 then
+				table.insert(lines, "no high or medium findings")
+			end
+		else
+			table.insert(lines, "[high] review-failed: " .. tostring(report))
+		end
+		pcall(toggle, false)
+		wait(settle / 2)
+		table.insert(out, table.concat(lines, "\n"))
+	end
+	return table.concat(out, "\n")
+end
+
 return table.freeze({
 	analyze = Rules.analyze,
 	collect = collect,
-	screen = function(options: ReviewOptions?): ReviewReport
-		local snapshot = collect(options)
-		local report = Rules.analyze(snapshot)
-		local extra = runtimeFindings(snapshot)
-		if #extra == 0 then
-			return report
-		end
-		local lines: { string } = {}
-		for index, finding in extra do
-			table.insert(report.findings, index, finding)
-			table.insert(lines, ("[%s] %s: %s"):format(finding.severity, finding.rule, finding.detail))
-		end
-		report.text = table.concat(lines, "\n") .. "\n" .. report.text
-		return report
-	end,
+	screen = screen,
+	screens = screens,
 	fixes = Rules.fixes,
 })

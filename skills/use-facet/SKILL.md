@@ -78,7 +78,16 @@ whole source trees. Put independent reads in one call. In Play, drive a route
 and collect its errors, state and UI findings in one call that returns a short
 report, rather than one probe per call. Wait for an outcome inside that call,
 within the host's time limit, instead of polling it across calls, and send an
-input and its capture together when the host allows.
+input and its capture together when the host allows. To check every screen,
+pass each screen's writable presentation cell to
+`Facet.review.screens({ Shop = shopOpen, Garage = garageOpen })` in one Client
+call; it opens, reviews and closes each and returns build errors and findings.
+Capture a screen when its report needs a visual check or after a visual change,
+not after every step; each capture is resent with every later call.
+
+Give every required screen a working shell reachable from the game before
+deepening gameplay or any one screen, then deepen the routes in order of the
+brief.
 
 In Play, exercise the changed routes and inspect errors. Treat a mounted surface
 that shows no content, or a control that is missing, as a construction error to
