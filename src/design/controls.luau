@@ -4,16 +4,18 @@ local Types = require("./types")
 
 type Literal = Types.Literal
 
-local function list(...: Literal): Literal
-	return { ... }
-end
-
-local function record(fields: { [string | number]: Literal }): Literal
-	return fields
-end
-
 local function seed(kind: string, props: { [string]: Literal }, children: { Types.Seed }): Types.Seed
 	return { kind = kind, props = props, children = children }
+end
+
+local function nativeFields(order: number, fields: { [string]: Types.FieldSpec }): { [string]: Types.FieldSpec }
+	fields.BackgroundColor3 = { type = "color", label = "Background color", order = order, format = "color" }
+	fields.BackgroundTransparency = { type = "number", label = "Background transparency", order = order + 1 }
+	fields.Visible = { type = "boolean", label = "Visible", order = order + 2 }
+	fields.Rotation = { type = "number", label = "Rotation", order = order + 3 }
+	fields.ClipsDescendants = { type = "boolean", label = "Clip contents", order = order + 4 }
+	fields.LayoutOrder = { type = "number", label = "Layout order", order = order + 5 }
+	return fields
 end
 
 local controls: { [string]: Types.ControlSpec } = {
@@ -21,7 +23,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		category = "Layout",
 		container = true,
 		defaults = { gap = "s" },
-		fields = {
+		fields = nativeFields(6, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -44,12 +46,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 5,
 				options = { "start", "center", "end", "stretch" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
 			distribute = {
 				type = "choice",
@@ -58,19 +54,19 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly" },
 			},
 			axis = { type = "choice", label = "Axis", order = 14, options = { "x", "y" } },
-		},
+		}),
 	},
 	Alert = {
 		category = "Overlays",
 		state = "isPresented",
 		defaults = {
-			actions = list(record { id = "okay", label = "Continue" }),
+			actions = { { id = "okay", label = "Continue" } },
 			isPresented = true,
 			message = "Make this moment yours.",
 			severity = "information",
 			title = "Ready to continue?",
 		},
-		fields = {
+		fields = nativeFields(8, {
 			isPresented = { type = "boolean", label = "Presented", order = 1 },
 			title = { type = "string", label = "Title", order = 2 },
 			message = { type = "string", label = "Message", order = 3 },
@@ -83,39 +79,27 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			surface = { type = "choice", label = "Surface", order = 6, options = { "dialog", "fullScreen" } },
 			maxWidth = { type = "number", label = "Maximum width", order = 7 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			icon = { type = "string", label = "Icon", order = 14 },
 			padding = { type = "number", label = "Padding", order = 15 },
-		},
+		}),
 	},
 	AsyncImage = {
 		category = "Content",
 		nativeSize = true,
 		defaults = { failureLabel = "Image unavailable", height = 140, source = "rbxassetid://0", width = 240 },
-		fields = {
+		fields = nativeFields(7, {
 			source = { type = "string", label = "Image URI", order = 1 },
 			failureLabel = { type = "string", label = "Failure label", order = 2 },
 			dimmed = { type = "boolean", label = "Dimmed", order = 3 },
 			width = { type = "number", label = "Width", order = 4 },
 			height = { type = "number", label = "Height", order = 5 },
 			imageProperties = { type = "value", label = "Image properties", order = 6, format = "json" },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
-		},
+		}),
 	},
 	Avatar = {
 		category = "Content",
 		defaults = { diameter = 52, name = "Alex", presence = "online" },
-		fields = {
+		fields = nativeFields(9, {
 			name = { type = "string", label = "Name", order = 1 },
 			image = { type = "string", label = "Image URI", order = 2 },
 			userId = { type = "number", label = "User ID", order = 3 },
@@ -129,12 +113,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			presenceMark = { type = "boolean", label = "Presence mark", order = 6 },
 			form = { type = "choice", label = "Form", order = 7, options = { "standard", "icon" } },
 			icon = { type = "string", label = "Icon", order = 8 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 9, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 10 },
-			Visible = { type = "boolean", label = "Visible", order = 11 },
-			Rotation = { type = "number", label = "Rotation", order = 12 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 13 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 14 },
 			presenceLabel = { type = "string", label = "Presence label", order = 15 },
 			backplate = { type = "boolean", label = "Backplate", order = 16 },
 			background = {
@@ -158,31 +136,25 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 18,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	AvatarGroup = {
 		category = "Content",
 		defaults = {
 			diameter = 40,
-			items = list(
-				record { id = "alex", name = "Alex" },
-				record { id = "sam", name = "Sam" },
-				record { id = "jo", name = "Jo" }
-			),
+			items = {
+				{ id = "alex", name = "Alex" },
+				{ id = "sam", name = "Sam" },
+				{ id = "jo", name = "Jo" },
+			},
 			max = 3,
 		},
-		fields = {
+		fields = nativeFields(6, {
 			items = { type = "value", label = "People", order = 1, format = "json" },
 			max = { type = "number", label = "Maximum visible", order = 2 },
 			diameter = { type = "number", label = "Diameter", order = 3 },
 			layout = { type = "choice", label = "Layout", order = 4, options = { "stacked", "spread" } },
 			overflow = { type = "choice", label = "Overflow", order = 5, options = { "count", "ellipsis" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			form = { type = "choice", label = "Form", order = 12, options = { "standard", "icon" } },
 			overflowLabel = { type = "string", label = "Overflow label", order = 13 },
 			controlSize = {
@@ -191,12 +163,12 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 14,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Badge = {
 		category = "Status",
 		defaults = { label = "NEW", status = "success" },
-		fields = {
+		fields = nativeFields(3, {
 			label = { type = "string", label = "Label", order = 1 },
 			status = {
 				type = "choice",
@@ -204,12 +176,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 2,
 				options = { "neutral", "info", "success", "warning", "error", "accent" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 3, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 4 },
-			Visible = { type = "boolean", label = "Visible", order = 5 },
-			Rotation = { type = "number", label = "Rotation", order = 6 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 7 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 8 },
 			icon = { type = "string", label = "Icon", order = 9 },
 			iconPosition = { type = "choice", label = "Icon position", order = 10, options = { "leading", "trailing" } },
 			appearance = {
@@ -224,14 +190,14 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 12,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Button = {
 		category = "Input",
 		container = true,
 		seeds = {},
 		defaults = { appearance = "emphasis", label = "Continue" },
-		fields = {
+		fields = nativeFields(6, {
 			label = { type = "string", label = "Label", order = 1 },
 			appearance = {
 				type = "choice",
@@ -242,12 +208,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			enabled = { type = "boolean", label = "Enabled", order = 3 },
 			icon = { type = "string", label = "Icon", order = 4 },
 			corners = { type = "choice", label = "Corners", order = 5, options = { "pill", "square" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			subtitle = { type = "string", label = "Subtitle", order = 12 },
 			hint = { type = "string", label = "Hint", order = 13 },
 			trailingIcon = { type = "string", label = "Trailing icon", order = 14 },
@@ -273,7 +233,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 26,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Callout = {
 		category = "Overlays",
@@ -283,19 +243,13 @@ local controls: { [string]: Types.ControlSpec } = {
 		anchor = "anchor",
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { anchorLabel = "Explore", closeButton = true, isPresented = true, title = "A new possibility" },
-		fields = {
+		fields = nativeFields(7, {
 			isPresented = { type = "boolean", label = "Presented", order = 1 },
 			title = { type = "string", label = "Title", order = 2 },
 			anchorLabel = { type = "string", label = "Anchor label", order = 3 },
 			closeButton = { type = "boolean", label = "Close button", order = 4 },
 			edge = { type = "choice", label = "Edge", order = 5, options = { "top", "bottom" } },
 			align = { type = "choice", label = "Alignment", order = 6, options = { "leading", "center", "trailing" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
 			dismissLabel = { type = "string", label = "Dismiss label", order = 13 },
 			priority = { type = "number", label = "Priority", order = 14 },
 			seen = { type = "boolean", label = "Seen", order = 15 },
@@ -305,7 +259,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			steps = { type = "value", label = "Step progress", order = 19, format = "json" },
 			media = { type = "value", label = "Media", order = 20, format = "json" },
 			actions = { type = "value", label = "Actions", order = 21, format = "json" },
-		},
+		}),
 	},
 	Card = {
 		category = "Content",
@@ -317,7 +271,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			imageAspectRatio = 1.6,
 			title = "A place worth discovering",
 		},
-		fields = {
+		fields = nativeFields(8, {
 			title = { type = "string", label = "Title", order = 1 },
 			caption = { type = "string", label = "Caption", order = 2 },
 			image = { type = "string", label = "Image URI", order = 3 },
@@ -325,47 +279,29 @@ local controls: { [string]: Types.ControlSpec } = {
 			imageFraming = { type = "choice", label = "Image framing", order = 5, options = { "fit", "crop" } },
 			reveal = { type = "choice", label = "Reveal", order = 6, options = { "automatic", "always" } },
 			enabled = { type = "boolean", label = "Enabled", order = 7 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			primaryAction = { type = "value", label = "Primary action", order = 14, format = "json" },
 			menu = { type = "value", label = "Menu", order = 15, format = "json" },
 			ringTarget = { type = "choice", label = "Focus ring target", order = 16, options = { "card", "media" } },
-		},
+		}),
 	},
 	CellEditor = {
 		category = "Collections",
 		state = "value",
 		defaults = { editor = "text", value = "Name" },
-		fields = {
+		fields = nativeFields(4, {
 			editor = { type = "choice", label = "Editor", order = 1, options = { "text" } },
 			value = { type = "string", label = "Initial text", order = 2 },
 			label = { type = "string", label = "Field label", order = 3 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
-		},
+		}),
 	},
 	Chip = {
 		category = "Input",
 		state = "selected",
 		defaults = { label = "Adventure", selected = false },
-		fields = {
+		fields = nativeFields(4, {
 			label = { type = "string", label = "Label", order = 1 },
 			icon = { type = "string", label = "Icon", order = 2 },
 			selected = { type = "boolean", label = "Selected", order = 3 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			subtitle = { type = "string", label = "Subtitle", order = 10 },
 			hint = { type = "string", label = "Hint", order = 11 },
 			trailingIcon = { type = "string", label = "Trailing icon", order = 12 },
@@ -392,7 +328,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 25,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	CollapsibleView = {
 		category = "Navigation",
@@ -401,7 +337,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "expanded",
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { expanded = false, label = "Expand content" },
-		fields = {
+		fields = nativeFields(5, {
 			label = { type = "string", label = "Label", order = 1 },
 			expanded = { type = "boolean", label = "Expanded", order = 2 },
 			dismissButton = { type = "boolean", label = "Dismiss button", order = 3 },
@@ -411,19 +347,13 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 4,
 				options = { "standard", "emphasis", "soft", "utility" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
-		},
+		}),
 	},
 	ColorPicker = {
 		category = "Input",
 		state = "value",
 		defaults = { label = "Accent color", style = "automatic", value = "#3B82F6" },
-		fields = {
+		fields = nativeFields(8, {
 			value = { type = "color", label = "Initial color", order = 1, format = "color" },
 			label = { type = "string", label = "Label", order = 2 },
 			style = { type = "choice", label = "Presentation", order = 3, options = { "automatic", "inline" } },
@@ -431,12 +361,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			alpha = { type = "number", label = "Alpha", order = 5 },
 			readOnly = { type = "boolean", label = "Read only", order = 6 },
 			modes = { type = "value", label = "Modes", order = 7, format = "json" },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			enabled = { type = "boolean", label = "Enabled", order = 14 },
 			hint = { type = "string", label = "Hint", order = 15 },
 			errorText = { type = "string", label = "Error text", order = 16 },
@@ -456,34 +380,28 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			allowEmpty = { type = "boolean", label = "Allow empty", order = 21 },
 			placeholder = { type = "string", label = "Placeholder", order = 22 },
-		},
+		}),
 	},
 	ComboBox = {
 		category = "Navigation",
 		states = { "value", "text" },
 		defaults = {
-			options = list(
-				record { label = "First option", value = "first" },
-				record { label = "Second option", value = "second" }
-			),
+			options = {
+				{ label = "First option", value = "first" },
+				{ label = "Second option", value = "second" },
+			},
 			placeholder = "Choose or type",
 			text = "First option",
 			value = "first",
 		},
-		fields = {
+		fields = nativeFields(6, {
 			value = { type = "string", label = "Initial value", order = 1 },
 			text = { type = "string", label = "Initial text", order = 2 },
 			options = { type = "value", label = "Options", order = 3, format = "json" },
 			placeholder = { type = "string", label = "Placeholder", order = 4 },
 			commitOnFocusLost = { type = "boolean", label = "Commit on blur", order = 5 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			enabled = { type = "boolean", label = "Enabled", order = 12 },
-		},
+		}),
 	},
 	Composition = {
 		category = "Layout",
@@ -496,7 +414,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			),
 		},
 		defaults = { gap = "m", padding = "m" },
-		fields = {
+		fields = nativeFields(4, {
 			gap = {
 				type = "choice",
 				label = "Gap",
@@ -512,13 +430,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				format = "padding",
 			},
 			topbar = { type = "boolean", label = "Top bar", order = 3 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
-		},
+		}),
 	},
 	DateTimePicker = {
 		category = "Input",
@@ -526,9 +438,9 @@ local controls: { [string]: Types.ControlSpec } = {
 		defaults = {
 			label = "Date",
 			style = "automatic",
-			value = record { day = 30, hour = 0, minute = 0, month = 9, year = 2026 },
+			value = { day = 30, hour = 0, minute = 0, month = 9, year = 2026 },
 		},
-		fields = {
+		fields = nativeFields(10, {
 			value = { type = "value", label = "Initial civil date", order = 1, format = "json" },
 			label = { type = "string", label = "Label", order = 2 },
 			style = { type = "choice", label = "Presentation", order = 3, options = { "automatic", "inline" } },
@@ -538,12 +450,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			weekStart = { type = "number", label = "Week starts", order = 7 },
 			min = { type = "value", label = "Earliest date", order = 8, format = "json" },
 			max = { type = "value", label = "Latest date", order = 9, format = "json" },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 10, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 11 },
-			Visible = { type = "boolean", label = "Visible", order = 12 },
-			Rotation = { type = "number", label = "Rotation", order = 13 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 14 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 15 },
 			enabled = { type = "boolean", label = "Enabled", order = 16 },
 			readOnly = { type = "boolean", label = "Read only", order = 17 },
 			hint = { type = "string", label = "Hint", order = 18 },
@@ -566,7 +472,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			placeholder = { type = "string", label = "Placeholder", order = 25 },
 			referenceDate = { type = "value", label = "Reference date", order = 26, format = "json" },
 			locale = { type = "value", label = "Date words", order = 27, format = "json" },
-		},
+		}),
 	},
 	Dialog = {
 		category = "Overlays",
@@ -575,7 +481,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "isPresented",
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { actionLabel = "Continue", closeButton = true, isPresented = true, title = "Make it yours" },
-		fields = {
+		fields = nativeFields(7, {
 			isPresented = { type = "boolean", label = "Presented", order = 1 },
 			title = { type = "string", label = "Title", order = 2 },
 			actionLabel = { type = "string", label = "Action label", order = 3 },
@@ -587,16 +493,10 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 6,
 				options = { "automatic", "row", "stacked" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
 			actions = { type = "value", label = "Actions", order = 13, format = "json" },
 			contentSelectable = { type = "boolean", label = "Selectable content", order = 14 },
 			hero = { type = "value", label = "Hero image", order = 15, format = "json" },
-		},
+		}),
 	},
 	DisclosureGroup = {
 		category = "Navigation",
@@ -605,7 +505,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "expanded",
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { appearance = "contained", expanded = true, label = "More details" },
-		fields = {
+		fields = nativeFields(6, {
 			label = { type = "string", label = "Label", order = 1 },
 			description = { type = "string", label = "Description", order = 2 },
 			expanded = { type = "boolean", label = "Expanded", order = 3 },
@@ -621,12 +521,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 5,
 				options = { "leading", "trailing" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			enabled = { type = "boolean", label = "Enabled", order = 12 },
 			icon = { type = "string", label = "Icon", order = 13 },
 			textSize = { type = "number", label = "Text size", order = 14 },
@@ -637,45 +531,33 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "xs", "s", "m", "l", "xl" },
 				format = "spacing",
 			},
-		},
+		}),
 	},
 	Divider = {
 		category = "Layout",
 		defaults = {},
-		fields = {
-			BackgroundColor3 = { type = "color", label = "Background color", order = 1, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 2 },
-			Visible = { type = "boolean", label = "Visible", order = 3 },
-			Rotation = { type = "number", label = "Rotation", order = 4 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 5 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 6 },
+		fields = nativeFields(1, {
 			axis = { type = "choice", label = "Axis", order = 7, options = { "x", "y" } },
 			thickness = { type = "number", label = "Thickness", order = 8 },
 			appearance = { type = "choice", label = "Appearance", order = 9, options = { "standard", "strong" } },
-		},
+		}),
 	},
 	ErrorBoundary = {
 		category = "Layout",
 		container = true,
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { width = "fill" },
-		fields = {
+		fields = nativeFields(2, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 2, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 3 },
-			Visible = { type = "boolean", label = "Visible", order = 4 },
-			Rotation = { type = "number", label = "Rotation", order = 5 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 6 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 7 },
 			height = { type = "value", label = "Height", order = 8, format = "extent" },
 			maxWidth = { type = "number", label = "Maximum width", order = 9 },
-		},
+		}),
 	},
 	Grid = {
 		category = "Layout",
 		container = true,
 		defaults = { cellHeight = 72, columns = 2, gap = "s" },
-		fields = {
+		fields = nativeFields(4, {
 			columns = { type = "number", label = "Columns", order = 1 },
 			gap = {
 				type = "choice",
@@ -685,12 +567,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				format = "spacing",
 			},
 			cellHeight = { type = "number", label = "Cell height", order = 3 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			width = { type = "value", label = "Width", order = 10, format = "extent" },
 			height = { type = "value", label = "Height", order = 11, format = "extent" },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
@@ -711,13 +587,13 @@ local controls: { [string]: Types.ControlSpec } = {
 			aspectRatio = { type = "number", label = "Cell aspect ratio", order = 15 },
 			flow = { type = "choice", label = "Flow", order = 16, options = { "row", "column" } },
 			align = { type = "choice", label = "Alignment", order = 17, options = { "start", "center", "end" } },
-		},
+		}),
 	},
 	HStack = {
 		category = "Layout",
 		container = true,
 		defaults = { gap = "s" },
-		fields = {
+		fields = nativeFields(6, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -740,12 +616,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 5,
 				options = { "start", "center", "end", "stretch" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
 			distribute = {
 				type = "choice",
@@ -754,12 +624,12 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly" },
 			},
 			wrap = { type = "boolean", label = "Wrap children", order = 14 },
-		},
+		}),
 	},
 	Image = {
 		category = "Content",
 		defaults = { height = 140, image = "rbxassetid://0", scaleMode = "crop", width = 240 },
-		fields = {
+		fields = nativeFields(5, {
 			image = { type = "string", label = "Asset URI", order = 1 },
 			width = { type = "number", label = "Width", order = 2 },
 			height = { type = "number", label = "Height", order = 3 },
@@ -769,32 +639,20 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 4,
 				options = { "fit", "fill", "crop", "stretch", "tile", "slice" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
 			tint = { type = "color", label = "Image tint", order = 11, format = "color" },
 			resample = { type = "choice", label = "Sampling", order = 12, options = { "default", "pixelated" } },
 			shape = { type = "choice", label = "Shape", order = 13, options = { "rect", "circle" } },
 			tileSize = { type = "value", label = "Tile size", order = 14, format = "json" },
 			sliceCenter = { type = "value", label = "Slice center", order = 15, format = "json" },
 			sliceScale = { type = "number", label = "Slice scale", order = 16 },
-		},
+		}),
 	},
 	Label = {
 		category = "Content",
 		defaults = { icon = "settings", title = "Explore" },
-		fields = {
+		fields = nativeFields(3, {
 			title = { type = "string", label = "Title", order = 1 },
 			icon = { type = "string", label = "Icon", order = 2 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 3, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 4 },
-			Visible = { type = "boolean", label = "Visible", order = 5 },
-			Rotation = { type = "number", label = "Rotation", order = 6 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 7 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 8 },
 			presentation = {
 				type = "choice",
 				label = "Presentation",
@@ -811,31 +669,25 @@ local controls: { [string]: Types.ControlSpec } = {
 				format = "spacing",
 			},
 			iconPosition = { type = "choice", label = "Icon position", order = 13, options = { "leading", "trailing" } },
-		},
+		}),
 	},
 	LevelPicker = {
 		category = "Input",
 		state = "value",
 		defaults = {
 			count = 5,
-			glyphs = record { empty = "☆", filled = "★" },
-			images = record { empty = "rbxassetid://73716910467356", filled = "rbxassetid://108245103349446" },
+			glyphs = { empty = "☆", filled = "★" },
+			images = { empty = "rbxassetid://73716910467356", filled = "rbxassetid://108245103349446" },
 			segment = "bar",
 			value = 3,
 		},
-		fields = {
+		fields = nativeFields(7, {
 			value = { type = "number", label = "Initial value", order = 1 },
 			count = { type = "number", label = "Segments", order = 2 },
 			segment = { type = "choice", label = "Segment", order = 3, options = { "bar", "glyph", "image" } },
 			images = { type = "value", label = "Segment images", order = 4, format = "json" },
 			glyphs = { type = "value", label = "Segment glyphs", order = 5, format = "json" },
 			allowZero = { type = "boolean", label = "Allow zero", order = 6 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
 			readOnly = { type = "boolean", label = "Read only", order = 13 },
 			enabled = { type = "boolean", label = "Enabled", order = 14 },
 			segmentSize = {
@@ -844,18 +696,18 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 15,
 				options = { "small", "medium", "large" },
 			},
-		},
+		}),
 	},
 	Menu = {
 		category = "Navigation",
 		defaults = {
-			items = list(
-				record { id = "first", label = "Explore" },
-				record { id = "second", label = "Save for later" }
-			),
+			items = {
+				{ id = "first", label = "Explore" },
+				{ id = "second", label = "Save for later" },
+			},
 			label = "Actions",
 		},
-		fields = {
+		fields = nativeFields(6, {
 			label = { type = "string", label = "Label", order = 1 },
 			items = { type = "value", label = "Menu items", order = 2, format = "json" },
 			presentation = {
@@ -866,36 +718,24 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			edge = { type = "choice", label = "Edge", order = 4, options = { "top", "bottom", "leading", "trailing" } },
 			maxHeight = { type = "number", label = "Maximum height", order = 5 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			disclosure = { type = "boolean", label = "Disclosure indicator", order = 12 },
 			enabled = { type = "boolean", label = "Enabled", order = 13 },
 			backLabel = { type = "string", label = "Back label", order = 14 },
 			align = { type = "choice", label = "Alignment", order = 15, options = { "start", "center", "end" } },
 			width = { type = "number", label = "Menu width", order = 16 },
 			triggers = { type = "value", label = "Open gestures", order = 17, format = "json" },
-		},
+		}),
 	},
 	NavBar = {
 		category = "Navigation",
 		defaults = { backLabel = "Back", surface = "pane", title = "Discover" },
-		fields = {
+		fields = nativeFields(6, {
 			title = { type = "string", label = "Title", order = 1 },
 			backLabel = { type = "string", label = "Back label", order = 2 },
 			surface = { type = "choice", label = "Surface", order = 3, options = { "surface", "panel", "pane" } },
 			gap = { type = "number", label = "Gap", order = 4 },
 			padding = { type = "number", label = "Padding", order = 5 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
-		},
+		}),
 	},
 	NavigationSplitView = {
 		category = "Navigation",
@@ -903,7 +743,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		states = { "preferredCompactColumn", "sidebarWidth", "sidebarHeight" },
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { preferredCompactColumn = "sidebar", resizable = true, sidebarHeight = 240, sidebarWidth = 360 },
-		fields = {
+		fields = nativeFields(9, {
 			preferredCompactColumn = {
 				type = "choice",
 				label = "Compact column",
@@ -917,13 +757,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			sidebarHeight = { type = "number", label = "Sidebar height", order = 6 },
 			backLabel = { type = "string", label = "Back label", order = 7 },
 			detailLabel = { type = "string", label = "Detail label", order = 8 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 9, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 10 },
-			Visible = { type = "boolean", label = "Visible", order = 11 },
-			Rotation = { type = "number", label = "Rotation", order = 12 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 13 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 14 },
-		},
+		}),
 	},
 	NavigationStack = {
 		category = "Navigation",
@@ -931,22 +765,16 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "path",
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = {
-			destinations = record { details = record { title = "Details" } },
-			path = list(),
-			root = record { title = "Home" },
+			destinations = { details = { title = "Details" } },
+			path = {},
+			root = { title = "Home" },
 		},
-		fields = {
+		fields = nativeFields(5, {
 			path = { type = "value", label = "Initial route", order = 1, format = "json" },
 			root = { type = "value", label = "Root page", order = 2, format = "json" },
 			destinations = { type = "value", label = "Destinations", order = 3, format = "json" },
 			backLabel = { type = "string", label = "Back label", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
-		},
+		}),
 	},
 	Notice = {
 		category = "Status",
@@ -955,7 +783,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			severity = "success",
 			title = "You’re all set",
 		},
-		fields = {
+		fields = nativeFields(4, {
 			title = { type = "string", label = "Title", order = 1 },
 			message = { type = "string", label = "Message", order = 2 },
 			severity = {
@@ -964,12 +792,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 3,
 				options = { "info", "success", "warning", "error" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			appearance = { type = "choice", label = "Appearance", order = 10, options = { "standard", "emphasis" } },
 			placement = { type = "choice", label = "Placement", order = 11, options = { "inline", "affixed" } },
 			actions = { type = "value", label = "Actions", order = 12, format = "json" },
@@ -979,23 +801,17 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 13,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	NumberInput = {
 		category = "Input",
 		state = "numericValue",
 		defaults = { max = 100, min = 0, numericValue = 3 },
-		fields = {
+		fields = nativeFields(5, {
 			numericValue = { type = "number", label = "Initial value", order = 1 },
 			min = { type = "number", label = "Minimum", order = 2 },
 			max = { type = "number", label = "Maximum", order = 3 },
 			step = { type = "number", label = "Step", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
 			enabled = { type = "boolean", label = "Enabled", order = 11 },
 			readOnly = { type = "boolean", label = "Read only", order = 12 },
 			hint = { type = "string", label = "Hint", order = 13 },
@@ -1035,7 +851,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 30,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Outline = {
 		category = "Collections",
@@ -1043,17 +859,17 @@ local controls: { [string]: Types.ControlSpec } = {
 		nativeSize = true,
 		defaults = {
 			children = "children",
-			from = list(
-				record { children = list(record { id = "child", label = "Child item" }), id = "one", label = "Folder" },
-				record { id = "two", label = "Second item" },
-				record { id = "three", label = "Third item" }
-			),
+			from = {
+				{ children = { { id = "child", label = "Child item" } }, id = "one", label = "Folder" },
+				{ id = "two", label = "Second item" },
+				{ id = "three", label = "Third item" },
+			},
 			gap = 6,
 			itemSize = 44,
 			key = "id",
-			Size = list(0, 320, 0, 220),
+			Size = { 0, 320, 0, 220 },
 		},
-		fields = {
+		fields = nativeFields(13, {
 			from = { type = "value", label = "Rows", order = 1, format = "json" },
 			children = { type = "string", label = "Children field", order = 2 },
 			indent = { type = "number", label = "Indentation", order = 3 },
@@ -1069,12 +885,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			reorderable = { type = "boolean", label = "Reorder rows", order = 9 },
 			deletable = { type = "boolean", label = "Delete rows", order = 10 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 13, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 14 },
-			Visible = { type = "boolean", label = "Visible", order = 15 },
-			Rotation = { type = "number", label = "Rotation", order = 16 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 17 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 18 },
 			editing = { type = "boolean", label = "Editing", order = 19 },
 			measure = { type = "boolean", label = "Measure rows", order = 20 },
 			reducedMotion = { type = "boolean", label = "Reduced motion", order = 21 },
@@ -1087,7 +897,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			autoFocus = { type = "boolean", label = "Initial focus", order = 28 },
 			wrapFocus = { type = "boolean", label = "Wrap focus", order = 29 },
 			initialFocus = { type = "string", label = "Initial focus key", order = 30 },
-		},
+		}),
 	},
 	PageView = {
 		category = "Navigation",
@@ -1097,40 +907,28 @@ local controls: { [string]: Types.ControlSpec } = {
 		defaults = {
 			controls = true,
 			indicators = true,
-			pages = list(record { id = "first", label = "Discover" }, record { id = "second", label = "Favorites" }),
+			pages = { { id = "first", label = "Discover" }, { id = "second", label = "Favorites" } },
 			selection = "first",
 		},
-		fields = {
+		fields = nativeFields(6, {
 			selection = { type = "string", label = "Initial page", order = 1 },
 			pages = { type = "value", label = "Pages", order = 2, format = "json" },
 			indicators = { type = "boolean", label = "Indicators", order = 3 },
 			controls = { type = "boolean", label = "Navigation controls", order = 4 },
 			summary = { type = "boolean", label = "Summary", order = 5 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
-		},
+		}),
 	},
 	Pagination = {
 		category = "Navigation",
 		state = "page",
 		defaults = { form = "numbers", page = 1, pageCount = 8 },
-		fields = {
+		fields = nativeFields(7, {
 			page = { type = "number", label = "Initial page", order = 1 },
 			pageCount = { type = "number", label = "Page count", order = 2 },
 			form = { type = "choice", label = "Presentation", order = 3, options = { "numbers", "arrows", "label" } },
 			siblingCount = { type = "number", label = "Sibling count", order = 4 },
 			boundaryCount = { type = "number", label = "Boundary count", order = 5 },
 			showFirstLast = { type = "boolean", label = "First and last", order = 6 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
 			controlSize = {
 				type = "choice",
 				label = "Control size",
@@ -1138,47 +936,41 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "xsmall", "compact", "regular", "large" },
 			},
 			enabled = { type = "boolean", label = "Enabled", order = 14 },
-		},
+		}),
 	},
 	Path = {
 		category = "Content",
 		defaults = {
 			height = 100,
-			points = list(
-				record { inX = 0, inY = 1, outX = 0, outY = 1, x = 0, y = 1 },
-				record { inX = 1, inY = 0, outX = 1, outY = 0, x = 1, y = 0 }
-			),
+			points = {
+				{ inX = 0, inY = 1, outX = 0, outY = 1, x = 0, y = 1 },
+				{ inX = 1, inY = 0, outX = 1, outY = 0, x = 1, y = 0 },
+			},
 			thickness = 2,
 			width = 240,
 		},
-		fields = {
+		fields = nativeFields(7, {
 			points = { type = "value", label = "Bezier points", order = 1, format = "json", tokens = true },
 			width = { type = "number", label = "Width", order = 2 },
 			height = { type = "number", label = "Height", order = 3 },
 			thickness = { type = "number", label = "Thickness", order = 4 },
 			closed = { type = "boolean", label = "Closed path", order = 5 },
 			role = { type = "choice", label = "Color role", order = 6, options = { "content", "secondary", "accent" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
 			tint = { type = "color", label = "Path color", order = 13, format = "color" },
-		},
+		}),
 	},
 	Picker = {
 		category = "Navigation",
 		state = "selected",
 		defaults = {
-			options = list(
-				record { label = "First option", value = "first", icon = "speaker" },
-				record { label = "Second option", value = "second", icon = "volume" }
-			),
+			options = {
+				{ label = "First option", value = "first", icon = "speaker" },
+				{ label = "Second option", value = "second", icon = "volume" },
+			},
 			selected = "first",
 			style = "segmented",
 		},
-		fields = {
+		fields = nativeFields(8, {
 			selected = { type = "string", label = "Initial selection", order = 1 },
 			options = { type = "value", label = "Options", order = 2, format = "json" },
 			style = {
@@ -1191,12 +983,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			placeholder = { type = "string", label = "Placeholder", order = 5 },
 			axis = { type = "choice", label = "Axis", order = 6, options = { "x", "y" } },
 			sizing = { type = "choice", label = "Sizing", order = 7, options = { "fill", "hug" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			required = { type = "boolean", label = "Required", order = 14 },
 			enabled = { type = "boolean", label = "Enabled", order = 15 },
 			iconOnly = { type = "boolean", label = "Icons only", order = 16 },
@@ -1223,7 +1009,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 24,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Popover = {
 		category = "Overlays",
@@ -1239,7 +1025,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			tail = true,
 			title = "Details",
 		},
-		fields = {
+		fields = nativeFields(9, {
 			isPresented = { type = "boolean", label = "Presented", order = 1 },
 			title = { type = "string", label = "Title", order = 2 },
 			anchorLabel = { type = "string", label = "Trigger label", order = 3 },
@@ -1248,23 +1034,17 @@ local controls: { [string]: Types.ControlSpec } = {
 			tail = { type = "boolean", label = "Tail", order = 6 },
 			gap = { type = "number", label = "Gap", order = 7 },
 			compact = { type = "choice", label = "Compact form", order = 8, options = { "sheet", "popover" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 9, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 10 },
-			Visible = { type = "boolean", label = "Visible", order = 11 },
-			Rotation = { type = "number", label = "Rotation", order = 12 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 13 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 14 },
 			crossOffset = { type = "number", label = "Cross offset", order = 15 },
 			maxWidth = { type = "number", label = "Maximum width", order = 16 },
 			maxHeight = { type = "number", label = "Maximum height", order = 17 },
 			modal = { type = "boolean", label = "Modal", order = 18 },
 			cancelPolicy = { type = "choice", label = "Cancel policy", order = 19, options = { "dismiss", "none" } },
-		},
+		}),
 	},
 	ProgressView = {
 		category = "Status",
 		defaults = { label = "Getting ready", presentation = "bar", value = 0.65 },
-		fields = {
+		fields = nativeFields(4, {
 			value = { type = "number", label = "Progress", order = 1 },
 			label = { type = "string", label = "Label", order = 2 },
 			presentation = {
@@ -1273,12 +1053,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 3,
 				options = { "bar", "circular", "gauge", "spinner" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			min = { type = "number", label = "Minimum", order = 10 },
 			max = { type = "number", label = "Maximum", order = 11 },
 			endLabel = { type = "string", label = "End label", order = 12 },
@@ -1293,7 +1067,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 18,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	RadialMenu = {
 		category = "Navigation",
@@ -1301,14 +1075,14 @@ local controls: { [string]: Types.ControlSpec } = {
 		defaults = {
 			appearance = "wedges",
 			isPresented = false,
-			items = list(
-				record { id = "first", label = "Explore" },
-				record { id = "second", label = "Save for later" }
-			),
+			items = {
+				{ id = "first", label = "Explore" },
+				{ id = "second", label = "Save for later" },
+			},
 			label = "Actions",
 			preset = "donut",
 		},
-		fields = {
+		fields = nativeFields(8, {
 			label = { type = "string", label = "Label", order = 1 },
 			items = { type = "value", label = "Radial items", order = 2, format = "json" },
 			preset = {
@@ -1321,41 +1095,29 @@ local controls: { [string]: Types.ControlSpec } = {
 			distribution = { type = "choice", label = "Distribution", order = 5, options = { "even", "compass" } },
 			isPresented = { type = "boolean", label = "Presented", order = 6 },
 			scrim = { type = "choice", label = "Scrim", order = 7, options = { "dark", "light", "none" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			skin = { type = "value", label = "Skin", order = 14, format = "json", tokens = true },
-		},
+		}),
 	},
 	Rating = {
 		category = "Input",
 		state = "value",
 		defaults = { count = 5, value = 4 },
-		fields = {
+		fields = nativeFields(3, {
 			value = { type = "number", label = "Initial value", order = 1 },
 			count = { type = "number", label = "Stars", order = 2 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 3, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 4 },
-			Visible = { type = "boolean", label = "Visible", order = 5 },
-			Rotation = { type = "number", label = "Rotation", order = 6 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 7 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 8 },
 			readOnly = { type = "boolean", label = "Read only", order = 9 },
 			enabled = { type = "boolean", label = "Enabled", order = 10 },
 			allowZero = { type = "boolean", label = "Allow zero", order = 11 },
 			glyphs = { type = "value", label = "Star glyphs", order = 12, format = "json" },
 			starSize = { type = "choice", label = "Star size", order = 13, options = { "small", "medium", "large" } },
-		},
+		}),
 	},
 	Region = {
 		category = "Layout",
 		container = true,
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { rank = 1, zone = "center" },
-		fields = {
+		fields = nativeFields(5, {
 			zone = {
 				type = "choice",
 				label = "Zone",
@@ -1376,13 +1138,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			rank = { type = "number", label = "Priority", order = 2 },
 			mayDrop = { type = "boolean", label = "May drop", order = 3 },
 			reveal = { type = "boolean", label = "Reveal", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
-		},
+		}),
 	},
 	RowActions = {
 		category = "Collections",
@@ -1390,32 +1146,26 @@ local controls: { [string]: Types.ControlSpec } = {
 		content = "content",
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = {
-			trailing = list(
-				record { id = "archive", label = "Archive" },
-				record { id = "delete", label = "Delete", role = "destructive" }
-			),
+			trailing = {
+				{ id = "archive", label = "Archive" },
+				{ id = "delete", label = "Delete", role = "destructive" },
+			},
 		},
-		fields = {
+		fields = nativeFields(6, {
 			leading = { type = "value", label = "Leading actions", order = 1, format = "json" },
 			trailing = { type = "value", label = "Trailing actions", order = 2, format = "json" },
 			actionWidth = { type = "number", label = "Action width", order = 3 },
 			fullSwipe = { type = "boolean", label = "Full swipe", order = 4 },
 			editing = { type = "boolean", label = "Editing", order = 5 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			enabled = { type = "boolean", label = "Enabled", order = 12 },
 			reducedMotion = { type = "boolean", label = "Reduced motion", order = 13 },
-		},
+		}),
 	},
 	Screen = {
 		category = "Layout",
 		container = true,
 		defaults = { gap = "m" },
-		fields = {
+		fields = nativeFields(6, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -1438,12 +1188,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 5,
 				options = { "start", "center", "end", "stretch" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
 			distribute = {
 				type = "choice",
@@ -1451,13 +1195,13 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 13,
 				options = { "start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly" },
 			},
-		},
+		}),
 	},
 	ScrollView = {
 		category = "Layout",
 		container = true,
 		defaults = { gap = "s", height = 240, width = "fill" },
-		fields = {
+		fields = nativeFields(6, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -1480,12 +1224,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 5,
 				options = { "start", "center", "end", "stretch" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
 			distribute = {
 				type = "choice",
@@ -1495,7 +1233,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			axis = { type = "choice", label = "Scroll axis", order = 14, options = { "x", "y", "xy" } },
 			ScrollBarThickness = { type = "number", label = "Scroll bar width", order = 15 },
-		},
+		}),
 	},
 	Sheet = {
 		category = "Overlays",
@@ -1504,7 +1242,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		states = { "isPresented", "detent" },
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { detent = "medium", isPresented = true, title = "A little more detail" },
-		fields = {
+		fields = nativeFields(8, {
 			isPresented = { type = "boolean", label = "Presented", order = 1 },
 			title = { type = "string", label = "Title", order = 2 },
 			detent = { type = "choice", label = "Initial detent", order = 3, options = { "medium", "large", "hug" } },
@@ -1522,12 +1260,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 7,
 				options = { "automatic", "visible", "hidden" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			edge = { type = "choice", label = "Side edge", order = 14, options = { "left", "right" } },
 			width = { type = "choice", label = "Width", order = 15, options = { "automatic", "narrow", "wide" } },
 			closeButton = { type = "boolean", label = "Close button", order = 16 },
@@ -1546,33 +1278,27 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			hero = { type = "value", label = "Hero image", order = 20, format = "json" },
 			actions = { type = "value", label = "Actions", order = 21, format = "json" },
-		},
+		}),
 	},
 	ShortcutHint = {
 		category = "Input",
-		defaults = { keys = list(list("Ctrl", "S")), label = "Save" },
-		fields = {
+		defaults = { keys = { { "Ctrl", "S" } }, label = "Save" },
+		fields = nativeFields(4, {
 			keys = { type = "value", label = "Key combinations", order = 1, format = "json" },
 			label = { type = "string", label = "Label", order = 2 },
 			labelPosition = { type = "choice", label = "Label position", order = 3, options = { "start", "end" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			controlSize = {
 				type = "choice",
 				label = "Control size",
 				order = 10,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Skeleton = {
 		category = "Content",
 		defaults = { form = "line", lines = 3 },
-		fields = {
+		fields = nativeFields(4, {
 			form = { type = "choice", label = "Form", order = 1, options = { "box", "circle", "line" } },
 			lines = { type = "number", label = "Lines", order = 2 },
 			controlSize = {
@@ -1581,29 +1307,17 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 3,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
-		},
+		}),
 	},
 	Slider = {
 		category = "Input",
 		state = "value",
 		defaults = { max = 1, min = 0, value = 0.65 },
-		fields = {
+		fields = nativeFields(5, {
 			value = { type = "number", label = "Initial value", order = 1 },
 			min = { type = "number", label = "Minimum", order = 2 },
 			max = { type = "number", label = "Maximum", order = 3 },
 			step = { type = "number", label = "Step", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
 			enabled = { type = "boolean", label = "Enabled", order = 11 },
 			label = { type = "string", label = "Label", order = 12 },
 			tapToPosition = { type = "boolean", label = "Tap to set", order = 13 },
@@ -1619,65 +1333,47 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 20,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Spacer = {
 		category = "Layout",
 		defaults = { minLength = 16 },
-		fields = {
+		fields = nativeFields(2, {
 			minLength = { type = "number", label = "Minimum length", order = 1 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 2, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 3 },
-			Visible = { type = "boolean", label = "Visible", order = 4 },
-			Rotation = { type = "number", label = "Rotation", order = 5 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 6 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 7 },
-		},
+		}),
 	},
 	SplitButton = {
 		category = "Navigation",
 		defaults = {
-			items = list(
-				record { id = "first", label = "Explore" },
-				record { id = "second", label = "Save for later" }
-			),
+			items = {
+				{ id = "first", label = "Explore" },
+				{ id = "second", label = "Save for later" },
+			},
 			label = "Continue",
 		},
-		fields = {
+		fields = nativeFields(6, {
 			label = { type = "string", label = "Label", order = 1 },
 			items = { type = "value", label = "Menu items", order = 2, format = "json" },
 			menuLabel = { type = "string", label = "Menu label", order = 3 },
 			enabled = { type = "boolean", label = "Enabled", order = 4 },
 			busy = { type = "boolean", label = "Busy", order = 5 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
-		},
+		}),
 	},
 	Stage = {
 		category = "Content",
 		nativeSize = true,
 		defaults = { fieldOfView = 45, height = 180, width = 240 },
-		fields = {
+		fields = nativeFields(5, {
 			fieldOfView = { type = "number", label = "Field of view", order = 1 },
 			width = { type = "number", label = "Width", order = 2 },
 			height = { type = "number", label = "Height", order = 3 },
 			lazy = { type = "boolean", label = "Lazy rendering", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
-		},
+		}),
 	},
 	StatusIndicator = {
 		category = "Status",
 		defaults = { name = "Online", status = "success" },
-		fields = {
+		fields = nativeFields(4, {
 			name = { type = "string", label = "Label", order = 1 },
 			status = {
 				type = "choice",
@@ -1686,12 +1382,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "neutral", "info", "success", "warning", "error", "accent" },
 			},
 			form = { type = "choice", label = "Shape", order = 3, options = { "dot", "ring", "square", "dash" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			count = { type = "number", label = "Count", order = 10 },
 			max = { type = "number", label = "Maximum", order = 11 },
 			diameter = { type = "number", label = "Diameter", order = 12 },
@@ -1702,30 +1392,24 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 14,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	StepIndicator = {
 		category = "Navigation",
 		state = "current",
 		defaults = {
 			current = "first",
-			steps = list(
-				record { id = "first", label = "Choose" },
-				record { id = "second", label = "Review" },
-				record { id = "third", label = "Finish" }
-			),
+			steps = {
+				{ id = "first", label = "Choose" },
+				{ id = "second", label = "Review" },
+				{ id = "third", label = "Finish" },
+			},
 		},
-		fields = {
+		fields = nativeFields(5, {
 			current = { type = "string", label = "Current step", order = 1 },
 			steps = { type = "value", label = "Steps", order = 2, format = "json" },
 			sizing = { type = "choice", label = "Sizing", order = 3, options = { "fill", "hug" } },
 			listLabel = { type = "string", label = "Accessible label", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
 			controlSize = {
 				type = "choice",
 				label = "Control size",
@@ -1733,28 +1417,22 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "xsmall", "compact", "regular", "large" },
 			},
 			enabled = { type = "boolean", label = "Enabled", order = 12 },
-		},
+		}),
 	},
 	Stepper = {
 		category = "Input",
 		state = "value",
 		defaults = { max = 10, min = 0, value = 3 },
-		fields = {
+		fields = nativeFields(5, {
 			value = { type = "number", label = "Initial value", order = 1 },
 			min = { type = "number", label = "Minimum", order = 2 },
 			max = { type = "number", label = "Maximum", order = 3 },
 			step = { type = "number", label = "Step", order = 4 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 5, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 6 },
-			Visible = { type = "boolean", label = "Visible", order = 7 },
-			Rotation = { type = "number", label = "Rotation", order = 8 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 9 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 10 },
 			enabled = { type = "boolean", label = "Enabled", order = 11 },
 			label = { type = "string", label = "Label", order = 12 },
 			repeatDelay = { type = "number", label = "Repeat delay", order = 13 },
 			repeatInterval = { type = "number", label = "Repeat interval", order = 14 },
-		},
+		}),
 	},
 	TabView = {
 		category = "Navigation",
@@ -1764,9 +1442,9 @@ local controls: { [string]: Types.ControlSpec } = {
 		defaults = {
 			placement = "topBar",
 			selection = "first",
-			tabs = list(record { id = "first", label = "Discover" }, record { id = "second", label = "Favorites" }),
+			tabs = { { id = "first", label = "Discover" }, { id = "second", label = "Favorites" } },
 		},
-		fields = {
+		fields = nativeFields(8, {
 			selection = { type = "string", label = "Initial tab", order = 1 },
 			tabs = { type = "value", label = "Tabs", order = 2, format = "json" },
 			placement = {
@@ -1784,12 +1462,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			retention = { type = "choice", label = "Retention", order = 5, options = { "all", "top" } },
 			restoreScroll = { type = "boolean", label = "Restore scroll", order = 6 },
 			restoreFocus = { type = "boolean", label = "Restore focus", order = 7 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 8, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 9 },
-			Visible = { type = "boolean", label = "Visible", order = 10 },
-			Rotation = { type = "number", label = "Rotation", order = 11 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
 			railWidth = { type = "number", label = "Sidebar width", order = 14 },
 			sidebarPreference = {
 				type = "choice",
@@ -1820,26 +1492,26 @@ local controls: { [string]: Types.ControlSpec } = {
 			enabled = { type = "boolean", label = "Enabled", order = 21 },
 			sections = { type = "value", label = "Sections", order = 22, format = "json" },
 			customization = { type = "value", label = "Tab customization", order = 23, format = "json" },
-		},
+		}),
 	},
 	Table = {
 		category = "Collections",
 		container = true,
 		nativeSize = true,
 		defaults = {
-			columns = list(
-				record { id = "label", label = "Player", width = 160 },
-				record { id = "score", label = "Score", width = 100 }
-			),
-			from = list(
-				record { id = "one", label = "First item", score = 120 },
-				record { id = "two", label = "Second item", score = 95 }
-			),
+			columns = {
+				{ id = "label", label = "Player", width = 160 },
+				{ id = "score", label = "Score", width = 100 },
+			},
+			from = {
+				{ id = "one", label = "First item", score = 120 },
+				{ id = "two", label = "Second item", score = 95 },
+			},
 			itemSize = 44,
 			key = "id",
-			Size = list(0, 320, 0, 240),
+			Size = { 0, 320, 0, 240 },
 		},
-		fields = {
+		fields = nativeFields(10, {
 			from = { type = "value", label = "Rows", order = 1, format = "json" },
 			columns = { type = "value", label = "Columns", order = 2, format = "json" },
 			key = { type = "string", label = "Identity field", order = 3 },
@@ -1847,12 +1519,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			headerHeight = { type = "number", label = "Header height", order = 5 },
 			header = { type = "boolean", label = "Show header", order = 6 },
 			alternatingRows = { type = "boolean", label = "Alternating rows", order = 7 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 10, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 11 },
-			Visible = { type = "boolean", label = "Visible", order = 12 },
-			Rotation = { type = "number", label = "Rotation", order = 13 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 14 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 15 },
 			overscan = { type = "number", label = "Overscan", order = 16 },
 			gap = { type = "number", label = "Spacing", order = 17 },
 			editing = { type = "boolean", label = "Editing", order = 18 },
@@ -1871,14 +1537,14 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "none", "single", "multiple" },
 			},
 			rowActions = { type = "value", label = "Row actions", order = 30, format = "json", perRow = true },
-		},
+		}),
 	},
 	Text = {
 		category = "Content",
 		container = true,
 		seeds = {},
 		defaults = { text = "A little possibility", textRole = "body", wrap = true },
-		fields = {
+		fields = nativeFields(6, {
 			text = { type = "string", label = "Text", order = 1 },
 			textRole = {
 				type = "choice",
@@ -1889,37 +1555,25 @@ local controls: { [string]: Types.ControlSpec } = {
 			role = { type = "choice", label = "Color role", order = 3, options = { "content", "secondary" } },
 			wrap = { type = "boolean", label = "Wrap text", order = 4 },
 			textAlign = { type = "choice", label = "Alignment", order = 5, options = { "start", "center", "end" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			truncate = { type = "choice", label = "Truncation", order = 12, options = { "end", "middle" } },
 			textSize = { type = "number", label = "Text size", order = 13 },
 			lines = { type = "number", label = "Maximum lines", order = 14 },
 			rich = { type = "boolean", label = "Rich text", order = 15 },
 			direction = { type = "choice", label = "Text direction", order = 16, options = { "auto", "ltr", "rtl" } },
 			tint = { type = "color", label = "Text color", order = 17, format = "color" },
-		},
+		}),
 	},
 	TextInput = {
 		category = "Input",
 		state = "value",
 		defaults = { placeholder = "Your name", value = "" },
-		fields = {
+		fields = nativeFields(7, {
 			value = { type = "string", label = "Initial text", order = 1 },
 			placeholder = { type = "string", label = "Placeholder", order = 2 },
 			label = { type = "string", label = "Field label", order = 3 },
 			hint = { type = "string", label = "Hint", order = 4 },
 			multiline = { type = "boolean", label = "Multiline", order = 5 },
 			clearButton = { type = "boolean", label = "Clear button", order = 6 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 7, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 8 },
-			Visible = { type = "boolean", label = "Visible", order = 9 },
-			Rotation = { type = "number", label = "Rotation", order = 10 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 11 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 12 },
 			enabled = { type = "boolean", label = "Enabled", order = 13 },
 			readOnly = { type = "boolean", label = "Read only", order = 14 },
 			errorText = { type = "string", label = "Error text", order = 15 },
@@ -1952,19 +1606,19 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 24,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	Toast = {
 		category = "Overlays",
 		state = "isPresented",
 		defaults = {
-			action = record { label = "Done" },
+			action = { label = "Done" },
 			closeButton = true,
 			duration = 0,
 			isPresented = true,
 			message = "Saved. You’re all set.",
 		},
-		fields = {
+		fields = nativeFields(9, {
 			message = { type = "string", label = "Message", order = 1 },
 			action = { type = "value", label = "Action", order = 2, format = "json" },
 			isPresented = { type = "boolean", label = "Presented", order = 3 },
@@ -1973,23 +1627,17 @@ local controls: { [string]: Types.ControlSpec } = {
 			position = { type = "choice", label = "Position without action", order = 6, options = { "top", "bottom" } },
 			width = { type = "choice", label = "Width without action", order = 7, options = { "fill", "hug" } },
 			fade = { type = "boolean", label = "Fade", order = 8 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 9, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 10 },
-			Visible = { type = "boolean", label = "Visible", order = 11 },
-			Rotation = { type = "number", label = "Rotation", order = 12 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 13 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 14 },
 			icon = { type = "string", label = "Icon", order = 15 },
 			key = { type = "string", label = "Identity", order = 16 },
 			priority = { type = "number", label = "Priority", order = 17 },
 			readFloor = { type = "number", label = "Reading time", order = 18 },
-		},
+		}),
 	},
 	Toggle = {
 		category = "Input",
 		state = "value",
 		defaults = { label = "Notifications", value = true },
-		fields = {
+		fields = nativeFields(4, {
 			label = { type = "string", label = "Label", order = 1 },
 			value = { type = "boolean", label = "Initial value", order = 2 },
 			presentation = {
@@ -1998,12 +1646,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 3,
 				options = { "switch", "checkbox", "button" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			subtitle = { type = "string", label = "Subtitle", order = 10 },
 			hint = { type = "string", label = "Hint", order = 11 },
 			trailingIcon = { type = "string", label = "Trailing icon", order = 12 },
@@ -2037,13 +1679,13 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 27,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	VStack = {
 		category = "Layout",
 		container = true,
 		defaults = { gap = "s", width = "fill" },
-		fields = {
+		fields = nativeFields(6, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -2066,12 +1708,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 5,
 				options = { "start", "center", "end", "stretch" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
 			distribute = {
 				type = "choice",
@@ -2080,24 +1716,18 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly" },
 			},
 			wrap = { type = "boolean", label = "Wrap children", order = 14 },
-		},
+		}),
 	},
 	ViewThatFits = {
 		category = "Layout",
 		container = true,
 		seeds = { seed("Text", { text = "Make this content yours", wrap = true }, {}) },
 		defaults = { height = 80, width = "fill" },
-		fields = {
+		fields = nativeFields(3, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 3, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 4 },
-			Visible = { type = "boolean", label = "Visible", order = 5 },
-			Rotation = { type = "number", label = "Rotation", order = 6 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 7 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 8 },
 			maxWidth = { type = "number", label = "Maximum width", order = 9 },
-		},
+		}),
 	},
 	VirtualGrid = {
 		category = "Collections",
@@ -2105,17 +1735,17 @@ local controls: { [string]: Types.ControlSpec } = {
 		nativeSize = true,
 		defaults = {
 			columns = 2,
-			from = list(
-				record { id = "one", label = "First item" },
-				record { id = "two", label = "Second item" },
-				record { id = "three", label = "Third item" }
-			),
+			from = {
+				{ id = "one", label = "First item" },
+				{ id = "two", label = "Second item" },
+				{ id = "three", label = "Third item" },
+			},
 			gap = 6,
 			itemSize = 80,
 			key = "id",
-			Size = list(0, 320, 0, 220),
+			Size = { 0, 320, 0, 220 },
 		},
-		fields = {
+		fields = nativeFields(10, {
 			from = { type = "value", label = "Items", order = 1, format = "json" },
 			key = { type = "string", label = "Identity field", order = 2 },
 			itemSize = { type = "number", label = "Cell height", order = 3 },
@@ -2128,12 +1758,6 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 7,
 				options = { "none", "single", "multiple" },
 			},
-			BackgroundColor3 = { type = "color", label = "Background color", order = 10, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 11 },
-			Visible = { type = "boolean", label = "Visible", order = 12 },
-			Rotation = { type = "number", label = "Rotation", order = 13 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 14 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 15 },
 			overscan = { type = "number", label = "Overscan", order = 16 },
 			editing = { type = "boolean", label = "Editing", order = 17 },
 			measure = { type = "boolean", label = "Measure rows", order = 18 },
@@ -2149,24 +1773,24 @@ local controls: { [string]: Types.ControlSpec } = {
 			autoFocus = { type = "boolean", label = "Initial focus", order = 28 },
 			wrapFocus = { type = "boolean", label = "Wrap focus", order = 29 },
 			initialFocus = { type = "string", label = "Initial focus key", order = 30 },
-		},
+		}),
 	},
 	VirtualList = {
 		category = "Collections",
 		container = true,
 		nativeSize = true,
 		defaults = {
-			from = list(
-				record { id = "one", label = "First item" },
-				record { id = "two", label = "Second item" },
-				record { id = "three", label = "Third item" }
-			),
+			from = {
+				{ id = "one", label = "First item" },
+				{ id = "two", label = "Second item" },
+				{ id = "three", label = "Third item" },
+			},
 			gap = 6,
 			itemSize = 44,
 			key = "id",
-			Size = list(0, 320, 0, 220),
+			Size = { 0, 320, 0, 220 },
 		},
-		fields = {
+		fields = nativeFields(11, {
 			from = { type = "value", label = "Rows", order = 1, format = "json" },
 			key = { type = "string", label = "Identity field", order = 2 },
 			itemSize = { type = "number", label = "Row height", order = 3 },
@@ -2180,12 +1804,6 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			reorderable = { type = "boolean", label = "Reorder rows", order = 7 },
 			deletable = { type = "boolean", label = "Delete rows", order = 8 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 11, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 12 },
-			Visible = { type = "boolean", label = "Visible", order = 13 },
-			Rotation = { type = "number", label = "Rotation", order = 14 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 15 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 16 },
 			editing = { type = "boolean", label = "Editing", order = 17 },
 			measure = { type = "boolean", label = "Measure rows", order = 18 },
 			reducedMotion = { type = "boolean", label = "Reduced motion", order = 19 },
@@ -2198,35 +1816,29 @@ local controls: { [string]: Types.ControlSpec } = {
 			autoFocus = { type = "boolean", label = "Initial focus", order = 26 },
 			wrapFocus = { type = "boolean", label = "Wrap focus", order = 27 },
 			initialFocus = { type = "string", label = "Initial focus key", order = 28 },
-		},
+		}),
 	},
 	Vote = {
 		category = "Input",
 		state = "value",
 		defaults = { summary = "Was this helpful?", value = "none" },
-		fields = {
+		fields = nativeFields(4, {
 			value = { type = "choice", label = "Initial vote", order = 1, options = { "up", "down", "none" } },
 			summary = { type = "string", label = "Summary", order = 2 },
 			readOnly = { type = "boolean", label = "Read only", order = 3 },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 4, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 5 },
-			Visible = { type = "boolean", label = "Visible", order = 6 },
-			Rotation = { type = "number", label = "Rotation", order = 7 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 8 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 9 },
 			controlSize = {
 				type = "choice",
 				label = "Control size",
 				order = 10,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
-		},
+		}),
 	},
 	ZStack = {
 		category = "Layout",
 		container = true,
 		defaults = { height = 160, width = "fill" },
-		fields = {
+		fields = nativeFields(6, {
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			padding = {
@@ -2238,14 +1850,8 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			alignH = { type = "choice", label = "Horizontal", order = 4, options = { "start", "center", "end" } },
 			alignV = { type = "choice", label = "Vertical", order = 5, options = { "start", "center", "end" } },
-			BackgroundColor3 = { type = "color", label = "Background color", order = 6, format = "color" },
-			BackgroundTransparency = { type = "number", label = "Background transparency", order = 7 },
-			Visible = { type = "boolean", label = "Visible", order = 8 },
-			Rotation = { type = "number", label = "Rotation", order = 9 },
-			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 10 },
-			LayoutOrder = { type = "number", label = "Layout order", order = 11 },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
-		},
+		}),
 	},
 }
 
