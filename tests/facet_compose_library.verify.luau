@@ -195,6 +195,167 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet library in Compose Design", function()
+		verifyHarness:case("keeps Pagination native children through source and rendering", {
+			id = "facet_compose_library::keeps Pagination native children through source and rendering",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context): unknown
+					local Host = ctx.runtime.constructors
+					local library = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+							return Host[className](props, name)
+						end,
+					})
+					Verify.expect(library.kinds.Pagination.children):toBe("list")
+					local value, fill = Design.document.insert(
+						Design.document.new("Pages", library, "Pagination"),
+						library,
+						"n1",
+						"UIFlexItem"
+					)
+					value = Design.document.change(value, library, fill, "FlexMode", { literal = "Fill" })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, 'Host.UIFlexItem "UIFlexItem"', 1, true) ~= nil):toBe(true)
+					local parsed = Design.parse(code, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(code)
+					local built = Design.render(parsed, library)
+					assert(typeof(built) == "Instance" and built:IsA("Frame"))
+					local actual = assert(built:FindFirstChildWhichIsA("UIFlexItem"))
+					Verify.expect(actual.FlexMode):toBe(ctx.types.Enum.UIFlexMode.Fill)
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("round trips and renders native room scene kinds", {
+			id = "facet_compose_library::round trips and renders native room scene kinds",
+			run = function(test: Verify.Context)
+				local initial: Facet.DesignLiteral? = 2
+				local brightness = Facet.Compose.cell(initial)
+				local light: PointLight? = nil
+				test:defer(mount(function(ctx: Context): unknown
+					local Host = ctx.runtime.constructors
+					local library = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						space = "3d",
+						host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+							return Host[className](props, name)
+						end,
+					})
+					Verify.expect(library.space):toBe("3d")
+					Verify.expect(library.containerKind):toBe("Model")
+					Verify.expect(library.kinds.PointLight.children):toBe("none")
+					local value = Design.document.new("RoomScene", library, "Model")
+					value = Design.document.setContract(value, library, {
+						inputs = { { id = "brightness", kind = "readable", type = "number" } },
+						outputs = {},
+					})
+					local part, lamp
+					value, part = Design.document.insert(value, library, "n1", "Part")
+					local properties: { [string]: Facet.DesignLiteral } = {
+						CFrame = { 2, 3, 4, 0, 0, -1, 0, 1, 0, 1, 0, 0 },
+						Size = { 12, 1, 10 },
+						Color = "#334455",
+						Material = "WoodPlanks",
+						Transparency = 0.25,
+						Anchored = true,
+						CanCollide = false,
+					}
+					for key, literal in properties do
+						value = Design.document.change(value, library, part, key, { literal = literal })
+					end
+					value, lamp = Design.document.insert(value, library, part, "PointLight")
+					value = Design.document.change(value, library, lamp, "Brightness", { input = "brightness" })
+					value = Design.document.change(value, library, lamp, "Range", { literal = 24 })
+					value = Design.document.change(value, library, lamp, "Color", { literal = "#FFE8C2" })
+					local code = Design.emit(value, library)
+					for _, expected in
+						{
+							"): Instance",
+							'Host.Model "Model"',
+							'Host.Part "Part"',
+							'Host.PointLight "PointLight"',
+							"CFrame = CFrame.new(2, 3, 4, 0, 0, -1, 0, 1, 0, 1, 0, 0)",
+							"Size = Vector3.new(12, 1, 10)",
+							"Material = Enum.Material.WoodPlanks",
+						}
+					do
+						Verify.expect(string.find(code, expected, 1, true) ~= nil):toBe(true)
+					end
+					local parsed = Design.parse(code, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(code)
+					local built = Design.render(parsed, library, { inputs = { brightness = brightness } })
+					assert(typeof(built) == "Instance" and built:IsA("Model"))
+					local actual = assert(built:FindFirstChildWhichIsA("Part"))
+					Verify.expect(actual.CFrame):toBe(ctx.types.CFrame.new(2, 3, 4, 0, 0, -1, 0, 1, 0, 1, 0, 0))
+					Verify.expect(actual.Size):toBe(ctx.types.Vector3.new(12, 1, 10))
+					Verify.expect(actual.Color):toBe(ctx.types.Color3.fromHex("334455"))
+					Verify.expect(actual.Material):toBe(ctx.types.Enum.Material.WoodPlanks)
+					Verify.expect(actual.Transparency):toBe(0.25)
+					Verify.expect(actual.Anchored):toBe(true)
+					Verify.expect(actual.CanCollide):toBe(false)
+					local actualLight = assert(actual:FindFirstChildWhichIsA("PointLight"))
+					Verify.expect(actualLight.Brightness):toBe(2)
+					Verify.expect(actualLight.Range):toBe(24)
+					Verify.expect(actualLight.Color):toBe(ctx.types.Color3.fromHex("FFE8C2"))
+					light = actualLight
+					return built
+				end).dispose)
+				brightness:set(3)
+				Verify.expect(assert(light).Brightness):toBe(3)
+			end,
+		})
+
+		verifyHarness:case("converts native CFrame constructor forms and live components", {
+			id = "facet_compose_library::converts native CFrame constructor forms and live components",
+			run = function(test: Verify.Context)
+				local initial: Facet.DesignLiteral? = 5
+				local x = Facet.Compose.cell(initial)
+				local part: Part? = nil
+				test:defer(mount(function(ctx: Context): unknown
+					local Host = ctx.runtime.constructors
+					local library = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						space = "3d",
+						host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+							return Host[className](props, name)
+						end,
+					})
+					local value = Design.document.new("Transforms", library, "Part")
+					local forms: { { Facet.DesignLiteral } } = { {}, { 1, 2, 3 }, { 1, 2, 3, 0, 0, 0, 1 } }
+					for _, components in forms do
+						value = Design.document.change(value, library, "n1", "CFrame", { literal = components })
+						local code = Design.emit(value, library)
+						local parsed = Design.parse(code, library)
+						Verify.expect(Design.emit(parsed, library)):toBe(code)
+						local built = Design.render(parsed, library)
+						assert(typeof(built) == "Instance" and built:IsA("Part"))
+						Verify.expect(built.CFrame)
+							:toBe(if #components == 0 then ctx.types.CFrame.new() else ctx.types.CFrame.new(1, 2, 3))
+					end
+					value = Design.document.setContract(value, library, {
+						inputs = { { id = "x", kind = "readable", type = "number", required = true } },
+						outputs = {},
+					})
+					value =
+						Design.document.change(value, library, "n1", "CFrame", { literal = { { input = "x" }, 2, 3 } })
+					local code = Design.emit(value, library)
+					local parsed = Design.parse(code, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(code)
+					local built = Design.render(parsed, library, { inputs = { x = x } })
+					assert(typeof(built) == "Instance" and built:IsA("Part"))
+					Verify.expect(built.CFrame.Position.X):toBe(5)
+					part = built
+					return built
+				end).dispose)
+				x:set(8)
+				Verify.expect(assert(part).CFrame.Position.X):toBe(8)
+			end,
+		})
+
 		verifyHarness:case("keeps theme-derived Path points through source and rendering", {
 			id = "facet_compose_library::keeps theme-derived Path points through source and rendering",
 			run = function(test: Verify.Context)

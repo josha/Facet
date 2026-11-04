@@ -7,6 +7,7 @@ local controls = require("./controls")
 local derived = require("./fields")
 local icons = require("../ui/icons")
 local Motion = require("./motion")
+local Native3D = require("./native3d")
 local robloxTypes = require("../ui/roblox_types")
 
 type Literal = Design.Literal
@@ -304,6 +305,43 @@ local function create(context: Context): Design.Library
 		end
 		if type(literal) ~= "table" then
 			return literal
+		end
+		if datatype == "CFrame" then
+			local components: { number } = {}
+			for _, component in literal do
+				assert(type(component) == "number", "CFrame components must be numbers")
+				table.insert(components, component)
+			end
+			if #components == 0 then
+				return types.CFrame.new()
+			elseif #components == 3 then
+				return types.CFrame.new(components[1], components[2], components[3])
+			elseif #components == 7 then
+				return types.CFrame.new(
+					components[1],
+					components[2],
+					components[3],
+					components[4],
+					components[5],
+					components[6],
+					components[7]
+				)
+			end
+			assert(#components == 12, "CFrame needs zero, three, seven or twelve components")
+			return types.CFrame.new(
+				components[1],
+				components[2],
+				components[3],
+				components[4],
+				components[5],
+				components[6],
+				components[7],
+				components[8],
+				components[9],
+				components[10],
+				components[11],
+				components[12]
+			)
 		end
 		local a, b, c, d = 0, 0, 0, 0
 		local count = 0
@@ -694,7 +732,11 @@ local function create(context: Context): Design.Library
 
 	local host = context.host
 	if host ~= nil then
-		for className, entry in derived.host do
+		local hostKinds = table.clone(derived.host)
+		for className, entry in Native3D.kinds() do
+			hostKinds[className] = entry
+		end
+		for className, entry in hostKinds do
 			if kinds[className] == nil then
 				kinds[className] = {
 					fields = plainFields(entry.fields),
@@ -737,7 +779,7 @@ local function create(context: Context): Design.Library
 		parameterType = "Facet.Controls",
 		prelude = prelude,
 		token = if tokens ~= nil then tokens.path else nil,
-		returnType = "GuiObject",
+		returnType = if context.space == "3d" then "Instance" else "GuiObject",
 		readable = "Facet.ReadOnlyValue",
 		cell = "Facet.Value",
 		newCell = "Facet.Compose.cell",
@@ -763,7 +805,8 @@ local function create(context: Context): Design.Library
 			toward = "UI.toward",
 			build = if context.motion then context.motion.sequence else nil,
 		},
-		space = "2d",
+		space = context.space or "2d",
+		containerKind = if context.space == "3d" then "Model" else nil,
 		provide = context.provide,
 		contentKind = "HStack",
 		categories = {
