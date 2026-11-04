@@ -335,6 +335,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					spec.isPresented:set(false)
 					if ctx.config.onError then
 						ctx.config.onError(failure)
+					elseif task and task.spawn then
+						task.spawn(
+							error,
+							"Facet Sheet did not open because its content failed to build: " .. tostring(failure),
+							0
+						)
 					end
 					return Host.Folder "FailedSheet" {}
 				end,

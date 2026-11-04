@@ -255,6 +255,18 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 	local listed, descendants = call(if found then gui else nil, "GetDescendants")
 	if listed and type(descendants) == "table" then
 		for _, item in descendants do
+			local failed, reason = call(item, "GetAttribute", "FacetError")
+			if failed and type(reason) == "string" and reason ~= "" then
+				local named, path = call(item, "GetFullName")
+				table.insert(findings, {
+					rule = "build-failed",
+					severity = "high",
+					path = if named and type(path) == "string" then path else "?",
+					detail = "This control failed to build and shows nothing: "
+						.. string.sub((string.gsub(reason, "%s+", " ")), 1, 300),
+					rect = NO_RECT,
+				})
+			end
 			if isA(item, "ViewportFrame") and read(item, "Visible") ~= false then
 				local tint = 0
 				for _, key in { "Ambient", "LightColor" } do

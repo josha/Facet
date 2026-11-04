@@ -596,6 +596,12 @@ return function(
 					dismiss(spec)
 					if ctx.config.onError then
 						ctx.config.onError(failure)
+					elseif task and task.spawn then
+						task.spawn(
+							error,
+							"Facet Alert did not open because its content failed to build: " .. tostring(failure),
+							0
+						)
 					end
 					return Host.Folder "FailedAlert" {}
 				end,
