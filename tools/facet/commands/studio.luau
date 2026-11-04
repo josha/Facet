@@ -6,6 +6,7 @@ local process = require("@std/process")
 local Lute = require("../../vendor/verify/src/lute")
 local Verify = require("../../vendor/verify/src/core")
 local LiveProject = require("../lib/live_project")
+local Zlib = require("../lib/zlib")
 
 local function run(invocation: Cli.Invocation): number
 	if invocation.arguments[1] ~= "live" then
@@ -279,12 +280,16 @@ local function run(invocation: Cli.Invocation): number
 			host = "roblox-studio",
 			sink = function(caseId: string, name: string, text: string): (string?, string?)
 				local path = destination(suite, caseId, name)
-				write(path, text)
 				if string.sub(name, 1, 6) == "atlas/" then
+					write(path .. ".gz", buffer.tostring(Zlib.gzip(buffer.fromstring(text))))
+					if fs.exists(path) then
+						fs.remove(path)
+					end
 					local captured = `artifacts/studio-live/{suite}-{tag}/{string.gsub(caseId, "[^%w%-_]", "_")}/{name}`
 					write(captured, text)
 					return captured, nil
 				end
+				write(path, text)
 				return path, nil
 			end,
 		})
