@@ -385,6 +385,14 @@ return function(ctx: Types.Context): Drag.Service
 		end
 	end
 
+	local function unschedulePlacement(session: Drag.Session)
+		placing[session] = nil
+		if placement and next(placing) == nil then
+			placement:Disconnect()
+			placement = nil
+		end
+	end
+
 	local function updateStatus(session: Drag.Session)
 		local label = session.status
 		if not label then
@@ -589,6 +597,7 @@ return function(ctx: Types.Context): Drag.Service
 			return
 		end
 		current = nil
+		unschedulePlacement(session)
 		if session.stopLift then
 			session.stopLift()
 			session.stopLift = nil
