@@ -2151,9 +2151,10 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end, engine.new("ScreenGui"))
 				local root = mounted :: Frame
+				local roles: { [string]: string } = { Success = "success", Danger = "danger", Default = "accent" }
 				local function paint(package: FixtureThemeTypes.ThemePackage)
 					local colors = package.style.themes[1].colors
-					for name, role in { Success = "success", Danger = "danger", Default = "accent" } do
+					for name, role in roles do
 						local meter = assert(root:FindFirstChild(name))
 						local expected = colors[role]
 						local tint = engine.types.Color3.new(expected.r, expected.g, expected.b)
@@ -2199,8 +2200,7 @@ return function(verifyHarness: Verify.Harness)
 					local package = themes.neutralPackage()
 					local UI = Facet.controls(runtime, { types = engine.types, theme = package })
 					local styles = assert(bridge.ui)
-					local role: FixtureComposeTypes.Value<"accent" | "success" | "warning" | "danger"> =
-						Compose.cell("warning")
+					local role = Compose.cell<<"accent" | "success" | "warning" | "danger">>("warning")
 					local props: FixtureMediaProps.ProgressViewProps = {
 						value = 0.5,
 						role = role,
@@ -2210,7 +2210,8 @@ return function(verifyHarness: Verify.Harness)
 						local meter = UI.ProgressView(props)
 						local sheet =
 							themes.createStyleSheet(runtime, package, { types = engine.types, motionLevel = "none" })
-						Host.StyleLink { StyleSheet = Compose.static(sheet) }.Parent = meter
+						local link = Host.StyleLink { StyleSheet = Compose.static(sheet) } :: StyleLink
+						link.Parent = meter
 						return meter
 					end, engine.new("Folder"))
 					local meter = mounted :: Frame
