@@ -392,6 +392,7 @@ return function(
 		local INSET = segmentMetrics.inset
 		local bar = Host.ScrollingFrame "Tabs" {
 			ZIndex = 2,
+			Selectable = false,
 			BackgroundTransparency = function(use: ComposeTypes.Use): number
 				return if segmentedTop(use) then 0 else 1
 			end,
