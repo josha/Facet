@@ -23,6 +23,8 @@ be appropriate. Examples show working relationships, not required features,
 screen lists, skins, dimensions or typography ratios.
 
 Read [runtime essentials](references/runtime.md) and the relevant route below.
+With a search tool, search the route for the decision at hand instead of reading
+it whole.
 Read a theme asset only when adapting it. Retrieve exact control contracts as
 needed; an example does not cover every option or integration. Everything you
 read stays in context for the rest of the session. Look up a control's contract
