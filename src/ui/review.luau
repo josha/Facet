@@ -332,6 +332,7 @@ local function screens(targets: { [string]: ScreenTarget }, options: ScreensOpti
 	end
 	table.sort(names)
 	local out: { string } = {}
+	local reported: { [string]: boolean } = {}
 	for _, name in names do
 		local target = (targets[name] :: unknown) :: {
 			set: ((unknown, boolean) -> ())?,
@@ -357,6 +358,12 @@ local function screens(targets: { [string]: ScreenTarget }, options: ScreensOpti
 		if reviewed then
 			local shown = 0
 			for _, finding in report.findings do
+				local lasting = finding.rule == "build-failed" or finding.rule == "runtime-error"
+				local key = finding.rule .. finding.detail
+				if lasting and reported[key] then
+					continue
+				end
+				reported[key] = lasting or nil
 				if finding.severity ~= "low" and shown < 5 then
 					shown += 1
 					local detail = string.sub((string.gsub(finding.detail, "%s+", " ")), 1, 200)
