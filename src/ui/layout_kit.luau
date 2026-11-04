@@ -480,6 +480,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					})
 				end
 			else
+				if type(child) == "table" and (child :: { IsA: unknown? }).IsA == nil then
+					error(
+						"Facet: a child is a plain list, not a node. Spread a list of nodes as the last entry "
+							.. "with table.unpack(rows), or build repeated rows with Compose.keyed. "
+							.. "table.unpack before other entries keeps only its first value.",
+						0
+					)
+				end
 				if (child :: Instance):IsA("GuiObject") then
 					local gui = child :: GuiObject
 					gui.LayoutOrder = base

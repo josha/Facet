@@ -249,6 +249,35 @@ local function runtimeFindings(snapshot: ReviewSnapshot): { ReviewFinding }
 			rect = NO_RECT,
 		})
 	end
+	local game = dataModel()
+	local ok, players = call(game, "GetService", "Players")
+	local found, gui = call(if ok then read(players, "LocalPlayer") else nil, "FindFirstChildOfClass", "PlayerGui")
+	local listed, descendants = call(if found then gui else nil, "GetDescendants")
+	if listed and type(descendants) == "table" then
+		for _, item in descendants do
+			if isA(item, "ViewportFrame") and read(item, "Visible") ~= false then
+				local tint = 0
+				for _, key in { "Ambient", "LightColor" } do
+					local value = read(item, key)
+					local r, g, b =
+						number(read(value, "R"), 1), number(read(value, "G"), 1), number(read(value, "B"), 1)
+					local high, low = math.max(r, g, b), math.min(r, g, b)
+					tint = math.max(tint, if high > 0 then (high - low) / high else 0)
+				end
+				if tint > 0.2 then
+					local named, path = call(item, "GetFullName")
+					table.insert(findings, {
+						rule = "tinted-preview-light",
+						severity = "medium",
+						path = if named and type(path) == "string" then path else "ViewportFrame",
+						detail = "A preview's Ambient or LightColor is tinted, so it shows its subject in shifted colors. "
+							.. "Keep both near white where the player judges or chooses colors.",
+						rect = NO_RECT,
+					})
+				end
+			end
+		end
+	end
 	for _, message in recentErrors() do
 		table.insert(findings, {
 			rule = "runtime-error",

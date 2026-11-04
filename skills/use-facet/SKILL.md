@@ -52,6 +52,9 @@ Do not guess filenames.
 Use [filesystem workflow](references/FILESYSTEM_WORKFLOW.md) when its tooling
 is available and the project uses saved source files.
 
+Put `table.unpack(rows)` last in a constructor; before other entries Luau keeps
+only its first value. When the player chooses colors in a `Stage` preview, keep
+its `Ambient` and `LightColor` near white so the preview shows the real colors.
 Use typed constructors and reactive callbacks. Keep durable selection, drafts
 and accepted state outside disposable pages. Give unrelated tasks separate
 scroll state. Connect pending, rejection, retry and acceptance to the actual
@@ -83,7 +86,8 @@ find, not a style to adjust. In the Client data model, `Facet.review.screen().te
 provides layout and design findings, including compact-layout findings when the
 host shows only one size; run it on each changed screen, including during
 gameplay. Its `empty-screen` and `runtime-error` findings mean a screen failed
-to build; fix that before anything else. If the host's command
+to build; fix that before anything else. Fix each `high` finding, such as a
+composition that does not fit a phone, before building the next screen. If the host's command
 tool cannot require modules, call it from a temporary client script and read its
 output.
 Automated findings are evidence to investigate, not a substitute for viewing
