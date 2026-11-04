@@ -48,6 +48,14 @@ patterns that make it look generic, such as facts joined in one text and
 items without a visual. `review.analyze(snapshot)` is the pure form. See
 [Review](nodes/Review.md).
 
+`Facet.review.screens(targets?, options?)` opens, reviews and closes each target
+in name order and returns one text report. With no targets, it finds mounted
+Sheets. Pass `{ Name = presentedCell }` or targets with `open()` and optional
+`close()` functions for other screens. Run it on the client during Play.
+`options.root` selects the review root; `options.settle` sets the wait after
+opening, in seconds (default `0.5`). Common build and runtime errors appear
+once across the screens. Each target is closed after review.
+
 `Facet.controls(runtime, options?)` returns controls for a Compose Roblox runtime.
 Without options, it returns the controls provided for that runtime in the
 current Compose owner or a parent owner. If no provider exists, it makes fresh

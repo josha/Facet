@@ -8,6 +8,12 @@ agents, not a runtime feature.
 
 - `review.screen(options?) -> ReviewReport` collects the LocalPlayer's
   PlayerGui (or `options.root`) and analyzes it. Run it on the client.
+- `review.screens(targets?, options?) -> string` opens, reviews and closes
+  targets in name order during Play. Omit targets to find mounted Sheets, or
+  pass `{ Name = presentedCell }` or objects with `open()` and optional
+  `close()` functions. `options.root` selects the root and `options.settle`
+  sets the wait after opening in seconds (default `0.5`). Common build and
+  runtime errors appear once across screens. Each target is closed after review.
 - `review.collect(options?) -> ReviewSnapshot` returns the snapshot only. It
   reads ScreenGuis only, styled values (`GetStyled`), effective visibility,
   absolute rectangles, the rendered size of scaled text under `UIScale` and
