@@ -23,11 +23,14 @@ be appropriate. Examples show working relationships, not required features,
 screen lists, skins, dimensions or typography ratios.
 
 Read [runtime essentials](references/runtime.md) and the relevant route below.
+With a search tool, search the route for the decision at hand instead of reading
+it whole.
 Read a theme asset only when adapting it. Retrieve exact control contracts as
 needed; an example does not cover every option or integration. Everything you
-read stays in context for the rest of the session. Without a search tool, read
-a control's contract when you are about to use it rather than every route up
-front.
+read stays in context for the rest of the session. Look up a control's contract
+when you are about to use it rather than every route up front. In Studio,
+`loadstring(ServerStorage.FacetDocs["search.luau"].Value)()("Sheet detents")`
+returns only the matching sections.
 
 | Task | Read and adapt |
 | --- | --- |
@@ -44,11 +47,14 @@ Read [compact compositions](references/compact-compositions.md) when room is
 constrained, [advanced compositions](references/advanced-compositions.md) for
 richer navigation, forms or spatial UI, and [runtime details](references/runtime-details.md)
 for integration contracts. With a shell, search unknown names with
-`lute run tools/facet docs --search TERM`; without one, read the
-[Controls](../../docs/reference/nodes/Controls.md) index. Do not guess filenames.
+`lute run tools/facet docs --search TERM`; in Studio, use `FacetDocs["search.luau"]`.
+Do not guess filenames.
 Use [filesystem workflow](references/FILESYSTEM_WORKFLOW.md) when its tooling
 is available and the project uses saved source files.
 
+Put `table.unpack(rows)` last in a constructor; before other entries Luau keeps
+only its first value. When the player chooses colors in a `Stage` preview, keep
+its `Ambient` and `LightColor` near white so the preview shows the real colors.
 Use typed constructors and reactive callbacks. Keep durable selection, drafts
 and accepted state outside disposable pages. Give unrelated tasks separate
 scroll state. Connect pending, rejection, retry and acceptance to the actual
@@ -70,13 +76,30 @@ module, or for modules fixed together, into one call. An exact-text patch should
 assert that its old text occurs once. Return focused diagnostics rather than
 whole source trees. Put independent reads in one call. In Play, drive a route
 and collect its errors, state and UI findings in one call that returns a short
-report, rather than one probe per call.
+report, rather than one probe per call. Wait for an outcome inside that call,
+within the host's time limit, instead of polling it across calls, and send an
+input and its capture together when the host allows. To check every screen in
+one Client call, run `Facet.review.screens()`: it opens, reviews and closes each
+mounted Sheet and returns build errors and findings. For other screens, pass
+`{ Name = presentedCell }`.
+Capture a screen when its report needs a visual check or after a visual change,
+not after every step; each capture is resent with every later call.
+
+Give every required screen a working shell reachable from the game before
+deepening gameplay or any one screen, then deepen the routes in order of the
+brief.
 
 In Play, exercise the changed routes and inspect errors. Treat a mounted surface
 that shows no content, or a control that is missing, as a construction error to
 find, not a style to adjust. In the Client data model, `Facet.review.screen().text`
 provides layout and design findings, including compact-layout findings when the
-host shows only one size; run it on each changed screen. If the host's command
+host shows only one size; run it on each changed screen, including during
+gameplay. Its `empty-screen`, `build-failed` and `runtime-error` findings mean
+a screen or control failed to build; fix that before anything else. A control
+that fails to build shows a red placeholder with its error while the rest of the
+screen still builds, so collect every failure from one Play session and fix them
+together before restarting Play. Fix each `high` finding, such as a
+composition that does not fit a phone, before building the next screen. If the host's command
 tool cannot require modules, call it from a temporary client script and read its
 output.
 Automated findings are evidence to investigate, not a substitute for viewing
@@ -97,6 +120,8 @@ do not change an appropriate design only to remove a warning or raise a score.
 Use the [critique-ui skill](../critique-ui/SKILL.md) for a deeper visual review
 when requested or when the visual change warrants one.
 
+With a time limit, keep the last fifth for a fresh Play run of the main routes
+from start to finish; a late patch can break a route that worked earlier.
 Exercise affected acceptance, rejection, cancellation and return routes through
 real input. Check relevant compact forms, large text, focus and native-control
 clearance. For lifetime or performance changes, measure after successful

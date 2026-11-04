@@ -595,6 +595,57 @@ return function(verifyHarness: Verify.Harness)
 			end
 		end)
 
+		it("keeps cached images ready when a visible row changes its image or parent", {
+			id = "native_themes_media::native themes and media::keeps cached images ready when a visible row changes its image or parent",
+			run = function()
+				local native = engineLib.new()
+				local runtime = Roblox.createRuntime(native)
+				local Host = Facet.host(runtime)
+				local image: ImageLabel? = nil
+				local other: Frame? = nil
+				local provider = native.new("ContentProvider")
+				native.environment.fakeOn(provider, "GetAssetFetchStatus", function(_self: unknown, content: string)
+					return if content == "rbxassetid://12"
+						then native.types.Enum.AssetFetchStatus.Failure
+						else native.types.Enum.AssetFetchStatus.Success
+				end)
+				local stop = runtime.mount(function()
+					local ctx = context(Compose, runtime, {
+						types = native.types,
+						motionLevel = "normal",
+						services = { ContentProvider = provider },
+					})
+					local row = Host.Frame { Attributes = { FacetCollectionRow = true, FacetCollectionReady = true } }
+					other = Host.Frame { Parent = Compose.static(row), Attributes = { FacetCollectionRow = true } }
+					local artwork = Host.ImageLabel { Image = "rbxassetid://10" }
+					image = artwork
+					native.environment.poke(
+						FixtureRoblox.assertInstance(artwork),
+						"AbsoluteSize",
+						native.types.Vector2.new(28, 28)
+					)
+					native.environment.poke(FixtureRoblox.assertInstance(artwork), "IsLoaded", true)
+					require("../src/ui/media_readiness")(ctx, artwork)
+					artwork.Parent = row
+					return row
+				end, native.new("ScreenGui"))
+				local artwork = assert(image)
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+				expect(artwork.ImageTransparency):toBe(0)
+				artwork.Image = "rbxassetid://11"
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+				expect(artwork.ImageTransparency):toBe(0)
+				artwork.Parent = assert(other)
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
+				expect(artwork.ImageTransparency):toBe(0)
+				native.environment.poke(FixtureRoblox.assertInstance(artwork), "IsLoaded", false)
+				artwork.Image = "rbxassetid://12"
+				expect(artwork:GetAttribute("FacetMediaReady")):toBe(false)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("reveals a fetched collection image when native IsLoaded stays false", function(_own, t)
 			local prepare = require("../src/ui/media_readiness")
 			local callable: unknown = prepare
@@ -1256,6 +1307,55 @@ return function(verifyHarness: Verify.Harness)
 				expect(selected):toBe(1)
 				stop()
 				runtime:dispose()
+			end,
+		})
+
+		it("pauses the shared shimmer when all skeletons are hidden", {
+			id = "native_themes_media::native themes and media::pauses the shared shimmer when all skeletons are hidden",
+			run = function()
+				local engine = engineLib.new()
+				local runtime = Roblox.createRuntime(engine)
+				local UI = Facet.controls(runtime, { types = engine.types })
+				local Host = Facet.host(runtime)
+				local baseline = engineLib.connections(engine.heartbeat)
+				local root: ScreenGui? = nil
+				local stop = runtime.mount(function()
+					root = Host.ScreenGui {
+						Host.Frame "Hidden" { Visible = false, UI.Skeleton "One" {} },
+						Host.Frame "Shown" { UI.Skeleton "Two" { Visible = false } },
+					}
+					return root
+				end, engine.new("Folder"))
+				local screen = assert(root)
+				local hidden = assert(screen:FindFirstChild("Hidden"))
+				local shown = assert(screen:FindFirstChild("Shown"))
+				local one = assert(hidden:FindFirstChild("One"))
+				local two = assert(shown:FindFirstChild("Two"))
+				assert(hidden:IsA("Frame") and one:IsA("Frame") and two:IsA("Frame"))
+				local shimmer = assert(one:FindFirstChild("Shimmer", true))
+				assert(shimmer:IsA("UIGradient"))
+				expect(engineLib.connections(engine.heartbeat)):toBe(baseline)
+				two.Visible = true
+				expect(engineLib.connections(engine.heartbeat) > baseline):toBe(true)
+				hidden.Visible = true
+				two.Visible = false
+				local before = shimmer.Offset
+				engine.heartbeat:Fire(0.2)
+				expect(shimmer.Offset == before):toBe(false)
+				hidden.Visible = false
+				expect(engineLib.connections(engine.heartbeat)):toBe(baseline)
+				one.Parent = shown
+				expect(engineLib.connections(engine.heartbeat) > baseline):toBe(true)
+				screen.Enabled = false
+				expect(engineLib.connections(engine.heartbeat)):toBe(baseline)
+				before = shimmer.Offset
+				engine.heartbeat:Fire(0.2)
+				expect(shimmer.Offset):toBe(before)
+				screen.Enabled = true
+				expect(engineLib.connections(engine.heartbeat) > baseline):toBe(true)
+				stop()
+				runtime:dispose()
+				expect(engineLib.connections(engine.heartbeat)):toBe(0)
 			end,
 		})
 
@@ -2009,6 +2109,154 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 				expect((image:isDestroyed())):toBe(true)
 				environment.task = originalTask
+				runtime:dispose()
+			end,
+		})
+
+		it("restyles simultaneous semantic progress fills and trails while preserving default paint and text", {
+			id = "native_themes_media::semantic-progress-theme-swap",
+			run = function()
+				local engine, bridge = engineLib.new()
+				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+				local Host = runtime.constructors
+				local first = themes.neutralPackage()
+				local second = themes.neutralPackage()
+				second.style.themes[1].colors.success = { r = 0.2, g = 0.7, b = 0.6 }
+				second.style.themes[1].colors.danger = { r = 0.8, g = 0.3, b = 0.5 }
+				local theme = themeState(first)
+				local UI = Facet.controls(runtime, { types = engine.types, theme = theme })
+				local value = Compose.cell(1)
+				local styles = assert(bridge.ui)
+				local stop, mounted = runtime.mount(function()
+					local sheet =
+						themes.createStyleSheet(runtime, theme, { types = engine.types, motionLevel = "none" })
+					return Host.Frame {
+						Host.StyleLink { StyleSheet = Compose.static(sheet) },
+						UI.ProgressView "Success" {
+							value = value,
+							role = "success",
+							segments = 3,
+							trail = {},
+							label = "Ready",
+							showValue = true,
+						},
+						UI.ProgressView "Danger" {
+							value = value,
+							role = "danger",
+							trail = {},
+							label = "Risk",
+							showValue = true,
+						},
+						UI.ProgressView "Default" { value = value, trail = {}, label = "Progress", showValue = true },
+					}
+				end, engine.new("ScreenGui"))
+				local root = mounted :: Frame
+				local roles: { [string]: string } = { Success = "success", Danger = "danger", Default = "accent" }
+				local function paint(package: FixtureThemeTypes.ThemePackage)
+					local colors = package.style.themes[1].colors
+					for name, role in roles do
+						local meter = assert(root:FindFirstChild(name))
+						local expected = colors[role]
+						local tint = engine.types.Color3.new(expected.r, expected.g, expected.b)
+						for _, node in meter:GetDescendants() do
+							if node:HasTag("facet-fill") then
+								expect(styles.styled(FixtureRoblox.assertInstance(node), "BackgroundColor3")):toBe(tint)
+							end
+						end
+						local trail = assert(meter:FindFirstChild("Trail", true))
+						expect(trail:IsA("Frame")):toBe(true)
+						if trail:IsA("Frame") then
+							expect(trail.BackgroundTransparency):toBe(0.6)
+							expect(trail.Size.X.Scale):toBe(1)
+						end
+						local text = assert(meter:FindFirstChild("Value", true))
+						local content = colors.content
+						expect(styles.styled(FixtureRoblox.assertInstance(text), "TextColor3")):toBe(
+							engine.types.Color3.new(content.r, content.g, content.b)
+						)
+						if text:IsA("TextLabel") then
+							expect(text.Text):toBe("50%")
+						end
+					end
+				end
+				value:set(0.5)
+				paint(first)
+				theme:set(second)
+				paint(second)
+				theme:set(first)
+				paint(first)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		it("updates progress role tags for every presentation", {
+			id = "native_themes_media::reactive-progress-roles",
+			run = function()
+				for _, presentation in { "bar", "circular", "gauge", "spinner" } do
+					local engine, bridge = engineLib.new()
+					local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+					local Host = runtime.constructors
+					local package = themes.neutralPackage()
+					local UI = Facet.controls(runtime, { types = engine.types, theme = package })
+					local styles = assert(bridge.ui)
+					local role = Compose.cell<<"accent" | "success" | "warning" | "danger">>("warning")
+					local props: FixtureMediaProps.ProgressViewProps = {
+						value = 0.5,
+						role = role,
+						presentation = presentation :: "bar" | "circular" | "gauge" | "spinner",
+					}
+					local stop, mounted = runtime.mount(function()
+						local meter = UI.ProgressView(props)
+						local sheet =
+							themes.createStyleSheet(runtime, package, { types = engine.types, motionLevel = "none" })
+						local link = Host.StyleLink { StyleSheet = Compose.static(sheet) } :: StyleLink
+						link.Parent = meter
+						return meter
+					end, engine.new("Folder"))
+					local meter = mounted :: Frame
+					local function paint()
+						local color = package.style.themes[1].colors[role:peek()]
+						local tint = engine.types.Color3.new(color.r, color.g, color.b)
+						local fills = 0
+						for _, node in meter:GetDescendants() do
+							if node:HasTag("facet-fill") or node:HasTag("facet-progress-ring-fill") then
+								local property = if node:IsA("Path2D") then "Color3" else "BackgroundColor3"
+								expect(styles.styled(FixtureRoblox.assertInstance(node), property)):toBe(tint)
+								fills += 1
+							end
+						end
+						expect(fills > 0):toBe(true)
+					end
+					expect(meter:HasTag("facet-progress-role-warning")):toBe(true)
+					paint()
+					role:set("danger")
+					expect(meter:HasTag("facet-progress-role-warning")):toBe(false)
+					expect(meter:HasTag("facet-progress-role-danger")):toBe(true)
+					paint()
+					role:set("accent")
+					expect(meter:HasTag("facet-progress-role-danger")):toBe(false)
+					expect(meter:HasTag("facet-progress-role-accent")):toBe(true)
+					paint()
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
+		it("rejects unknown progress semantic roles", {
+			id = "native_themes_media::invalid-progress-role",
+			run = function()
+				local engine, runtime, UI = setup()
+				local ok, problem = pcall(function()
+					runtime.mount(function()
+						return UI.ProgressView { value = 0.5, role = ("health" :: unknown) :: "accent" }
+					end, engine.new("Folder"))
+				end)
+				expect(ok):toBe(false)
+				expect(
+					string.find(tostring(problem), "role must be accent, success, warning or danger", 1, true) ~= nil
+				):toBe(true)
 				runtime:dispose()
 			end,
 		})

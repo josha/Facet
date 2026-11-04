@@ -344,26 +344,27 @@ return function(
 							)
 						end,
 					})
-					local tracked: RBXScriptConnection?
+					local children = Compose.cell(0)
 					local function track()
-						if tracked then
-							tracked:Disconnect()
-						end
-						local seal = holder:FindFirstChildWhichIsA("GuiObject")
-						local function measure()
-							sealSize:set(if seal and seal.Parent == holder then seal.AbsoluteSize else V2.zero)
-						end
-						tracked = if seal then seal:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure) else nil
-						measure()
+						children:set(children:peek() + 1)
 					end
+					Compose.watch(function(use: ComposeTypes.Use)
+						use(children)
+						local seal = holder:FindFirstChildWhichIsA("GuiObject")
+						if seal == nil then
+							sealSize:set(V2.zero)
+							return
+						end
+						local size =
+							runtime.observe(seal, "AbsoluteSize", if runtime.host.frames then { frame = true } else nil)
+						Compose.watch(function(use: ComposeTypes.Use)
+							sealSize:set(use(size) :: Vector2)
+						end)
+					end)
 					local added, removed = holder.ChildAdded:Connect(track), holder.ChildRemoved:Connect(track)
-					track()
 					Compose.cleanup(function()
 						added:Disconnect()
 						removed:Disconnect()
-						if tracked then
-							tracked:Disconnect()
-						end
 					end)
 				end
 				local flow = icon.Parent and icon.Parent:FindFirstChildWhichIsA("UIListLayout")

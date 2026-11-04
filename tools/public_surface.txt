@@ -90,6 +90,7 @@ adaptive : table(frozen)
   adaptive.navPlacement : function
   adaptive.orientationFor : function
   adaptive.overscanInsets : function
+  adaptive.resolutionScale : function
   adaptive.sizeClass : function
   adaptive.sizeClassAtLeast : function
 app : function
@@ -147,6 +148,7 @@ review : table(frozen)
   review.collect : function
   review.fixes : table(frozen)
   review.screen : function
+  review.screens : function
 richText : table(frozen)
   richText.escape : function
 tag : function
@@ -158,6 +160,7 @@ themes : table
   themes.createStyleSheet : function
   themes.define : function
   themes.forDistance : function
+  themes.forResolution : function
   themes.neutralPackage : function
   themes.resolveIcon : function
   themes.skin : function
@@ -258,6 +261,7 @@ controls(runtime).sequence : function
 controls(runtime).shake : function
 controls(runtime).toward : function
 controls(runtime).worldAnchor : function
+controls(runtime).worldSurface : function
 type ActionRole
 type Activate
 type Adaptive
@@ -324,6 +328,7 @@ type CompositionProps
 type ControlOptions
 type ControlSize
 type Controls
+type Cooldown
 type DateRangePreset
 type DateTimePickerDismissReason
 type DateTimePickerProps
@@ -378,6 +383,8 @@ type Gradient
 type GridProps
 type GroupedOptions
 type HapticKind
+type HelpRow
+type HelpSpec
 type HierarchyOptions
 type Host
 type IdentityCollectionSpec
@@ -493,6 +500,7 @@ type StepState
 type StepperCellProps
 type StepperProps
 type StepperRequestProps
+type StyleTags
 type Tab
 type TabPlacement
 type TabSelectionIndicator

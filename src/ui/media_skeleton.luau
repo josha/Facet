@@ -6,22 +6,25 @@ local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
 local MediaProps = require("./media_props")
 
+type Shimmer = { clock: Types.Playback, visible: ComposeTypes.Value<number> }
+
 return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
 	local types, read = ctx.types, ctx.read
 	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
 	local metric, controlSize = ctx.metric, ctx.controlSize
-	local skeletonClock = Compose.createSharedResource(function(): (Types.Playback, (() -> ())?)
+	local skeletonClock = Compose.createSharedResource(function(): (Shimmer, (() -> ())?)
 		local clock = runtime.timeline({ duration = ctx.metric("motion.durations.spinnerLoop"), repeats = math.huge })
+		local visible = Compose.cell(0)
 		local motionReduced = reducedMotion(ctx)
 		Compose.watch(function(use: ComposeTypes.Use)
-			if motionReduced(use) then
+			if motionReduced(use) or use(visible) == 0 then
 				clock:pause()
 			else
 				clock:play()
 			end
 		end)
-		return clock, nil
+		return { clock = clock, visible = visible }, nil
 	end)
 	UI.Skeleton = ctx.construct("Skeleton", function(spec: MediaProps.SkeletonProps): Frame
 		local form = spec.form or "box"
@@ -30,7 +33,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		assert(spec.corners == nil or form ~= "circle", "Facet Skeleton circle owns its corners")
 		local count = spec.lines or 1
 		assert(count >= 1 and count % 1 == 0, "Facet Skeleton lines must be positive")
-		local clock = skeletonClock()
+		local shimmer = skeletonClock()
+		local clock = shimmer.clock
 		local motionReduced = reducedMotion(ctx)
 		local rows: { ComposeTypes.Child } = {}
 		for index = 1, count do
@@ -81,7 +85,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 			table.insert(rows, ctx.styled(Host.Frame(native), "skeleton"))
 		end
-		return ctx.column(
+		local frame = ctx.column(
 			rows,
 			ctx.props(
 				spec,
@@ -89,5 +93,35 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				{ Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y }
 			)
 		)
+		local ancestry = Compose.cell(0)
+		runtime.connect(frame, "AncestryChanged", function()
+			ancestry:set(ancestry:peek() + 1)
+		end)
+		Compose.watch(function(use: ComposeTypes.Use)
+			use(ancestry)
+			local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
+			local at: Instance? = frame
+			while at do
+				if at:IsA("GuiObject") then
+					table.insert(sources, ctx.observe.Visible(at))
+				elseif at:IsA("LayerCollector") then
+					table.insert(sources, ctx.observe.Enabled(at))
+					break
+				end
+				at = at.Parent
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				for _, source in sources do
+					if not use(source) then
+						return
+					end
+				end
+				shimmer.visible:set(shimmer.visible:peek() + 1)
+				Compose.cleanup(function()
+					shimmer.visible:set(shimmer.visible:peek() - 1)
+				end)
+			end)
+		end)
+		return frame
 	end)
 end

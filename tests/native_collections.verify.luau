@@ -893,6 +893,33 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	describe("collection prepared paint", function()
+		it("samples layout changes on a frame instead of inside the property signal", {
+			id = "native_collections::collection prepared paint::samples layout changes on a frame instead of inside the property signal",
+			run = function()
+				local engine, runtime, _, target, _, ctx = setup()
+				local node = engine.new("Frame")
+				local ready: FixtureComposeTypes.ReadOnlyValue<boolean>? = nil
+				local stop = runtime.mountFragment(function()
+					ready = require("../src/ui/collection_paint")(ctx, node)
+					return {}
+				end, target)
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(node),
+					"AbsoluteSize",
+					engine.types.Vector2.new(240, 44)
+				)
+				expect(assert(ready):peek()):toBe(false)
+				engine.heartbeat:Fire(0)
+				expect(assert(ready):peek()):toBe(true)
+				engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", engine.types.Vector2.zero)
+				expect(assert(ready):peek()):toBe(true)
+				engine.heartbeat:Fire(0)
+				expect(assert(ready):peek()):toBe(false)
+				stop()
+				expect(engine.environment.connectionsOfInstance(VerifyRoblox.assertInstance(node))):toBe(0)
+				node:Destroy()
+			end,
+		})
 		it("waits for a text row's own measurement before paint", {
 			id = "native_collections::collection prepared paint::waits for a text row's own measurement before paint",
 			run = function()
@@ -943,12 +970,15 @@ return function(verifyHarness: Verify.Harness)
 				expect(assert(ready):peek()):toBe(false)
 				engine.environment.poke(label, "AbsoluteSize", V2.new(200, 24))
 				engine.environment.poke(label, "TextBounds", V2.new(100, 20))
+				engine.heartbeat:Fire(0)
 				expect(assert(ready):peek()):toBe(true)
 				expect(engine.environment.connectionsOfInstance(label)):toBe(0)
 				engine.environment.poke(frame, "AbsoluteSize", V2.zero)
+				engine.heartbeat:Fire(0)
 				expect(assert(ready):peek()):toBe(false)
 				expect(engine.environment.connectionsOfInstance(label)):toBe(0)
 				engine.environment.poke(frame, "AbsoluteSize", V2.new(240, 44))
+				engine.heartbeat:Fire(0)
 				expect(assert(ready):peek()):toBe(true)
 				stop()
 				expect(engine.environment.connectionsOfInstance(frame)):toBe(0)
@@ -1170,7 +1200,7 @@ return function(verifyHarness: Verify.Harness)
 					"TextBounds",
 					engine.types.Vector2.new(100, 20)
 				)
-				expect(assert(ready):peek()):toBe(true)
+				expect(assert(ready):peek()):toBe(false)
 				engine.heartbeat:Fire(1 / 60)
 				expect(assert(ready):peek()):toBe(true)
 				expect(stale:peek()):toBe(engine.types.Vector2.zero)

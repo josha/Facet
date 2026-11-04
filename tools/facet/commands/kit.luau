@@ -241,6 +241,7 @@ to have a fresh reviewer judge how a screen looks.
 	for name, options in Props.load(".") do
 		result.writes["StudioDocs/docs/reference/nodes/" .. name .. ".props.md.txt"] = Props.render(name, options)
 	end
+	result.writes["StudioDocs/search.luau.txt"] = Files.text("tools/facet/lib/studio_docs_search.luau")
 	return result
 end
 

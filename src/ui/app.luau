@@ -25,6 +25,7 @@ export type AppOptions = {
 	translator: Types.Input<Translator?>?,
 	pressHaptic: (HapticEffect | Types.HapticKind)?,
 	onError: ((unknown) -> ())?,
+	strictBuild: boolean?,
 	runtime: Types.Runtime?,
 	parent: Instance?,
 	name: string?,
@@ -75,6 +76,14 @@ export type App = {
 type RobloxModule = { read createRuntime: typeof(require("../vendor/compose/roblox").createRuntime) }
 type StyleLinkHost = { StyleLink: ({ StyleSheet: unknown }) -> Instance }
 
+local function liveClient(): boolean
+	local ok, running = pcall(function(): boolean
+		local service = getfenv(0).game:GetService("RunService")
+		return service:IsRunning() and service:IsClient()
+	end)
+	return ok and running == true
+end
+
 local function playerGui(): Instance
 	local game = getfenv(0).game
 	local players = game and game:GetService("Players")
@@ -95,7 +104,10 @@ return function(
 	local settings: AppOptions = options or {}
 	local owned = settings.runtime == nil
 	local runtime = settings.runtime or roblox.createRuntime()
-	local UI = controls(Compose, runtime, settings)
+	local buildMode = { strict = if settings.strictBuild ~= nil then settings.strictBuild else not liveClient() }
+	local controlSettings = (table.clone(settings) :: unknown) :: Types.Config
+	controlSettings.buildMode = buildMode
+	local UI = controls(Compose, runtime, controlSettings)
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local Links = (runtime.constructors :: unknown) :: StyleLinkHost
 	local stops: { () -> () } = {}
@@ -169,11 +181,14 @@ return function(
 		if construct == nil then
 			error(`Facet app.refusal: there is no control named '{tostring(control)}'`, 2)
 		end
+		local previous = buildMode.strict
+		buildMode.strict = true
 		local ok, failure = pcall(function()
 			Compose.withRootOwner(function()
 				Host.ScreenGui { construct(spec) }
 			end)
 		end)
+		buildMode.strict = previous
 		if ok then
 			return nil
 		end

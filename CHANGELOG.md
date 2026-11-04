@@ -1,5 +1,9 @@
 # Current package
 
+`Facet.review.screens(targets?, options?)` reviews all mounted Sheets or named
+screen targets in one client call during Play. It opens and closes each target,
+returns one text report and reports common build and runtime errors once.
+
 Facet Design accepts consumer kinds through `DesignContext.extension`, using
 Compose Design's library extension contract. `DesignKind`, `DesignResolved`
 and `DesignExtension` type the registration and editor builder. `Path.points`

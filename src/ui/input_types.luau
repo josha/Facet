@@ -27,10 +27,16 @@ export type Shortcut = { read keyCode: string, read modifiers: { shift: boolean?
 export type HelpSpec = {
 	read title: Shared.ValueString?,
 	read body: Shared.ValueString,
+	read rows: { read [number]: HelpRow }?,
+	read cost: Shared.ValueString?,
+	read cooldown: Shared.ValueString?,
+	read flavour: Shared.ValueString?,
 	read shortcut: { { string } }?,
 	read edge: ("top" | "bottom" | "leading" | "trailing")?,
 	read align: ("start" | "center" | "end")?,
 }
+export type HelpRow = { read label: Shared.ValueString, read value: Shared.ValueString }
+export type Cooldown = { read remaining: Shared.ValueNumber, read total: Shared.ValueNumber }
 export type Help = Shared.ValueString | HelpSpec
 export type ButtonCorners = "pill" | "square"
 export type ButtonRole = "default" | "cancel" | "destructive" | "onIndicator"
@@ -72,6 +78,8 @@ export type ButtonInputOptions = {
 	target: ("hit" | "thumb" | "inline")?,
 }
 export type ButtonOptions = {
+	cooldown: Cooldown?,
+	charges: Shared.ValueNumber?,
 	caption: Shared.ValueString?,
 	glyph: (() -> GuiObject)?,
 	shortcutHint: InputAction?,

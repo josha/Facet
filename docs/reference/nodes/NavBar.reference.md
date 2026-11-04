@@ -9,7 +9,9 @@ names.
 
 The first row holds Back, `leading` and a `center` that fills the remaining
 width. Without `center`, the title shows on one line and truncates. `trailing`
-is one GuiObject. Put a cluster in a Frame. The title and the trailing node
+is one GuiObject or a factory that returns one GuiObject. The factory runs once
+under the active Compose owner. In Design documents, bind a slot or author a
+content child. Put a cluster in a Frame. The title and the trailing node
 stay on one row when the full title fits beside the trailing node. When the
 full title does not fit, the trailing node moves to a second row. The bar keeps
 its row form while an ancestor `FacetTransitionZoom` is not 1. If the

@@ -787,13 +787,15 @@ return function(h: Verify.Harness)
 	h:case("a custom navigation pop retains its page until progress reaches zero", function()
 		local path = Facet.Compose.cell({} :: { Facet.NavigationEntry<string> })
 		local calls = 0
+		local phases: { Facet.TransitionContext } = {}
 		local w = worlds.new(function(UI: Facet.Controls)
 			return stack(UI, {
 				path = path,
 				transition = {
 					seconds = 0.4,
-					apply = function(_node: GuiObject, _phase: Facet.TransitionContext)
+					apply = function(_node: GuiObject, phase: Facet.TransitionContext)
 						calls += 1
+						table.insert(phases, phase)
 					end,
 				},
 				root = {
@@ -813,11 +815,19 @@ return function(h: Verify.Harness)
 			})
 		end)
 		path:set({ { id = "details", value = "item" } })
-		play(w.engine, 0.2)
+		play(w.engine, 0.5)
 		local detail = w.find("DetailAction")
+		local page = detail:FindFirstAncestor("details")
+		local phase = phases[2]
+		Verify.expect(phase.progress:peek()):toBe(1)
 		path:set({})
 		Verify.expect(w.find("DetailAction")):toBe(detail)
-		play(w.engine, 0.5)
+		Verify.expect(phase.isPresented:peek()):toBe(false)
+		Verify.expect(page.Interactable):toBe(false)
+		play(w.engine, 0.2)
+		Verify.expect(w.find("DetailAction")):toBe(detail)
+		Verify.expect(phase.progress:peek() > 0 and phase.progress:peek() < 1):toBe(true)
+		play(w.engine, 0.3)
 		Verify.expect(w.find("DetailAction")):toBe(nil)
 		Verify.expect(w.find("HomeAction") ~= nil):toBe(true)
 		Verify.expect(calls):toBe(2)

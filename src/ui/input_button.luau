@@ -43,6 +43,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	end
 
 	local buttonKeys = table.freeze({
+		"cooldown",
+		"charges",
 		"haptic",
 		"label",
 		"compactLabel",
@@ -1148,6 +1150,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Host.UIScale "Pop" { Scale = popScale },
 				{ Size = p.Size, AutomaticSize = p.AutomaticSize }
 			)
+		end
+		if spec.cooldown ~= nil or spec.charges ~= nil then
+			require("./input_button_cooldown")(ctx, node, spec.cooldown, spec.charges)
 		end
 		return node
 	end)

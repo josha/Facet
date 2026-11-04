@@ -27,9 +27,15 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 `Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles (phone, tablet, monitor, 10-foot TV, handheld and VR, with their insets and input mode), and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).
 
+`Facet.StyleTags` types fixed or live style tags: a string, a string list,
+a readable value or a formula. `Facet.tag` replaces its own live tags and
+keeps other tags on the instance. Compose owns the live subscription.
+`Design.document.bindTags` binds a string or named string list input or row field.
+
 `Facet.DesignContext.space = "3d"` selects Compose Design's 3D stage and an
 `Instance` return type for scene documents. With `context.host`, the library
-includes native `Model`, `Part` and `PointLight` kinds. `Pagination` accepts
+includes native `Model`, `Part`, `PointLight`, `SurfaceLight`, `Texture` and
+`Decal` kinds. `Pagination` accepts
 positional children, including `UIFlexItem`.
 
 `Facet.DesignContext.extension` accepts a `Facet.DesignExtension`. It uses
@@ -47,6 +53,14 @@ need Compose Design support; use a whole token for the table.
 patterns that make it look generic, such as facts joined in one text and
 items without a visual. `review.analyze(snapshot)` is the pure form. See
 [Review](nodes/Review.md).
+
+`Facet.review.screens(targets?, options?)` opens, reviews and closes each target
+in name order and returns one text report. With no targets, it finds mounted
+Sheets. Pass `{ Name = presentedCell }` or targets with `open()` and optional
+`close()` functions for other screens. Run it on the client during Play.
+`options.root` selects the review root; `options.settle` sets the wait after
+opening, in seconds (default `0.5`). Common build and runtime errors appear
+once across the screens. Each target is closed after review.
 
 `Facet.controls(runtime, options?)` returns controls for a Compose Roblox runtime.
 Without options, it returns the controls provided for that runtime in the
@@ -116,3 +130,56 @@ rule, and `Facet.AuthoredRuleProperties` types the properties of that rule.
 `Facet.WorldAnchorPoint` types one point of a world anchor.
 `Facet.SplitColumn` names a NavigationSplitView column: `"sidebar"` or
 `"detail"`.
+
+For an action slot, use `UI.Button` with `cooldown = { remaining, total }` and
+optional `charges`. `Facet.Cooldown` accepts bound numbers. `total` must be
+finite and positive; `remaining` must be finite. The bottom-to-top sweep shows
+the clamped remaining fraction. It follows model updates with `motion.fast`
+and `motion.easing.trail`, and snaps with reduced motion. It does not run a
+game timer or disable the action. Bind `enabled` to the game's availability
+rule. `charges` accepts a bound nonnegative integer, including zero. Use
+`icon`, `glyph`, and `shortcutHint` for the subject and native InputAction hint.
+The sweep uses the theme's scrim paint. Theme rules can target
+`.facet-cooldown` and `.facet-charges` for separate paint.
+
+`Facet.HelpSpec` adds optional `rows = { { label, value } }`, `cost`, `cooldown`,
+and `flavour` to the existing `title`, required `body`, `shortcut`, `edge`, and
+`align`. `Facet.HelpRow` names a row. Text fields accept bound strings. Include
+units and labels in cost and cooldown strings. Button Help uses one pattern
+for pointer dwell, native selection, and touch long-press. It uses the existing
+tooltip theme, safe overlay bounds, edge flipping, and touch clearance.
+Keep details brief enough for the viewport; use a Popover or Sheet for long
+or interactive content.
+
+`UI.worldSurface(layer, content)` returns a Folder to include in the mounted
+tree. `layer` is a native BillboardGui or SurfaceGui. `content` builds one
+Instance in a Compose portal to that layer. The portal shares Compose ownership
+and the controls provider. Its StyleLink follows the nearest mounted
+StyleLink, including StyleSheet replacement. The layer is borrowed: removing
+the Folder removes the portal content and link, and leaves the layer standing.
+Create a layer through Host in the same tree to give it the same lifetime.
+Keep interactive layers in PlayerGui and set Adornee to a world target.
+SurfaceGui input also requires the target's CanQuery to be true.
+
+```luau
+local Host = runtime.constructors
+local layer = Host.BillboardGui {
+    Adornee = Compose.static(target), Size = UDim2.fromOffset(220, 48),
+    MaxDistance = 80, Active = true,
+}
+return Host.Folder {
+    Compose.portal(playerGui, function() return { layer } end),
+    UI.worldSurface(layer, function()
+        return UI.Button { label = "Interact", onActivate = interact }
+    end),
+}
+```
+
+Use this inside the existing app mount. Native layers own world projection,
+occlusion, distance limits, and input. No Facet projection loop is added.
+`examples/performance/world_surfaces.luau` builds a configurable number of
+nameplates under one mount and supplies a shared update command. The HUD spec
+runs 64 layers and checks teardown. This is a resource and lifecycle scene;
+it does not establish a device frame-time budget. Native BillboardGui and
+SurfaceGui cache unchanged content; frequent text updates invalidate that
+cache. Use bounded distance and update only when the displayed value changes.

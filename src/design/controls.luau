@@ -225,7 +225,9 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			disclose = { type = "boolean", label = "Disclosure indicator", order = 22 },
 			textSize = { type = "number", label = "Text size", order = 23 },
-			help = { type = "string", label = "Help", order = 24 },
+			help = { type = "value", label = "Help", order = 24, format = "json" },
+			cooldown = { type = "value", label = "Cooldown", order = 35, format = "json" },
+			charges = { type = "number", label = "Charges", order = 36 },
 			row = { type = "value", label = "Row content", order = 25, format = "json" },
 			controlSize = {
 				type = "choice",
@@ -729,12 +731,13 @@ local controls: { [string]: Types.ControlSpec } = {
 	NavBar = {
 		category = "Navigation",
 		defaults = { backLabel = "Back", surface = "pane", title = "Discover" },
-		fields = nativeFields(6, {
+		fields = nativeFields(7, {
 			title = { type = "string", label = "Title", order = 1 },
 			backLabel = { type = "string", label = "Back label", order = 2 },
 			surface = { type = "choice", label = "Surface", order = 3, options = { "surface", "panel", "pane" } },
 			gap = { type = "number", label = "Gap", order = 4 },
 			padding = { type = "number", label = "Padding", order = 5 },
+			trailing = { type = "content", label = "Trailing content", order = 6 },
 		}),
 	},
 	NavigationSplitView = {

@@ -11,7 +11,17 @@ local pressed: { [Instance]: boolean } = setmetatable({}, { __mode = "k" })
 
 local help = {}
 
-local KEYS: { [string]: boolean } = freeze({ title = true, body = true, shortcut = true, edge = true, align = true })
+local KEYS: { [string]: boolean } = freeze({
+	title = true,
+	body = true,
+	shortcut = true,
+	edge = true,
+	align = true,
+	rows = true,
+	cost = true,
+	cooldown = true,
+	flavour = true,
+})
 
 function help.check(ctx: Types.Context, value: unknown)
 	if type(value) ~= "table" or ctx.Compose.isValue(value) then
@@ -31,6 +41,23 @@ function help.check(ctx: Types.Context, value: unknown)
 	end
 	if fields.title ~= nil and not text(fields.title) then
 		error("Facet UI.Button: help.title must be a string or a bound string", 0)
+	end
+	for _, key in { "cost", "cooldown", "flavour" } do
+		assert(
+			fields[key] == nil or text(fields[key]),
+			`Facet UI.Button: help.{key} must be a string or a bound string`
+		)
+	end
+	if fields.rows ~= nil then
+		assert(type(fields.rows) == "table", "Facet UI.Button: help.rows must be a list")
+		for _, row in fields.rows do
+			assert(type(row) == "table", "Facet UI.Button: help rows require label and value strings")
+			local entry = row :: { [string]: unknown }
+			assert(
+				text(entry.label) and text(entry.value),
+				"Facet UI.Button: help rows require label and value strings"
+			)
+		end
 	end
 	if fields.body == "" and (type(fields.title) ~= "string" or fields.title == "") then
 		error("Facet UI.Button: help.body may be empty only when help.title carries the words", 0)

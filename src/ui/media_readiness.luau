@@ -79,7 +79,6 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 						end
 					end)
 				end
-				node:SetAttribute("FacetMediaReady", false)
 				local function available(): boolean
 					local box = size:peek()
 					return box.X > 0
@@ -94,7 +93,9 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 				end
 				local ready = if node:IsA("ImageLabel")
 						and (
-							(row:IsA("CanvasGroup") and row.GroupTransparency == 1)
+							fetched:peek()
+							or node.Image == ""
+							or (row:IsA("CanvasGroup") and row.GroupTransparency == 1)
 							or row:GetAttribute("FacetCollectionReady") == false
 						)
 					then Compose.formula(function(use: ComposeTypes.Use): boolean

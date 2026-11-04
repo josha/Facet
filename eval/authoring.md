@@ -41,6 +41,12 @@ elsewhere. Fix a defect that blocks later routes first.
    representative routes with each required input and layout, including a live
    viewport change. Keep decisions, consequences and exits usable.
    Keep the place working after each group of changes.
+   The place uses the native input action system, and no PlayerModule control
+   script runs in PlayerScripts. Read player movement from
+   `StarterPlayer.PlayerModule.InputContexts.CharacterContext.MoveAction`
+   (Direction2D) with `GetState()`; it keeps reporting while the character is
+   seated. Camera and vehicle contexts sit beside it. Keys reserved by Roblox
+   core UI, such as Tab and gamepad B, cannot be injected with VirtualInput.
 5. If a tool times out, its action may still have occurred. Inspect state before
    repeating an action. If capture remains unavailable, do not claim visual
    review or spend the remaining attempt on identical retries. Continue useful

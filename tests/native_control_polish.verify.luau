@@ -392,8 +392,8 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_control_polish::native chip shape::keeps a chip pill-shaped at near and ten-foot distance",
 			run = function()
 				local styleRules = require("./lib/style_rules")
-				local function check(distance: "near" | "ten-foot")
-					local package = themes.forDistance(themes.neutralPackage(), distance)
+				local function check(base: Facet.ReadOnlyThemePackage, distance: "near" | "ten-foot", scale: number)
+					local package = themes.forResolution(themes.forDistance(base, distance), 1920 * scale, 1080 * scale)
 					local regular = assert(package.metrics.controlSizes.regular)
 					local w = world(function(UI)
 						return UI.Chip "Pill" {
@@ -411,8 +411,15 @@ return function(verifyHarness: Verify.Harness)
 					expect(`{distance} right {right}`):toBe(`{distance} right {pill}`)
 					w.stop()
 				end
-				check("near")
-				check("ten-foot")
+				local definition: Facet.ThemeDefinition = { identity = { id = "chip-distance" } }
+				local frozen, report = themes.define(definition)
+				assert(frozen ~= nil and report.ok)
+				for _, base in { themes.neutralPackage(), frozen } do
+					for _, scale in { 1, 2 } do
+						check(base, "near", scale)
+						check(base, "ten-foot", scale)
+					end
+				end
 			end,
 		})
 	end)

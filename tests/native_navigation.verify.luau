@@ -164,6 +164,36 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native navigation controls", function()
+		it("samples tab badge bounds after the layout property signal", {
+			id = "native_navigation::native navigation controls::samples tab badge bounds after the layout property signal",
+			run = function()
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.TabView {
+						selection = Compose.cell("one"),
+						tabs = {
+							{
+								id = "one",
+								label = "One",
+								glyph = function()
+									return Host.Frame {}
+								end,
+								badge = "9",
+								content = UI.Text { text = "Body" },
+							},
+						},
+					}
+				end)
+				local holder = find(find(world.screen, "Seal"), "Corner")
+				local badge = holder:FindFirstChildWhichIsA("GuiObject")
+				local anchor = holder.Parent.Parent
+				local before = anchor.Size
+				world.engine.environment.poke(badge, "AbsoluteSize", world.engine.types.Vector2.new(120, 40))
+				expect(anchor.Size):toBe(before)
+				world.engine.heartbeat:Fire(0)
+				expect(anchor.Size == before):toBe(false)
+				world.stop()
+			end,
+		})
 		type ReleaseSample = { name: string, distance: number, seconds: number, idle: number, expected: string }
 		local samples: { ReleaseSample } = {
 			{ name = "short flick", distance = 30, seconds = 0.02, idle = 0, expected = "four" },
@@ -3722,7 +3752,7 @@ return function(verifyHarness: Verify.Harness)
 				local selected, opened = Compose.cell("a"), Compose.cell(false)
 				local initial: { Navigation.PickerOption<string> } =
 					{ { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } }
-				local options = Compose.cell(initial)
+				local options = Compose.cell<<{ Navigation.PickerOption<string> }>>(initial)
 				local world = setup(function(UI: FacetControls)
 					local controlProps: NavigationProps.SinglePickerSpec<string> = {
 						selected = selected,
@@ -3790,7 +3820,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(segmented.Visible):toBe(true)
 				expect(segmented.Parent):toBe(picker)
 				expect(hidden.Interactable):toBe(false)
-				local many = {}
+				local many: { Navigation.PickerOption<string> } = {}
 				for index = 1, 7 do
 					table.insert(many, { value = tostring(index), label = "Choice " .. tostring(index) })
 				end

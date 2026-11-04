@@ -2,6 +2,8 @@
 
 Themes.definition option values and behavior.
 
+Use [resolution scaling](Themes.resolution.md) to keep the interface proportioned on larger displays.
+
 For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
 
 - `neutralPackage()` returns a mutable copy of the neutral theme package. It

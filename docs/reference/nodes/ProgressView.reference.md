@@ -2,6 +2,13 @@
 
 ProgressView.reference option values and behavior.
 
+Set `role` to `"accent"`, `"success"`, `"warning"` or `"danger"` to use that
+semantic color from the active theme. The default is `"accent"`. The role can
+be a value, a Compose cell or a reactive function. It colors each bar segment,
+the damage trail, the circular or gauge fill, and the spinner dots. The trail
+keeps its transparency. The track, text, gauge needle and hub keep their
+normal styles. A theme change updates every role through the StyleSheet.
+
 The unwrapped value and end label keep their largest measured boxes while their text keeps the same length, as Text does.
 
 On the bar's row, the value and the end label keep the width of their text,

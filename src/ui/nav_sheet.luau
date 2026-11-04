@@ -325,6 +325,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local root = Host.Frame(
 			ctx.props(spec, KEYS, { Name = "Sheet", BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
 		)
+
+		root:SetAttribute("FacetSheet", true)
+		runtime.connect(root, "AttributeChanged", function(name: string)
+			local wanted = root:GetAttribute("FacetPresent")
+			if name == "FacetPresent" and type(wanted) == "boolean" then
+				spec.isPresented:set(wanted)
+			end
+		end)
 		surfaces.attach(root, {
 			surfaces.overlay(root, spec.isPresented, function(phase)
 				return modalFor(spec, detent, prepared, nil, phase, root)
@@ -335,6 +343,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					spec.isPresented:set(false)
 					if ctx.config.onError then
 						ctx.config.onError(failure)
+					elseif task and task.spawn then
+						task.spawn(
+							error,
+							"Facet Sheet did not open because its content failed to build: " .. tostring(failure),
+							0
+						)
 					end
 					return Host.Folder "FailedSheet" {}
 				end,

@@ -66,6 +66,12 @@ return function(Compose: Types.ComposeModule, runtime: Types.Runtime, options: T
 	local loaders: { [string]: () -> () } = {}
 	local groups: { Group } = {
 		{
+			names = { "worldSurface" },
+			install = function()
+				require("@self/world_surface")(ctx, UI)
+			end,
+		},
+		{
 			names = {
 				"VStack",
 				"HStack",

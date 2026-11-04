@@ -258,7 +258,9 @@ function themes.neutralPackage(): ThemeTypes.ThemePackage
 	return copy(neutral)
 end
 
-themes.forDistance = themeDistance(neutral)
+local display = themeDistance.create(neutral)
+themes.forDistance = display.forDistance
+themes.forResolution = display.forResolution
 
 local definitions = defineThemes(neutral, themes.SCHEMA, themes.TYPE_ROLES)
 themes.define = definitions.define
@@ -618,6 +620,11 @@ local function rulesFor(
 	rule(".facet-role-onIndicator >> .facet-button-glyph >> .facet-path", { Color3 = c("onAccent") })
 	rule(".facet-disabled >> .facet-button-glyph >> .facet-path", { Color3 = c("contentSecondary") })
 	rule(".facet-progress-ring-fill", { Color3 = c("accent") })
+	for _, role in { "accent", "success", "warning", "danger" } do
+		local selector = ".facet-progress-role-" .. role
+		rule(selector .. " >> .facet-fill", { BackgroundColor3 = c(role) })
+		rule(selector .. " >> .facet-progress-ring-fill", { Color3 = c(role) })
+	end
 	rule(".facet-progress-gauge-needle", { Color3 = c("content") })
 	rule(".facet-progress-gauge-hub", { BackgroundColor3 = c("content"), BackgroundTransparency = 0 })
 	rule(".facet-icon", { ImageColor3 = c("content"), BackgroundTransparency = 1 })
@@ -706,6 +713,11 @@ local function rulesFor(
 				properties.Transparency = types.NumberSequence.new(alpha)
 			end
 			rule(".facet-" .. role .. "::UIGradient", properties)
+
+			rule(".facet-status-surface.facet-" .. role .. "::UIGradient", {
+				Color = types.ColorSequence.new(types.Color3.new(1, 1, 1)),
+				Transparency = types.NumberSequence.new(0),
+			})
 		end
 	end
 
@@ -1352,6 +1364,7 @@ return function(Compose: typeof(ComposeTypes)): ThemeTypes.Themes
 		REQUIRED_TYPE_ROLES = themes.REQUIRED_TYPE_ROLES,
 		neutralPackage = themes.neutralPackage,
 		forDistance = themes.forDistance,
+		forResolution = themes.forResolution,
 		define = themes.define,
 		checkCoverage = themes.checkCoverage,
 		resolveIcon = themes.resolveIcon,

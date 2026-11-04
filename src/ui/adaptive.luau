@@ -36,6 +36,7 @@ export type Adaptive = {
 	isTenFoot: (facts: TenFootFacts) -> boolean,
 	TEN_FOOT_SCALE: number,
 	overscanInsets: (width: number, height: number) -> Insets,
+	resolutionScale: (width: number, height: number) -> number,
 }
 
 local BREAKPOINTS: Breakpoints = freeze({ regular = 600, wide = 1000 })
@@ -130,6 +131,13 @@ local function overscanInsets(width: number, height: number): Insets
 	return freeze({ top = y, left = x, bottom = y, right = x })
 end
 
+local function resolutionScale(width: number, height: number): number
+	if width ~= width or height ~= height or math.abs(width) == math.huge or math.abs(height) == math.huge then
+		return 1
+	end
+	return math.max(1, math.min(width, height) / 1080)
+end
+
 local adaptive: Adaptive = freeze({
 	BREAKPOINTS = BREAKPOINTS,
 	HEIGHT_BREAKPOINTS = BREAKPOINTS,
@@ -144,5 +152,6 @@ local adaptive: Adaptive = freeze({
 	isTenFoot = isTenFoot,
 	TEN_FOOT_SCALE = 1.5,
 	overscanInsets = overscanInsets,
+	resolutionScale = resolutionScale,
 })
 return adaptive

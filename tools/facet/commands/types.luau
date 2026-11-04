@@ -1292,6 +1292,7 @@ return {}
 				"tests/lute/worker.luau",
 				"tests/a.verify.luau",
 				"tools/facet/commands/studio.luau",
+				"tools/facet/lib/studio_docs_search.luau",
 				"bench/perf_runner.luau",
 				"tools/vendor/verify/src/lute/host.luau",
 				"tools/vendor/verify/src/core/init.luau",
@@ -1300,6 +1301,7 @@ return {}
 			Verify.expect(roblox):toEqual({
 				"src/a.luau",
 				"tests/a.verify.luau",
+				"tools/facet/lib/studio_docs_search.luau",
 				"bench/perf_runner.luau",
 				"tools/vendor/verify/src/core/init.luau",
 			})

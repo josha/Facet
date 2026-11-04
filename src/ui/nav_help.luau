@@ -250,6 +250,32 @@ return function(
 					end,
 				})
 				panelProps[#panelProps + 1] = label
+				if structured then
+					local order = 3
+					local function detail(name: string, words: Types.Input<string>, secondary: boolean?)
+						local line = wrap(ctx.text({ Name = name, LayoutOrder = order, Text = words }))
+						line:AddTag("facet-type-caption")
+						if secondary then
+							line:AddTag("facet-secondary")
+						end
+						panelProps[#panelProps + 1] = line
+						order += 1
+					end
+					for index, row in structured.rows or {} do
+						detail("HelpRow" .. index, function(use: ComposeTypes.Use): string
+							return (readText(row.label, use) or "") .. ": " .. (readText(row.value, use) or "")
+						end)
+					end
+					if structured.cost then
+						detail("HelpCost", structured.cost)
+					end
+					if structured.cooldown then
+						detail("HelpCooldown", structured.cooldown)
+					end
+					if structured.flavour then
+						detail("HelpFlavour", structured.flavour, true)
+					end
+				end
 				if structured and structured.shortcut then
 					local chords: { string } = {}
 					for _, chord in structured.shortcut do
@@ -257,7 +283,7 @@ return function(
 					end
 					local hint = wrap(ctx.text({
 						Name = "HelpShortcut",
-						LayoutOrder = 3,
+						LayoutOrder = 1000,
 						Text = table.concat(chords, " or "),
 					}))
 					hint:AddTag("facet-type-caption")

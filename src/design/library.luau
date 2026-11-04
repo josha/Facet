@@ -9,6 +9,7 @@ local icons = require("../ui/icons")
 local Motion = require("./motion")
 local Roblox3D = require("../vendor/compose/design-editor/roblox-3d-library")
 local robloxTypes = require("../ui/roblox_types")
+local updateStyleTags = require("../ui/style_tags")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -192,7 +193,9 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 	local typed = derivedFields(name)
 	for key, field in typed do
 		if
-			spec.fields[string.lower(string.sub(key, 1, 1)) .. string.sub(key, 2)] ~= nil and string.match(key, "^%u")
+			spec.fields[string.lower(string.sub(key, 1, 1)) .. string.sub(key, 2)] ~= nil
+			and string.match(key, "^%u")
+			and not (name == "Text" and key == "TextSize")
 		then
 			continue
 		end
@@ -301,8 +304,37 @@ local function native3dKinds(): { [string]: Types.DerivedKind }
 			Material = "material",
 			Transparency = "transparency",
 			CanCollide = "canCollide",
+			CanQuery = "canQuery",
+			CanTouch = "canTouch",
+			CastShadow = "castShadow",
 		},
-		PointLight = { Brightness = "brightness", Range = "range", Color = "color" },
+		PointLight = {
+			Brightness = "brightness",
+			Range = "range",
+			Color = "color",
+			Enabled = "enabled",
+			Shadows = "shadows",
+		},
+		SurfaceLight = {
+			Brightness = "brightness",
+			Range = "range",
+			Color = "color",
+			Enabled = "enabled",
+			Shadows = "shadows",
+			Face = "face",
+			Angle = "angle",
+		},
+		Decal = { Texture = "image", Color3 = "color", Transparency = "transparency", Face = "face" },
+		Texture = {
+			Texture = "image",
+			Color3 = "color",
+			Transparency = "transparency",
+			Face = "face",
+			StudsPerTileU = "tileU",
+			StudsPerTileV = "tileV",
+			OffsetStudsU = "offsetU",
+			OffsetStudsV = "offsetV",
+		},
 	}
 	local result: { [string]: Types.DerivedKind } = {}
 	for name, mapping in mappings do
@@ -311,11 +343,16 @@ local function native3dKinds(): { [string]: Types.DerivedKind }
 		for property, key in mapping do
 			local field = kind.fields[key]
 			fields[property] = {
-				type = if property == "Material" or property == "Size" then "datatype" else field.type,
+				type = if property == "Material"
+						or property == "Size"
+						or property == "Face"
+					then "datatype"
+					else field.type,
 				options = field.options,
 				datatype = if property == "Material"
 					then "Enum.Material"
 					elseif property == "Size" then "Vector3"
+					elseif property == "Face" then "Enum.NormalId"
 					else nil,
 			}
 		end
@@ -323,6 +360,9 @@ local function native3dKinds(): { [string]: Types.DerivedKind }
 	end
 	result.Part.fields.CFrame = { type = "datatype", datatype = "CFrame" }
 	result.Part.fields.Anchored = { type = "boolean" }
+	result.Part.fields.Reflectance = { type = "number" }
+	result.Decal.fields.ZIndex = { type = "number" }
+	result.Texture.fields.ZIndex = { type = "number" }
 	return result
 end
 
@@ -808,6 +848,7 @@ local function create(context: Context): Design.Library
 	if tokens ~= nil then
 		table.insert(prelude, tokens.require)
 	end
+	local appliedTags: { [Instance]: { [string]: true } } = setmetatable({}, { __mode = "k" })
 	local library: Design.Library = {
 		name = "Facet",
 		parameter = "UI",
@@ -823,9 +864,7 @@ local function create(context: Context): Design.Library
 			call = "Facet.tag",
 			apply = function(built: unknown, tags: { string })
 				if typeof(built) == "Instance" then
-					for _, name in tags do
-						built:AddTag(name)
-					end
+					appliedTags[built] = updateStyleTags(built, tags, appliedTags[built])
 				end
 			end,
 		},

@@ -117,6 +117,7 @@ export type TableConstructor = <V, K>(
 
 export type Controls = {
 	provide: <R...>(body: () -> R...) -> R...,
+	worldSurface: (BillboardGui | SurfaceGui, () -> Instance) -> Folder,
 	WorldMarker: Constructor<HudProps.WorldMarkerPropsInput, Frame>,
 	DiegeticScreen: Constructor<DiegeticTypes.DiegeticScreenProps, Folder>,
 	cameraRig: (CameraRigTypes.CameraRigOptions) -> CameraRigTypes.CameraRig,
