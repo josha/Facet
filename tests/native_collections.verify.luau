@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
 	local describe, it, expect = test.describe, test.it, test.expect
 	local nativeDrag = require("./lib/native_drag")
+	local cells = require("./lib/cells")
 
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type FrameConstructor = typeof(require("@repo/tools/typecheck/aliases").FrameConstructor)
@@ -2006,46 +2007,6 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("Compose native collections", function()
-		it("selects on mouse click one and activates on click two", {
-			id = "native_collections::Compose native collections::selects on mouse click one and activates on click two",
-			run = function()
-				for _, activating in { false, true } do
-					local engine, runtime, UI, target = setup()
-					local selected = Compose.cell({} :: { [number]: boolean })
-					local calls = 0
-					local stop, node: any = runtime.mount(function()
-						local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
-							from = records(2),
-							key = key,
-							columns = 2,
-							itemSize = 56,
-							mode = "all" :: "all",
-							selection = selected,
-							selectionMode = "multiple" :: "multiple",
-							render = function(current)
-								return button(UI, current)
-							end,
-							onActivate = if activating
-								then function()
-									calls += 1
-								end
-								else nil,
-						}
-						return UI.VirtualGrid(listSpec)
-					end, target)
-					local hit = node:FindFirstChild("1", true):FindFirstChild("RowHit", true)
-					local input = { UserInputType = engine.types.Enum.UserInputType.MouseButton1 }
-					hit.Activated:Fire(input, 1)
-					expect(selected:peek()[1]):toBe(true)
-					expect(calls):toBe(0)
-					hit.Activated:Fire(input, 2)
-					expect(selected:peek()[1]):toBe(true)
-					expect(calls):toBe(if activating then 1 else 0)
-					stop()
-					runtime:dispose()
-				end
-			end,
-		})
 		it("honors optional tap pickup on touch-only collection sources", {
 			id = "native_collections::Compose native collections::honors optional tap pickup on touch-only collection sources",
 			run = function()
@@ -2150,26 +2111,40 @@ return function(verifyHarness: Verify.Harness)
 		it("selects on click one and activates on click two for lists and grids", {
 			id = "native_collections::Compose native collections::selects on click one and activates on click two for lists and grids",
 			run = function()
-				for _, kind in { "VirtualList", "VirtualGrid" } :: { "VirtualGrid" | "VirtualList" } do
+				for _, sample in
+					{
+						{ kind = "VirtualList", button = false, activating = true },
+						{ kind = "VirtualGrid", button = false, activating = true },
+						{ kind = "VirtualGrid", button = true, activating = false },
+						{ kind = "VirtualGrid", button = true, activating = true },
+					}
+				do
 					local engine, runtime, UI, target = setup()
-					local selected = Compose.cell({})
+					local selected = Compose.cell({} :: { [number]: boolean })
 					local activated = 0
 					local stop, list: any = runtime.mount(function()
 						local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
 							from = records(2),
 							key = key,
-							mode = "all" :: "all",
+							mode = "all",
 							selection = selected,
-							onActivate = function()
-								activated += 1
-							end,
-							render = function(): GuiObject
-								return (Facet.host(runtime).Frame :: FrameConstructor) {
-									Size = engine.types.UDim2.fromScale(1, 1),
-								}
+							columns = if sample.button then 2 else nil,
+							itemSize = if sample.button then 56 else nil,
+							selectionMode = if sample.button then "multiple" else nil,
+							onActivate = if sample.activating
+								then function()
+									activated += 1
+								end
+								else nil,
+							render = function(current): GuiObject
+								return if sample.button
+									then button(UI, current)
+									else (Facet.host(runtime).Frame :: FrameConstructor) {
+										Size = engine.types.UDim2.fromScale(1, 1),
+									}
 							end,
 						}
-						return (if kind == "VirtualList" then UI.VirtualList else UI.VirtualGrid)(listSpec)
+						return (if sample.kind == "VirtualList" then UI.VirtualList else UI.VirtualGrid)(listSpec)
 					end, target)
 					local hit = list:FindFirstChild("1", true):FindFirstChild("RowHit", true)
 					local mouse = { UserInputType = engine.types.Enum.UserInputType.MouseButton1 }
@@ -2177,8 +2152,10 @@ return function(verifyHarness: Verify.Harness)
 					expect(selected:peek()[1]):toBe(true)
 					expect(activated):toBe(0)
 					hit.Activated:Fire(mouse, 2)
-					expect(activated):toBe(1)
+					expect(selected:peek()[1]):toBe(true)
+					expect(activated):toBe(if sample.activating then 1 else 0)
 					stop()
+					runtime:dispose()
 				end
 			end,
 		})
@@ -2313,21 +2290,7 @@ return function(verifyHarness: Verify.Harness)
 				local engine, runtime, UI, target, _, _, fixture = setup()
 				local tracking = fixture.track()
 				local rows = records(100)
-				local source, status =
-					Compose.cell(rows), Compose.cell({
-						mode = "windowed" :: "windowed",
-						direction = "vertical" :: "vertical",
-						total = 0,
-						retained = 0,
-						first = 0,
-						last = 0,
-						firstRow = 0,
-						lastRow = 0,
-						rowCount = 0,
-						extent = 0,
-						following = false,
-						measured = 0,
-					} :: Compose.OrderedCollectionStatus)
+				local source, status = Compose.cell(rows), cells.collectionStatus()
 				local rendered, disposed = 0, 0
 				local stop, node: any = runtime.mount(function()
 					local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
@@ -2564,20 +2527,7 @@ return function(verifyHarness: Verify.Harness)
 					local engine, runtime, UI, target = setup()
 					local measured, columns, gap = Compose.cell({ [1] = 60 }), Compose.cell(2), Compose.cell(5)
 					local controls: FixtureComposeTypes.OrderedCollectionControls<any>, status =
-						{}, Compose.cell({
-							mode = "windowed" :: "windowed",
-							direction = "vertical" :: "vertical",
-							total = 0,
-							retained = 0,
-							first = 0,
-							last = 0,
-							firstRow = 0,
-							lastRow = 0,
-							rowCount = 0,
-							extent = 0,
-							following = false,
-							measured = 0,
-						} :: Compose.OrderedCollectionStatus)
+						{}, cells.collectionStatus()
 					local stop, node: any = runtime.mount(function()
 						local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
 							from = records(10),
@@ -2625,20 +2575,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::observes automatic row sizes without overwriting content geometry",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local status = Compose.cell({
-					mode = "windowed" :: "windowed",
-					direction = "vertical" :: "vertical",
-					total = 0,
-					retained = 0,
-					first = 0,
-					last = 0,
-					firstRow = 0,
-					lastRow = 0,
-					rowCount = 0,
-					extent = 0,
-					following = false,
-					measured = 0,
-				} :: Compose.OrderedCollectionStatus)
+				local status = cells.collectionStatus()
 				local stop, node: any = runtime.mount(function()
 					local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
 						from = records(5),
@@ -2736,20 +2673,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::measures a row at its unscaled size while a lift scale grows it",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local status = Compose.cell({
-					mode = "windowed" :: "windowed",
-					direction = "vertical" :: "vertical",
-					total = 0,
-					retained = 0,
-					first = 0,
-					last = 0,
-					firstRow = 0,
-					lastRow = 0,
-					rowCount = 0,
-					extent = 0,
-					following = false,
-					measured = 0,
-				} :: Compose.OrderedCollectionStatus)
+				local status = cells.collectionStatus()
 				local lift = Compose.cell(1)
 				local stop, node: any = runtime.mount(function()
 					local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
@@ -3208,21 +3132,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::follows appended rows only while native viewport stays at the end",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local source, status =
-					Compose.cell(records(10)), Compose.cell({
-						mode = "windowed" :: "windowed",
-						direction = "vertical" :: "vertical",
-						total = 0,
-						retained = 0,
-						first = 0,
-						last = 0,
-						firstRow = 0,
-						lastRow = 0,
-						rowCount = 0,
-						extent = 0,
-						following = false,
-						measured = 0,
-					} :: Compose.OrderedCollectionStatus)
+				local source, status = Compose.cell(records(10)), cells.collectionStatus()
 				local stop, node: any = runtime.mount(function()
 					local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
 						from = source,
@@ -5828,21 +5738,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_collections::Compose native collections::drops removed measurements and refreshes current-item row actions under stable keys",
 			run = function()
 				local engine, runtime, UI, target = setup()
-				local source, status =
-					Compose.cell(records(2)), Compose.cell({
-						mode = "windowed" :: "windowed",
-						direction = "vertical" :: "vertical",
-						total = 0,
-						retained = 0,
-						first = 0,
-						last = 0,
-						firstRow = 0,
-						lastRow = 0,
-						rowCount = 0,
-						extent = 0,
-						following = false,
-						measured = 0,
-					} :: Compose.OrderedCollectionStatus)
+				local source, status = Compose.cell(records(2)), cells.collectionStatus()
 				local invoked = ""
 				local stop, node: any = runtime.mount(function()
 					local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
