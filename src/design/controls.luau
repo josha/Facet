@@ -1574,6 +1574,8 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "value",
 		defaults = { placeholder = "Your name", value = "" },
 		fields = nativeFields(7, {
+			onChange = { type = "event", label = "Text changed", order = 25 },
+			Focused = { type = "event", label = "Focused", order = 26 },
 			value = { type = "string", label = "Initial text", order = 1 },
 			placeholder = { type = "string", label = "Placeholder", order = 2 },
 			label = { type = "string", label = "Field label", order = 3 },

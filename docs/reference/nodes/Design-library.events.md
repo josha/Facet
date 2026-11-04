@@ -12,3 +12,12 @@ Picker writes its writable `selected` cell before it calls the output. Use
 a cell input for `selected` and an output with the selection's type. Its
 `options` can be a readable list. Choosing the current single selection does
 not emit another change.
+
+TextInput exposes `onChange` with the new text and the native `Focused` event
+with no arguments. Use `onChange` for a string output. The host action accepts
+the edit and updates the readable value. `Focused` can bind to a row output
+that selects the row key with `fields`.
+
+The pinned Compose Design supports selected row fields or event arguments.
+Combining row fields and event arguments in one ordered output needs the
+Compose Design row-event change before Facet can expose that binding.

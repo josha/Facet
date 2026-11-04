@@ -483,6 +483,75 @@ return function(verifyHarness: Verify.Harness)
 						return built
 					end).dispose)
 				end
+		verifyHarness:case("forwards native TextInput edits and focus through Design events", {
+			id = "facet_compose_library::forwards native TextInput edits and focus through Design events",
+			run = function(test: Verify.Context)
+				local exercise: (() -> ())? = nil
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					local value =
+						Design.document.setContract(Design.document.new("Editor", library, "VStack"), library, {
+							inputs = {
+								{
+									id = "rows",
+									kind = "readable",
+									type = "list",
+									required = true,
+									fields = { { id = "rowKey", type = "string" }, { id = "text", type = "string" } },
+								},
+							},
+							outputs = {
+								{ id = "onEdit", args = { "string" } },
+								{ id = "onFocus", args = { "string" } },
+							},
+						})
+					local rowId: string
+					value, rowId = Design.document.insert(value, library, "n1", "TextInput")
+					value = Design.document.bind(value, library, "n1", { from = "rows", key = "rowKey" })
+					value = Design.document.change(value, library, rowId, "value", { item = "text" })
+					value = Design.document.change(value, library, rowId, "onChange", { output = "onEdit" })
+					value = Design.document.change(
+						value,
+						library,
+						rowId,
+						"Focused",
+						{ output = "onFocus", fields = { "rowKey" } }
+					)
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					local row = { rowKey = "r1", text = "Before" }
+					local edits, focused = 0, 0
+					local built = Design.render(parsed, library, {
+						inputs = { rows = { row } },
+						outputs = {
+							onEdit = function(args: { Facet.DesignLiteral })
+								edits += 1
+								Verify.expect(args):toEqual({ "After" })
+							end,
+							onFocus = function(args: { Facet.DesignLiteral })
+								focused += 1
+								Verify.expect(args):toEqual({ "r1" })
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance")
+					local input = assert(built:FindFirstChild("TextInput", true))
+					assert(input:IsA("TextBox"))
+					exercise = function()
+						engine.environment.fire(VerifyRoblox.assertInstance(input), "Focused")
+						input.Text = "After"
+						ctx.runtime:settle()
+						Verify.expect(edits):toBe(1)
+						Verify.expect(focused):toBe(1)
+						Verify.expect(row.text):toBe("Before")
+					end
+					return built
+				end).dispose)
+				assert(exercise)()
+			end,
+		})
+
 		verifyHarness:case("round trips Toggle requests from readable inputs to one named host action", {
 			id = "facet_compose_library::round trips Toggle requests from readable inputs to one named host action",
 			run = function(test: Verify.Context)
