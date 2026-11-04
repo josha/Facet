@@ -1490,6 +1490,30 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("hides the ring after pointer input while a gamepad stays preferred", {
+			id = "native_environment::focus ring: the engine draws the theme's focus look::hides the ring after pointer input while a gamepad stays preferred",
+			run = function()
+				local w = world(nil, { environment = { preferredInput = "Gamepad" } })
+				w.input.GetLastInputType = function()
+					return w.Enum.UserInputType.Gamepad1
+				end
+				local inputChanged = w.input.LastInputTypeChanged
+				local playerGui = w.engine.new("PlayerGui")
+				local stop = owned(w.runtime, function()
+					w.UI.focusRing(playerGui)
+				end)
+				local stroke = playerGui.SelectionImageObject:FindFirstChildWhichIsA("UIStroke")
+				Verify.expect(stroke.Transparency):toBe(0)
+				inputChanged:Fire(w.Enum.UserInputType.MouseWheel)
+				Verify.expect(stroke.Transparency):toBe(1)
+				inputChanged:Fire(w.Enum.UserInputType.Gamepad1)
+				Verify.expect(stroke.Transparency):toBe(0)
+				inputChanged:Fire(w.Enum.UserInputType.Touch)
+				Verify.expect(stroke.Transparency):toBe(1)
+				stop()
+				w.stop()
+			end,
+		})
 		local function ring(package: any?, environment: any?)
 			local w = world(nil, { theme = package, environment = environment })
 			local playerGui = w.engine.new("PlayerGui")

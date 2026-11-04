@@ -1,5 +1,6 @@
 --!strict
 local Verify = require("../tools/vendor/verify/src/core")
+local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
@@ -194,6 +195,238 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("Facet library in Compose Design", function()
+		verifyHarness:case("keeps theme-derived Path points through source and rendering", {
+			id = "facet_compose_library::keeps theme-derived Path points through source and rendering",
+			run = function(test: Verify.Context)
+				local pinch = Facet.Compose.cell(0.2)
+				local points = Facet.Compose.formula(function(use: Facet.Use): Facet.DesignLiteral?
+					return {
+						{ x = 0, y = 0.5, inX = 0, inY = 0, outX = use(pinch), outY = 0 },
+						{ x = 1, y = 0.5, inX = -use(pinch), inY = 0, outX = 0, outY = 0 },
+					}
+				end)
+				local stroke: Path2D? = nil
+				local runtime: Facet.Runtime? = nil
+				test:defer(mount(function(ctx: Context): unknown
+					runtime = ctx.runtime
+					local library = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						tokens = { path = "T.", require = 'local T = require "../DesignTokens"' },
+					})
+					local value = Design.document.change(
+						Design.document.new("Glyph", library, "Path"),
+						library,
+						"n1",
+						"points",
+						{ token = "glyph.sparkle.points" }
+					)
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, "points = T.glyph.sparkle.points,", 1, true) ~= nil):toBe(true)
+					local parsed = Design.parse(code, library)
+					Verify.expect(parsed.root.props.points.token):toBe("glyph.sparkle.points")
+					Verify.expect(Design.emit(parsed, library)):toBe(code)
+					local built = Design.render(parsed, library, {
+						resolveToken = function(name: string): Facet.DesignResolved
+							Verify.expect(name):toBe("glyph.sparkle.points")
+							return { readable = points }
+						end,
+					})
+					assert(typeof(built) == "Instance")
+					local path = assert(built:FindFirstChild("Stroke"))
+					assert(path:IsA("Path2D"))
+					stroke = path
+					return built
+				end).dispose)
+				Verify.expect(assert(stroke):GetControlPoints()[1].RightTangent.X.Scale):toBeCloseTo(0.2, 1e-6)
+				pinch:set(0.35)
+				assert(runtime):settle()
+				local native = assert(stroke):GetControlPoints()
+				Verify.expect(native[1].RightTangent.X.Scale):toBeCloseTo(0.35, 1e-6)
+				Verify.expect(native[2].LeftTangent.X.Scale):toBeCloseTo(-0.35, 1e-6)
+			end,
+		})
+
+		verifyHarness:case("maps a RadialMenu skin token to the public skin prop", {
+			id = "facet_compose_library::maps a RadialMenu skin token to the public skin prop",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						tokens = { path = "T.", require = 'local T = require "../DesignTokens"' },
+					})
+					local value = Design.document.change(
+						Design.document.new("Commands", library, "RadialMenu"),
+						library,
+						"n1",
+						"skin",
+						{ token = "skins.commands" }
+					)
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, "skin = T.skins.commands,", 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					local built = Design.render(value, library, {
+						token = function(name: string): Facet.DesignLiteral
+							Verify.expect(name):toBe("skins.commands")
+							return { launcher = { default = "rbxassetid://100", hover = "rbxassetid://101" } }
+						end,
+					})
+					assert(typeof(built) == "Instance")
+					local launcher = assert(built:FindFirstChild("Launcher", true))
+					local skin = assert(launcher:FindFirstChild("RadialSkin", true))
+					assert(skin:IsA("ImageLabel"))
+					Verify.expect(skin.Image):toBe("rbxassetid://100")
+					engine.environment.poke(
+						VerifyRoblox.assertInstance(launcher),
+						"GuiState",
+						ctx.types.Enum.GuiState.Hover
+					)
+					ctx.runtime:settle()
+					Verify.expect(skin.Image):toBe("rbxassetid://101")
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("registers consumer leaves with typed props and lossless source", {
+			id = "facet_compose_library::registers consumer leaves with typed props and lossless source",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local activated = 0
+					local function Emblem(name: string)
+						return function(props: { label: string, onActivate: (InputObject?, number?) -> () }): GuiObject
+							return ctx.UI.Button(name) { label = props.label, onActivate = props.onActivate }
+						end
+					end
+					local kind: Facet.DesignKind = {
+						fields = { label = { type = "string" }, onActivate = { type = "event" } },
+						defaults = { label = "Emblem" },
+						children = "none",
+						category = "Game",
+						call = "Game.Emblem",
+						build = function(
+							props: { [string]: Facet.DesignResolved },
+							_children: { unknown },
+							name: string
+						): unknown
+							local label = props.label.literal
+							assert(type(label) == "string")
+							local callback = assert(props.onActivate.callback)
+							return Emblem(name) {
+								label = label,
+								onActivate = function()
+									callback()
+								end,
+							}
+						end,
+					}
+					local extension: Facet.DesignExtension =
+						{ kinds = { Emblem = kind }, prelude = { 'local Game = require "../GameComponents"' } }
+					local library = Kit.library({ UI = ctx.UI, types = ctx.types, extension = extension })
+					local value =
+						Design.document.setContract(Design.document.new("Badge", library, "Emblem"), library, {
+							inputs = { { id = "label", kind = "value", type = "string", required = true } },
+							outputs = { { id = "onChoose" } },
+						})
+					value = Design.document.change(value, library, "n1", "label", { input = "label" })
+					value = Design.document.change(value, library, "n1", "onActivate", { output = "onChoose" })
+					local code = Design.emit(value, library)
+					for _, expected in
+						{
+							'local Game = require "../GameComponents"',
+							'Game.Emblem "Emblem"',
+							"label = props.label,",
+							"label: string",
+						}
+					do
+						Verify.expect(string.find(code, expected, 1, true) ~= nil):toBe(true)
+					end
+					local parsed = Design.parse(code, library)
+					Verify.expect(parsed.root.kind):toBe("Emblem")
+					Verify.expect(Design.emit(parsed, library)):toBe(code)
+					local built = Design.render(parsed, library, {
+						inputs = { label = "Captain" },
+						outputs = {
+							onChoose = function()
+								activated += 1
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance" and built:IsA("TextButton"))
+					Verify.expect(built.Text):toBe("Captain")
+					engine.environment.fire(VerifyRoblox.assertInstance(built), "Activated")
+					Verify.expect(activated):toBe(1)
+					Verify.expect(offline().kinds.Emblem):toBe(nil)
+					local collision: Facet.DesignContext = { UI = {}, extension = { kinds = { Text = kind } } }
+					local ok = pcall(Kit.library, collision)
+					Verify.expect(ok):toBe(false)
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("edits a registered consumer leaf in the Design editor", {
+			id = "facet_compose_library::edits a registered consumer leaf in the Design editor",
+			run = function(test: Verify.Context)
+				local DesignEditor = require("../src/vendor/compose/design-editor")
+				local editor: DesignEditor.Editor? = nil
+				local runtime: Facet.Runtime? = nil
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					runtime = ctx.runtime
+					local library = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						extension = {
+							kinds = {
+								Emblem = {
+									fields = { label = { type = "string", default = "Emblem" } },
+									defaults = { label = "Emblem" },
+									children = "none",
+									category = "Game",
+									call = "Game.Emblem",
+									build = function(
+										props: { [string]: Facet.DesignResolved },
+										_children: { unknown },
+										name: string
+									): unknown
+										local label = props.label.literal
+										assert(type(label) == "string")
+										return ctx.UI.Text(name) { text = label }
+									end,
+								},
+							},
+							prelude = { 'local Game = require "../GameComponents"' },
+						},
+					})
+					local host = ctx.UI.VStack "Editor" { width = "fill" }
+					editor = DesignEditor.create(library, Design.document.new("Badge", library, "VStack"), host, {
+						runtime = ctx.runtime,
+						environment = designEnvironment(ctx, engine),
+						stageSize = { X = 480, Y = 320 },
+					})
+					return host
+				end).dispose)
+				local opened = assert(editor)
+				test:defer(opened.dispose)
+				Verify.expect(opened.session.insert("Emblem")):toBe(true)
+				Verify.expect(opened.session.change("label", { literal = "Captain" })):toBe(true)
+				assert(runtime):settle()
+				Verify.expect(opened.session.problem:peek()):toBe(nil)
+				local id = opened.session.selected:peek()
+				local built = assert(assert(opened.canvas.current().stage).nodes[id])
+				assert(typeof(built) == "Instance" and built:IsA("TextLabel"))
+				Verify.expect(built.Text):toBe("Captain")
+				local code = Design.emit(opened.session.document:peek(), opened.session.library)
+				Verify.expect(Design.emit(Design.parse(code, opened.session.library), opened.session.library))
+					:toBe(code)
+				Verify.expect(opened.session.undo()):toBe(true)
+				assert(runtime):settle()
+				local restored = assert((Design.document.find(opened.session.document:peek().root, id)))
+				Verify.expect(restored.props.label.literal):toBe("Emblem")
+			end,
+		})
+
 		verifyHarness:case("describes every Facet control as a Compose Design kind", {
 			id = "facet_compose_library::describes every Facet control as a Compose Design kind",
 			run = function()

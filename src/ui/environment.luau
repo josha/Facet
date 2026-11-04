@@ -60,9 +60,11 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local Host, E, D, D2 = ctx.Host, ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2
 		local input = config.services
 		local keyed = Compose.cell(false)
+		local pointed = Compose.cell(false)
 		local cursor = watched(config.services.GamepadService, ctx.observe.GamepadCursorEnabled, false)
 		local function heard(kind: Enum.UserInputType)
 			keyed:set(kind == E.UserInputType.Keyboard or string.find(kind.Name, "^Gamepad") ~= nil)
+			pointed:set(kind == E.UserInputType.Touch or string.find(kind.Name, "^Mouse") ~= nil)
 		end
 		local service = input.UserInputService
 		if service then
@@ -89,7 +91,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return use(recipe)
 		end
 		local function shown(use: ComposeTypes.Use): boolean
-			return use(cursor) ~= true and (use(keyed) or use(env.effectiveInput) == "Gamepad")
+			return use(cursor) ~= true and (use(keyed) or (use(env.effectiveInput) == "Gamepad" and not use(pointed)))
 		end
 		local function scaled(use: ComposeTypes.Use, value: number, factor: number): number
 			return if far(use) then math.round(value * factor) else value

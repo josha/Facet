@@ -331,10 +331,12 @@ type DesignContext
 type DesignControlSpec
 type DesignDocument
 type DesignEmitOptions
+type DesignExtension
 type DesignField
 type DesignInput
 type DesignInputType
 type DesignItemField
+type DesignKind
 type DesignKit
 type DesignLibrary
 type DesignLiteral
@@ -343,6 +345,7 @@ type DesignMotion
 type DesignNode
 type DesignOutput
 type DesignPlayer
+type DesignResolved
 type DesignSeed
 type DesignSequence
 type DesignState

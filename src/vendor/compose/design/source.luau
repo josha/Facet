@@ -87,7 +87,13 @@ local function tokenExpression(library: Library, token: string): string
 	return if string.sub(call, -1) == "." then call .. token else `{call} {literal(token)}`
 end
 
-local function datatypeLiteral(library: Library, datatype: string, value: Literal): string
+local function datatypeLiteral(
+	document: Types.Document,
+	library: Library,
+	datatype: string,
+	value: Literal,
+	depth: number
+): string
 	if string.sub(datatype, 1, 5) == "Enum." then
 		return `{datatype}.{tostring(value)}`
 	end
@@ -95,16 +101,29 @@ local function datatypeLiteral(library: Library, datatype: string, value: Litera
 		return `Color3.fromHex {literal((string.gsub(value, "^#", "")))}`
 	end
 	local parts: { string } = {}
+	local reactive = false
+	local function finish(expression: string): string
+		return if reactive
+			then `function(use)\n{string.rep("\t", depth + 1)}return {expression}\n{string.rep("\t", depth)}end`
+			else expression
+	end
 	if type(value) == "table" then
 		for _, component in value do
 			local token = Datatype.token(component)
-			table.insert(parts, if token then tokenExpression(library, token) else literal(component))
+			local input = Datatype.input(component)
+			local part = if token then tokenExpression(library, token) else literal(component)
+			if input then
+				local live = assert(Document.input(document, input)).kind ~= "value"
+				reactive = reactive or live
+				part = if live then `use(props.{input})` else `props.{input}`
+			end
+			table.insert(parts, part)
 		end
 		if datatype == "UDim2" then
 			if value[1] == 0 and value[3] == 0 then
-				return `UDim2.fromOffset({parts[2]}, {parts[4]})`
+				return finish(`UDim2.fromOffset({parts[2]}, {parts[4]})`)
 			elseif value[2] == 0 and value[4] == 0 then
-				return `UDim2.fromScale({parts[1]}, {parts[3]})`
+				return finish(`UDim2.fromScale({parts[1]}, {parts[3]})`)
 			end
 		elseif datatype == "Vector2" or datatype == "Vector3" then
 			for _, constant in { "zero", "one" } do
@@ -118,7 +137,7 @@ local function datatypeLiteral(library: Library, datatype: string, value: Litera
 			end
 		end
 	end
-	return `{datatype}.new({table.concat(parts, ", ")})`
+	return finish(`{datatype}.new({table.concat(parts, ", ")})`)
 end
 
 local function fieldsLiteral(fields: { Types.ItemField }): Record
@@ -143,6 +162,13 @@ local function contractLiteral(contract: Types.Contract): Literal
 		local entry: Record = { id = input.id, kind = input.kind, type = input.type }
 		if input.luauType ~= nil then
 			entry.luauType = input.luauType
+		end
+		if input.options then
+			local options: Record = {}
+			for index, option in input.options do
+				options[index] = option
+			end
+			entry.options = options
 		end
 		local preview = input.preview
 		if preview ~= nil then
@@ -276,6 +302,13 @@ local function listItemName(input: Types.Input): string
 end
 
 local function base(library: Library, input: Types.Input): string
+	if input.options then
+		local choices: { string } = {}
+		for _, option in input.options do
+			table.insert(choices, literal(option))
+		end
+		return table.concat(choices, " | ")
+	end
 	if input.luauType ~= nil then
 		return input.luauType
 	end
@@ -429,10 +462,19 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		end
 	end
 	collect(value.root)
+	local variant = value.rootVariant
+	local alternative: Node? = nil
+	if variant then
+		alternative = table.clone(value.root)
+		alternative.kind = variant.kind
+		alternative.props = variant.props
+		collect(alternative)
+	end
 	table.sort(referencedIds)
 	local rowFunctions = options ~= nil and options.rowFunctions == true
 	local rowDefinitions: { string } = {}
-	local rowNames: { [string]: boolean } = { props = true, state = true, refs = true, capture = true }
+	local rowNames: { [string]: boolean } =
+		{ props = true, state = true, refs = true, capture = true, rootContent = true }
 	rowNames[library.parameter] = true
 	local emitNode: (node: Node, depth: number) -> string
 	local emit: (node: Node, depth: number) -> string
@@ -476,9 +518,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		end
 		local enclosing = scopes[#scopes]
 		local around = if enclosing then enclosing.fields else nil
+		local selected = string.match(from, "^[%w]+%.([%w_]+)$") or from
 		if around ~= nil then
 			for _, field in around do
-				if field.id == from then
+				if field.id == selected then
 					return field.fields
 				end
 			end
@@ -488,6 +531,10 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	local function sourceOf(from: string, depth: number): string
 		if Document.input(value, from) ~= nil then
 			return `props.{from}`
+		end
+		local qualifier, selected = string.match(from, "^([%w]+)%.([%w_]+)$")
+		if qualifier then
+			return returning("use", `use(row_{qualifier}).{selected}`, depth)
 		end
 		return returning("use", `use(current).{from}`, depth)
 	end
@@ -553,11 +600,20 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		local parameter = if typed then `current: {library.rowReadable or library.readable}<{typed}>` else "current"
 		table.insert(scopes, { fields = provided or (if from then fieldsOf(from) else nil) })
 		local written
+		local function rowBody(level: number): string
+			local body = emit(template, level + 1)
+			local source = if from then string.match(from, "%.([%w_]+)$") or from else nil
+			local alias = if source then `row_{source}` else nil
+			local declaration = if alias and string.find(body, `use({alias})`, 1, true)
+				then `{tabs(level + 1)}local {alias} = current\n`
+				else ""
+			return declaration .. `{tabs(level + 1)}return {body}`
+		end
 		if not rowFunctions then
-			written = returning(parameter, emit(template, depth + 1), depth)
+			written = `function({parameter})\n{rowBody(depth)}\n{tabs(depth)}end`
 		else
 			local name = unique(rowBase(template))
-			table.insert(rowDefinitions, `\tlocal function {name}({parameter})\n\t\treturn {emit(template, 2)}\n\tend`)
+			table.insert(rowDefinitions, `\tlocal function {name}({parameter})\n{rowBody(1)}\n\tend`)
 			written = name
 		end
 		table.remove(scopes)
@@ -669,7 +725,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		end
 		local target = property.node
 		if target ~= nil then
-			return `refs.{target}`
+			return returning("use", `assert(use(refs.{target}), "Node reference is not captured")`, depth)
 		end
 		local stateId = property.state
 		if stateId ~= nil then
@@ -690,7 +746,9 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				read = `use(props.{source})`
 			end
 			return `function(use)\n{tabs(depth + 1)}local chosen = named[{read}]\n`
-				.. `{tabs(depth + 1)}return if chosen then use(chosen) else nil\n{tabs(depth)}end`
+				.. `{tabs(depth + 1)}return assert(if chosen then use(chosen) else nil, "Node reference is not captured")\n{tabs(
+					depth
+				)}end`
 		end
 		local current, input, item, output, token =
 			property.literal, property.input, property.item, property.output, property.token
@@ -735,7 +793,11 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		local list = "{ " .. table.concat(quoted, ", ") .. " }"
 		return `{tagging.call}(\n{inner}{emitNode(node, depth + 1)},\n{inner}{list}\n{tabs(depth)})`
 	end
+	local sharedContent: Node? = nil
 	emit = function(node: Node, depth: number): string
+		if node == sharedContent then
+			return "rootContent()"
+		end
 		if referenced[node.id] then
 			local inner = tabs(depth + 1)
 			return `capture(\n{inner}"{node.id}",\n{inner}{tagged(node, depth + 1)}\n{tabs(depth)})`
@@ -797,7 +859,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 				written = returning(parameter, layout(current, depth + 2, 0), depth + 1, luauType)
 				table.remove(scopes)
 			elseif current ~= nil and datatype ~= nil then
-				written = datatypeLiteral(library, datatype, current)
+				written = datatypeLiteral(value, library, datatype, current, depth + 1)
 			elseif current ~= nil and type(current) == "table" and luauType and not carriesRow(current) then
 				written = hoist(node, key, luauType, current)
 			else
@@ -914,7 +976,14 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	if controls ~= nil and localControls then
 		table.insert(lines, "\t" .. controls)
 	end
+	local contentSource: string? = nil
+	if variant then
+		local content = value.root.children[1]
+		contentSource = emit(content, 2)
+		sharedContent = content
+	end
 	local rootSource = emit(value.root, 1)
+	local alternativeSource = if alternative then emit(alternative, 2) else nil
 	for index, line in rowTypeLines do
 		table.insert(lines, rowTypesAt + 2 * index - 2, line)
 		table.insert(lines, rowTypesAt + 2 * index - 1, "")
@@ -922,7 +991,8 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	for _, definition in hoisted do
 		table.insert(lines, definition)
 	end
-	local readsState = string.find(rootSource, "state.", 1, true) ~= nil
+	local readsState = string.find(rootSource .. (contentSource or "") .. (alternativeSource or ""), "state.", 1, true)
+		~= nil
 	for _, definition in lateHoisted do
 		readsState = readsState or string.find(definition, "state.", 1, true) ~= nil
 	end
@@ -933,10 +1003,17 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		local newCell = assert(library.newCell, `{library.name} cannot reference nodes; it names no cell constructor`)
 		local cells: { string } = {}
 		for _, id in referencedIds do
-			table.insert(cells, `{id} = {newCell}(nil)`)
+			table.insert(cells, `{id} = {newCell}<<{library.returnType}?>>(nil)`)
 		end
-		table.insert(lines, "\tlocal refs = { " .. table.concat(cells, ", ") .. " }")
-		table.insert(lines, "\tlocal function capture(id, node)")
+		table.insert(
+			lines,
+			"\tlocal refs: { [string]: "
+				.. `{library.cell}<{library.returnType}?>`
+				.. " } = { "
+				.. table.concat(cells, ", ")
+				.. " }"
+		)
+		table.insert(lines, `\tlocal function capture(id: string, node: {library.returnType}): {library.returnType}`)
 		table.insert(lines, "\t\trefs[id]:set(node)")
 		table.insert(lines, "\t\treturn node")
 		table.insert(lines, "\tend")
@@ -950,7 +1027,14 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			for _, name in chosen do
 				table.insert(entries, `{name} = refs.{chosenNames[name]}`)
 			end
-			table.insert(lines, "\tlocal named = { " .. table.concat(entries, ", ") .. " }")
+			table.insert(
+				lines,
+				"\tlocal named: { [string]: "
+					.. `{library.readable}<{library.returnType}?>`
+					.. " } = { "
+					.. table.concat(entries, ", ")
+					.. " }"
+			)
 		end
 	end
 	local sequenceLines: { string } = {}
@@ -1019,6 +1103,13 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	end
 	for _, definition in lateHoisted do
 		table.insert(lines, definition)
+	end
+	if contentSource and variant and alternativeSource then
+		table.insert(lines, `\tlocal function rootContent(): {library.returnType}\n\t\treturn {contentSource}\n\tend`)
+		table.insert(
+			lines,
+			`\tif props.{variant.input} == {literal(variant.value)} then\n\t\treturn {alternativeSource}\n\tend`
+		)
 	end
 	table.insert(lines, `\treturn {rootSource}`)
 	table.insert(lines, "end")

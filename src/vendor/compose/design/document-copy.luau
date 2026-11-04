@@ -96,6 +96,7 @@ local function copyContract(contract: Types.Contract): Types.Contract
 			fields = fields,
 			required = input.required,
 			luauType = input.luauType,
+			options = if input.options then table.clone(input.options) else nil,
 		}
 	end
 	local outputs: { Types.Output } = {}
@@ -141,6 +142,15 @@ local function copySequences(sequences: { Types.Sequence }?): { Types.Sequence }
 end
 
 local function copyDocument(value: Document): Document
+	local variant = value.rootVariant
+	local alternative: Types.RootVariant? = nil
+	if variant then
+		local props: { [string]: Value } = {}
+		for key, property in variant.props do
+			props[key] = copyValue(property)
+		end
+		alternative = { input = variant.input, value = variant.value, kind = variant.kind, props = props }
+	end
 	return {
 		schema = "compose-design/1",
 		name = value.name,
@@ -150,6 +160,7 @@ local function copyDocument(value: Document): Document
 		state = copyState(value.state),
 		sequences = copySequences(value.sequences),
 		root = copyNode(value.root),
+		rootVariant = alternative,
 	}
 end
 

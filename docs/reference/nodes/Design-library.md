@@ -77,5 +77,8 @@ Whole views:
   `prelude` adds lines.
 
 The game keeps its state and server validation. Give state to a design as
-contract inputs. Receive events as contract outputs. Use `kit.Design.extend`
-to add a game's own kinds to the library.
+contract inputs. Receive events as contract outputs.
+
+
+Use [consumer kinds and theme tables](Design-library.extensions.md) for
+`context.extension`, `Path.points` tokens and `RadialMenu.skin` tokens.

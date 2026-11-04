@@ -1,5 +1,11 @@
 # Current package
 
+Facet Design accepts consumer kinds through `DesignContext.extension`, using
+Compose Design's library extension contract. `DesignKind`, `DesignResolved`
+and `DesignExtension` type the registration and editor builder. `Path.points`
+and `RadialMenu.skin` accept whole theme tokens. Inline token expressions in
+plain point tables still need Compose Design support.
+
 Menus use a short fade after layout is ready, with separate theme timing for
 menus and sheets. Menu overlays share their preparation result, and successful
 font preparation is reused when a menu opens again.

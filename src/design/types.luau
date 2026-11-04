@@ -2,9 +2,11 @@
 
 local Core = require("../vendor/compose/core")
 local Design = require("../vendor/compose/design/types")
+local Library = require("../vendor/compose/design/library")
 local Engine = require("../ui/engine_types")
 
 export type Literal = Design.Literal
+export type Extension = Library.Extension
 export type RobloxTypes = Engine.RobloxTypes
 
 export type FieldSpec = {
@@ -15,6 +17,7 @@ export type FieldSpec = {
 	format: string?,
 	default: Literal?,
 	perRow: boolean?,
+	tokens: boolean?,
 }
 
 export type DerivedField = { type: Design.FieldType, options: { string }?, datatype: string?, also: { string }? }
@@ -45,6 +48,7 @@ export type Context = {
 	provide: ((content: unknown) -> unknown)?,
 	tokens: Tokens?,
 	motion: Motion?,
+	extension: Library.Extension?,
 }
 
 export type Motion = {

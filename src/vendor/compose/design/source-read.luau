@@ -239,6 +239,16 @@ local function contractOf(header: Record): Types.Contract
 	local inputs: { Types.Input } = {}
 	for _, entry in list(found, "inputs") do
 		local fields: { Types.ItemField }? = if entry.fields ~= nil then fieldsFrom(entry) else nil
+		local options: { string }? = nil
+		if entry.options ~= nil then
+			assert(type(entry.options) == "table", "Input options are a list")
+			local choices: { string } = {}
+			for _, option in entry.options do
+				assert(type(option) == "string", "Input options are text")
+				table.insert(choices, option)
+			end
+			options = choices
+		end
 		table.insert(inputs, {
 			id = text(entry, "id"),
 			kind = inputKind(text(entry, "kind")),
@@ -247,6 +257,7 @@ local function contractOf(header: Record): Types.Contract
 			preview = entry.preview,
 			fields = fields,
 			required = if entry.required == true then true else nil,
+			options = options,
 		})
 	end
 	local outputs: { Types.Output } = {}
@@ -331,6 +342,23 @@ function source.parse(code: string, library: Library): Types.Document
 				take()
 			end
 		end
+	end
+	local function rowAlias()
+		if peek() == "local" and string.match(peek(1), "^row_[%w]+$") then
+			take "local"
+			take()
+			take "="
+			take "current"
+		end
+	end
+	local function referenceMessage()
+		take ","
+		local message = take()
+		assert(
+			message.kind == "string" and unquote(message.text) == "Node reference is not captured",
+			"Node references assert their capture"
+		)
+		take ")"
 	end
 	local calls: { [string]: string } = {}
 	for kindName, kind in library.kinds do
@@ -515,6 +543,11 @@ function source.parse(code: string, library: Library): Types.Document
 				assert(holder == "props" or holder == "state", "A chosen node follows an input or state")
 				take "]"
 				take "return"
+				local captured = peek() == "assert"
+				if captured then
+					take "assert"
+					take "("
+				end
 				take "if"
 				take "chosen"
 				take "then"
@@ -524,6 +557,9 @@ function source.parse(code: string, library: Library): Types.Document
 				take ")"
 				take "else"
 				take "nil"
+				if captured then
+					referenceMessage()
+				end
 				take "end"
 				local candidates: { string } = {}
 				for _, id in namedRefs do
@@ -535,6 +571,25 @@ function source.parse(code: string, library: Library): Types.Document
 				take "use"
 				take ")"
 				take "return"
+				if peek() == "assert" then
+					take "assert"
+					take "("
+					take "use"
+					take "("
+					take "refs"
+					take "."
+					local target = name()
+					take ")"
+					referenceMessage()
+					take "end"
+					return { node = target }, nil
+				end
+				if peek() ~= "use" and peek() ~= "tostring" then
+					local datatype = assert(value(), "A datatype formula returns a constructor")
+					assert(type(datatype.literal) == "table", "A datatype formula returns components")
+					take "end"
+					return datatype, nil
+				end
 				local converted = peek() == "tostring"
 				if converted then
 					take "tostring"
@@ -542,7 +597,11 @@ function source.parse(code: string, library: Library): Types.Document
 				end
 				take "use"
 				take "("
-				take "current"
+				local row = name()
+				assert(
+					row == "current" or string.match(row, "^row_[%w]+$") ~= nil,
+					"Item bindings read the current row"
+				)
 				take ")"
 				take "."
 				local field = name()
@@ -550,7 +609,8 @@ function source.parse(code: string, library: Library): Types.Document
 					take ")"
 				end
 				take "end"
-				return { item = field }, nil
+				local qualifier = string.match(row, "^row_([%w]+)$")
+				return { item = if qualifier then qualifier .. "." .. field else field }, nil
 			elseif peek() == "current" or peek() == ")" then
 				if peek() == "current" then
 					take "current"
@@ -558,6 +618,7 @@ function source.parse(code: string, library: Library): Types.Document
 				end
 				take ")"
 				returnAnnotation()
+				rowAlias()
 				take "return"
 				local next = tokens[at]
 				if next ~= nil and (next.text == "{" or next.kind == "string" or next.kind == "number") then
@@ -654,9 +715,26 @@ function source.parse(code: string, library: Library): Types.Document
 					local name = token()
 					if name then
 						components[#components + 1] = { token = name }
+					elseif peek() == "props" or peek() == "use" then
+						local live = peek() == "use"
+						if live then
+							take "use"
+							take "("
+						end
+						take "props"
+						take "."
+						local id = take()
+						assert(id.kind == "name", "A datatype component names an input")
+						if live then
+							take ")"
+						end
+						components[#components + 1] = { input = id.text }
 					else
 						local number = plain()
-						assert(type(number) == "number", "Datatype constructors take numeric or token components")
+						assert(
+							type(number) == "number",
+							"Datatype constructors take numeric, token or input components"
+						)
 						components[#components + 1] = number
 					end
 					if peek() == "," then
@@ -682,7 +760,15 @@ function source.parse(code: string, library: Library): Types.Document
 		return { literal = plain() }, nil
 	end
 	local captured: { [string]: string } = {}
+	local sharedContent: Node? = nil
 	node = function(): Node
+		if peek() == "rootContent" then
+			take "rootContent"
+			take "("
+			take ")"
+			local content = assert(sharedContent, "Root content needs its shared function")
+			return content
+		end
 		if peek() == "capture" then
 			take "capture"
 			take "("
@@ -803,6 +889,7 @@ function source.parse(code: string, library: Library): Types.Document
 						take "("
 						take "use"
 						take ")"
+						rowAlias()
 						take "return"
 						take "use"
 						take "("
@@ -923,10 +1010,39 @@ function source.parse(code: string, library: Library): Types.Document
 	end
 	take()
 	take "function"
+	local variant: Types.RootVariant? = nil
+	local alternative: Node? = nil
 	while not (peek() == "return" and peek(1) ~= "node") do
-		if peek() == "local" and peek(1) == "named" and peek(2) == "=" then
+		if peek() == "if" and peek(1) == "props" then
+			take "if"
+			take "props"
+			take "."
+			local input = name()
+			take "="
+			take "="
+			local selected = plain()
+			assert(type(selected) == "string", "A root variant selects an enum option")
+			take "then"
+			take "return"
+			alternative = node()
+			variant = { input = input, value = selected, kind = alternative.kind, props = alternative.props }
+			take "end"
+		elseif peek() == "local" and peek(1) == "function" and peek(2) == "rootContent" then
+			take "local"
+			take "function"
+			take "rootContent"
+			take "("
+			take ")"
+			returnAnnotation()
+			take "return"
+			sharedContent = node()
+			take "end"
+		elseif peek() == "local" and peek(1) == "named" then
 			take "local"
 			take "named"
+			while peek() ~= "=" do
+				take()
+			end
 			take "="
 			take "{"
 			while peek() ~= "}" do
@@ -940,7 +1056,13 @@ function source.parse(code: string, library: Library): Types.Document
 				end
 			end
 			take "}"
-		elseif peek() == "local" and tokens[at + 1] and tokens[at + 1].kind == "name" and peek(2) == ":" then
+		elseif
+			peek() == "local"
+			and tokens[at + 1]
+			and tokens[at + 1].kind == "name"
+			and peek(1) ~= "refs"
+			and peek(2) == ":"
+		then
 			take "local"
 			local literalName = name()
 			take ":"
@@ -961,6 +1083,7 @@ function source.parse(code: string, library: Library): Types.Document
 			take "current"
 			annotation()
 			take ")"
+			rowAlias()
 			take "return"
 			rows[rowName] = node()
 			take "end"
@@ -970,6 +1093,22 @@ function source.parse(code: string, library: Library): Types.Document
 	end
 	take "return"
 	local root = node()
+	if sharedContent then
+		assert(variant ~= nil and alternative ~= nil, "Shared root content needs an alternative")
+		assert(
+			(root.nameInput ~= nil or alternative.name == root.name)
+				and alternative.nameInput == root.nameInput
+				and alternative.nameField == root.nameField,
+			"Root variants keep one direct root name"
+		)
+		assert(
+			#root.children == 1
+				and root.children[1] == sharedContent
+				and #alternative.children == 1
+				and alternative.children[1] == sharedContent,
+			"Root variants share their content"
+		)
+	end
 	take "end"
 	local function remap(current: Node)
 		for _, property in current.props do
@@ -992,6 +1131,63 @@ function source.parse(code: string, library: Library): Types.Document
 		end
 	end
 	remap(root)
+	if alternative then
+		local wrapper = table.clone(alternative)
+		wrapper.children = {}
+		remap(wrapper)
+	end
+	if variant then
+		local ids: { [string]: string } = {}
+		nextId = 1
+		local function renumber(current: Node)
+			local id = `n{nextId}`
+			nextId += 1
+			ids[current.id] = id
+			current.id = id
+			for _, child in current.children do
+				renumber(child)
+			end
+		end
+		renumber(root)
+		local function markers(current: Literal)
+			if type(current) ~= "table" then
+				return
+			end
+			local template = current["$template"]
+			if type(template) == "string" then
+				current["$template"] = ids[template]
+			end
+			for _, item in current do
+				markers(item)
+			end
+		end
+		local function bindings(current: Node)
+			for _, property in current.props do
+				if property.node then
+					property.node = ids[property.node]
+				end
+				if property.nodes then
+					for index, id in property.nodes do
+						property.nodes[index] = ids[id]
+					end
+				end
+				if property.literal ~= nil then
+					markers(property.literal)
+				end
+			end
+			if current.bind and current.bind.row then
+				current.bind.row = ids[current.bind.row]
+			end
+			for _, child in current.children do
+				bindings(child)
+			end
+		end
+		bindings(root)
+		local wrapper = table.clone(root)
+		wrapper.children = {}
+		wrapper.props = variant.props
+		bindings(wrapper)
+	end
 	local editor = header.editor
 	if editor ~= nil then
 		assert(type(editor) == "table", "The editor header is a table")
@@ -1018,6 +1214,7 @@ function source.parse(code: string, library: Library): Types.Document
 		state = stateFrom(header),
 		sequences = sequencesFrom(header),
 		root = root,
+		rootVariant = variant,
 	}, library)
 end
 

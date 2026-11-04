@@ -321,6 +321,9 @@ export type DesignDocument = ComposeDesign.Document
 export type DesignNode = ComposeDesign.Node
 export type DesignValue = ComposeDesign.Value
 export type DesignField = ComposeDesign.Field
+export type DesignKind = ComposeDesign.Kind
+export type DesignResolved = ComposeDesign.Resolved
+export type DesignExtension = FacetDesign.Extension
 export type DesignLiteral = ComposeDesign.Literal
 export type DesignInput = ComposeDesign.Input
 export type DesignItemField = ComposeDesign.ItemField
@@ -363,7 +366,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "0e0d939871fb7cb528f6ce0ac4917662424d1708"
+local COMPOSE_COMMIT = "d645e280238a30e19920013739675e0d710a6940"
 local USED = {
 	"boundary",
 	"cell",

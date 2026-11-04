@@ -1152,7 +1152,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			width = 240,
 		},
 		fields = {
-			points = { type = "value", label = "Bezier points", order = 1, format = "json" },
+			points = { type = "value", label = "Bezier points", order = 1, format = "json", tokens = true },
 			width = { type = "number", label = "Width", order = 2 },
 			height = { type = "number", label = "Height", order = 3 },
 			thickness = { type = "number", label = "Thickness", order = 4 },
@@ -1327,6 +1327,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			Rotation = { type = "number", label = "Rotation", order = 11 },
 			ClipsDescendants = { type = "boolean", label = "Clip contents", order = 12 },
 			LayoutOrder = { type = "number", label = "Layout order", order = 13 },
+			skin = { type = "value", label = "Skin", order = 14, format = "json", tokens = true },
 		},
 	},
 	Rating = {

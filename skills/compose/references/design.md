@@ -38,6 +38,10 @@ not overwrite the module. Keep every edit inside the shapes below.
 - A literal: a string, a number, a boolean or a table of literals. Write colors
   as `Color3.fromHex "RRGGBB"` and enum items as `Enum.Category.Item`.
 - An input: `props.id`. A state value: `state.id`.
+- A datatype component: a number, token, or required numeric input.
+  `{ input = "offset" }` emits `props.offset` in a constructor, or
+  `use(props.offset)` inside a constructor formula for a readable or cell input.
+  Prepare arithmetic in the caller.
 - An item field inside a row: `function(use) return use(current).field end`.
   Wrap a non-text field that a text property reads in `tostring(...)`.
 - An output call: `function(...) if props.onThing then props.onThing(...) end end`.
@@ -45,6 +49,8 @@ not overwrite the module. Keep every edit inside the shapes below.
 - A repeated list: `from = props.list, key = "id", render = function(current) return <node> end`.
   A list inside a row reads a list field of the row:
   `from = function(use) return use(current).rows end`.
+  A qualified `Bind.from = "pages.rows"` emits a local `row_pages` alias
+  and `from = function(use) return use(row_pages).rows end` in that page row.
 - A conditional child: `<show>(props.flag, function() return <node> end)`, where
   `<show>` is the library's show call (Facet: `Facet.Compose.show`).
   In a row, the condition can read a boolean item field.
@@ -54,6 +60,9 @@ not overwrite the module. Keep every edit inside the shapes below.
 - A style tag: `<tag>(<node>, { "tag-name" })`, where `<tag>` is the library's
   tag call (Facet: `Facet.tag`).
 - A node reference: `refs.nN`, with the node wrapped in `capture("nN", <node>)`.
+- A static root variant: a required string input declares enum `options`.
+  `Design.document.setRootVariant` selects one alternative kind and its props
+  for a matching option. Both roots share one content function and one name.
 - A content property that holds a subtree: `glyph = function() return <node> end`.
   The node is a child of the control in the editor.
 - A moving value: `<follow>(state.id, "role")`, where `<follow>` is the
