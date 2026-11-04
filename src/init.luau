@@ -363,7 +363,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "198c954a083699ac879a42fdf45154fab56fb955"
+local COMPOSE_COMMIT = "0e0d939871fb7cb528f6ce0ac4917662424d1708"
 local USED = {
 	"boundary",
 	"cell",
@@ -476,12 +476,6 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 				environment = roblox.designEnvironment(),
 				library = library,
 				root = "Screen",
-				devices = {
-					{ name = "Phone", size = { X = 390, Y = 844 } },
-					{ name = "Tablet", size = { X = 820, Y = 1180 } },
-					{ name = "Desktop", size = { X = 1280, Y = 800 } },
-					{ name = "Console", size = { X = 1920, Y = 1080 } },
-				},
 				previews = {
 					{
 						name = "Theme",

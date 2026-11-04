@@ -759,11 +759,17 @@ local function rulesFor(
 	rule(".facet-toggle-on >> .facet-toggle-mark", { BackgroundColor3 = knob })
 	rule(".facet-toggle-check", { ImageColor3 = c("onSelection") })
 	rule(".facet-toggle-checkbox::UIStroke", { Color = c("contentSecondary"), Thickness = 1.5, Transparency = 0.2 })
+	local trackOutline = if contrast(offTrack, assert(resolved("surface"))) < 1.5
+		then c("contentSecondary")
+		else c("control")
+	rule(".facet-toggle-switch::UIStroke", { Color = trackOutline, Thickness = 1, Transparency = 0.2 })
+	rule(".facet-toggle-switch.facet-toggle-on::UIStroke", { Color = c("selection") })
 	local dimmed = extra.disabledContentOpacity or 0.4
 	rule(".facet-disabled >> .facet-toggle-indicator", { BackgroundTransparency = dimmed })
 	rule(".facet-disabled >> .facet-toggle-mark", { BackgroundTransparency = dimmed })
 	rule(".facet-disabled >> .facet-toggle-check", { ImageTransparency = dimmed })
 	rule(".facet-disabled >> .facet-toggle-checkbox::UIStroke", { Transparency = math.max(0.2, dimmed) })
+	rule(".facet-disabled >> .facet-toggle-switch::UIStroke", { Transparency = math.max(0.2, dimmed) })
 	rule(".facet-tooltip", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(".facet-tooltip::UICorner", { CornerRadius = types.UDim.new(0, math.min(6, package.metrics.radii.control)) })
 	rule(".facet-tooltip::UIStroke", { Color = c("hairline"), Transparency = 0.4, Thickness = 1 })

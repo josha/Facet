@@ -22,14 +22,9 @@ return function(ui: UI.UI)
 	type Row = { button: Compose.Node, glyph: Compose.Node, name: Compose.Node }
 
 	local function row(id: string): Row
-		local button = ui.new "TextButton"
-		ui.set(button, "Name", id)
+		local button = Theme.button(id, "")
 		ui.set(button, "Size", ui.values.udim2(1, 0, 0, size.row))
-		ui.set(button, "AutoButtonColor", false)
-		ui.set(button, "BorderSizePixel", 0)
-		ui.set(button, "BackgroundTransparency", 1)
 		ui.set(button, "BackgroundColor3", color.hover)
-		ui.set(button, "Text", "")
 		Theme.corner(button, 4)
 		local glyph = Theme.label("", color.tertiary, size.small, Theme.font.bold)
 		ui.set(glyph, "Name", "Glyph")
@@ -38,9 +33,7 @@ return function(ui: UI.UI)
 		ui.set(glyph, "Parent", button)
 		local name = Theme.label("", color.secondary, size.text)
 		ui.set(name, "Name", "Title")
-		ui.set(name, "Position", ui.values.udim2(0, 22, 0, 0))
-		ui.set(name, "Size", ui.values.udim2(1, -74, 1, 0))
-		ui.set(name, "Parent", button)
+		Theme.place(name, button, ui.values.udim2(1, -74, 1, 0), ui.values.udim2(0, 22, 0, 0))
 		return { button = button, glyph = glyph, name = name }
 	end
 
@@ -73,12 +66,9 @@ return function(ui: UI.UI)
 			end)
 		)
 		for index, action in { "Wrap", "Unwrap" } do
-			local button = ui.new "TextButton"
-			ui.set(button, "Name", action)
-			ui.set(button, "Text", action)
-			ui.set(button, "TextColor3", color.text)
+			local button = Theme.button(action, action)
 			ui.set(button, "BackgroundColor3", color.panel)
-			ui.set(button, "BorderSizePixel", 0)
+			ui.set(button, "BackgroundTransparency", 0)
 			ui.set(button, "Size", ui.values.udim2(1, 0, 0, 32))
 			ui.set(button, "Position", ui.values.udim2(0, 0, 0, (index - 1) * 32))
 			ui.set(button, "ZIndex", 31)
@@ -202,9 +192,8 @@ return function(ui: UI.UI)
 					ui.set(padding, "Parent", created.button)
 					local id = node.id
 					for index, action in { "Hide", "Lock" } do
-						local toggle = ui.new "TextButton"
+						local toggle = Theme.button(action, "", nil, size.small)
 						local active = if action == "Hide" then node.hidden else node.locked
-						ui.set(toggle, "Name", action)
 						ui.set(
 							toggle,
 							"Text",
@@ -213,7 +202,6 @@ return function(ui: UI.UI)
 								else (if active then "▣" else "□")
 						)
 						ui.set(toggle, "TextColor3", if active then color.accent else color.tertiary)
-						ui.set(toggle, "BackgroundTransparency", 1)
 						ui.set(toggle, "Size", ui.values.udim2(0, 24, 1, 0))
 						ui.set(toggle, "Position", ui.values.udim2(1, -54 + (index - 1) * 24, 0, 0))
 						ui.set(toggle, "Parent", created.button)

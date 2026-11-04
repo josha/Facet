@@ -301,7 +301,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(opened.session.change("content", { input = "body" })):toBe(true)
 					assert(runtime):settle()
 					Verify.expect(opened.session.problem:peek()):toBe(nil)
-					Verify.expect(assert(opened.stage).nodes.n1 ~= nil):toBe(true)
+					Verify.expect(assert(opened.canvas.current().stage).nodes.n1 ~= nil):toBe(true)
 					local code = Design.emit(opened.session.document:peek(), library)
 					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
 					Verify.expect(opened.session.content("content", "Text")):toBe(true)
@@ -343,7 +343,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					local id = opened.session.selected:peek()
 					local kind = library.kinds[name]
-					local stage = assert(opened.stage)
+					local stage = assert(opened.canvas.current().stage)
 					assert(runtime):settle()
 					if stage.nodes[id] == nil then
 						table.insert(failures, `{name}: {opened.session.problem:peek() or "not rendered"}`)

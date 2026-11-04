@@ -13,13 +13,15 @@ export type Stage = {
 	zoom: Compose.Value<number>,
 	fit: () -> (),
 	zoomTo: (scale: number, around: UI.Point?) -> (),
-	resize: (size: UI.Point) -> (),
 	play: (sequence: string) -> (),
 	dispose: () -> (),
 }
 
 export type Options = {
 	size: UI.Point,
+	library: Design.Library?,
+	compact: boolean?,
+	readOnly: boolean?,
 	accent: unknown?,
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
@@ -82,6 +84,7 @@ return function(ui: UI.UI)
 	end
 
 	return function(session: Design.Session, parent: Compose.Node, options: Options): Stage
+		local library = options.library or session.library
 		local accent = options.accent or Theme.color.accent
 		local width, height = options.size.X, options.size.Y
 		local holder = frame "DesignStage"
@@ -92,13 +95,11 @@ return function(ui: UI.UI)
 		ui.set(camera, "Parent", holder)
 		local zoom = Compose.cell(1)
 		local pan: UI.Point = { X = 0, Y = 0 }
-		local framed: { { instance: Compose.Node, grow: number } } = {}
 		local function centered(name: string, grow: number): Compose.Node
 			local created = frame(name)
 			ui.set(created, "AnchorPoint", ui.values.vector2(0.5, 0.5))
 			ui.set(created, "Position", ui.values.udim2(0.5, 0, 0.5, 0))
 			ui.set(created, "Size", ui.values.udim2(0, width + grow, 0, height + grow))
-			table.insert(framed, { instance = created, grow = grow })
 			return created
 		end
 		for depth, spread in { 24, 12, 4 } do
@@ -119,15 +120,14 @@ return function(ui: UI.UI)
 		ui.set(title, "Name", "ArtboardTitle")
 		ui.set(title, "AnchorPoint", ui.values.vector2(0.5, 1))
 		ui.set(title, "Position", ui.values.udim2(0.5, 0, 0.5, -height / 2 - 6))
-		ui.set(title, "Size", ui.values.udim2(0, width, 0, 16))
+		ui.set(title, "Size", ui.values.udim2(0, width, 0, 24))
 		local titleScale = ui.new "UIScale"
 		ui.set(titleScale, "Parent", title)
 		ui.set(title, "Parent", holder)
 		local dimensions = Theme.label(`{width} × {height}`, Theme.color.tertiary, Theme.size.small)
 		ui.set(dimensions, "Name", "ArtboardSize")
 		ui.set(dimensions, "TextXAlignment", ui.values.enum("TextXAlignment", "Right"))
-		ui.set(dimensions, "Size", ui.values.udim2(1, 0, 1, 0))
-		ui.set(dimensions, "Parent", title)
+		Theme.place(dimensions, title, ui.values.udim2(1, 0, 1, 0))
 		local overlay = centered("DesignOverlay", 0)
 		ui.set(overlay, "ZIndex", 2)
 		ui.set(overlay, "Active", true)
@@ -487,7 +487,7 @@ return function(ui: UI.UI)
 				ui.set(size, "AutomaticSize", ui.values.enum("AutomaticSize", "X"))
 				ui.set(size, "AnchorPoint", ui.values.vector2(0.5, 0))
 				ui.set(size, "Position", ui.values.udim2(0.5, 0, 1, 8))
-				ui.set(size, "Size", ui.values.udim2(0, 0, 0, 18))
+				ui.set(size, "Size", ui.values.udim2(0, 0, 0, 24))
 				ui.set(size, "BackgroundTransparency", 0)
 				ui.set(size, "BackgroundColor3", accent)
 				ui.set(size, "TextXAlignment", ui.values.enum("TextXAlignment", "Center"))
@@ -593,7 +593,7 @@ return function(ui: UI.UI)
 				table.clear(nodes)
 				stopDesign = runtime.mountFragment(function(): { Compose.Child }
 					local rendered, content = pcall(function(): unknown
-						return Design.render(value, session.library, {
+						return Design.render(value, library, {
 							exclude = function(node: Design.Node): boolean
 								return node.hidden == true
 							end,
@@ -610,20 +610,6 @@ return function(ui: UI.UI)
 								if ui.isA(built, "GuiObject") then
 									runtime.decorate(built, { Attributes = { [ATTRIBUTE] = node.id } })
 									nodes[node.id] = built
-									local kind = session.library.kinds[node.kind]
-									if kind and kind.children == "list" and #node.children == 0 then
-										local floor = ui.new "UISizeConstraint"
-										ui.set(floor, "Name", "DesignEmptyFloor")
-										ui.set(floor, "MinSize", ui.values.vector2(96, 48))
-										ui.set(floor, "Parent", built)
-										local mark = ui.new "UIStroke"
-										ui.set(mark, "Name", "DesignEmptyMark")
-										ui.set(mark, "Color", Theme.color.tertiary)
-										ui.set(mark, "Transparency", 0.4)
-										ui.set(mark, "Thickness", 1)
-										ui.set(mark, "ApplyStrokeMode", ui.values.enum("ApplyStrokeMode", "Border"))
-										ui.set(mark, "Parent", built)
-									end
 								end
 							end,
 						})
@@ -636,7 +622,7 @@ return function(ui: UI.UI)
 						session.problem:set(`This design does not render: {content}`)
 						return {}
 					end
-					local provide = session.library.provide
+					local provide = library.provide
 					return { ui.node(if provide then provide(content) else content) }
 				end, surface)
 			end)
@@ -675,13 +661,13 @@ return function(ui: UI.UI)
 			local scale = zoom:peek()
 			ui.set(camera, "Scale", scale)
 			ui.set(titleScale, "Scale", 1 / scale)
-			ui.set(title, "Size", ui.values.udim2(0, width * scale, 0, 16))
+			ui.set(title, "Size", ui.values.udim2(0, width * scale, 0, 24))
 			ui.set(title, "Position", ui.values.udim2(0.5, 0, 0.5, -height / 2 - 6 / scale))
 			ui.set(holder, "Position", ui.values.udim2(0.5, pan.X, 0.5, pan.Y))
 		end
 		local function zoomTo(scale: number, around: UI.Point?)
 			local before = zoom:peek()
-			local after = math.clamp(scale, 0.1, 8)
+			local after = math.clamp(scale, 0.02, 8)
 			if around and ui.get(holder, "Parent") and ui.isA(ui.get(holder, "Parent"), "GuiObject") then
 				local host = ui.get(holder, "Parent")
 				local center = Math.add(
@@ -697,8 +683,11 @@ return function(ui: UI.UI)
 			pan = { X = 0, Y = 0 }
 			local host = ui.get(holder, "Parent")
 			if host and ui.isA(host, "GuiObject") and ui.xy(host, "AbsoluteSize").X > 0 then
-				local room = Math.sub(ui.xy(host, "AbsoluteSize"), { X = 96, Y = 120 })
-				zoom:set(math.clamp(math.min(room.X / width, room.Y / height), 0.1, 1))
+				local room = Math.sub(
+					ui.xy(host, "AbsoluteSize"),
+					if options.compact then { X = 32, Y = 56 } else { X = 96, Y = 120 }
+				)
+				zoom:set(math.clamp(math.min(room.X / width, room.Y / height), 0.02, 1))
 			else
 				zoom:set(1)
 			end
@@ -727,6 +716,9 @@ return function(ui: UI.UI)
 			table.insert(
 				surfaceInput,
 				ui.connect(parent, "InputBegan", function(input: Compose.Node)
+					if options.readOnly then
+						return
+					end
 					local middle = ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton3")
 					local spaced = ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
 						and ui.call(UserInputService, "IsKeyDown", ui.values.enum("KeyCode", "Space")) == true
@@ -783,6 +775,9 @@ return function(ui: UI.UI)
 			end
 		end
 		local began = ui.connect(overlay, "InputBegan", function(input: Compose.Node)
+			if options.readOnly then
+				return
+			end
 			if
 				ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton1")
 				or ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "Touch")
@@ -824,14 +819,6 @@ return function(ui: UI.UI)
 		local left = ui.connect(overlay, "MouseLeave", function()
 			session.hovered:set(nil)
 		end)
-		local function resize(next: UI.Point)
-			width, height = next.X, next.Y
-			for _, entry in framed do
-				ui.set(entry.instance, "Size", ui.values.udim2(0, width + entry.grow, 0, height + entry.grow))
-			end
-			ui.set(dimensions, "Text", `{width} × {height}`)
-			fit()
-		end
 		return {
 			surface = surface,
 			overlay = overlay,
@@ -839,7 +826,6 @@ return function(ui: UI.UI)
 			zoom = zoom,
 			fit = fit,
 			zoomTo = zoomTo,
-			resize = resize,
 			play = function(sequence: string)
 				local player = players[sequence]
 				if player then

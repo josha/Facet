@@ -30,6 +30,8 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 	local owner = Compose.createOwner(runtime.reactor)
 	local owners: { [Compose.Node]: Compose.Owner } = {}
 	local parents: { [Compose.Node]: Compose.Node } = {}
+	local textSizes: { [Compose.Node]: number } = {}
+	local textSize = 15
 	local observation = assert(runtime.host.observation, "Design editor requires host observation")
 	local render = runtime.host.render
 	local disposed = false
@@ -58,6 +60,7 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 			end
 		end
 		parents[node] = nil
+		textSizes[node] = nil
 		owners[node] = nil
 		Compose.owner.dispose(owned)
 	end
@@ -78,6 +81,11 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 				render.insertChild(node(value), target)
 			end
 		else
+			if not library and key == "TextSize" and type(value) == "number" then
+				textSizes[target] = value
+				render.setProperty(target, key, value * textSize / 15)
+				return
+			end
 			render.setProperty(target, key, value)
 		end
 	end
@@ -181,6 +189,12 @@ local function create(runtime: Compose.Runtime, environment: Environment.Environ
 		new = new,
 		get = get,
 		set = set,
+		setTextSize = function(size: number)
+			textSize = math.clamp(size, 15, 19)
+			for target, base in textSizes do
+				render.setProperty(target, "TextSize", base * textSize / 15)
+			end
+		end,
 		number = number,
 		text = text,
 		call = call,

@@ -20,25 +20,13 @@ return function(ui: UI.UI)
 		local library = session.library
 		local connections: { UI.Connection } = {}
 		local root = Theme.frame "DesignLibrary"
-		ui.set(root, "Size", ui.values.udim2(1, 0, 1, 0))
-		ui.set(root, "Parent", parent)
+		Theme.place(root, parent, ui.values.udim2(1, 0, 1, 0))
 
-		local search = ui.new "TextBox"
+		local search = Theme.field ""
 		ui.set(search, "Name", "Search")
 		ui.set(search, "Position", ui.values.udim2(0, 8, 0, 4))
 		ui.set(search, "Size", ui.values.udim2(1, -16, 0, size.row))
-		ui.set(search, "BackgroundColor3", color.field)
-		ui.set(search, "BorderSizePixel", 0)
-		ui.set(search, "Text", "")
 		ui.set(search, "PlaceholderText", "Search")
-		ui.set(search, "PlaceholderColor3", color.tertiary)
-		ui.set(search, "TextColor3", color.text)
-		ui.set(search, "TextSize", size.text)
-		ui.set(search, "FontFace", Theme.font.medium)
-		ui.set(search, "ClearTextOnFocus", false)
-		ui.set(search, "TextXAlignment", ui.values.enum("TextXAlignment", "Left"))
-		Theme.corner(search, 4)
-		Theme.pad(search, 8)
 		ui.set(search, "Parent", root)
 
 		local scroller = Theme.scroller "Kinds"
@@ -87,14 +75,9 @@ return function(ui: UI.UI)
 			headers[category] = header
 			for _, name in members do
 				layout += 1
-				local button = ui.new "TextButton"
-				ui.set(button, "Name", name)
+				local button = Theme.button(name, "")
 				ui.set(button, "Size", ui.values.udim2(1, 0, 0, size.row))
-				ui.set(button, "AutoButtonColor", false)
-				ui.set(button, "BorderSizePixel", 0)
-				ui.set(button, "BackgroundTransparency", 1)
 				ui.set(button, "BackgroundColor3", color.hover)
-				ui.set(button, "Text", "")
 				ui.set(button, "LayoutOrder", layout)
 				Theme.corner(button, 4)
 				local glyph = Theme.label(Theme.glyph[name] or "◇", color.tertiary, size.small, Theme.font.bold)
@@ -104,9 +87,7 @@ return function(ui: UI.UI)
 				ui.set(glyph, "Parent", button)
 				local title = Theme.label(name, color.secondary, size.text)
 				ui.set(title, "Name", "Title")
-				ui.set(title, "Position", ui.values.udim2(0, 22, 0, 0))
-				ui.set(title, "Size", ui.values.udim2(1, -22, 1, 0))
-				ui.set(title, "Parent", button)
+				Theme.place(title, button, ui.values.udim2(1, -22, 1, 0), ui.values.udim2(0, 22, 0, 0))
 				ui.set(button, "Parent", scroller)
 				for _, connection in Theme.hover(button, color.panel, color.hover, 1) do
 					table.insert(connections, connection)

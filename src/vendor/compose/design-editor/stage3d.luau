@@ -6,6 +6,8 @@ local Math = require "./math"
 local Compose = require "../core"
 local Design = require "../design"
 
+local MAX_DISTANCE = 5000
+
 export type Scene = {
 	viewport: Compose.Node,
 	world: Compose.Node,
@@ -19,6 +21,9 @@ export type Scene = {
 }
 
 export type Options = {
+	library: Design.Library?,
+	fieldOfView: number?,
+	readOnly: boolean?,
 	accent: unknown?,
 	token: ((name: string) -> Design.Literal)?,
 	resolveToken: ((name: string) -> Design.Resolved)?,
@@ -79,6 +84,7 @@ return function(ui: UI.UI)
 	end
 
 	return function(session: Design.Session, parent: Compose.Node, options: Options): Scene
+		local library = options.library or session.library
 		local accent = options.accent or Theme.color.accent
 		local viewport = ui.new "ViewportFrame"
 		ui.set(viewport, "Name", "DesignScene")
@@ -92,7 +98,7 @@ return function(ui: UI.UI)
 		local world = ui.new "WorldModel"
 		ui.set(world, "Parent", viewport)
 		local camera = ui.new "Camera"
-		ui.set(camera, "FieldOfView", 50)
+		ui.set(camera, "FieldOfView", options.fieldOfView or 50)
 		ui.set(camera, "Parent", viewport)
 		ui.set(viewport, "CurrentCamera", camera)
 		local guides = ui.new "Folder"
@@ -274,7 +280,7 @@ return function(ui: UI.UI)
 				world,
 				"Raycast",
 				ui.values.vector3(origin.X, origin.Y, origin.Z),
-				ui.values.vector3(direction.X * 2000, direction.Y * 2000, direction.Z * 2000),
+				ui.values.vector3(direction.X * 15000, direction.Y * 15000, direction.Z * 15000),
 				parameters
 			)
 			return if hit then nodeOf(ui.optionalNode(ui.get(hit, "Instance"))) else nil
@@ -288,7 +294,7 @@ return function(ui: UI.UI)
 				end
 				table.clear(nodes)
 				stopDesign = runtime.mount(function(): Compose.Node
-					return ui.node(Design.render(value, session.library, {
+					return ui.node(Design.render(value, library, {
 						exclude = function(node: Design.Node): boolean
 							return node.hidden == true
 						end,
@@ -387,12 +393,16 @@ return function(ui: UI.UI)
 			if instance then
 				local frame, size = boundsOf(instance)
 				focus = ui.xyz(frame, "Position")
-				distance = math.clamp(Math.magnitude(size) * 1.4, 6, 400)
+				local viewportSize = ui.xy(viewport, "AbsoluteSize")
+				local vertical = math.rad(ui.number(camera, "FieldOfView")) / 2
+				local horizontal = math.atan(math.tan(vertical) * viewportSize.X / math.max(1, viewportSize.Y))
+				distance =
+					math.clamp(Math.magnitude(size) * 0.575 / math.sin(math.min(vertical, horizontal)), 6, MAX_DISTANCE)
 			end
 			aim()
 		end
 		local function zoomTo(scale: number, _around: UI.Point?)
-			distance = math.clamp(28 / math.max(scale, 0.05), 2, 600)
+			distance = math.clamp(28 / math.max(scale, 0.005), 2, MAX_DISTANCE)
 			aim()
 		end
 		local UserInputService = ui.service "UserInputService"
@@ -448,6 +458,9 @@ return function(ui: UI.UI)
 			table.insert(connections, connection)
 		end
 		connect(ui.connect(viewport, "InputBegan", function(input: Compose.Node)
+			if options.readOnly then
+				return
+			end
 			local point = Theme.point(input)
 			if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseButton2") then
 				drag = { kind = "orbit", from = point }
@@ -541,13 +554,15 @@ return function(ui: UI.UI)
 					end
 				end
 			elseif ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseWheel") then
-				distance = math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, 600)
+				distance =
+					math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, MAX_DISTANCE)
 				aim()
 			end
 		end))
 		connect(ui.connect(viewport, "InputChanged", function(input: Compose.Node)
 			if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseWheel") then
-				distance = math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, 600)
+				distance =
+					math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, MAX_DISTANCE)
 				aim()
 			elseif
 				ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseMovement") and drag == nil

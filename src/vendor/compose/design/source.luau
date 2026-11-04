@@ -317,7 +317,7 @@ local function fieldType(library: Library, input: Types.Input): string
 	elseif input.kind == "cell" then
 		return `{library.cell}<{shape}>`
 	end
-	return if input.type == "slot" then `({shape})` else shape
+	return if input.type == "slot" and not input.required then `({shape})` else shape
 end
 
 export type EmitOptions = Types.EmitOptions
