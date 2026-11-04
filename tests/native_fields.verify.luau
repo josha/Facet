@@ -904,58 +904,38 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::reveals a focused field when its sheet viewport shrinks above the keyboard",
 			run = function()
 				local worlds = require("./lib/content_world")
-				local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.ScrollingFrame "SheetContent" {
-						UI.TextInput "Filter" { value = Compose.cell("zzzz") },
-					}
-				end)
-				local V2 = w.engine.types.Vector2
-				local page, field = w.find("SheetContent"), w.find("Filter")
-				w.engine.environment.poke(page, "AbsolutePosition", V2.new(0, 181))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteWindowSize", V2.new(320, 280))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteCanvasSize", V2.new(320, 600))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsolutePosition", V2.new(20, 350))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsoluteSize", V2.new(180, 44))
-				w.engine.environment.poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 500))
-				field.Focused:Fire()
-				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
-				expect(page.CanvasPosition.Y):toBe(0)
-				w.engine.environment.poke(page, "AbsoluteWindowSize", V2.new(320, 232))
-				w.engine.environment.poke(field, "AbsolutePosition", V2.new(20, 395))
-				expect(page.CanvasPosition.Y):toBe(26)
-				w.engine.environment.poke(field, "AbsolutePosition", V2.new(20, 369))
-				expect(page.CanvasPosition.Y):toBe(26)
-				w.engine.environment.poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 400))
-				expect(page.CanvasPosition.Y):toBe(47)
-				w.engine.environment.poke(field, "AbsolutePosition", V2.new(20, 348))
-				expect(page.CanvasPosition.Y):toBe(47)
-				w.stop()
-			end,
-		})
-
-		it("does not count viewport reveal twice when the keyboard also covers the field", {
-			id = "native_fields::native TextInput readOnly, selectOnFocus and visibleLines::does not count viewport reveal twice when the keyboard also covers the field",
-			run = function()
-				local worlds = require("./lib/content_world")
-				local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
-					return Host.ScrollingFrame "SheetContent" {
-						UI.TextInput "Filter" { value = Compose.cell("zzzz") },
-					}
-				end)
-				local V2 = w.engine.types.Vector2
-				local page, field = w.find("SheetContent"), w.find("Filter")
-				w.engine.environment.poke(page, "AbsolutePosition", V2.new(0, 181))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteWindowSize", V2.new(320, 232))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(page), "AbsoluteCanvasSize", V2.new(320, 600))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsolutePosition", V2.new(20, 395))
-				w.engine.environment.poke(FixtureRoblox.assertInstance(field), "AbsoluteSize", V2.new(180, 44))
-				w.engine.environment.poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 400))
-				field.Focused:Fire()
-				w.engine.environment.poke(w.input, "OnScreenKeyboardVisible", true)
-				expect(page.CanvasPosition.Y):toBe(47)
-				w.engine.environment.poke(field, "AbsolutePosition", V2.new(20, 348))
-				expect(page.CanvasPosition.Y):toBe(47)
-				w.stop()
+				for _, covered in { false, true } do
+					local w = worlds.new(function(UI: FacetControls, Host: RobloxHost)
+						return Host.ScrollingFrame "SheetContent" {
+							UI.TextInput "Filter" { value = Compose.cell("zzzz") },
+						}
+					end)
+					local V2 = w.engine.types.Vector2
+					local page, field = w.find("SheetContent"), w.find("Filter")
+					local pageNode, fieldNode = FixtureRoblox.assertInstance(page), FixtureRoblox.assertInstance(field)
+					local poke = w.engine.environment.poke
+					poke(pageNode, "AbsolutePosition", V2.new(0, 181))
+					poke(pageNode, "AbsoluteWindowSize", V2.new(320, if covered then 232 else 280))
+					poke(pageNode, "AbsoluteCanvasSize", V2.new(320, 600))
+					poke(fieldNode, "AbsolutePosition", V2.new(20, if covered then 395 else 350))
+					poke(fieldNode, "AbsoluteSize", V2.new(180, 44))
+					poke(w.input, "OnScreenKeyboardPosition", V2.new(0, if covered then 400 else 500))
+					field.Focused:Fire()
+					poke(w.input, "OnScreenKeyboardVisible", true)
+					expect(page.CanvasPosition.Y):toBe(if covered then 47 else 0)
+					if not covered then
+						poke(pageNode, "AbsoluteWindowSize", V2.new(320, 232))
+						poke(fieldNode, "AbsolutePosition", V2.new(20, 395))
+						expect(page.CanvasPosition.Y):toBe(26)
+						poke(fieldNode, "AbsolutePosition", V2.new(20, 369))
+						expect(page.CanvasPosition.Y):toBe(26)
+						poke(w.input, "OnScreenKeyboardPosition", V2.new(0, 400))
+						expect(page.CanvasPosition.Y):toBe(47)
+					end
+					poke(fieldNode, "AbsolutePosition", V2.new(20, 348))
+					expect(page.CanvasPosition.Y):toBe(47)
+					w.stop()
+				end
 			end,
 		})
 
