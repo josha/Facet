@@ -208,6 +208,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					})
 					Verify.expect(library.kinds.Pagination.children):toBe("list")
+					Verify.expect(Kit.seeds("Pagination")):toHaveLength(0)
 					local value, fill = Design.document.insert(
 						Design.document.new("Pages", library, "Pagination"),
 						library,
