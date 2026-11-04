@@ -185,6 +185,7 @@ return function(
 			return
 		end
 		if ready:peek() then
+			halt()
 			return
 		end
 		if sample() then
@@ -193,14 +194,14 @@ return function(
 			return
 		end
 		if #geometry == 0 then
-			listen(root, root, geometry, prepare)
+			listen(root, root, geometry, arm)
 			for _, node in root:GetDescendants() do
-				listen(node, root, geometry, prepare)
+				listen(node, root, geometry, arm)
 			end
 		end
 		arm()
 	end
-	local changed = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare)
+	local changed = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(arm)
 	local function close()
 		if closed then
 			return

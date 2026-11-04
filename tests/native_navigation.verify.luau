@@ -164,6 +164,36 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native navigation controls", function()
+		it("samples tab badge bounds after the layout property signal", {
+			id = "native_navigation::native navigation controls::samples tab badge bounds after the layout property signal",
+			run = function()
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					return UI.TabView {
+						selection = Compose.cell("one"),
+						tabs = {
+							{
+								id = "one",
+								label = "One",
+								glyph = function()
+									return Host.Frame {}
+								end,
+								badge = "9",
+								content = UI.Text { text = "Body" },
+							},
+						},
+					}
+				end)
+				local holder = find(find(world.screen, "Seal"), "Corner")
+				local badge = holder:FindFirstChildWhichIsA("GuiObject")
+				local anchor = holder.Parent.Parent
+				local before = anchor.Size
+				world.engine.environment.poke(badge, "AbsoluteSize", world.engine.types.Vector2.new(120, 40))
+				expect(anchor.Size):toBe(before)
+				world.engine.heartbeat:Fire(0)
+				expect(anchor.Size == before):toBe(false)
+				world.stop()
+			end,
+		})
 		type ReleaseSample = { name: string, distance: number, seconds: number, idle: number, expected: string }
 		local samples: { ReleaseSample } = {
 			{ name = "short flick", distance = 30, seconds = 0.02, idle = 0, expected = "four" },
