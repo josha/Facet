@@ -93,6 +93,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: PickerPar
 											Text = function(use: ComposeTypes.Use)
 												return readText(use(source).meta, use) or ""
 											end,
+											AutomaticSize = E.AutomaticSize.XY,
 										}),
 										"secondary"
 									)
@@ -112,6 +113,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: PickerPar
 													local badge = read(use(source).badge, use)
 													return if badge == nil then "" else tostring(badge)
 												end,
+												AutomaticSize = E.AutomaticSize.XY,
 											}),
 										},
 										"badge"

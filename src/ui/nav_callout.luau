@@ -178,7 +178,7 @@ return function(
 							AutomaticSize = E.AutomaticSize.Y,
 							Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 						})
-						heading:AddTag("facet-type-heading")
+						ctx.textRole(heading, "heading")
 						table.insert(header, heading)
 					end
 					if spec.closeButton == true then
@@ -222,6 +222,7 @@ return function(
 										use
 									)
 								end,
+								AutomaticSize = E.AutomaticSize.XY,
 							}),
 							"secondary"
 						)

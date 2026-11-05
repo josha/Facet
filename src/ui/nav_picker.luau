@@ -261,8 +261,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				TextSize = spec.textSize,
 				TextWrapped = false,
 				Visible = false,
-			})
-			measure:AddTag("facet-type-control")
+				AutomaticSize = E.AutomaticSize.XY,
+			}, nil, if spec.textSize == nil then "control" else nil)
 			local labelBounds = ctx.observe.TextBounds(measure)
 			local stripSpills = Compose.cell(false)
 

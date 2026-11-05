@@ -1299,7 +1299,7 @@ return function(verifyHarness: Verify.Harness)
 				automatic.TextSize = 12
 				expect(states):toHaveLength(2)
 				expect(states[1]):toBe(engine.types.Enum.AutomaticSize.None)
-				expect(states[2]):toBe(engine.types.Enum.AutomaticSize.XY)
+				expect(states[2]):toBe(engine.types.Enum.AutomaticSize.Y)
 				automatic.TextColor3 = engine.types.Color3.new(1, 0, 0)
 				expect(states):toHaveLength(2)
 				fixed.TextSize = 12

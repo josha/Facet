@@ -209,17 +209,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			if rich then
 				p.Text = ""
 				local row: InputTypes.Row = spec.row or {}
-				local title = ctx.text({ Name = "Title", Text = row.title or spec.label or "" })
 				local labelSize = read(spec.textSize)
 				assert(
 					labelSize == nil or kit.typeRoles[labelSize :: string] or type(labelSize) == "number",
 					"Facet.Toggle: textSize must be a type role or a positive number"
 				)
-				if type(labelSize) == "string" then
-					title:AddTag("facet-type-" .. labelSize)
-				elseif type(labelSize) == "number" then
-					title.TextSize = labelSize
-				end
+				local title = ctx.text({
+					Name = "Title",
+					Text = row.title or spec.label or "",
+					TextSize = if type(labelSize) == "number" then labelSize else nil,
+					AutomaticSize = E.AutomaticSize.XY,
+				}, nil, if type(labelSize) == "string" then labelSize :: Shared.TextRole else nil)
 				p.textSize = nil
 				local captions: { GuiObject } = { title }
 				local described = row.description ~= nil or spec.hint ~= nil

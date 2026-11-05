@@ -93,6 +93,7 @@ return {
 				UI.Text "Title" { text = "Status marks", textRole = "heading" },
 				UI.Text "Guide" {
 					text = "Shapes carry meaning alongside color. Counts stop growing at 99+.",
+					wrap = true,
 					role = "secondary",
 				},
 				Host.Frame "Shapes" {

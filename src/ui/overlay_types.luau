@@ -105,7 +105,7 @@ export type NavBarOptions = {
 	onBack: ((() -> ()) | Types.Value<boolean>)?,
 	backLabel: string?,
 	title: Types.ValueString?,
-	titleSize: string?,
+	titleSize: Types.TextRole?,
 	leading: GuiObject?,
 	center: GuiObject?,
 	trailing: (GuiObject | (() -> GuiObject))?,

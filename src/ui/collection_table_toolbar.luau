@@ -86,6 +86,7 @@ return function<V, K>(
 				TextTransparency = 1,
 				FontFace = font,
 				TextSize = size,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
 		end
 		runtime.mount(function()

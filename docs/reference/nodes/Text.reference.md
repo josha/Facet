@@ -19,6 +19,16 @@ A change to the font, text size or layout mode resets the reserved size.
 Wrapped text, truncated text and authored size constraints keep their native
 layout behavior.
 
+Without native `Size` and `AutomaticSize`, a Text fills the width that its
+parent gives and grows only in height (`Size = UDim2.fromScale(1, 0)`,
+`AutomaticSize = Enum.AutomaticSize.Y`). A one-line Text hugs its text
+(`AutomaticSize = Enum.AutomaticSize.XY`) in a horizontal stack, in a parent
+that hugs its width, outside a GuiObject, in an aligned ZStack, and at an
+explicit `Position` or `AnchorPoint` in a parent without a layout. A filled
+one-line Text in a vertical stack takes the stack's horizontal alignment
+unless `textAlign` or `TextXAlignment` is set. Set
+`AutomaticSize = Enum.AutomaticSize.XY` to hug in any parent.
+
 Bound text, given as a readable or a function, sets `AutoLocalize` to false
 unless you set `AutoLocalize`. Bound text is usually data, such as a name or a
 count. The engine localizes each change again, and that costs about 15 µs for

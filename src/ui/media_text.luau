@@ -18,31 +18,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local themes = bindThemes(Compose)
 	local lists = layoutKit.of(ctx)
 	local types, read = ctx.types, ctx.read
-	local E, D2, D, V2 = types.Enum, types.UDim2, types.UDim, types.Vector2
+	local E, D2, D = types.Enum, types.UDim2, types.UDim
 	local metric = ctx.metric
 	local bind = shared.bind
-	local function roleTag(value: string?): string
-		local name = value or "body"
-		assert(table.find(themes.TYPE_ROLES, name), "Facet Text invalid textRole")
-		return "facet-type-" .. name
-	end
-	local function textRole(node: TextLabel, role: Types.Input<Media.TextRole>?): TextLabel
-		if role == nil or type(role) == "string" then
-			node:AddTag(roleTag(role))
-			return node
-		end
-		local previous: string?
-		Compose.watch(function(use: ComposeTypes.Use)
-			local tag = roleTag(read<<Media.TextRole>>(role, use))
-			if previous then
-				node:RemoveTag(previous)
-			end
-			previous = tag
-			node:AddTag(tag)
-		end)
-		return node
-	end
-
 	local ELLIPSIS = "\u{2026}"
 	local function middle(label: TextLabel, text: string, width: number): string
 		local function fits(candidate: string): boolean
@@ -251,42 +229,66 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end,
 			}
 		end
-		local label = textRole(ctx.text(ctx.props(spec, TEXT_KEYS, defaults), true), roleSource)
-		if
-			(spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true))
-			and not lines
-			and not cut
-			and not fit
-			and spec.Size == nil
-			and spec.AutomaticSize == nil
-		then
+		local nativeSize = spec.TextSize
+		local label = ctx.text(
+			ctx.props(spec, TEXT_KEYS, defaults),
+			true,
+			if pixels == nil and nativeSize == nil then roleSource else nil
+		)
+		if (pixels ~= nil or nativeSize ~= nil) and roleSource ~= nil then
+			ctx.textRole(label, roleSource)
+		end
+		if not lines and not cut and not fit and spec.Size == nil and spec.AutomaticSize == nil then
+			local wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true)
+			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
+			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
+			local appliedSize, appliedMode = label.Size, label.AutomaticSize
+			local connection: RBXScriptConnection? = nil
 			local function hug()
+				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
+					if connection then
+						connection:Disconnect()
+						connection = nil
+					end
+					return
+				end
 				local parent = label.Parent
-				local automatic = if parent and parent:IsA("GuiObject") then parent.AutomaticSize else nil
+				local frame = parent ~= nil and parent:IsA("GuiObject")
+				local automatic = if parent and frame then (parent :: GuiObject).AutomaticSize else nil
 				local list = if parent then parent:FindFirstChildWhichIsA("UIListLayout") else nil
-				local row = automatic == E.AutomaticSize.X
-					or automatic == E.AutomaticSize.XY
-						and list ~= nil
-						and list.FillDirection == E.FillDirection.Horizontal
-				label.Size = D2.fromScale(if row then 0 else 1, 0)
-				label.AutomaticSize = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+				local across = list ~= nil and list.FillDirection == E.FillDirection.Horizontal
+				local row = if wrapped
+					then automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY and across
+					else parent ~= nil
+						and (
+							not frame
+							or across
+							or automatic == E.AutomaticSize.X
+							or automatic == E.AutomaticSize.XY
+							or (list == nil and (placed or label:GetAttribute("FacetPlaced") == true))
+						)
+				appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+				appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+				label.Size = appliedSize
+				label.AutomaticSize = appliedMode
+				if not wrapped and not aligned and list ~= nil and not across then
+					label.TextXAlignment = if list.HorizontalAlignment == E.HorizontalAlignment.Center
+						then E.TextXAlignment.Center
+						elseif list.HorizontalAlignment == E.HorizontalAlignment.Right then E.TextXAlignment.Right
+						else E.TextXAlignment.Left
+				end
 			end
-			runtime.connect(label, "AncestryChanged", hug)
+			connection = label.AncestryChanged:Connect(hug)
+			Compose.cleanup(function()
+				if connection then
+					connection:Disconnect()
+					connection = nil
+				end
+			end)
 			hug()
 		end
 		if lines then
-			local styledSize = ctx.observeStyled.TextSize(label)
-			local styledLine = ctx.observeStyled.LineHeight(label)
-			runtime.mount(function()
-				return Host.UISizeConstraint {
-					Name = "LineClamp",
-					MaxSize = function(use: ComposeTypes.Use): Vector2
-						local inset = label:FindFirstChildWhichIsA("UIPadding")
-						local vertical = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
-						return V2.new(math.huge, math.ceil(lines * use(styledSize) * use(styledLine)) + vertical)
-					end,
-				}
-			end, label)
+			ctx.clampLines(label, lines)
 		end
 		if cut then
 			local measured = ctx.layoutSize(label)

@@ -151,7 +151,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(errorText) ~= ""
 				end, function()
-					return ctx.text({ Name = "Validation", Text = errorText, TextWrapped = true, LayoutOrder = 2 })
+					return ctx.text({
+						Name = "Validation",
+						Text = errorText,
+						TextWrapped = true,
+						LayoutOrder = 2,
+						AutomaticSize = E.AutomaticSize.XY,
+					})
 				end),
 			},
 			ctx.props(spec, {

@@ -71,6 +71,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					ctx.text({
 						Name = name,
 						Size = size,
+						AutomaticSize = E.AutomaticSize.XY,
 						BackgroundTransparency = 1,
 						Selectable = false,
 						TextSize = markExtent,

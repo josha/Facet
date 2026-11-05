@@ -186,24 +186,21 @@ return function(
 					return use(source).color
 				end),
 				Compose.show(labeled, function(): TextLabel
-					return ctx.styled(
-						ctx.text({
-							Name = "Label",
-							Text = function(use: Use): string
-								local item = use(source)
-								return item.label or color.hex(item.color)
-							end,
-							Position = function(use: Use): UDim2
-								return D2.fromOffset(0, state.cellSize(use) + GAP)
-							end,
-							Size = function(use: Use): UDim2
-								return D2.new(1, 0, 0, labelHeight(use))
-							end,
-							TextWrapped = true,
-							TextTruncate = E.TextTruncate.AtEnd,
-						}),
-						"type-caption"
-					)
+					return ctx.text({
+						Name = "Label",
+						Text = function(use: Use): string
+							local item = use(source)
+							return item.label or color.hex(item.color)
+						end,
+						Position = function(use: Use): UDim2
+							return D2.fromOffset(0, state.cellSize(use) + GAP)
+						end,
+						Size = function(use: Use): UDim2
+							return D2.new(1, 0, 0, labelHeight(use))
+						end,
+						TextWrapped = true,
+						TextTruncate = E.TextTruncate.AtEnd,
+					}, nil, "caption")
 				end),
 				Compose.show(function(use: Use): boolean
 					return chosen(use) and not (removable and use(editing))
@@ -326,6 +323,7 @@ return function(
 						Text = function(use: Use)
 							return state.brickName(use(held)) or "No engine colour matches"
 						end,
+						AutomaticSize = E.AutomaticSize.XY,
 					}),
 				}, { Name = "NameField", ctx.padding(SPACE, 6) }),
 				"field"

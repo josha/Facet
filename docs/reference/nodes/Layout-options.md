@@ -4,7 +4,7 @@
 
 Layout-options option values and behavior.
 
-These options belong to containers. Text and Button size to their content.
+These options belong to containers. Button sizes to its content.
 For a leaf's width, set `align = "stretch"` on its parent VStack. For height,
 use that option on its parent HStack. Put `UI.fill()` inside a Button or a
 fixed leaf to share the parent's main axis. For explicit width, use native

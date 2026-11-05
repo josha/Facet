@@ -120,6 +120,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				Text = function(use: ComposeTypes.Use)
 					return read<<string?>>(spec.endLabel, use) or ""
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			}, true)
 			else nil
 		if spec.showValue then
@@ -134,6 +135,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						then spec.format(value)
 						else tostring(math.floor(progress(use) * 100 + 0.5)) .. "%"
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			}, true)
 		end
 		local direction = Compose.formula(function(use: ComposeTypes.Use): Theme.FillDirection
