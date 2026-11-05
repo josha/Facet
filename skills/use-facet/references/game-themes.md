@@ -31,7 +31,7 @@ For a custom visual identity, read a complete task with its theme:
 | Reference | Task or theme treatment |
 | --- | --- |
 | Riverbank | Collection and Exploration: native supply models, botanical type, pale material, distinct cost and commitment; catalogue, detail and temporary field guide use different footprints |
-| Neon Circuit | [Theme](../assets/neon-circuit-theme.luau) for a night-time sci-fi game: a cyan neon edge and glow on every panel through theme `rules`, saturated blue controls, magenta selection, Michroma titles, Zekton numerals and condensed control labels |
+| Neon Circuit | [Theme](../assets/neon-circuit-theme.luau) for a night-time sci-fi game: cyan panel edges, a glow on the current input target, saturated blue controls, magenta selection, Michroma titles and Zekton numerals |
 | Pixel Quest | Optional theme builder: image-backed wood plates, pixel borders, green selection and square focus brackets; apply it to Collection with the game's subject renderer |
 
 Use Collection's complete task structure with either visual or text-led records.
@@ -65,6 +65,13 @@ Use visual cues where they serve the intended identity and task:
   strength from the actual background and states, not a universal opacity.
 - Use action emphasis to express priority. Use `selection` with `onSelection`
   for selected paint and retain a non-color cue for meaning.
+- In repeated browse rows, keep idle surfaces quiet. Reserve strong glow or
+  action emphasis for selection, the current input target or the action the
+  user can take next. Focus and selection can mark different rows. Do not
+  put the same accent shadow on every row through a shared panel skin.
+  A text-led list or plugin table can use a simple selection mark. A quiet
+  interface may need no glow; decorative lighting can still serve a scene
+  when it does not compete with the user's decision.
 - Category colors can help recognition when stable and accessible. Labels
   remain useful when the category is unfamiliar.
 - Keep the world visible when it informs the task; an opaque page or a docked

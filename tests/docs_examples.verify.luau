@@ -8,8 +8,76 @@ type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type EngineLibrary = typeof(require("./lib/native_engine"))
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 
 return function(harness: Verify.Harness)
+	harness:case(
+		"the neon theme keeps repeated panels quiet while selected action emphasis follows one key",
+		function(t)
+			local loader = Loader.new()
+			local Facet = (loader.require("src") :: unknown) :: FacetModule
+			local engines = (loader.require("tests/lib/native_engine.luau") :: unknown) :: EngineLibrary
+			local source = string.gsub(
+				Lute.fixture.host.readFile("skills/use-facet/assets/neon-circuit-theme.luau"),
+				"local Facet = require%([^\n]+%)\n",
+				""
+			)
+			local theme =
+				Lute.chunk.load(source, { environment = { Facet = Facet }, name = "neon-theme" })() :: ThemePackage
+			local engine = engines.new()
+			local createRuntime = (Facet.Roblox.createRuntime :: unknown) :: (unknown) -> Runtime
+			local runtime = createRuntime(engine)
+			t:defer(function()
+				runtime:dispose()
+			end)
+			local app = Facet.app({
+				runtime = runtime,
+				types = engine.types,
+				parent = engine.new("Folder"),
+				theme = theme,
+				motionLevel = "none",
+			})
+			t:defer(app.dispose)
+			local UI, C = app.UI, Facet.Compose
+			local selected = C.cell("first")
+			local rows: { Frame } = {}
+			local function row(key: string): Frame
+				local frame = UI.VStack {
+					surface = "panel",
+					UI.Button(key) {
+						label = key,
+						selected = function(use)
+							return use(selected) == key
+						end,
+						appearance = function(use): string
+							return if use(selected) == key then "emphasis" else "utility"
+						end,
+					},
+				}
+				table.insert(rows, frame)
+				return frame
+			end
+			app.mount(function()
+				return UI.VStack { row("first"), row("second"), row("third") }
+			end)
+			for _, key in { "first", "third" } do
+				selected:set(key)
+				local accents = 0
+				for _, frame in rows do
+					for _, node in frame:GetDescendants() do
+						if node:IsA("UIShadow") then
+							t:expect(node.Enabled):toBe(false)
+						end
+						if node:HasTag("facet-accent") then
+							accents += 1
+							t:expect(node.Name):toBe(key)
+						end
+					end
+				end
+				t:expect(accents):toBe(1)
+			end
+		end
+	)
 	harness:case("collection recipe bounds long detail and retains selection across device sizes", function(t)
 		local loader = Loader.new()
 		local Facet = (loader.require("src") :: unknown) :: FacetModule
