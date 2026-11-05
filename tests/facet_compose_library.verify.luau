@@ -568,6 +568,58 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("round trips and renders capped natural layout dimensions", function(test)
+			for _, kind in { "ScrollView", "VStack", "HStack", "ZStack", "AdaptiveStack" } do
+				test:defer(mount(function(ctx)
+					local library = live(ctx)
+					local document = Design.document.new("CappedPanel", library, kind)
+					document = Design.document.setContract(document, library, {
+						inputs = { { id = "limit", kind = "readable", type = "number", preview = 240 } },
+						outputs = {},
+					})
+					document =
+						Design.document.change(document, library, document.root.id, "height", { literal = "hug" })
+					document =
+						Design.document.change(document, library, document.root.id, "maxWidth", { literal = 320 })
+					document =
+						Design.document.change(document, library, document.root.id, "maxHeight", { input = "limit" })
+					local source = Design.emit(document, library, { name = document.name })
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library, { name = parsed.name })):toBe(source)
+					Verify.expect(source):toContain("maxHeight = props.limit")
+					Verify.expect(source):toContain("maxWidth = 320")
+					local limit = Facet.Compose.cell<<Facet.DesignLiteral?>>(240)
+					local built = Design.render(parsed, library, { bindings = { limit = { readable = limit } } })
+					assert(typeof(built) == "Instance")
+					local constraint = assert(built:FindFirstChildWhichIsA("UISizeConstraint"))
+					Verify.expect(constraint.MaxSize.X):toBe(320)
+					Verify.expect(constraint.MaxSize.Y):toBe(240)
+					limit:set(120)
+					Verify.expect(constraint.MaxSize.Y):toBe(120)
+					local tokenLibrary = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						tokens = { path = "T.", require = "local T = require(game.ReplicatedStorage.Tokens)" },
+					})
+					local tokenDocument =
+						Design.document.change(document, tokenLibrary, document.root.id, "maxHeight", {
+							token = "size.panelHeight",
+						})
+					local tokenSource = Design.emit(tokenDocument, tokenLibrary, { name = tokenDocument.name })
+					Verify.expect(tokenSource):toContain("maxHeight = T.size.panelHeight")
+					Verify.expect(
+						Design.emit(
+							Design.parse(tokenSource, tokenLibrary),
+							tokenLibrary,
+							{ name = tokenDocument.name }
+						)
+					)
+						:toBe(tokenSource)
+					return built
+				end).dispose)
+			end
+		end)
+
 		verifyHarness:case("round trips Button hover and selection actions without activation", {
 			id = "facet_compose_library::round trips Button hover and selection actions without activation",
 			run = function(test: Verify.Context)

@@ -84,30 +84,38 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		Compose.cleanup(release)
 		attach()
 	end
-	local function containerProps(spec: unknown, keys: { string }): { [unknown]: unknown }
-		local maxWidth = (spec :: { maxWidth: Types.ValueNumber? }).maxWidth
-		if maxWidth == nil then
-			return ctx.props(spec, keys) :: { [unknown]: unknown }
+	local function containerProps(spec: unknown, keys: { string }): ({ [unknown]: unknown }, UISizeConstraint?)
+		local limits = spec :: { maxWidth: Types.ValueNumber?, maxHeight: Types.ValueNumber? }
+		if limits.maxWidth == nil and limits.maxHeight == nil then
+			return ctx.props(spec, keys) :: { [unknown]: unknown }, nil
 		end
 		local omitted = table.clone(keys)
 		table.insert(omitted, "maxWidth")
+		table.insert(omitted, "maxHeight")
 		local properties = ctx.props(spec, omitted) :: { [unknown]: unknown }
-		properties[#properties + 1] = Host.UISizeConstraint {
+		local function maximum(value: Types.ValueNumber?, name: string, use: ComposeTypes.Use): number
+			if value == nil then
+				return math.huge
+			end
+			local pixels = read(value, use)
+			assert(
+				type(pixels) == "number" and pixels >= 0 and pixels < math.huge,
+				`Facet {name} must be a finite number of pixels, 0 or more`
+			)
+			return pixels
+		end
+		local constraint = Host.UISizeConstraint {
 			MaxSize = function(use: ComposeTypes.Use): Vector2
-				local value = read(maxWidth, use)
-				assert(
-					type(value) == "number" and value >= 0 and value < math.huge,
-					"Facet maxWidth must be a finite number of pixels, 0 or more"
-				)
-				return V2.new(value, math.huge)
+				return V2.new(maximum(limits.maxWidth, "maxWidth", use), maximum(limits.maxHeight, "maxHeight", use))
 			end,
 		}
-		return properties
+		properties[#properties + 1] = constraint
+		return properties, constraint
 	end
 	local function split(
 		spec: { [number]: ComposeTypes.Child? },
 		keys: { string }
-	): ({ [unknown]: unknown }, { ComposeTypes.Child })
+	): ({ [unknown]: unknown }, { ComposeTypes.Child }, UISizeConstraint?)
 		local fields = spec :: { [unknown]: unknown }
 		local named: { [unknown]: unknown } = {}
 		local children: { ComposeTypes.Child } = {}
@@ -119,7 +127,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		for index = 1, #fields do
 			children[index] = spec[index]
 		end
-		return containerProps(named, keys), children
+		local properties, constraint = containerProps(named, keys)
+		return properties, children, constraint
 	end
 	local CORNERS: { [string]: string } = { surface = "radii.control", panel = "radii.panel" }
 	local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
@@ -470,7 +479,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end
 
 	UI.ScrollView = ctx.construct("ScrollView", function(spec: LayoutProps.ScrollViewProps): ScrollingFrame
-		local properties, children = split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
+		local properties, children, limit =
+			split(spec, { "axis", "gap", "padding", "align", "distribute", "width", "height" })
 		local axis = spec.axis or "y"
 		assert(axis == "x" or axis == "y" or axis == "xy", "Facet ScrollView axis must be x, y or xy")
 		local scaled = false
@@ -561,24 +571,26 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				ctx.observeStyled :: unknown
 			) :: { ScrollBarThickness: (ScrollingFrame) -> ComposeTypes.Value<number> }
 			local thickness = scrollStyle.ScrollBarThickness(frame)
-			if frame:FindFirstChildWhichIsA("UISizeConstraint") == nil then
-				runtime.mount(function()
-					return Host.UISizeConstraint "ScrollBarRoom" {
-						MinSize = function(use: ComposeTypes.Use): Vector2
-							local free = use(mode) == E.AutomaticSize.Y or use(mode) == E.AutomaticSize.XY
-							local scale = use(unit)
-							local extent, viewport = use(content), use(window)
-							return V2.new(
-								0,
-								if free
-										and extent.X > viewport.X
-										and viewport.X > 0
-									then math.ceil(extent.Y / scale) + use(thickness)
-									else 0
-							)
-						end,
-					}
-				end, frame)
+			if limit ~= nil or frame:FindFirstChildWhichIsA("UISizeConstraint") == nil then
+				local minimum = function(use: ComposeTypes.Use): Vector2
+					local free = use(mode) == E.AutomaticSize.Y or use(mode) == E.AutomaticSize.XY
+					local scale = use(unit)
+					local extent, viewport = use(content), use(window)
+					local height = if free
+							and extent.X > viewport.X
+							and viewport.X > 0
+						then math.ceil(extent.Y / scale) + use(thickness)
+						else 0
+					local maximum = read<<number?>>(spec.maxHeight, use)
+					return V2.new(0, math.min(height, maximum or math.huge))
+				end
+				if limit then
+					runtime.decorate(limit, { MinSize = minimum })
+				else
+					runtime.mount(function()
+						return Host.UISizeConstraint "ScrollBarRoom" { MinSize = minimum }
+					end, frame)
+				end
 			end
 			runtime.decorate(frame, {
 				CanvasSize = function(use: ComposeTypes.Use): UDim2

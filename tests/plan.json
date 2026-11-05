@@ -6,6 +6,7 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "capped_scroll", "locator": "tests/capped_scroll.verify.luau", "requires": ["local-luau"] },
     { "id": "lute/ambient", "locator": "tests/lute/ambient.verify.luau", "requires": ["lute"] },
     { "id": "resolution_scale", "locator": "tests/resolution_scale.verify.luau", "requires": ["local-luau"] },
     { "id": "native_game_hud", "locator": "tests/native_game_hud.verify.luau", "requires": ["local-luau"] },

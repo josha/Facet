@@ -47,6 +47,15 @@ local function surface(): { string }
 		table.insert(lines, `controls(runtime).{key} : {kind(controls[key])}`)
 	end
 	runtime:dispose()
+	local designControls = Facet.design().controls
+	for _, name in sortedKeys(designControls) do
+		for _, dimension in { "maxWidth", "maxHeight" } do
+			local field = designControls[name].fields[dimension]
+			if field then
+				table.insert(lines, `design().controls.{name}.fields.{dimension} : {field.type}`)
+			end
+		end
+	end
 	local types: { string } = {}
 	for name in string.gmatch(fs.readFileToString(INIT), "\nexport type ([%w_]+)") do
 		table.insert(types, name)

@@ -25,7 +25,28 @@ table bodies and overlay content. The inner control becomes available again
 when the touch ends. A disabled scroll ancestor blocks the handoff. Mouse wheel
 scrolling uses the native engine behavior.
 Options: `axis`, `gap`, `padding`,
-`align`, `distribute`, `width` and `height`.
+`align`, `distribute`, `width`, `height`, `maxWidth` and `maxHeight`.
+
+Set `height = "hug"` with `maxHeight` to grow the window with its content up
+to a limit, then scroll the remaining content. An empty window has zero height
+unless padding, a native minimum size or other authored properties add space.
+The maximum dimensions accept bound finite numbers of pixels, zero or more.
+An omitted maximum leaves that axis unbounded. Facet uses one native
+`UISizeConstraint` for both limits and keeps `AutomaticSize` and
+`AutomaticCanvasSize`. A maximum does not change the default fill sizing.
+Set the cap from the room available in the parent when it must follow a device
+resize. Use content with a natural height on the hugging axis.
+
+For example, this panel fills its parent width up to 360 pixels and hugs rows
+up to 240 pixels high. These limits assume that much room is available:
+
+```luau
+UI.ScrollView "Rows" {
+    width = "fill", height = "hug", maxWidth = 360, maxHeight = 240,
+    gap = "s",
+    table.unpack(rows),
+}
+```
 
 A ScrollingFrame clips its canvas. When the theme's panel or control plates
 draw past their bounds, through a `chrome` shadow or a theme rule's `UIStroke`,

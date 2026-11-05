@@ -250,4 +250,60 @@ add("scroll-view-canvas-and-stretch", {}, function(t)
 	t.check("the stretched label wraps", line.TextBounds.Y > line.TextSize * 1.5, line.TextBounds)
 end)
 
+add("scroll-view-capped-natural-height", {}, function(t)
+	for _, size in { Vector2.new(280, 480), Vector2.new(700, 340), Vector2.new(1200, 800) } do
+		for _, textSize in { 16, 28 } do
+			for _, count in { 0, 3, 50 } do
+				local cap = math.min(240, size.Y - 80)
+				local stage = t.mount(function(UI: FacetControls)
+					local children: { Instance } = {}
+					for index = 1, count do
+						table.insert(
+							children,
+							UI.Text "Row" {
+								text = `Record {index}`,
+								TextSize = textSize,
+							}
+						)
+					end
+					return UI.ScrollView "Capped" {
+						width = "fill",
+						height = "hug",
+						maxWidth = 360,
+						maxHeight = cap,
+						gap = 0,
+						align = "stretch",
+						table.unpack(children),
+					}
+				end, { size = size, frames = 16 })
+				local scroll = t.find(stage, "Capped")
+				local layout = assert(scroll:FindFirstChildWhichIsA("UIListLayout"))
+				local natural = layout.AbsoluteContentSize.Y
+				t.near("the maximum width fits the device", scroll.AbsoluteSize.X, math.min(360, size.X), 1)
+				t.near("the height hugs content up to the cap", scroll.AbsoluteSize.Y, math.min(cap, natural), 1)
+				if count == 0 then
+					t.near("the empty panel collapses", scroll.AbsoluteSize.Y, 0, 0.5)
+				elseif count == 3 then
+					t.check("short content has a positive natural height below the cap", natural > 0 and natural < cap)
+				else
+					t.check(
+						"long content exceeds the scroll window",
+						scroll.AbsoluteCanvasSize.Y > scroll.AbsoluteWindowSize.Y
+					)
+					scroll.CanvasPosition = Vector2.new(0, scroll.AbsoluteCanvasSize.Y)
+					t.settle(8)
+					t.check("the capped panel scrolls to its last row", scroll.CanvasPosition.Y > 0)
+					t.near(
+						"the last row is reachable",
+						scroll.CanvasPosition.Y + scroll.AbsoluteWindowSize.Y,
+						scroll.AbsoluteCanvasSize.Y,
+						1
+					)
+				end
+				t.cleanup()
+			end
+		end
+	end
+end)
+
 return cases

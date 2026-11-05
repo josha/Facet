@@ -5,7 +5,10 @@
 `UI.AdaptiveStack(spec) -> Frame` is a stack that changes its axis. The
 children stay mounted when it turns, so they keep their state, focus and
 scroll position. Options: `axis`, `gap`, `padding`, `align`, `distribute`,
-`width` and `height`. The props type is `AdaptiveStackProps`.
+`width`, `height`, `maxWidth` and `maxHeight`. The props type is `AdaptiveStackProps`.
+The maximum dimensions accept bound finite numbers of pixels, zero or more,
+and set a native `UISizeConstraint`. An omitted maximum leaves that axis
+unbounded. These limits cap the frame; they do not scroll its children.
 
 - `axis` is `"x"` or `"y"` and can be bound. The stack then turns when the
   value changes. Any other value causes an error.

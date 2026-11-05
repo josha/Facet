@@ -47,6 +47,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "stretch" },
 			},
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
+			maxHeight = { type = "number", label = "Maximum height", order = 17 },
 			distribute = {
 				type = "choice",
 				label = "Distribution",
@@ -622,6 +623,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "stretch" },
 			},
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
+			maxHeight = { type = "number", label = "Maximum height", order = 17 },
 			distribute = {
 				type = "choice",
 				label = "Distribution",
@@ -1234,6 +1236,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "stretch" },
 			},
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
+			maxHeight = { type = "number", label = "Maximum height", order = 16 },
 			distribute = {
 				type = "choice",
 				label = "Distribution",
@@ -1722,6 +1725,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "start", "center", "end", "stretch" },
 			},
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
+			maxHeight = { type = "number", label = "Maximum height", order = 17 },
 			distribute = {
 				type = "choice",
 				label = "Distribution",
@@ -1876,6 +1880,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			alignH = { type = "choice", label = "Horizontal", order = 4, options = { "start", "center", "end" } },
 			alignV = { type = "choice", label = "Vertical", order = 5, options = { "start", "center", "end" } },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
+			maxHeight = { type = "number", label = "Maximum height", order = 13 },
 		}),
 	},
 }

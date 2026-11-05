@@ -264,6 +264,26 @@ controls(runtime).shake : function
 controls(runtime).toward : function
 controls(runtime).worldAnchor : function
 controls(runtime).worldSurface : function
+design().controls.AdaptiveStack.fields.maxWidth : number
+design().controls.AdaptiveStack.fields.maxHeight : number
+design().controls.Alert.fields.maxWidth : number
+design().controls.ErrorBoundary.fields.maxWidth : number
+design().controls.Grid.fields.maxWidth : number
+design().controls.Group.fields.maxWidth : number
+design().controls.HStack.fields.maxWidth : number
+design().controls.HStack.fields.maxHeight : number
+design().controls.Menu.fields.maxHeight : number
+design().controls.Picker.fields.maxHeight : number
+design().controls.Popover.fields.maxWidth : number
+design().controls.Popover.fields.maxHeight : number
+design().controls.Screen.fields.maxWidth : number
+design().controls.ScrollView.fields.maxWidth : number
+design().controls.ScrollView.fields.maxHeight : number
+design().controls.VStack.fields.maxWidth : number
+design().controls.VStack.fields.maxHeight : number
+design().controls.ViewThatFits.fields.maxWidth : number
+design().controls.ZStack.fields.maxWidth : number
+design().controls.ZStack.fields.maxHeight : number
 type ActionRole
 type Activate
 type Adaptive
