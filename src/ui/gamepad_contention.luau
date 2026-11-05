@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local freeze = require("./freeze")
 
 type LegacyControls = { Disable: (LegacyControls) -> () }
@@ -47,7 +48,7 @@ local ARROWS = {
 local DEFAULT_CONTEXTS = { "CharacterContext", "CameraContext", "VehicleContext" }
 
 local function model(): DataModel
-	local game: DataModel? = getfenv(0).game
+	local game: DataModel? = dataModel()
 	return assert(game, "no game here")
 end
 

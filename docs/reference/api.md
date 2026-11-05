@@ -5,9 +5,18 @@ recipe or control node. With a shell, run `lute run tools/facet docs` to read th
 map, or `lute run tools/facet docs --search TEXT` to find a name. This page
 summarizes entry points and types that several nodes share.
 
+`Facet.Compose.cubicBezier(x1, y1, x2, y2)` returns an easing function for
+Compose motion. All control points must be finite. The x coordinates must be
+in `[0, 1]`; the y coordinates can produce overshoot.
+
 Theme readers accept `Facet.ReadOnlyThemePackage`, the shallow readonly view of
 `Facet.ThemePackage`. Theme authoring keeps the mutable package type. A frozen
 package does not need a copy before a control reads it.
+
+`UI.Group` returns a native CanvasGroup. Its `groupTransparency` option accepts
+a readable number and fades the children together. `Facet.GroupProps` types
+its properties. See [Group](nodes/Group.reference.md) for clipping, texture
+costs and Design bindings.
 
 Use `UI.shake(targets, options?)` for brief feedback on existing tile faces.
 `targets` is a `{ GuiObject }` array or a readable array. `Facet.ShakeOptions`
@@ -24,7 +33,9 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 
 `Facet.design()` returns the design kit: `Design` (Compose Design), `library(context)`, `controls`, `seeds` and `motion(UI)`. `motion(UI)` gives a library context the `Facet.DesignMotion` that moves designed values and plays designed sequences with the theme's motion. `Facet.DesignSequence` and `Facet.DesignPlayer` type a designed sequence and its player.
 
-`Facet.composeDesign()` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles (phone, tablet, monitor, 10-foot TV, handheld and VR, with their insets and input mode), and Theme and Text size previews. `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
+`Facet.composeDesign(options?)` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles, and Theme and Text size previews. Pass `Facet.DesignStudioOptions` with `registry`, `samples`, and optional `stages`, `themes`, `textSizes` and `capture` to open host Designs in that workspace. `kit.edit(parent, name, link?)` returns the Compose editor as `Facet.DesignStudioEditor`, with `execute`, `canvas`, `session`, `nested` and `dispose`. Commands and visible controls share selections and structured readback. See [host Design workspace](nodes/Design-workspace.md).
+
+`Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).
 
 `Facet.StyleTags` types fixed or live style tags: a string, a string list,
@@ -38,11 +49,20 @@ includes native `Model`, `Part`, `PointLight`, `SurfaceLight`, `Texture` and
 `Decal` kinds. `Pagination` accepts
 positional children, including `UIFlexItem`.
 
+`ZoomView.preferredSelection` sets its optional console entry target. D-pad
+or A on the root enters that visible selectable or the selectable nearest
+the viewport centre. NavigationSplitView's divider is pointer-only.
+
 `Facet.DesignContext.extension` accepts a `Facet.DesignExtension`. It uses
 Compose Design's `extend` API to add consumer kinds and their source prelude.
 `Facet.DesignKind` types a kind and its fields. `Facet.DesignResolved` types
 the props that its editor builder receives. Pass the same extended library to
 emit, parse, render and the Design editor. Existing kind names cannot be replaced.
+
+`Facet.DesignContext.designs` maps kind names to `Facet.DesignRegistered`
+entries. Each entry supplies a registered Design contract, source call and
+builder. The builder receives the same controls, resolved props and node name.
+See [registered Designs](nodes/Design-library.extensions.md#registered-designs).
 
 `Path.points` and `RadialMenu.skin` accept whole theme tokens. A points token
 can hold a list whose curve handles come from theme values. A skin token holds
@@ -71,6 +91,14 @@ controls. Explicit options, including `{}`, always make fresh controls.
 Compose owners. It returns the results of `body()`. A nested provider replaces
 the controls for the same runtime within its scope. Controls for other runtimes
 stay available. The provider uses the Compose module that made `UI`.
+
+An editor host can set `Facet.controls(runtime, { compositionScope = stage })`
+for each device stage. `compositionScope` is an optional Instance identity for
+Composition region registration, separate from the LayerCollector. Compositions
+in different scopes do not produce duplicate-zone warnings. Compositions in the
+same scope still warn when they place regions in the same zone of one screen.
+Without a scope, the screen checks keep their normal behavior. This option does
+not change layout or the overlay parent.
 
 `Facet.app` provides `app.UI` to mounted components and presented content.
 For a direct Compose mount, call the provider inside the mount:

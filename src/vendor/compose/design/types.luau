@@ -6,6 +6,7 @@ type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 
 export type Literal = string | number | boolean | { [string | number]: Literal }
 export type DatatypeComponent = number | { token: string } | { input: string }
+export type ActionArgument = { item: string, event: nil } | { item: nil, event: number }
 
 export type Value = {
 	literal: Literal?,
@@ -15,6 +16,7 @@ export type Value = {
 	output: string?,
 	args: { Literal }?,
 	fields: { string }?,
+	arguments: { ActionArgument }?,
 	node: string?,
 	nodeFrom: string?,
 	nodes: { string }?,
@@ -72,6 +74,7 @@ export type Children = "none" | "list" | "template" | "slot"
 export type Seed = { kind: string, props: { [string]: Literal }?, children: { Seed }? }
 
 export type Kind = {
+	design: ImportedDesign?,
 	fields: { [string]: Field },
 	defaults: { [string]: Literal }?,
 	seeds: { Seed }?,
@@ -86,12 +89,21 @@ export type Kind = {
 	iteration: { fields: { ItemField } }?,
 	call: string,
 	build: (props: { [string]: Resolved }, children: { unknown }, name: string) -> unknown,
+	selectionTarget: ((built: unknown, use: Core.Use) -> unknown)?,
 }
 
 export type Motion = {
 	call: string,
 	roles: { string },
 	animate: ((source: ReadOnlyValue<Literal?>, role: string) -> ReadOnlyValue<Literal?>)?,
+}
+
+export type ImportedDesign = {
+	source: ReadOnlyValue<string>,
+	library: Library,
+	nameInput: string,
+	contract: Contract,
+	save: ((expected: string, generated: string) -> boolean)?,
 }
 
 export type SequenceStep = {
@@ -214,6 +226,7 @@ export type EmitOptions = {
 }
 
 export type RenderContext = {
+	use: Core.Use?,
 	inputs: { [string]: Literal }?,
 	bindings: { [string]: Resolved }?,
 	outputs: { [string]: (args: { Literal }) -> () }?,

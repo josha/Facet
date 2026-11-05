@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	local Kit = Facet.design()
 	local Design = Kit.Design
 	local engines = require("./lib/native_engine")
+	local overlay = require("./lib/overlay_world")
 
 	type Context = { UI: Facet.Controls, types: typeof(engines.new().types), runtime: Facet.Runtime }
 	type Engine = typeof(engines.new())
@@ -128,12 +129,93 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
-	local function live(ctx: Context, motion: Facet.DesignMotion?): Facet.DesignLibrary
+	local function live(
+		ctx: { UI: Facet.Controls, types: typeof(engines.new().types) },
+		motion: Facet.DesignMotion?
+	): Facet.DesignLibrary
 		return Kit.library({
 			UI = ctx.UI,
 			types = ctx.types,
 			motion = motion,
 		})
+	end
+
+	for _, mode in { "Sheet", "Dialog", "Toast", "ActionToast" } do
+		verifyHarness:case(`resolves the presented {mode} surface inside its preview stage`, function()
+			local presented = Facet.Compose.cell(true)
+			local selected: unknown = nil
+			local anchor: Instance? = nil
+			local stage: Frame? = nil
+			local resolve: ((unknown, Facet.Use) -> unknown)? = nil
+			local function peek<T>(value: Facet.ReadOnlyValue<T>): T
+				return value:peek()
+			end
+			local session = mount(function(ctx: Context): unknown
+				local Host = Facet.host(ctx.runtime)
+				local container = Host.Frame "DeviceStage" { Size = ctx.types.UDim2.fromOffset(480, 320) }
+				stage = container
+				local UI = Facet.controls(ctx.runtime, {
+					types = ctx.types,
+					motionLevel = "none",
+					overlayParent = container,
+					strictBuild = true,
+				})
+				local library = Kit.library({ UI = UI, types = ctx.types })
+				resolve = assert(library.kinds[if mode == "ActionToast" then "Toast" else mode].selectionTarget)
+				ctx.runtime.mount(function(): Instance
+					local built: Frame
+					if mode == "Sheet" then
+						built = UI.Sheet {
+							isPresented = presented,
+							title = "Details",
+							content = function(): Instance
+								return UI.Text { text = "Details" }
+							end,
+						}
+					elseif mode == "Dialog" then
+						built = UI.Dialog { isPresented = presented, title = "Details", closeButton = false }
+					else
+						built = UI.Toast {
+							isPresented = presented,
+							onPresentedChange = function(value: boolean)
+								presented:set(value)
+							end,
+							message = "Saved",
+							duration = 0,
+							action = if mode == "ActionToast"
+								then { label = "Done", onActivate = function() end }
+								else nil,
+						}
+					end
+					anchor = built
+					Facet.Compose.watch(function(use: Facet.Use)
+						selected = assert(resolve)(built, use)
+					end)
+					return built
+				end, container)
+				return container
+			end)
+			local first = selected
+			assert(typeof(first) == "Instance" and first:IsA("GuiObject"))
+			Verify.expect(first == anchor):toBe(false)
+			Verify.expect(first:IsDescendantOf(assert(stage))):toBe(true)
+			Verify.expect(first.Name):toBe(
+				if mode == "Sheet"
+					then "SheetPanel"
+					elseif mode == "Dialog" then "Panel"
+					elseif mode == "Toast" then "ToastRow"
+					else "Snack"
+			)
+			presented:set(false)
+			Verify.expect(selected):toBeNil()
+			presented:set(true)
+			local reopened = selected
+			assert(typeof(reopened) == "Instance" and reopened:IsA("GuiObject"))
+			Verify.expect(reopened:IsDescendantOf(assert(stage))):toBe(true)
+			Verify.expect(reopened == first):toBe(false)
+			session.dispose()
+			Verify.expect(assert(resolve)(anchor, peek)):toBeNil()
+		end)
 	end
 
 	local function documentWith(kinds: { string }, library: Facet.DesignLibrary): Facet.DesignDocument
@@ -486,6 +568,360 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("round trips Button hover and selection actions without activation", {
+			id = "facet_compose_library::round trips Button hover and selection actions without activation",
+			run = function(test: Verify.Context)
+				local exercise: (() -> ())? = nil
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					local value =
+						Design.document.setContract(Design.document.new("Preview", library, "Button"), library, {
+							inputs = {},
+							outputs = {
+								{ id = "onEnter", args = { "number", "number" } },
+								{ id = "onLeave", args = { "number", "number" } },
+								{ id = "onFocus" },
+								{ id = "onActivate" },
+							},
+						})
+					local events: { [string]: string } = {
+						MouseEnter = "onEnter",
+						MouseLeave = "onLeave",
+						SelectionGained = "onFocus",
+					}
+					for event, output in events do
+						value = Design.document.change(value, library, "n1", event, { output = output })
+					end
+					value = Design.document.change(value, library, "n1", "onActivate", { output = "onActivate" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					for event, output in events do
+						Verify.expect(Kit.controls.Button.fields[event].type):toBe("event")
+						Verify.expect(library.kinds.Button.fields[event].type):toBe("event")
+						Verify.expect(parsed.root.props[event].output):toBe(output)
+					end
+					local entered, left, focused, activated = 0, 0, 0, 0
+					local built = Design.render(parsed, library, {
+						outputs = {
+							onEnter = function(args: { Facet.DesignLiteral })
+								entered += 1
+								Verify.expect(args):toEqual({ 24, 36 })
+							end,
+							onLeave = function(args: { Facet.DesignLiteral })
+								left += 1
+								Verify.expect(args):toEqual({ 140, 90 })
+							end,
+							onFocus = function(args: { Facet.DesignLiteral })
+								focused += 1
+								Verify.expect(args):toEqual({})
+							end,
+							onActivate = function()
+								activated += 1
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance" and built:IsA("TextButton"))
+					exercise = function()
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "MouseEnter", 24, 36)
+						Verify.expect(entered):toBe(1)
+						Verify.expect(left):toBe(0)
+						Verify.expect(focused):toBe(0)
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "MouseLeave", 140, 90)
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "SelectionGained")
+						ctx.runtime:settle()
+						Verify.expect(entered):toBe(1)
+						Verify.expect(left):toBe(1)
+						Verify.expect(focused):toBe(1)
+						Verify.expect(activated):toBe(0)
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "Activated")
+						Verify.expect(activated):toBe(1)
+					end
+					return built
+				end).dispose)
+				assert(exercise)()
+			end,
+		})
+
+		verifyHarness:case("round trips Sheet initialFocus and selects the named action on opening", {
+			id = "facet_compose_library::round trips Sheet initialFocus and selects the named action on opening",
+			run = function(test: Verify.Context)
+				local shown = Facet.Compose.cell(false)
+				local world = overlay.new(function(UI, _Host, engine)
+					local library = live({ UI = UI, types = engine.types })
+					local value =
+						Design.document.setContract(Design.document.new("Actions", library, "Sheet"), library, {
+							inputs = { { id = "shown", kind = "cell", type = "boolean", required = true } },
+							outputs = {},
+						})
+					value = Design.document.change(value, library, "n1", "isPresented", { input = "shown" })
+					value = Design.document.change(value, library, "n1", "placement", { literal = "center" })
+					value = Design.document.change(value, library, "n1", "closeButton", { literal = true })
+					local body: string
+					value, body = Design.document.insert(value, library, "n1", "VStack")
+					for _, name in { "First", "Chosen" } do
+						local action: string
+						value, action = Design.document.insert(value, library, body, "Button")
+						value = Design.document.rename(value, library, action, name)
+					end
+					value = Design.document.change(value, library, "n1", "initialFocus", { literal = "Chosen" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					Verify.expect(Kit.controls.Sheet.fields.initialFocus.type):toBe("string")
+					Verify.expect(library.kinds.Sheet.fields.initialFocus.type):toBe("string")
+					Verify.expect(parsed.root.props.initialFocus.literal):toBe("Chosen")
+					local built = Design.render(parsed, library, { bindings = { shown = { readable = shown } } })
+					assert(typeof(built) == "Instance")
+					return built
+				end, { motionLevel = "none" })
+				test:defer(world.stop)
+				world.engine.environment.poke(world.input, "PreferredInput", world.Enum.PreferredInput.Gamepad)
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				for _ = 1, 2 do
+					shown:set(true)
+					world.advance(1 / 60, 3)
+					local chosen = world.find("Chosen")
+					Verify.expect(chosen ~= nil):toBe(true)
+					Verify.expect(if world.gui.SelectedObject then world.gui.SelectedObject.Name else "nil")
+						:toBe("Chosen")
+					Verify.expect(world.gui.SelectedObject == chosen):toBe(true)
+					shown:set(false)
+					world.advance(1 / 60, 3)
+				end
+			end,
+		})
+
+		verifyHarness:case("forwards native TextInput edits and focus through Design events", {
+			id = "facet_compose_library::forwards native TextInput edits and focus through Design events",
+			run = function(test: Verify.Context)
+				local exercise: (() -> ())? = nil
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					local value =
+						Design.document.setContract(Design.document.new("Editor", library, "VStack"), library, {
+							inputs = {
+								{
+									id = "rows",
+									kind = "readable",
+									type = "list",
+									required = true,
+									fields = { { id = "rowKey", type = "string" }, { id = "text", type = "string" } },
+								},
+							},
+							outputs = {
+								{ id = "onEdit", args = { "string" } },
+								{ id = "onFocus", args = { "string" } },
+							},
+						})
+					local rowId: string
+					value, rowId = Design.document.insert(value, library, "n1", "TextInput")
+					value = Design.document.bind(value, library, "n1", { from = "rows", key = "rowKey" })
+					value = Design.document.change(value, library, rowId, "value", { item = "text" })
+					value = Design.document.change(value, library, rowId, "onChange", { output = "onEdit" })
+					value = Design.document.change(
+						value,
+						library,
+						rowId,
+						"Focused",
+						{ output = "onFocus", fields = { "rowKey" } }
+					)
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					local row = { rowKey = "r1", text = "Before" }
+					local edits, focused = 0, 0
+					local built = Design.render(parsed, library, {
+						inputs = { rows = { row } },
+						outputs = {
+							onEdit = function(args: { Facet.DesignLiteral })
+								edits += 1
+								Verify.expect(args):toEqual({ "After" })
+							end,
+							onFocus = function(args: { Facet.DesignLiteral })
+								focused += 1
+								Verify.expect(args):toEqual({ "r1" })
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance")
+					local input = assert(built:FindFirstChild("TextInput", true))
+					assert(input:IsA("TextBox"))
+					exercise = function()
+						engine.environment.fire(VerifyRoblox.assertInstance(input), "Focused")
+						input.Text = "After"
+						ctx.runtime:settle()
+						Verify.expect(edits):toBe(1)
+						Verify.expect(focused):toBe(1)
+						Verify.expect(row.text):toBe("Before")
+					end
+					return built
+				end).dispose)
+				assert(exercise)()
+			end,
+		})
+
+		verifyHarness:case("round trips Toggle requests from readable inputs to one named host action", {
+			id = "facet_compose_library::round trips Toggle requests from readable inputs to one named host action",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					Verify.expect(Kit.controls.Toggle.fields.onChange.type):toBe("event")
+					Verify.expect(library.kinds.Toggle.fields.onChange.type):toBe("event")
+					local value =
+						Design.document.setContract(Design.document.new("Setting", library, "Toggle"), library, {
+							inputs = { { id = "checked", kind = "readable", type = "boolean", required = true } },
+							outputs = { { id = "onChecked", args = { "boolean" } } },
+						})
+					value = Design.document.change(value, library, "n1", "presentation", { literal = "button" })
+					value = Design.document.change(value, library, "n1", "value", { input = "checked" })
+					value = Design.document.change(value, library, "n1", "onChange", { output = "onChecked" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					Verify.expect(parsed.root.props.value.input):toBe("checked")
+					Verify.expect(parsed.root.props.onChange.output):toBe("onChecked")
+					local checked = Facet.Compose.cell(false)
+					local readable = Facet.Compose.formula(function(use: Facet.Use): boolean
+						return use(checked)
+					end)
+					local calls = 0
+					local built = Design.render(parsed, library, {
+						bindings = { checked = { readable = readable } },
+						outputs = {
+							onChecked = function(args: { Facet.DesignLiteral })
+								calls += 1
+								Verify.expect(args):toEqual({ true })
+								local nextValue = args[1]
+								assert(type(nextValue) == "boolean")
+								checked:set(nextValue)
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance" and built:IsA("TextButton"))
+					Verify.expect(built:HasTag("facet-selected")):toBe(false)
+					engine.environment.fire(VerifyRoblox.assertInstance(built), "Activated")
+					Verify.expect(calls):toBe(1)
+					Verify.expect(checked:peek()):toBe(true)
+					Verify.expect(built:HasTag("facet-selected")):toBe(true)
+					checked:set(false)
+					Verify.expect(built:HasTag("facet-selected")):toBe(false)
+					Verify.expect(calls):toBe(1)
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("round trips generic Picker changes with readable options and one named host action", {
+			id = "facet_compose_library::round trips generic Picker changes with readable options and one named host action",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					Verify.expect(Kit.controls.Picker.fields.onChange.type):toBe("event")
+					Verify.expect(library.kinds.Picker.fields.onChange.type):toBe("event")
+					local value =
+						Design.document.setContract(Design.document.new("Setting", library, "Picker"), library, {
+							inputs = {
+								{ id = "selected", kind = "cell", type = "string", required = true },
+								{
+									id = "options",
+									kind = "readable",
+									type = "list",
+									required = true,
+									fields = { { id = "label", type = "string" }, { id = "value", type = "string" } },
+								},
+							},
+							outputs = { { id = "onSelected", args = { "string" } } },
+						})
+					value = Design.document.change(value, library, "n1", "selected", { input = "selected" })
+					value = Design.document.change(value, library, "n1", "options", { input = "options" })
+					value = Design.document.change(value, library, "n1", "onChange", { output = "onSelected" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					Verify.expect(parsed.root.props.options.input):toBe("options")
+					Verify.expect(parsed.root.props.onChange.output):toBe("onSelected")
+					local selected = Facet.Compose.cell("first")
+					local options: Facet.DesignLiteral = {
+						{ label = "First", value = "first" },
+						{ label = "Second", value = "second" },
+					}
+					local sourceOptions = Facet.Compose.cell(options)
+					local readableOptions = Facet.Compose.formula(function(use: Facet.Use): Facet.DesignLiteral
+						return use(sourceOptions)
+					end)
+					local calls = 0
+					local built = Design.render(parsed, library, {
+						bindings = { selected = { readable = selected }, options = { readable = readableOptions } },
+						outputs = {
+							onSelected = function(args: { Facet.DesignLiteral })
+								calls += 1
+								Verify.expect(args):toEqual({ "second" })
+								Verify.expect(selected:peek()):toBe("second")
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance")
+					local second = assert(built:FindFirstChild("second", true))
+					assert(second:IsA("TextButton"))
+					Verify.expect(second:HasTag("facet-selected")):toBe(false)
+					engine.environment.fire(VerifyRoblox.assertInstance(second), "Activated")
+					Verify.expect(calls):toBe(1)
+					Verify.expect(selected:peek()):toBe("second")
+					Verify.expect(second:HasTag("facet-selected")):toBe(true)
+					engine.environment.fire(VerifyRoblox.assertInstance(second), "Activated")
+					Verify.expect(calls):toBe(1)
+					selected:set("first")
+					Verify.expect(second:HasTag("facet-selected")):toBe(false)
+					Verify.expect(calls):toBe(1)
+					sourceOptions:set({ { label = "First", value = "first" }, { label = "Updated", value = "second" } })
+					local label = assert(second:FindFirstChild("Title", true))
+					assert(label:IsA("TextLabel"))
+					Verify.expect(label.Text):toBe("Updated")
+					Verify.expect(calls):toBe(1)
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("imports edits exports and renders readable group transparency", {
+			id = "facet_compose_library::imports edits exports and renders readable group transparency",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context): unknown
+					local library = live(ctx)
+					Verify.expect(library.kinds.Group.children):toBe("list")
+					Verify.expect(library.kinds.Group.fields.groupTransparency.type):toBe("number")
+					local value = Design.document.setContract(Design.document.new("Strip", library, "Group"), library, {
+						inputs = { { id = "dim", kind = "readable", type = "number", required = true } },
+						outputs = {},
+					})
+					for _, kind in { "Image", "Text", "Button" } do
+						value = Design.document.insert(value, library, "n1", kind)
+					end
+					value = Design.document.change(value, library, "n1", "groupTransparency", { input = "dim" })
+					local source = Design.emit(value, library)
+					value = Design.parse(source, library)
+					Verify.expect(Design.emit(value, library)):toBe(source)
+					value = Design.document.change(value, library, "n1", "groupTransparency", { literal = 0.7 })
+					local edited = Design.emit(value, library)
+					Verify.expect(Design.emit(Design.parse(edited, library), library)):toBe(edited)
+					Verify.expect(edited == source):toBe(false)
+					value = Design.document.change(value, library, "n1", "groupTransparency", { input = "dim" })
+					Verify.expect(Design.emit(value, library)):toBe(source)
+					local dim = Facet.Compose.cell(0.4)
+					local built = Design.render(value, library, { bindings = { dim = { readable = dim } } })
+					assert(typeof(built) == "Instance" and built:IsA("CanvasGroup"))
+					Verify.expect(built.GroupTransparency):toBe(0.4)
+					Verify.expect(built:FindFirstChild("Image") ~= nil):toBe(true)
+					Verify.expect(built:FindFirstChild("Text") ~= nil):toBe(true)
+					Verify.expect(built:FindFirstChild("Button") ~= nil):toBe(true)
+					dim:set(0.8)
+					Verify.expect(built.GroupTransparency):toBe(0.8)
+					return built
+				end).dispose)
+			end,
+		})
+
 		verifyHarness:case("keeps Pagination native children through source and rendering", {
 			id = "facet_compose_library::keeps Pagination native children through source and rendering",
 			run = function(test: Verify.Context)
@@ -739,6 +1175,78 @@ return function(verifyHarness: Verify.Harness)
 					)
 					ctx.runtime:settle()
 					Verify.expect(skin.Image):toBe("rbxassetid://101")
+					return built
+				end).dispose)
+			end,
+		})
+
+		verifyHarness:case("composes registered host Designs with shared controls and named actions", {
+			id = "facet_compose_library::composes registered host Designs with shared controls and named actions",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local balance = Facet.Compose.cell(42)
+					local chosen = 0
+					local registration: Facet.DesignRegistered = {
+						contract = {
+							inputs = {
+								{ id = "label", kind = "value", type = "string", preview = "Open" },
+								{ id = "balance", kind = "readable", type = "number", preview = 0 },
+							},
+							outputs = { { id = "onChoose" } },
+						},
+						call = "Game.Surface",
+						prelude = { 'local Game = require "../GameDesigns"' },
+						build = function(UI: unknown, props: { [string]: unknown }, name: string): unknown
+							Verify.expect(UI == ctx.UI):toBe(true)
+							Verify.expect(props.balance == balance):toBe(true)
+							local label = props.label
+							local callback = props.onChoose :: (...Facet.DesignLiteral) -> ()
+							assert(type(label) == "string")
+							return ctx.UI.Button(name) {
+								label = label,
+								onActivate = function()
+									callback()
+								end,
+							}
+						end,
+					}
+					local library =
+						Kit.library({ UI = ctx.UI, types = ctx.types, designs = { Surface = registration } })
+					local value =
+						Design.document.setContract(Design.document.new("Parent", library, "VStack"), library, {
+							inputs = {
+								{ id = "title", kind = "value", type = "string", required = true },
+								{ id = "balance", kind = "readable", type = "number", required = true },
+							},
+							outputs = { { id = "onOpen" } },
+						})
+					value = Design.document.insert(value, library, "n1", "Surface")
+					local child = value.root.children[#value.root.children]
+					value = Design.document.change(value, library, child.id, "label", { input = "title" })
+					value = Design.document.change(value, library, child.id, "balance", { input = "balance" })
+					value = Design.document.change(value, library, child.id, "onChoose", { output = "onOpen" })
+					local code = Design.emit(value, library)
+					Verify.expect(string.find(code, 'Game.Surface "Surface"', 1, true) ~= nil):toBe(true)
+					Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+					local built = Design.render(value, library, {
+						inputs = { title = "Edit row" },
+						bindings = { balance = { readable = balance } },
+						outputs = {
+							onOpen = function()
+								chosen += 1
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance")
+					local button = assert(built:FindFirstChild("Surface"))
+					assert(button:IsA("TextButton"))
+					Verify.expect(button.Text):toBe("Edit row")
+					engine.environment.fire(VerifyRoblox.assertInstance(button), "Activated")
+					Verify.expect(chosen):toBe(1)
+					Verify.expect(offline().kinds.Surface):toBe(nil)
+					local collision: Facet.DesignContext = { UI = {}, designs = { Text = registration } }
+					local ok = pcall(Kit.library, collision)
+					Verify.expect(ok):toBe(false)
 					return built
 				end).dispose)
 			end,

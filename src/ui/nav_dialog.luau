@@ -8,6 +8,7 @@ local parts = require("./overlay_parts")
 local freeze = require("./freeze")
 local OverlayProps = require("./overlay_props")
 local keyboardInset = require("./keyboard_inset")
+local visualTarget = require("./visual_target")
 
 local KEYS = {
 	"isPresented",
@@ -97,6 +98,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local root = Host.Frame(
 			ctx.props(spec, KEYS, { Name = "Dialog", BackgroundTransparency = 1, Size = D2.fromOffset(0, 0) })
 		)
+		visualTarget.create(Compose, root)
 		local function wanted(): boolean
 			return read(spec.isPresented) == true
 		end
@@ -407,6 +409,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					presentation = cached
 				end
 				local current = assert(cached).build(phase)
+				visualTarget.bind(Compose, root, current.panel)
 				local candidates: { parts.Candidate } = {}
 				for _, action in actions do
 					local candidate: parts.Candidate =

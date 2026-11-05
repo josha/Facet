@@ -114,7 +114,7 @@ local function create(
 	ui.set(status, "Name", "PromptStatus")
 	Theme.place(status, panel, ui.values.udim2(1, -176, 0, 32), ui.values.udim2(0, 12, 0, 100))
 	local disposed, busy = false, false
-	local draft: { dispose: () -> () }? = nil
+	local draft: { dispose: () -> (), choose: (number) -> () }? = nil
 	local function clear()
 		if draft then
 			draft.dispose()
@@ -148,24 +148,25 @@ local function create(
 			end
 		end)
 	end
-	local connection = ui.connect(send, "Activated", function()
-		if busy then
-			return
-		end
-		local text = ui.text(field, "Text")
-		if not string.find(text, "%S") or #text > 8000 then
-			ui.set(status, "Text", "Enter a request of up to 8000 characters")
-			return
-		end
-		local ok, request = pcall(snapshot, session, canvas.current().device, options.designPath, text)
-		if not ok then
-			ui.set(status, "Text", "Select a Design node first")
-			return
-		end
+	local function submit(text: string, requestedCount: number?, theme: boolean?)
+		assert(not disposed and not busy, "Prompt is busy or closed")
+		assert(string.find(text, "%S") and #text <= 8000, "Enter a request of up to 8000 characters")
+		assert(
+			requestedCount == nil or requestedCount == 1 or requestedCount == 2 or requestedCount == 3,
+			"Choose one, two or three variants"
+		)
+		local request = snapshot(session, canvas.current().device, options.designPath, text)
+		local themeRequest = if theme == nil then theming else theme
+		local submit: (Request) -> Result = if themeRequest
+			then assert(options.theme, "Theme prompt requires a provider")
+			else options.submit
 		busy = true
 		clear()
-		request.count = if theming then 1 elseif request.count > 1 then request.count else count
-		local submit: (Request) -> Result = if theming then assert(options.theme) else options.submit
+		request.count = if themeRequest
+			then 1
+			elseif requestedCount then requestedCount
+			elseif request.count > 1 then request.count
+			else count
 		ui.set(send, "Text", "Working...")
 		ui.set(status, "Text", "Capturing the selected frame")
 		ui.runtime.scheduler(ui.owner).after(0, function()
@@ -189,6 +190,15 @@ local function create(
 				ui.set(status, "Text", if submitted then message else "Prompt failed; source preserved")
 			end
 		end)
+	end
+	local connection = ui.connect(send, "Activated", function()
+		if busy then
+			return
+		end
+		local ok, failure = pcall(submit, ui.text(field, "Text"), nil, nil)
+		if not ok then
+			ui.set(status, "Text", tostring(failure))
+		end
 	end)
 	local owner = Compose.createRootOwner(function()
 		Compose.watch(function(use: Compose.Use)
@@ -203,6 +213,14 @@ local function create(
 	end, ui.runtime.reactor)
 	local release = Compose.owner.own(ui.owner, owner.dispose)
 	return {
+		submit = submit,
+		choose = function(index: number)
+			assert(draft, "No draft comparison is open").choose(index)
+		end,
+		discard = clear,
+		read = function(): { busy: boolean, drafts: boolean, status: string }
+			return { busy = busy, drafts = draft ~= nil, status = ui.text(status, "Text") }
+		end,
 		dispose = function()
 			disposed = true
 			clear()

@@ -1,43 +1,40 @@
 # Tasks.safe-layout
 
-Keep controls usable with touch and a gamepad.
+Keep touch actions clear of native movement controls.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
-local C = Facet.Compose
 local app = Facet.app({ name = "Game" })
-local UI = app.UI
 app.mount(function()
-  local bottomClearance = C.cell(0)
-  return UI.Screen "Root" {
-    padding = function(use: Facet.Use): Facet.Sides
-      return { bottom = use(bottomClearance) }
-    end,
-    UI.AdaptiveStack "Actions" { width = "fill", gap = "s", padding = "m",
-      UI.Text "Help" { text = "Choose an action", wrap = true },
-      UI.Button "Play" { label = "Play", onActivate = function() print("Play") end },
+  local UI = app.UI
+  return UI.Composition "HUD" {
+    UI.Region "Actions" { zone = "action", rank = 1,
+      UI.VStack { gap = "s", align = "stretch",
+        UI.Button { label = "Continue", onActivate = function() print("Continue") end },
+        UI.Button { label = "Help", onActivate = function() print("Help") end },
+      },
     },
   }
 end)
 script.Destroying:Connect(app.dispose)
 ```
 
-Facet.app uses CoreUISafeInsets and disables fullscreen compatibility
-expansion. This clears device cutouts and core UI, not movement or action
-buttons. Modal scrim paint and a Screen `surface` cover the screen; dismissal
-and content stay in the safe area.
+Facet.app uses CoreUISafeInsets and SafeAreaCompatibility.None for device
+cutouts and core UI. Screen with default `chrome = "device"` and Composition
+also reserve the bottom band occupied by visible Roblox TouchGui buttons and
+thumbstick regions when UserInputService.TouchEnabled is true. They observe
+native bounds, visibility and lifetime. Rotation updates the clearance.
+Nested surfaces add only clearance that their own bounds still overlap.
+Bottom actions stay grouped above these controls; the world stays visible.
 
-Keep game-owned HUD and controls in one Composition. For persistent game
-chrome outside it, bind Screen.padding to the game's known clearance in
-layout pixels. The example's bottomClearance starts at zero; update it from
-the game's control layout. It does not measure Roblox's default Jump button.
-Do not poll native touch controls to calculate padding.
+This policy applies to ScreenGui content in PlayerGui. Plugin and world
+surfaces do not reserve touch space. Screen `chrome = "band"` or `"edge"`
+opts out; keep interactive content in safe children. Game-owned controls
+outside TouchGui still need authored `padding`.
 
-Give regions a short landscape form as well as a narrow portrait form.
-Composition selects from measured room and restores richer forms when they
-fit. Check portrait, landscape and the return to portrait with movement and
-Jump visible, including after panel dismissal. Use UI.environment for room
-and input. Do not branch on the device or bind Escape or gamepad Start.
+Keep one Composition per HUD. Supply shorter region forms when the remaining
+height is small. Check native-control clearance after rotation and dismissal
+with actual touch input. A capture alone does not prove activation.
 
 - [Tasks.hud](Tasks.hud.md)
 - [Composition.layout.step-down](Composition.layout.step-down.md)

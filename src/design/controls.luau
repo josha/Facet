@@ -228,6 +228,9 @@ local controls: { [string]: Types.ControlSpec } = {
 			help = { type = "value", label = "Help", order = 24, format = "json" },
 			cooldown = { type = "value", label = "Cooldown", order = 35, format = "json" },
 			charges = { type = "number", label = "Charges", order = 36 },
+			MouseEnter = { type = "event", label = "Pointer entered", order = 37 },
+			MouseLeave = { type = "event", label = "Pointer left", order = 38 },
+			SelectionGained = { type = "event", label = "Focus gained", order = 39 },
 			row = { type = "value", label = "Row content", order = 25, format = "json" },
 			controlSize = {
 				type = "choice",
@@ -976,6 +979,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			style = "segmented",
 		},
 		fields = nativeFields(8, {
+			onChange = { type = "event", label = "Changed", order = 25 },
 			selected = { type = "string", label = "Initial selection", order = 1 },
 			options = { type = "value", label = "Options", order = 2, format = "json" },
 			style = {
@@ -1283,6 +1287,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			hero = { type = "value", label = "Hero image", order = 20, format = "json" },
 			actions = { type = "value", label = "Actions", order = 21, format = "json" },
+			initialFocus = { type = "string", label = "Initial focus name", order = 22 },
 		}),
 	},
 	ShortcutHint = {
@@ -1573,6 +1578,8 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "value",
 		defaults = { placeholder = "Your name", value = "" },
 		fields = nativeFields(7, {
+			onChange = { type = "event", label = "Text changed", order = 25 },
+			Focused = { type = "event", label = "Focused", order = 26 },
 			value = { type = "string", label = "Initial text", order = 1 },
 			placeholder = { type = "string", label = "Placeholder", order = 2 },
 			label = { type = "string", label = "Field label", order = 3 },
@@ -1643,6 +1650,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		state = "value",
 		defaults = { label = "Notifications", value = true },
 		fields = nativeFields(4, {
+			onChange = { type = "event", label = "Change requested", order = 28 },
 			label = { type = "string", label = "Label", order = 1 },
 			value = { type = "boolean", label = "Initial value", order = 2 },
 			presentation = {
@@ -1838,6 +1846,18 @@ local controls: { [string]: Types.ControlSpec } = {
 				options = { "xsmall", "compact", "regular", "large" },
 			},
 		}),
+	},
+	Group = {
+		category = "Layout",
+		container = true,
+		defaults = { height = 160, width = "fill", groupTransparency = 0 },
+		fields = {
+			groupTransparency = { type = "number", label = "Group transparency", order = 1 },
+			width = { type = "value", label = "Width", order = 2, format = "extent" },
+			height = { type = "value", label = "Height", order = 3, format = "extent" },
+			padding = { type = "value", label = "Padding", order = 4, format = "padding" },
+			maxWidth = { type = "number", label = "Maximum width", order = 5 },
+		},
 	},
 	ZStack = {
 		category = "Layout",

@@ -166,6 +166,7 @@ export type Config = {
 	userInputService: UserInputService?,
 	inputParent: Instance?,
 	overlayParent: Instance?,
+	compositionScope: Instance?,
 	controlSize: Input<ControlSize?>?,
 	theme: Input<Theme.ReadOnlyThemePackage>?,
 	icons: Input<{ [string]: Theme.IconEntry }>?,

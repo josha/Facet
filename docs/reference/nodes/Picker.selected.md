@@ -54,4 +54,8 @@ writes `selected`, and then calls `onChange(next)`. An optional writable `query`
 filters the labels. The other options include `label`, `placeholder`, `axis`,
 `sizing`, `iconOnly`, `textSize`, `isPresented` and `enabled`.
 
+The Facet Design library exposes `onChange` as an event field. Bind it to a
+named output with the selection's type. Keep `selected` as a cell input;
+`options` can be a readable list.
+
 Picker is a field. These options apply:

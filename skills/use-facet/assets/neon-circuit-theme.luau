@@ -50,16 +50,7 @@ local extra: Facet.PaletteExtra = {
 	},
 }
 local chrome: { [string]: Facet.SkinLayerPatch } = {
-	panel = {
-		kind = "native",
-		shadow = {
-			color = rgb(0, 200, 255),
-			transparency = 0.35,
-			blurRadius = { scale = 0, offset = 22 },
-			offset = { x = { scale = 0, offset = 0 }, y = { scale = 0, offset = 0 } },
-			zIndex = -1,
-		},
-	},
+	panel = { kind = "native" },
 	control = { kind = "native" },
 	focus = {
 		kind = "glow",

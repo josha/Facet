@@ -5,9 +5,10 @@ export type Edge = "top" | "bottom"
 export type Contest = { token: Instance, zone: string }
 type Entry = { edge: Edge, y: number, h: number }
 type Zones = { [string]: boolean }
+type Claim = { zones: Zones, scope: Instance? }
 
 local layers: { [Instance]: { [unknown]: Entry } } = setmetatable({}, { __mode = "k" })
-local claims: { [Instance]: { [Instance]: Zones } } = setmetatable({}, { __mode = "k" })
+local claims: { [Instance]: { [Instance]: Claim } } = setmetatable({}, { __mode = "k" })
 local noted: { [Instance]: { [Instance]: Zones } } = setmetatable({}, { __mode = "k" })
 
 local function publish(layer: Instance)
@@ -71,7 +72,7 @@ function reservations.clear(layer: Instance, token: unknown)
 	end
 end
 
-function reservations.setZones(layer: Instance, token: Instance, zones: Zones): boolean
+function reservations.setZones(layer: Instance, token: Instance, zones: Zones, scope: Instance?): boolean
 	local held = claims[layer]
 	if held == nil then
 		held = {}
@@ -79,16 +80,16 @@ function reservations.setZones(layer: Instance, token: Instance, zones: Zones): 
 	end
 	local list = assert(held)
 	local before = list[token]
-	local same = before ~= nil
+	local same = before ~= nil and before.scope == scope
 	if before then
-		for zone in before do
+		for zone in before.zones do
 			same = same and zones[zone] == true
 		end
 		for zone in zones do
-			same = same and before[zone] == true
+			same = same and before.zones[zone] == true
 		end
 	end
-	list[token] = zones
+	list[token] = { zones = zones, scope = scope }
 	return not same
 end
 
@@ -106,7 +107,7 @@ function reservations.contests(layer: Instance, token: Instance): { Contest }
 	local found: { Contest } = {}
 	local held = claims[layer]
 	local mine = if held then held[token] else nil
-	if mine == nil or next(mine) == nil then
+	if mine == nil or next(mine.zones) == nil then
 		return found
 	end
 	local parent = layer.Parent
@@ -115,11 +116,11 @@ function reservations.contests(layer: Instance, token: Instance): { Contest }
 		local shared = candidate == layer or (parent ~= nil and candidate.Parent == parent)
 		local shown = candidate == layer or not candidate:IsA("LayerCollector") or candidate.Enabled
 		if shared and shown then
-			for other, zones in entries do
+			for other, claim in entries do
 				local told = if seen then seen[other] else nil
-				if other ~= token then
-					for zone in mine do
-						if zones[zone] and not (told and told[zone]) then
+				if other ~= token and claim.scope == mine.scope then
+					for zone in mine.zones do
+						if claim.zones[zone] and not (told and told[zone]) then
 							table.insert(found, { token = other, zone = zone })
 						end
 					end

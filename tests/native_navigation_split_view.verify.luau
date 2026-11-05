@@ -123,9 +123,10 @@ return function(verifyHarness: Verify.Harness)
 							else find(w.root, "Sidebar").Size.Y.Offset
 					):toBe(380)
 					w.resizable:set(true)
-					Verify.expect(detector.Enabled and resize.Selectable):toBe(true)
+					Verify.expect(detector.Enabled):toBe(true)
+					Verify.expect(resize.Selectable):toBe(false)
 					w.gui.SelectedObject = file
-					Verify.expect(w.gui.SelectedObject):toBe(resize)
+					Verify.expect(w.gui.SelectedObject):toBe(file)
 					w.stop()
 				end,
 			})
@@ -243,7 +244,7 @@ return function(verifyHarness: Verify.Harness)
 				local file, inspector = find(w.root, "File"), find(w.root, "Inspector")
 				w.gui.SelectedObject = file
 				w.gui.SelectedObject = inspector
-				Verify.expect(w.gui.SelectedObject):toBe(resize)
+				Verify.expect(w.gui.SelectedObject):toBe(inspector)
 				w.gui.SelectedObject = inspector
 				Verify.expect(resize.NextSelectionUp):toBe(file)
 				Verify.expect(resize.NextSelectionDown):toBe(inspector)
@@ -361,14 +362,14 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("restores focus after compact Back and stops a cross-pane walk on the divider", {
-			id = "native_navigation_split_view::native split navigation::restores focus after compact Back and stops a cross-pane walk on the divider",
+		verifyHarness:case("restores focus after compact Back and keeps a cross-pane walk in its pane", {
+			id = "native_navigation_split_view::native split navigation::restores focus after compact Back and keeps a cross-pane walk in its pane",
 			run = function()
 				local w = world()
 				local file, inspector = find(w.root, "File"), find(w.root, "Inspector")
 				w.gui.SelectedObject = file
 				w.gui.SelectedObject = inspector
-				Verify.expect(w.gui.SelectedObject):toBe(find(w.root, "Resize"))
+				Verify.expect(w.gui.SelectedObject):toBe(inspector)
 				w.gui.SelectedObject = inspector
 				w.column:set("detail")
 				w.engine.environment.poke(w.root, "AbsoluteSize", w.engine.types.Vector2.new(390, 700))
@@ -412,30 +413,38 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
-		verifyHarness:case("keeps one divider focus stop and leaves arrows for traversal", {
-			id = "native_navigation_split_view::native split navigation::keeps one divider focus stop and leaves arrows for traversal",
+		verifyHarness:case("keeps the divider pointer-only and preserves focus across pane changes", {
+			id = "native_navigation_split_view::native split navigation::pointer-only divider",
 			run = function()
 				local w = world()
 				local resize = find(w.root, "Resize")
-				Verify.expect(resize.Selectable):toBe(true)
+				Verify.expect(resize.Selectable):toBe(false)
 				Verify.expect((resize:GetAttribute("FacetFocusPart"))):toBe("Grip")
 				Verify.expect((resize:GetAttribute("axis"))):toBe(nil)
 				Verify.expect(find(resize, "Grip").Selectable):toBe(false)
 				Verify.expect(find(resize, "Grip").Active):toBe(false)
 				Verify.expect(find(resize, "Grip").ClassName):toBe("Frame")
 				Verify.expect(find(resize, "UIDragDetector").CursorIcon):toBe("rbxasset://SystemCursors/SizeEW")
-				w.gui.SelectedObject = resize
-				local increase: any
-				for _, child in w.screen:GetChildren() do
-					if child:IsA("InputContext") and child.Enabled then
-						increase = child:FindFirstChild("Increase") or increase
-						Verify.expect((child:FindFirstChild("IncreaseArrow"))):toBe(nil)
+				local file, inspector = find(w.root, "File"), find(w.root, "Inspector")
+				local preferred = w.engine.types.Enum.PreferredInput
+				for _, mode in { preferred.KeyboardAndMouse, preferred.Gamepad } do
+					w.engine.environment.poke(w.input, "PreferredInput", mode)
+					w.gui.SelectedObject = file
+					w.gui.SelectedObject = inspector
+					Verify.expect(w.gui.SelectedObject ~= nil):toBeTrueWith(mode.Name .. " detail focus")
+					Verify.expect(w.gui.SelectedObject):toBe(inspector)
+					w.gui.SelectedObject = file
+					Verify.expect(w.gui.SelectedObject):toBe(file)
+					Verify.expect(resize.Selectable):toBe(false)
+				end
+				w.engine.environment.poke(w.input, "PreferredInput", preferred.Touch)
+				Verify.expect(resize.Selectable):toBe(false)
+				for _, child in w.screen:GetDescendants() do
+					if child:IsA("InputAction") then
+						Verify.expect(child.Name == "Increase" or child.Name == "Decrease"):toBe(false)
 					end
 				end
-				Verify.expect(increase ~= nil):toBe(true)
-				increase.Pressed:Fire()
-				increase.Released:Fire()
-				Verify.expect((w.width:peek())):toBe(376)
+				Verify.expect((w.width:peek())):toBe(360)
 				w.shown:set(false)
 				Verify.expect(resize.Visible):toBe(false)
 				Verify.expect(find(w.root, "Sidebar").Size.X.Scale):toBe(1)

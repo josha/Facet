@@ -1,38 +1,31 @@
 # Facet documentation
 
-Use [Design.guide](Design.guide.md) for task-based design routes.
+Read one task recipe, then a control contract when needed. Reuse nodes in context.
+[Design.guide](Design.guide.md) routes design work.
 
-Read the recipe for your task. Follow detail when needed.
-Do not reread nodes in context.
+In Studio, read `ServerStorage.FacetDocs.docs.reference.nodes["<path>.md"].Value`.
+Read `<Control>.card` for a small call, `<Control>.props` for typed options.
+[Controls](Controls.md) names every card. Do not list the folder.
+With a shell: `lute run tools/facet docs <path>` or `docs --search TEXT`.
 
-In Studio Edit mode, read
-`ServerStorage.FacetDocs.docs.reference.nodes["<path>.md"].Value`.
-Read `<Control>.card` when a screen first needs that control, then
-`<Control>.props` for options. [Controls](Controls.md) names every card; do not
-list the folder.
-With shell access, use `lute run tools/facet docs <path>` or `docs --search TEXT`.
-
-| Player task | Recipe |
+| Task | Recipe |
 | --- | --- |
-| Enter from a world-visible lobby | [Tasks.hub](Tasks.hub.md) |
-| Track an objective and use its command | [Tasks.hud](Tasks.hud.md) |
-| Show a minimap and open a larger map | [Tasks.minimap](Tasks.minimap.md) |
-| Browse objects and selected detail | [Tasks.collection-detail](Tasks.collection-detail.md) |
-| Inspect art beside a decision | [Tasks.inspect](Tasks.inspect.md) |
-| Open a destination from gameplay and return | [Tasks.pages](Tasks.pages.md) |
-| Open a short contextual task | [Tasks.sheet](Tasks.sheet.md) |
-| Change pages or segmented choices | [Tasks.tabs](Tasks.tabs.md) |
-| Set the game theme | [Tasks.theme](Tasks.theme.md) |
-| Read progress and timers | [Tasks.progress](Tasks.progress.md) |
-| Read toasts and notices | [Tasks.notices](Tasks.notices.md) |
-| Change settings | [Tasks.settings](Tasks.settings.md) |
-| Use gamepad and touch-safe layout | [Tasks.safe-layout](Tasks.safe-layout.md) |
-| Preview an object or editable appearance | [Stage.card](Stage.card.md) |
-| Guide a player through live actions | [Callout.card](Callout.card.md) |
-| Author a screen as a design document | [Design-library](Design-library.md) |
+| World-led hub | [Tasks.hub](Tasks.hub.md) |
+| Live HUD | [Tasks.hud](Tasks.hud.md) |
+| Minimap | [Tasks.minimap](Tasks.minimap.md) |
+| List, preview and detail | [Tasks.collection-detail](Tasks.collection-detail.md) |
+| Inspect a subject | [Tasks.inspect](Tasks.inspect.md) |
+| 3D preview and labeled colors | [Tasks.appearance](Tasks.appearance.md) |
+| Open a page and return | [Tasks.pages](Tasks.pages.md) |
+| Brief task over play | [Tasks.sheet](Tasks.sheet.md) |
+| Peer pages | [Tasks.tabs](Tasks.tabs.md) |
+| Theme | [Tasks.theme](Tasks.theme.md) |
+| Progress and timers | [Tasks.progress](Tasks.progress.md) |
+| Notices | [Tasks.notices](Tasks.notices.md) |
+| Settings | [Tasks.settings](Tasks.settings.md) |
+| Touch and gamepad clearance | [Tasks.safe-layout](Tasks.safe-layout.md) |
+| Live guidance | [Callout.card](Callout.card.md) |
+| Design document | [Design-library](Design-library.md) |
 
-Browse [Tasks](Tasks.md), [Controls](Controls.md),
-[Reference](Reference.md) or [Themes.index](Themes.index.md).
-Control cards show small calls. Reference links lead to complete option groups.
-Check with Studio Play, input, Output, and captures. Filesystem projects can
-also use [Tools.verify](Tools.verify.md). Wait for a check to finish.
+Browse [Tasks](Tasks.md), [Reference](Reference.md), [Themes.index](Themes.index.md).
+Check Play, input, Output and captures. Filesystem: [Tools.verify](Tools.verify.md).

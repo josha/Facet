@@ -22,6 +22,7 @@ Compose : table
   Compose.createSharedResource : function
   Compose.createSlot : function
   Compose.createSpringState : function
+  Compose.cubicBezier : function
   Compose.currentOwner : function
   Compose.custodyOf : function
   Compose.easing : table(frozen)
@@ -188,6 +189,7 @@ controls(runtime).Divider : function
 controls(runtime).ErrorBoundary : function
 controls(runtime).Flash : function
 controls(runtime).Grid : function
+controls(runtime).Group : function
 controls(runtime).HStack : function
 controls(runtime).Image : function
 controls(runtime).Label : function
@@ -350,11 +352,18 @@ type DesignMotion
 type DesignNode
 type DesignOutput
 type DesignPlayer
+type DesignRegistered
 type DesignResolved
 type DesignSeed
 type DesignSequence
 type DesignState
+type DesignStudioEditor
+type DesignStudioFrame
 type DesignStudioKit
+type DesignStudioOptions
+type DesignStudioResult
+type DesignStudioSample
+type DesignStudioStage
 type DesignValue
 type DialogAction
 type DialogDismissReason
@@ -381,6 +390,7 @@ type GestureKind
 type GestureOptions
 type Gradient
 type GridProps
+type GroupProps
 type GroupedOptions
 type HapticKind
 type HelpRow

@@ -76,6 +76,29 @@ local function find(query: string, budget: number?): string
 	local terms = termsOf(query)
 	assert(#terms > 0, "search needs at least one word")
 	local limit = budget or 4000
+	assert(limit >= 1 and limit < math.huge and limit % 1 == 0, "search budget must be a positive whole number")
+	local function bounded(value: string, room: number): string
+		if #value <= room then
+			return value
+		end
+		local ending = if room >= 4 then "\n…" else ""
+		local last = room - #ending
+		while last > 0 do
+			local byte = string.byte(value, last + 1)
+			if byte == nil or byte < 128 or byte >= 192 then
+				break
+			end
+			last -= 1
+		end
+		return string.sub(value, 1, last) .. ending
+	end
+	local wanted = string.lower(query)
+	for _, doc in documents() do
+		local name = string.gsub(doc.name, "%.md$", "")
+		if wanted == name or wanted == string.lower(doc.path) then
+			return bounded(doc.text, limit)
+		end
+	end
 	local ranked: { Ranked } = {}
 	for _, doc in documents() do
 		local lower = string.lower(doc.text)
@@ -93,7 +116,7 @@ local function find(query: string, budget: number?): string
 		end
 	end
 	if #ranked == 0 then
-		return ("No document mentions every word of %q. Try fewer or different words."):format(query)
+		return bounded(("No document mentions every word of %q. Try fewer or different words."):format(query), limit)
 	end
 	table.sort(ranked, function(a: Ranked, b: Ranked): boolean
 		return a.score > b.score or (a.score == b.score and #a.doc.text < #b.doc.text)
@@ -122,17 +145,24 @@ local function find(query: string, budget: number?): string
 	end)
 	local out: { string } = {}
 	local used = 0
+	local function append(value: string): boolean
+		local separator = if used > 0 then 2 else 0
+		if used + separator + #value > limit then
+			return false
+		end
+		table.insert(out, value)
+		used += separator + #value
+		return true
+	end
 	local shown: { [string]: boolean } = {}
 	for _, section in candidates do
-		local body = section.text
-		if #body > 1500 then
-			body = string.sub(body, 1, 1500) .. "\n…"
-		end
-		if used + #body > limit and used > 0 then
+		local entry = ("---- %s § %s\n%s"):format(section.path, section.heading, section.text)
+		if not append(entry) then
+			if used == 0 then
+				append(bounded(entry, limit))
+			end
 			break
 		end
-		table.insert(out, ("---- %s § %s\n%s"):format(section.path, section.heading, body))
-		used += #body
 		shown[section.path] = true
 	end
 	local others: { string } = {}
@@ -143,7 +173,7 @@ local function find(query: string, budget: number?): string
 		end
 	end
 	if #others > 0 then
-		table.insert(out, "Other matches (search.read(path) for one): " .. table.concat(others, ", "))
+		append("Other matches (search.read(path) for one): " .. table.concat(others, ", "))
 	end
 	return table.concat(out, "\n\n")
 end

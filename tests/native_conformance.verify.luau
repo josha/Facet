@@ -24,6 +24,9 @@ return function(verifyHarness: Verify.Harness)
 		ZStack = function()
 			return {}
 		end,
+		Group = function()
+			return { groupTransparency = 0.5 }
+		end,
 		ScrollView = function()
 			return { gap = "s" }
 		end,

@@ -8,12 +8,17 @@ local Stage = require "./stage"
 local Stage3D = require "./stage3d"
 local Projection = require "./projection"
 
+export type SlotSample = (Design.Library, Devices.Profile) -> unknown
+
 export type Context = {
 	library: Design.Library?,
 	token: ((string) -> Design.Literal)?,
 	resolveToken: ((string) -> Design.Resolved)?,
 	bindings: { [string]: Design.Resolved }?,
+	outputs: { [string]: (args: { Design.Literal }) -> () }?,
 	slots: { [string]: () -> unknown }?,
+	slotSamples: { [string]: SlotSample }?,
+	backdrop: (() -> unknown)?,
 	dispose: (() -> ())?,
 }
 export type Frame = {
@@ -22,6 +27,7 @@ export type Frame = {
 	stage: Stage.Stage?,
 	scene: Stage3D.Scene?,
 	scale: Compose.Value<number>,
+	actualSize: Compose.Value<boolean>,
 }
 export type Canvas = {
 	root: Compose.Node,
@@ -34,9 +40,11 @@ export type Canvas = {
 	showAll: (enabled: boolean) -> (),
 	fit: () -> (),
 	zoomTo: (scale: number, around: UI.Point?) -> (),
+	actualSize: (enabled: boolean) -> (),
 	dispose: () -> (),
 }
 export type Options = Context & {
+	scene: Stage3D.Target?,
 	devices: { Devices.Profile },
 	device: string?,
 	frame: ((Devices.Profile, Compose.ReadOnlyValue<number>) -> Context)?,
@@ -46,7 +54,7 @@ export type Options = Context & {
 return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, options: Options): Canvas
 	local Theme = require "./theme"(ui)
 	local root = Theme.scroller "DesignDevices"
-	ui.set(root, "BackgroundTransparency", 0)
+	ui.set(root, "BackgroundTransparency", if options.scene then 1 else 0)
 	ui.set(root, "BackgroundColor3", Theme.color.canvas)
 	Theme.place(root, parent, ui.values.udim2(1, 0, 1, 0))
 	local grid = ui.new "UIGridLayout"
@@ -72,6 +80,7 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 		for _, entry in entries do
 			if all:peek() or entry == current() then
 				local view = entry.stage or entry.scene
+				entry.actualSize:set(false)
 				assert(view).fit()
 			end
 		end
@@ -94,7 +103,20 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 			ui.set(entry.root, "Position", ui.values.udim2(0, 0, 0, 0))
 		end
 		cancelFit()
-		cancelFit = ui.runtime.scheduler(ui.owner).after(0, fit)
+		cancelFit = ui.runtime.scheduler(ui.owner).after(0, function()
+			for _, entry in entries do
+				if entry.scene then
+					entry.scene.reframe()
+				elseif all:peek() or entry == current() then
+					local stage = assert(entry.stage)
+					if entry.actualSize:peek() then
+						stage.zoomTo(1)
+					else
+						stage.fit()
+					end
+				end
+			end
+		end)
 	end
 	local function ensure(index: number): Frame
 		local existing = entries[index]
@@ -102,13 +124,16 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 			return existing
 		end
 		local device = assert(options.devices[index], "Missing Design device")
-		local header = if device.id == "Canvas" then 0 else 56
+		local header = if device.id == "Canvas" or device.id == "Scene" then 0 else 56
 		local scale = Compose.cell(1)
 		local context = if options.frame then options.frame(device, scale) else options
 		if options.frame and context.dispose then
 			table.insert(releases, Compose.owner.own(ui.owner, context.dispose))
 		end
 		local frame = Theme.frame(device.id, Theme.color.canvas)
+		if options.scene then
+			ui.set(frame, "BackgroundTransparency", 1)
+		end
 		ui.set(frame, "LayoutOrder", index)
 		ui.set(frame, "ClipsDescendants", true)
 		ui.set(frame, "Parent", root)
@@ -127,43 +152,38 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 		local body = Theme.frame "DeviceCanvas"
 		Theme.place(body, frame, ui.values.udim2(1, 0, 1, -header), ui.values.udim2(0, 0, 0, header))
 		local library = Projection(ui, context.library or session.library, device)
-		local entry: Frame = { device = device, root = frame, scale = scale }
-		if library.space == "3d" then
-			local resolution = Theme.frame "DeviceResolution"
-			ui.set(resolution, "AnchorPoint", ui.values.vector2(0.5, 0.5))
-			ui.set(resolution, "Position", ui.values.udim2(0.5, 0, 0.5, 0))
-			ui.set(resolution, "Size", ui.values.udim2(0, device.size.X, 0, device.size.Y))
-			ui.set(resolution, "ClipsDescendants", true)
-			ui.set(resolution, "Parent", body)
-			local cameraScale = ui.new "UIScale"
-			ui.set(cameraScale, "Parent", resolution)
-			local function resize()
-				local size = ui.xy(body, "AbsoluteSize")
-				local factor = math.max(0.01, math.min(size.X / device.size.X, size.Y / device.size.Y))
-				ui.set(cameraScale, "Scale", factor)
-				scale:set(factor)
+		local slots = table.clone(context.slots or options.slots or {})
+		for slotName, sample in context.slotSamples or options.slotSamples or {} do
+			if slots[slotName] == nil then
+				slots[slotName] = function(): unknown
+					return sample(library, device)
+				end
 			end
-			table.insert(connections, ui.changed(body, "AbsoluteSize", resize))
-			resize()
-			entry.scene = Stage3D(ui)(session, resolution, {
+		end
+		local entry: Frame = { device = device, root = frame, scale = scale, actualSize = Compose.cell(false) }
+		if library.space == "3d" then
+			entry.scene = Stage3D(ui)(session, body, {
+				target = options.scene,
 				readOnly = options.readOnly,
 				library = library,
-				fieldOfView = device.fieldOfView,
 				bindings = context.bindings or options.bindings,
+				outputs = context.outputs or options.outputs,
 				token = context.token or options.token,
 				resolveToken = context.resolveToken or options.resolveToken,
-				slots = context.slots or options.slots,
+				slots = slots,
 			})
 		else
 			entry.stage = Stage(ui)(session, body, {
 				readOnly = options.readOnly,
 				library = library,
 				size = { X = device.size.X, Y = device.size.Y },
+				backdrop = context.backdrop or options.backdrop,
 				compact = #options.devices > 1,
 				bindings = context.bindings or options.bindings,
+				outputs = context.outputs or options.outputs,
 				token = context.token or options.token,
 				resolveToken = context.resolveToken or options.resolveToken,
-				slots = context.slots or options.slots,
+				slots = slots,
 			})
 		end
 		entries[index] = entry
@@ -194,6 +214,9 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 			for index, entry in entries do
 				local view = assert(entry.stage or entry.scene)
 				local value = use(view.zoom)
+				if value ~= 1 then
+					entry.actualSize:set(false)
+				end
 				if entry.stage then
 					entry.scale:set(value)
 				end
@@ -235,8 +258,8 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 			layout()
 		end,
 		showAll = function(enabled: boolean)
-			all:set(enabled)
-			if enabled then
+			all:set(enabled and session.library.space ~= "3d")
+			if all:peek() then
 				for index in options.devices do
 					ensure(index)
 				end
@@ -246,6 +269,17 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 		fit = fit,
 		zoomTo = function(value: number, around: UI.Point?)
 			assert(current().stage or current().scene).zoomTo(value, around)
+			current().actualSize:set(false)
+		end,
+		actualSize = function(enabled: boolean)
+			local entry = current()
+			local stage = assert(entry.stage, "ActualSize requires a UI Design")
+			if enabled then
+				stage.zoomTo(1)
+			else
+				stage.fit()
+			end
+			entry.actualSize:set(enabled)
 		end,
 		dispose = function()
 			cancelFit()

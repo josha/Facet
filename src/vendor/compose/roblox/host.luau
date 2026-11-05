@@ -162,8 +162,8 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		)
 	end
 
-	local function removeChild(_parent: Node, child: Node)
-		if readMember(child, "Parent") ~= nil then
+	local function removeChild(parent: Node, child: Node)
+		if readMember(child, "Parent") == parent then
 			writeMember(child, "Parent", nil)
 		end
 	end

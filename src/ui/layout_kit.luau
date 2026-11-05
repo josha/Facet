@@ -22,6 +22,7 @@ export type Kit = {
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	list: (Shared.Flow, Shared.Input<boolean>, boolean?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
+	touchClearance: (GuiObject, ComposeTypes.Value<number>) -> (),
 	ordered: (Shared.ChildList, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, Shared.ChildList, Place?) -> P,
 	plain: typeof(plain),
@@ -944,6 +945,108 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			table.clear(watched)
 		end)
+	end
+	function kit.touchClearance(frame: GuiObject, clearance: ComposeTypes.Value<number>)
+		local input = config.services.UserInputService
+		if input == nil then
+			return
+		end
+		local owner = assert(Compose.currentOwner())
+		local watching: ComposeTypes.Owner? = nil
+		local function locate(excluded: Instance?)
+			if ComposeTypes.owner.isDisposed(owner) then
+				return
+			end
+			if watching then
+				ComposeTypes.owner.dispose(watching)
+				watching = nil
+			end
+			clearance:set(0)
+			local player = frame:FindFirstAncestorWhichIsA("PlayerGui")
+			if player == nil or frame:FindFirstAncestorWhichIsA("ScreenGui") == nil then
+				return
+			end
+			local scope = ComposeTypes.owner.createChild(owner)
+			watching = scope
+			Compose.withOwner(scope, function()
+				runtime.connect(player, "DescendantAdded", function(node: Instance)
+					if node.Name == "TouchGui" or node:FindFirstAncestor("TouchGui") then
+						locate()
+					end
+				end)
+				runtime.connect(player, "DescendantRemoving", function(node: Instance)
+					if node.Name == "TouchGui" or node:FindFirstAncestor("TouchGui") then
+						locate(node)
+					end
+				end)
+				local touchGui = player:FindFirstChild("TouchGui")
+				if touchGui == nil or touchGui == excluded or not touchGui:IsA("ScreenGui") then
+					return
+				end
+				local controls: { GuiObject } = {}
+				for _, node in touchGui:GetDescendants() do
+					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
+						continue
+					end
+					if
+						node:IsA("GuiButton")
+						or (
+							node:IsA("GuiObject")
+							and (
+								node.Name == "ThumbstickFrame"
+								or node.Name == "DynamicThumbstickFrame"
+								or node.Name == "ThumbpadFrame"
+							)
+						)
+					then
+						table.insert(controls, node :: GuiObject)
+					end
+				end
+				local touch = ctx.observe.TouchEnabled(input)
+				local enabled = ctx.observe.Enabled(touchGui)
+				local controlsEnabled = if config.guiService
+					then runtime.observe(config.guiService, "TouchControlsEnabled")
+					else nil
+				local position, size = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
+				local unit = ctx.layoutUnit(frame)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local active = use(touch)
+						and use(enabled)
+						and (controlsEnabled == nil or use(controlsEnabled) ~= false)
+					local at, box, scale = use(position), use(size), use(unit)
+					local bottom = 0
+					for _, control in controls do
+						local start = use(ctx.observe.AbsolutePosition(control))
+						local bounds = use(ctx.observe.AbsoluteSize(control))
+						local shown = true
+						local node: Instance? = control
+						while node and node ~= touchGui do
+							if node:IsA("GuiObject") and not use(ctx.observe.Visible(node)) then
+								shown = false
+							end
+							node = node.Parent
+						end
+						if
+							active
+							and shown
+							and bounds.X > 0
+							and bounds.Y > 0
+							and start.X < at.X + box.X
+							and start.X + bounds.X > at.X
+							and start.Y < at.Y + box.Y
+							and start.Y + bounds.Y > at.Y
+						then
+							bottom = math.max(bottom, math.min(box.Y, at.Y + box.Y - start.Y) / scale)
+						end
+					end
+					clearance:set(bottom)
+				end)
+			end)
+		end
+		runtime.connect(frame, "AncestryChanged", function()
+			locate()
+		end)
+		locate()
 	end
 	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Value<number>)
 		local gui = config.guiService

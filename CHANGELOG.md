@@ -1,5 +1,8 @@
 # Current package
 
+`Facet.Compose` includes `cubicBezier(x1, y1, x2, y2)` from the Compose pin.
+It returns an easing function for Compose motion.
+
 `Facet.review.screens(targets?, options?)` reviews all mounted Sheets or named
 screen targets in one client call during Play. It opens and closes each target,
 returns one text report and reports common build and runtime errors once.

@@ -1,4 +1,5 @@
 --!strict
+local robloxTypes = require("./roblox_types")
 local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
@@ -129,7 +130,7 @@ local function paletteFor(package: ThemeTypes.ReadOnlyThemePackage, requested: s
 end
 
 local function typesFor(options: { types: Engine.RobloxTypes? }): Engine.RobloxTypes
-	return options.types or getfenv(0)
+	return options.types or robloxTypes()
 end
 
 local function font(types: Engine.RobloxTypes, value: ThemeTypes.FontSpec | Font): Font

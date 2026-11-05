@@ -135,6 +135,7 @@ export type NodeData<T> = {
 	refresh: ((Node) -> ())?,
 	body: Body<unknown>?,
 	initial: (() -> unknown)?,
+	activity: { active: boolean, value: Value<boolean>? }?,
 	equals: unknown,
 	state: number?,
 	reads: number?,

@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
 local ControlTypes = require("./control_types")
@@ -78,14 +79,14 @@ type StyleLinkHost = { StyleLink: ({ StyleSheet: unknown }) -> Instance }
 
 local function liveClient(): boolean
 	local ok, running = pcall(function(): boolean
-		local service = getfenv(0).game:GetService("RunService")
+		local service = assert(dataModel()):GetService("RunService")
 		return service:IsRunning() and service:IsClient()
 	end)
 	return ok and running == true
 end
 
 local function playerGui(): Instance
-	local game = getfenv(0).game
+	local game = dataModel()
 	local players = game and game:GetService("Players")
 	local player = players and players.LocalPlayer
 	if player == nil then

@@ -380,6 +380,7 @@ local function spatialCollection<V, K>(options: Options<V, K>): Children.Directi
 		local inner = retain {
 			primitive = "SpatialCollection",
 			source = source,
+			key = keyOf,
 			select = select,
 			render = render,
 			equals = function(current: Representation, incoming: Representation): boolean

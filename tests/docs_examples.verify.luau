@@ -3,12 +3,195 @@ local Verify = require("../tools/vendor/verify/src/core")
 local Index = require("../tools/facet/lib/docs_index")
 local Lute = require("../tools/vendor/verify/src/lute")
 local Loader = require("./lib/loader")
+local Roblox = require("../tools/vendor/verify/src/roblox")
 type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type EngineLibrary = typeof(require("./lib/native_engine"))
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
+type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
 
 return function(harness: Verify.Harness)
+	harness:case(
+		"the neon theme keeps repeated panels quiet while selected action emphasis follows one key",
+		function(t)
+			local loader = Loader.new()
+			local Facet = (loader.require("src") :: unknown) :: FacetModule
+			local engines = (loader.require("tests/lib/native_engine.luau") :: unknown) :: EngineLibrary
+			local source = string.gsub(
+				Lute.fixture.host.readFile("skills/use-facet/assets/neon-circuit-theme.luau"),
+				"local Facet = require%([^\n]+%)\n",
+				""
+			)
+			local theme =
+				Lute.chunk.load(source, { environment = { Facet = Facet }, name = "neon-theme" })() :: ThemePackage
+			local engine = engines.new()
+			local createRuntime = (Facet.Roblox.createRuntime :: unknown) :: (unknown) -> Runtime
+			local runtime = createRuntime(engine)
+			t:defer(function()
+				runtime:dispose()
+			end)
+			local app = Facet.app({
+				runtime = runtime,
+				types = engine.types,
+				parent = engine.new("Folder"),
+				theme = theme,
+				motionLevel = "none",
+			})
+			t:defer(app.dispose)
+			local UI, C = app.UI, Facet.Compose
+			local selected = C.cell("first")
+			local rows: { Frame } = {}
+			local function row(key: string): Frame
+				local frame = UI.VStack {
+					surface = "panel",
+					UI.Button(key) {
+						label = key,
+						selected = function(use)
+							return use(selected) == key
+						end,
+						appearance = function(use): string
+							return if use(selected) == key then "emphasis" else "utility"
+						end,
+					},
+				}
+				table.insert(rows, frame)
+				return frame
+			end
+			app.mount(function()
+				return UI.VStack { row("first"), row("second"), row("third") }
+			end)
+			for _, key in { "first", "third" } do
+				selected:set(key)
+				local accents = 0
+				for _, frame in rows do
+					for _, node in frame:GetDescendants() do
+						if node:IsA("UIShadow") then
+							t:expect(node.Enabled):toBe(false)
+						end
+						if node:HasTag("facet-accent") then
+							accents += 1
+							t:expect(node.Name):toBe(key)
+						end
+					end
+				end
+				t:expect(accents):toBe(1)
+			end
+		end
+	)
+	harness:case("collection recipe bounds long detail and retains selection across device sizes", function(t)
+		local loader = Loader.new()
+		local Facet = (loader.require("src") :: unknown) :: FacetModule
+		local engines = (loader.require("tests/lib/native_engine.luau") :: unknown) :: EngineLibrary
+		local roots: { Roblox.Instance } = {}
+		local viewport = { X = 1440, Y = 900 }
+		local engine, bridge = engines.new({
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return viewport
+				end,
+			},
+		})
+		t:defer(function()
+			bridge.close()
+		end)
+		local createRuntime = (Facet.Roblox.createRuntime :: unknown) :: (unknown) -> Runtime
+		local runtime = createRuntime(engine)
+		t:defer(function()
+			runtime:dispose()
+		end)
+		local player: PlayerGui = engine.new("PlayerGui")
+		player.Parent = engine.new("DataModel")
+		table.insert(roots, Roblox.assertInstance(player))
+		local input: UserInputService = engine.new("UserInputService")
+		local gui: GuiService = engine.new("GuiService")
+		input.Parent, gui.Parent = player.Parent, player.Parent
+		engine.environment.fakeOn(gui, "GetInsetArea", function()
+			return engine.types.Rect.new(0, 0, viewport.X, viewport.Y)
+		end)
+		engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", true)
+		engine.environment.poke(Roblox.assertInstance(input), "MouseEnabled", false)
+		local app = Facet.app({
+			runtime = runtime,
+			types = engine.types,
+			parent = player,
+			motionLevel = "none",
+			services = { GuiService = gui, UserInputService = input },
+		})
+		t:defer(app.dispose)
+		local backend = Roblox.inputHost.simulated(engine.environment, {
+			playerGui = Roblox.assertInstance(player),
+			inputService = Roblox.assertInstance(input),
+			layout = assert(bridge.layout),
+			inset = function()
+				return { X = 0, Y = 0 }
+			end,
+			library = Roblox.reflectionSnapshot.library(Lute.fixture.load()),
+			activationWindowSeconds = 0.5,
+			read = assert(bridge.ui).styled,
+		})
+		t:defer(backend.close)
+		local C, UI = Facet.Compose, app.UI
+		local selected = C.cell({ record = true })
+		local body = assert(Index.find(Index.load("."), "Tasks.collection-detail")).body
+		local code = assert(string.match(body, "```luau\n(.-)\n```"))
+		code = string.gsub(code, "local Facet = require%([^\n]+%)\n", "")
+		local build = Lute.chunk.load(code .. "\n" .. [[
+return function(app, selected)
+  return browse(app, {{id = "record", name = "Archive record", terms = string.rep("Supporting detail. ", 2000)}},
+    selected, function() return app.UI.ZStack { width = "fill", height = "fill" } end,
+    "Record selection", function() end, Facet.Compose.cell(false))
+end
+]], { name = "bounded-collection-recipe", environment = { Facet = Facet, UDim2 = engine.types.UDim2 } })()
+		app.mount(function()
+			return UI.Screen {
+				UI.Text { text = "Archive", textRole = "heading" },
+				(build :: (unknown, unknown) -> Frame)(app, selected),
+			}
+		end)
+		for _, size in
+			{
+				{ X = 1440, Y = 900 },
+				{ X = 1024, Y = 768 },
+				{ X = 844, Y = 390 },
+				{ X = 390, Y = 844 },
+				{ X = 1440, Y = 900 },
+			}
+		do
+			viewport.X, viewport.Y = size.X, size.Y
+			for _ = 1, 12 do
+				assert(bridge.layout).step()
+				engine.environment.step(1 / 60)
+				engine.heartbeat:Fire(1 / 60)
+			end
+			local row = player:FindFirstChild("RowHit", true)
+			assert(row and row:IsA("TextButton"))
+			local point = row.AbsolutePosition + row.AbsoluteSize / 2
+			backend.pointer({ x = point.X, y = point.Y, button = "left", down = true })
+			backend.pointer({ x = point.X, y = point.Y, button = "left", down = false })
+			assert(bridge.layout).step()
+			local detail = player:FindFirstChild("SelectedDetail", true)
+			assert(detail and detail:IsA("ScrollingFrame"))
+			local geometry =
+				`{viewport.X}x{viewport.Y}: position {detail.AbsolutePosition}, size {detail.AbsoluteSize}, canvas {detail.AbsoluteCanvasSize}, window {detail.AbsoluteWindowSize}`
+			t:expect(detail.AbsoluteSize.Y > 0):toBeTrueWith(geometry)
+			t:expect(detail.AbsolutePosition.Y >= 0):toBeTrueWith(geometry)
+			t:expect(detail.AbsolutePosition.Y + detail.AbsoluteSize.Y <= viewport.Y):toBeTrueWith(geometry)
+			t:expect(detail.AbsoluteCanvasSize.Y > detail.AbsoluteWindowSize.Y):toBeTrueWith(geometry)
+			detail.CanvasPosition = engine.types.Vector2.new(0, detail.AbsoluteCanvasSize.Y)
+			assert(bridge.layout).step()
+			t:expect(detail.CanvasPosition.Y > 0):toBe(true)
+			local action = detail:FindFirstChildWhichIsA("TextButton", true)
+			assert(action)
+			t:expect(
+				action.AbsolutePosition.Y + action.AbsoluteSize.Y
+					<= detail.AbsolutePosition.Y + detail.AbsoluteWindowSize.Y
+			):toBeTrueWith(geometry)
+			t:expect(selected:peek().record):toBe(true)
+		end
+	end)
 	harness:case("hub pages and inspector execute together with a bounded Stage and cleanup", function(t)
 		local loader = Loader.new()
 		local Facet = (loader.require("src") :: unknown) :: FacetModule
@@ -84,8 +267,27 @@ end
 		)()
 		app.mount(component :: () -> Child)
 		t:expect(sceneBuilds):toBe(0)
+		local actions = parent:FindFirstChild("Actions", true)
+		assert(actions and actions.Parent)
+		t:expect(actions.Parent.Name):toBe("BottomRight")
+		local labels: { [string]: boolean } = {}
+		for _, node in parent:GetDescendants() do
+			if node:IsA("TextLabel") or node:IsA("TextButton") then
+				labels[node.Text] = true
+			end
+		end
+		t:expect(labels["Pack equipped"]):toBe(true)
+		t:expect(labels["Begin expedition"]):toBe(true)
+		t:expect(labels["Back"]):toBe(nil)
 		assert(open)()
 		t:expect(sceneBuilds):toBe(1)
+		local terms = false
+		for _, node in parent:GetDescendants() do
+			if node:IsA("TextLabel") and node.Text == "Record in your journal" then
+				terms = true
+			end
+		end
+		t:expect(terms):toBe(true)
 		app.dispose()
 		t:expect(#parent:GetChildren()):toBe(0)
 	end)

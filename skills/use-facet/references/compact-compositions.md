@@ -25,6 +25,14 @@ Keep requirements available. Filters uses the same query/category/sort model;
 show active filters and result count. Reset/Clear retain their specified meaning.
 Price, consequence, pending/error state and required terms stay with the action.
 
+For a world-led hub, keep related actions in one bottom Composition group
+above native movement controls. For a live readout, give deciding values
+enough type size and limit competing accents. Keep brief guidance visible
+near its target. State affordability, unsaved changes, confirmation terms
+and the accepted result in words when they affect the decision. These are
+task conditions: a text-led record browser or a plugin tool can use its
+existing navigation and a quiet, dense layout instead of a gameplay HUD.
+
 ## Allocate the remaining room
 
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains
@@ -67,7 +75,13 @@ A pinned action is useful while its terms and readable content still fit. With
 large text or the keyboard, permit an accessible scrolling task surface rather
 than overlap or a fixed footer that traps controls.
 
-NavigationSplitView can preserve panes while presenting one compact step;
+NavigationSplitView can preserve panes while presenting one compact step.
+For list and detail tasks, read `Tasks.collection-detail` and `Collection-layout`
+with the docs command or FacetDocs search. These routes work in exported skills.
+Put long facts and the action in the detail ScrollView. A fill preview in a
+hugging page does not prevent facts below it from leaving the viewport.
+Keep search and Filters on one row when permanent filters crowd out records.
+
 TabView owns peer selection and adaptive navigation. AdaptiveStack changes a
 relationship's axis; it does not decide which facts matter. ViewThatFits needs
 bounded, measurable complete candidates; a fill-width candidate always fits.

@@ -6,6 +6,7 @@ local Cli = require("../../tools/facet/lib/cli")
 local Files = require("../../tools/facet/lib/files")
 local Props = require("../../tools/facet/lib/docs_props")
 local Run = require("../../tools/facet/lib/run")
+local Lute = require("../../tools/vendor/verify/src/lute")
 
 local function node(path: string, kind: string, body: string, children: { string }?): Index.Node
 	return {
@@ -20,6 +21,49 @@ local function node(path: string, kind: string, body: string, children: { string
 end
 
 return function(harness: Verify.Harness)
+	harness:case("Studio search counts headers and separators and returns complete exact recipes", function(t)
+		local bridge = Lute.fixture.bridge(Lute.fixture.load())
+		t:defer(function()
+			bridge.close()
+		end)
+		local env = bridge.environment
+		local storage = env.createEngineInstance("ServerStorage")
+		local root = env.createEngineInstance("Folder")
+		root.Name, root.Parent = "FacetDocs", storage
+		local nodes = Index.load(".")
+		for _, item in nodes do
+			local value = env.createEngineInstance("StringValue")
+			value.Name, value.Value, value.Parent = item.path .. ".md", item.body, root
+		end
+		for index = 1, 3 do
+			local value = env.createEngineInstance("StringValue")
+			value.Name, value.Value, value.Parent =
+				`Budget{index}.md`, `# Budget {index}\n\n` .. string.rep("budget café 日本語 ", 150), root
+		end
+		local search = Lute.chunk.load(Lute.fixture.host.readFile("tools/facet/lib/studio_docs_search.luau"), {
+			environment = { game = {
+				GetService = function()
+					return storage
+				end,
+			} },
+			name = "studio-docs-search",
+		})() :: (string, number?) -> string
+		for _, budget in { 1, 2, 3, 4, 8, 64, 256, 2048, 4000 } do
+			for _, query in { "budget", "no-such-document", "Map" } do
+				local result = search(query, budget)
+				t:expect(#result <= budget):toBeTrueWith(`{query}: {#result} > {budget}`)
+				t:expect(utf8.len(result) ~= nil):toBe(true)
+			end
+		end
+		for _, name in { "Tasks.collection-detail", "Tasks.appearance", "Tasks.safe-layout" } do
+			t:expect(search(name)):toBe(assert(Index.find(nodes, name)).body)
+		end
+		local first = search("Map")
+		t:expect(#Lute.encode({ result = first }) <= 2048):toBe(true)
+		for _, name in { "Tasks.collection-detail", "Tasks.appearance", "Tasks.safe-layout" } do
+			t:expect(string.find(first, name, 1, true) ~= nil):toBe(true)
+		end
+	end)
 	harness:case("exported consumer type aliases resolve to their canonical contracts", function(t)
 		local nodes = Index.load(".")
 		local exports = Files.text("src/init.luau")

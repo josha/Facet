@@ -2,9 +2,9 @@
 
 <!-- aliases: ColorPicker | colorpicker -->
 
-`UI.ColorPicker(spec)` returns a Frame. The player uses it to choose any
-colour, for example the paint of a kart. For a few named colours, use
-`UI.Picker`. A fixed palette also fits `modes = { "swatches" }`.
+`UI.ColorPicker(spec)` returns a Frame. Use visible labeled swatches for a
+fixed palette: `modes = { "swatches" }`, `style = "inline"`. Use Picker for
+text categories whose meaning does not depend on their color.
 
 ```luau
 local paint = Compose.cell(Color3.fromRGB(230, 57, 70))
@@ -36,7 +36,8 @@ UI.ColorPicker "KartPaint" {
   example "Kart paint, Really red".
 - `swatches`: a list of Color3 values or `{ color, label? }` items, or a
   readable of one. The label or the hex text is the key of an item. Without
-  it, the control shows a generated grid of 48 colours.
+  it, the control shows a generated grid of 48 colours. A palette with labels
+  shows them below the color chips and keeps the selection check on the color.
 - `onSaveSwatch(color)` and `onRemoveSwatch({ color, label?, key })`: saved
   colours. See below.
 - `style`: `automatic` (the default) or `inline`. Set it at construction.

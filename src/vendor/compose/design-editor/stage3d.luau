@@ -8,6 +8,18 @@ local Design = require "../design"
 
 local MAX_DISTANCE = 5000
 
+export type Preset = "fit" | "eye-height" | "approach-20" | "close-up" | "top-down"
+export type Target = { world: Compose.Node, camera: Compose.Node, eyeHeight: number? }
+export type CameraState = {
+	preset: string,
+	yaw: number,
+	pitch: number,
+	distance: number,
+	focus: UI.Vector,
+	frame: { number },
+	fieldOfView: number,
+}
+
 export type Scene = {
 	viewport: Compose.Node,
 	world: Compose.Node,
@@ -17,10 +29,19 @@ export type Scene = {
 	fit: () -> (),
 	zoomTo: (scale: number, around: UI.Point?) -> (),
 	pick: (point: UI.Point) -> string?,
+	preset: Compose.ReadOnlyValue<string>,
+	setCamera: (preset: Preset) -> (),
+	orbit: (yaw: number, pitch: number) -> (),
+	pan: (offset: UI.Point) -> (),
+	play: (sequence: string) -> (),
+	guides: (enabled: boolean) -> (),
+	readCamera: () -> CameraState,
+	reframe: () -> (),
 	dispose: () -> (),
 }
 
 export type Options = {
+	target: Target?,
 	library: Design.Library?,
 	fieldOfView: number?,
 	readOnly: boolean?,
@@ -29,6 +50,7 @@ export type Options = {
 	resolveToken: ((name: string) -> Design.Resolved)?,
 	inputs: { [string]: Design.Literal }?,
 	bindings: { [string]: Design.Resolved }?,
+	outputs: { [string]: (args: { Design.Literal }) -> () }?,
 	slots: { [string]: () -> unknown }?,
 }
 
@@ -86,21 +108,42 @@ return function(ui: UI.UI)
 	return function(session: Design.Session, parent: Compose.Node, options: Options): Scene
 		local library = options.library or session.library
 		local accent = options.accent or Theme.color.accent
-		local viewport = ui.new "ViewportFrame"
+		local target = options.target
+		local viewport = ui.new(if target then "Frame" else "ViewportFrame")
 		ui.set(viewport, "Name", "DesignScene")
 		ui.set(viewport, "Size", ui.values.udim2(1, 0, 1, 0))
 		ui.set(viewport, "BackgroundColor3", Theme.color.canvas)
 		ui.set(viewport, "BorderSizePixel", 0)
-		ui.set(viewport, "Ambient", ui.rgb(150, 150, 160))
-		ui.set(viewport, "LightColor", ui.rgb(255, 250, 240))
-		ui.set(viewport, "LightDirection", ui.values.vector3(-1, -2, -0.6))
+		if target then
+			ui.set(viewport, "BackgroundTransparency", 1)
+		else
+			ui.set(viewport, "Ambient", ui.rgb(150, 150, 160))
+			ui.set(viewport, "LightColor", ui.rgb(255, 250, 240))
+			ui.set(viewport, "LightDirection", ui.values.vector3(-1, -2, -0.6))
+		end
 		ui.set(viewport, "Active", true)
-		local world = ui.new "WorldModel"
-		ui.set(world, "Parent", viewport)
-		local camera = ui.new "Camera"
-		ui.set(camera, "FieldOfView", options.fieldOfView or 50)
-		ui.set(camera, "Parent", viewport)
-		ui.set(viewport, "CurrentCamera", camera)
+		local world = ui.new(if target then "Model" else "WorldModel")
+		ui.set(world, "Name", "DesignWorld")
+		ui.set(world, "Parent", if target then target.world else viewport)
+		local camera = if target then target.camera else ui.new "Camera"
+		local previous: { [string]: unknown } = {}
+		if target then
+			for _, key in { "CFrame", "Focus", "FieldOfView", "CameraType" } do
+				previous[key] = ui.get(camera, key)
+			end
+		else
+			ui.set(camera, "Parent", viewport)
+			ui.set(viewport, "CurrentCamera", camera)
+		end
+		local restoreCamera = Compose.owner.own(ui.owner, function()
+			for key, value in previous do
+				ui.set(camera, key, value)
+			end
+		end)
+		if target then
+			ui.set(camera, "CameraType", ui.values.enum("CameraType", "Scriptable"))
+		end
+		ui.set(camera, "FieldOfView", options.fieldOfView or (if target then ui.number(camera, "FieldOfView") else 50))
 		local guides = ui.new "Folder"
 		ui.set(guides, "Name", "Guides")
 		ui.set(guides, "Parent", world)
@@ -134,24 +177,43 @@ return function(ui: UI.UI)
 		end
 		local runtime = ui.runtime
 		local stopDesign: (() -> ())? = nil
+		local players: { [string]: Design.Player } = {}
 		local yaw, pitch, distance, focus = math.rad(35), math.rad(-28), 28, { X = 0, Y = 1, Z = 0 }
 		local zoom = Compose.cell(1)
+		local preset = Compose.cell "fit"
+		local function dimensions(): (UI.Point, UI.Point)
+			return if target then ui.xy(camera, "ViewportSize") else ui.xy(viewport, "AbsoluteSize"),
+				if target then { X = 0, Y = 0 } else ui.xy(viewport, "AbsolutePosition")
+		end
 		local function aim()
 			local rotation = Math.rotation(pitch, yaw, 0)
-			ui.set(
-				camera,
-				"CFrame",
-				ui.values.cframe(
-					Math.multiply(Math.multiply(Math.frame(focus), rotation), Math.frame { X = 0, Y = 0, Z = distance })
+			local frame =
+				Math.multiply(Math.multiply(Math.frame(focus), rotation), Math.frame { X = 0, Y = 0, Z = distance })
+			if target then
+				local size = dimensions()
+				local center =
+					Math.add(ui.xy(viewport, "AbsolutePosition"), Math.scale(ui.xy(viewport, "AbsoluteSize"), 0.5))
+				local tangent = math.tan(math.rad(ui.number(camera, "FieldOfView")) / 2)
+				frame = Math.multiply(
+					frame,
+					Math.frame {
+						X = (1 - center.X * 2 / math.max(size.X, 1)) * distance * tangent * size.X / math.max(
+							size.Y,
+							1
+						),
+						Y = (center.Y * 2 / math.max(size.Y, 1) - 1) * distance * tangent,
+						Z = 0,
+					}
 				)
-			)
+			end
+			ui.set(camera, "CFrame", ui.values.cframe(frame))
 			ui.set(camera, "Focus", ui.values.cframe(Math.frame(focus)))
 			zoom:set(28 / distance)
 		end
 		aim()
 		local function ray(point: UI.Point): (UI.Vector, UI.Vector)
-			local size = ui.xy(viewport, "AbsoluteSize")
-			local local2 = Math.sub(point, ui.xy(viewport, "AbsolutePosition"))
+			local size, origin = dimensions()
+			local local2 = Math.sub(point, origin)
 			local ndc = { X = local2.X / math.max(size.X, 1) * 2 - 1, Y = 1 - local2.Y / math.max(size.Y, 1) * 2 }
 			local tanY = math.tan(math.rad(ui.number(camera, "FieldOfView")) / 2)
 			local tanX = tanY * size.X / math.max(size.Y, 1)
@@ -165,7 +227,7 @@ return function(ui: UI.UI)
 			local frame, extent = boundsOf(instance)
 			local components = ui.components(frame)
 			local origin = ui.xyz(frame, "Position")
-			local at, size = ui.xy(viewport, "AbsolutePosition"), ui.xy(viewport, "AbsoluteSize")
+			local size, at = dimensions()
 			local tanY = math.tan(math.rad(ui.number(camera, "FieldOfView")) / 2)
 			local tanX = tanY * size.X / math.max(size.Y, 1)
 			local bounds: Bounds = { left = math.huge, top = math.huge, right = -math.huge, bottom = -math.huge }
@@ -275,9 +337,17 @@ return function(ui: UI.UI)
 					table.insert(excluded, instance)
 				end
 			end
-			local parameters = ui.values.raycastParams(false, excluded)
+			local included: { unknown } = {}
+			if target then
+				for id, instance in nodes do
+					if ui.isA(instance, "BasePart") and not blocked(id) then
+						table.insert(included, instance)
+					end
+				end
+			end
+			local parameters = ui.values.raycastParams(target ~= nil, if target then included else excluded)
 			local hit = ui.call(
-				world,
+				if target then target.world else world,
 				"Raycast",
 				ui.values.vector3(origin.X, origin.Y, origin.Z),
 				ui.values.vector3(direction.X * 15000, direction.Y * 15000, direction.Z * 15000),
@@ -295,12 +365,17 @@ return function(ui: UI.UI)
 				table.clear(nodes)
 				stopDesign = runtime.mount(function(): Compose.Node
 					return ui.node(Design.render(value, library, {
+						use = use,
 						exclude = function(node: Design.Node): boolean
 							return node.hidden == true
 						end,
 						inputs = options.inputs,
 						bindings = options.bindings,
+						outputs = options.outputs,
 						slots = options.slots,
+						players = function(made: { [string]: Design.Player })
+							players = made
+						end,
 						token = options.token,
 						resolveToken = options.resolveToken,
 						decorate = function(node: Design.Node, subject: unknown)
@@ -387,22 +462,84 @@ return function(ui: UI.UI)
 			end)
 		end, runtime.reactor)
 		local release = Compose.owner.own(ui.owner, root.dispose)
-		local function fit()
+		local function setCamera(chosen: Preset)
+			assert(
+				chosen == "fit"
+					or chosen == "eye-height"
+					or chosen == "approach-20"
+					or chosen == "close-up"
+					or chosen == "top-down",
+				"Unknown Camera preset; choose fit, eye-height, approach-20, close-up or top-down"
+			)
 			local value = session.document:peek()
 			local instance = nodes[value.root.id]
 			if instance then
 				local frame, size = boundsOf(instance)
 				focus = ui.xyz(frame, "Position")
 				local viewportSize = ui.xy(viewport, "AbsoluteSize")
-				local vertical = math.rad(ui.number(camera, "FieldOfView")) / 2
-				local horizontal = math.atan(math.tan(vertical) * viewportSize.X / math.max(1, viewportSize.Y))
+				local fullSize = dimensions()
+				local tangent = math.tan(math.rad(ui.number(camera, "FieldOfView")) / 2)
+				local vertical = math.atan(tangent * viewportSize.Y / math.max(1, fullSize.Y))
+				local horizontal = math.atan(tangent * viewportSize.X / math.max(1, fullSize.Y))
 				distance =
 					math.clamp(Math.magnitude(size) * 0.575 / math.sin(math.min(vertical, horizontal)), 6, MAX_DISTANCE)
+				yaw, pitch = math.rad(35), math.rad(-28)
+				if chosen == "eye-height" or chosen == "approach-20" then
+					focus.Y += -size.Y / 2 + (if target then target.eyeHeight or 5.5 else 5.5)
+					yaw, pitch = 0, 0
+					distance = size.Z / 2 + (if chosen == "approach-20" then 20 else 8)
+				elseif chosen == "close-up" then
+					distance = math.max(2, distance * 0.55)
+				elseif chosen == "top-down" then
+					yaw, pitch = 0, math.rad(-90)
+				end
 			end
+			preset:set(chosen)
+			aim()
+		end
+		local function fit()
+			setCamera "fit"
+		end
+		local function orbit(yawDegrees: number, pitchDegrees: number)
+			assert(
+				yawDegrees == yawDegrees
+					and pitchDegrees == pitchDegrees
+					and math.abs(yawDegrees) < math.huge
+					and math.abs(pitchDegrees) < math.huge,
+				"Orbit requires finite angles in degrees"
+			)
+			yaw, pitch = math.rad(yawDegrees), math.rad(math.clamp(pitchDegrees, -89, 89))
+			preset:set "orbit"
 			aim()
 		end
 		local function zoomTo(scale: number, _around: UI.Point?)
+			assert(scale > 0 and scale < math.huge, "Zoom requires a finite positive scale")
 			distance = math.clamp(28 / math.max(scale, 0.005), 2, MAX_DISTANCE)
+			preset:set "custom"
+			aim()
+		end
+		local function pan(offset: UI.Point)
+			assert(
+				offset.X == offset.X
+					and offset.Y == offset.Y
+					and math.abs(offset.X) < math.huge
+					and math.abs(offset.Y) < math.huge,
+				"Pan requires finite pixel offsets"
+			)
+			preset:set "custom"
+			local fullSize = dimensions()
+			local scale = distance
+				* 2
+				* math.tan(math.rad(ui.number(camera, "FieldOfView")) / 2)
+				/ math.max(fullSize.Y, 1)
+			local frame = ui.get(camera, "CFrame")
+			focus = Math.vadd(
+				focus,
+				Math.vadd(
+					Math.vscale(ui.xyz(frame, "RightVector"), -offset.X * scale),
+					Math.vscale(ui.xyz(frame, "UpVector"), offset.Y * scale)
+				)
+			)
 			aim()
 		end
 		local UserInputService = ui.service "UserInputService"
@@ -476,7 +613,7 @@ return function(ui: UI.UI)
 				local origin, direction = ray(point)
 				local parameters = ui.values.raycastParams(true, { gizmo })
 				local hit = ui.call(
-					world,
+					if target then target.world else world,
 					"Raycast",
 					ui.values.vector3(origin.X, origin.Y, origin.Z),
 					ui.values.vector3(direction.X * 2000, direction.Y * 2000, direction.Z * 2000),
@@ -554,6 +691,7 @@ return function(ui: UI.UI)
 					end
 				end
 			elseif ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseWheel") then
+				preset:set "custom"
 				distance =
 					math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, MAX_DISTANCE)
 				aim()
@@ -561,6 +699,7 @@ return function(ui: UI.UI)
 		end))
 		connect(ui.connect(viewport, "InputChanged", function(input: Compose.Node)
 			if ui.get(input, "UserInputType") == ui.values.enum("UserInputType", "MouseWheel") then
+				preset:set "custom"
 				distance =
 					math.clamp(distance * (if ui.xyz(input, "Position").Z > 0 then 0.87 else 1 / 0.87), 2, MAX_DISTANCE)
 				aim()
@@ -578,6 +717,7 @@ return function(ui: UI.UI)
 			local point = Theme.point(input)
 			local delta = Math.sub(point, active.from)
 			if active.kind == "orbit" then
+				preset:set "orbit"
 				yaw -= delta.X * 0.008
 				pitch = math.clamp(pitch - delta.Y * 0.008, math.rad(-88), math.rad(88))
 				active.from = point
@@ -598,17 +738,8 @@ return function(ui: UI.UI)
 				ui.set(marquee, "Size", ui.values.udim2(0, math.abs(delta.X), 0, math.abs(delta.Y)))
 				ui.set(marquee, "Visible", true)
 			elseif active.kind == "pan" then
-				local scale = distance * 0.0016
-				local frame = ui.get(camera, "CFrame")
-				focus = Math.vadd(
-					focus,
-					Math.vadd(
-						Math.vscale(ui.xyz(frame, "RightVector"), -delta.X * scale),
-						Math.vscale(ui.xyz(frame, "UpVector"), delta.Y * scale)
-					)
-				)
+				pan(delta)
 				active.from = point
-				aim()
 			else
 				local axis, origin, start = active.axis, active.origin, active.start
 				local selected = nodes[session.selected:peek()]
@@ -701,6 +832,42 @@ return function(ui: UI.UI)
 			fit = fit,
 			zoomTo = zoomTo,
 			pick = pick,
+			preset = preset,
+			setCamera = setCamera,
+			orbit = orbit,
+			pan = pan,
+			play = function(sequence: string)
+				assert(players[sequence], "Unknown Design sequence").play()
+			end,
+			guides = function(enabled: boolean)
+				ui.set(guides, "Parent", if enabled then world else nil)
+				ui.set(gizmo, "Parent", if enabled then world else nil)
+			end,
+			reframe = function()
+				local chosen = preset:peek()
+				if
+					chosen == "fit"
+					or chosen == "eye-height"
+					or chosen == "approach-20"
+					or chosen == "close-up"
+					or chosen == "top-down"
+				then
+					setCamera(chosen)
+				else
+					aim()
+				end
+			end,
+			readCamera = function(): CameraState
+				return {
+					preset = preset:peek(),
+					yaw = math.deg(yaw),
+					pitch = math.deg(pitch),
+					distance = distance,
+					focus = table.clone(focus),
+					frame = ui.components(ui.get(camera, "CFrame")),
+					fieldOfView = ui.number(camera, "FieldOfView"),
+				}
+			end,
 			dispose = function()
 				for _, connection in connections do
 					connection:Disconnect()
@@ -709,6 +876,10 @@ return function(ui: UI.UI)
 					stopDesign()
 				end
 				release()
+				restoreCamera()
+				ui.destroy(guides)
+				ui.destroy(gizmo)
+				ui.destroy(world)
 				ui.destroy(viewport)
 			end,
 		}

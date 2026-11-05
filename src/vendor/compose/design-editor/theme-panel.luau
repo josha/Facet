@@ -29,6 +29,26 @@ local function create(ui: UI.UI, parent: Compose.Node, store: Store)
 	ui.set(status, "Parent", root)
 	local connections: { UI.Connection } = {}
 	local disposed = false
+	local function write(id: string, value: Value)
+		assert(not disposed, "Theme is closed")
+		local selected: Field? = nil
+		for _, field in store.fields do
+			if field.id == id then
+				selected = field
+				break
+			end
+		end
+		local field = assert(selected, "Unknown theme token: " .. id)
+		local valid = if field.kind == "color"
+			then type(value) == "string" and string.match(value, "^#%x%x%x%x%x%x$") ~= nil
+			else type(value) == "number"
+				and value == value
+				and value >= (field.minimum or 0)
+				and value <= (field.maximum or 512)
+		assert(valid, "Enter #RRGGBB or a value within the token's range")
+		assert(store.write(id, value), "Token change failed; source preserved")
+		ui.set(status, "Text", "Shared tokens saved")
+	end
 	local owner = Compose.createRootOwner(function()
 		for index, field in store.fields do
 			local row = Theme.frame(field.id)
@@ -63,13 +83,9 @@ local function create(ui: UI.UI, parent: Compose.Node, store: Store)
 						if disposed then
 							return
 						end
-						local ok, saved = pcall(store.write, field.id, chosen)
+						local ok, failure = pcall(write, field.id, chosen)
 						if not disposed then
-							ui.set(
-								status,
-								"Text",
-								if ok and saved then "Shared tokens saved" else "Token change failed; source preserved"
-							)
+							ui.set(status, "Text", if ok then "Shared tokens saved" else tostring(failure))
 						end
 					end)
 				end)
@@ -79,6 +95,7 @@ local function create(ui: UI.UI, parent: Compose.Node, store: Store)
 	local release = Compose.owner.own(ui.owner, owner.dispose)
 	return {
 		root = root,
+		write = write,
 		dispose = function()
 			disposed = true
 			release()

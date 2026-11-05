@@ -4,6 +4,7 @@ local Core = require "../core"
 local Types = require "./types"
 local Document = require "./document"
 local Datatype = require "./datatype"
+local Imports = require "./imports"
 
 type ReadOnlyValue<T> = Core.ReadOnlyValue<T>
 type Use = Core.Use
@@ -31,7 +32,8 @@ local function rowsOf(value: Literal?): { Row }
 	return rows
 end
 
-return function(value: Types.Document, library: Types.Library, context: Context?): unknown
+local render: (Types.Document, Types.Library, Context?) -> unknown
+render = function(value: Types.Document, library: Types.Library, context: Context?): unknown
 	local supplied: { [string]: Literal } = if context and context.inputs then context.inputs else {}
 	local bindings: { [string]: Resolved } = if context and context.bindings then context.bindings else {}
 	local variant = value.rootVariant
@@ -278,6 +280,23 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			}
 		end
 		if current ~= nil then
+			if definition and definition.type == "content" and type(current) == "table" then
+				local template = current["$template"]
+				if type(template) == "string" then
+					local child = Document.find(owner, template)
+					local function content(): unknown
+						return build(assert(child), item)
+					end
+					return { value = content, slot = content, literal = current }
+				end
+			end
+			if definition and definition.type == "value" and not definition.perRow and type(current) == "table" then
+				local template = current["$template"]
+				if type(template) == "string" then
+					local child = Document.find(owner, template)
+					return { value = build(assert(child), item) }
+				end
+			end
 			if definition ~= nil and definition.type == "datatype" and type(current) == "table" then
 				local components: { [number]: Resolved } = {}
 				local reactive = false
@@ -397,6 +416,26 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 			end
 			return { readable = itemField(row, field) }
 		elseif output then
+			local arguments = property.arguments
+			if arguments then
+				return {
+					callback = function(...: Literal)
+						local handler = outputs[output]
+						if handler then
+							local event = table.pack(...)
+							local args: { Literal } = {}
+							for index, argument in arguments do
+								local current: Literal? = if argument.item
+									then assert(item, "Item arguments need a template"):peek()[argument.item]
+									else event[argument.event]
+								assert(current ~= nil, `Missing action argument {index} for {output}`)
+								args[index] = current
+							end
+							handler(args)
+						end
+					end,
+				}
+			end
 			local passed = property.fields
 			if passed then
 				local row = assert(item, "Item fields need a template")
@@ -592,7 +631,33 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 				named = tostring(field)
 			end
 		end
-		local built = kind.build(props, children, named)
+		local built: unknown
+		if kind.design then
+			local imported = kind.design
+			local nested = Imports.read(imported, if context then context.use else nil)
+			local called: { [string]: (args: { Literal }) -> () } = {}
+			for _, output in nested.contract.outputs do
+				local binding = props[output.id]
+				local callback = if binding then binding.callback else nil
+				if callback then
+					called[output.id] = function(args: { Literal })
+						callback(table.unpack(args))
+					end
+				end
+			end
+			props[imported.nameInput] = { literal = named }
+			local nestedContext: Context = {
+				use = if context then context.use else nil,
+				bindings = props,
+				outputs = called,
+				token = token,
+				resolveToken = resolveToken,
+				exclude = if context then context.exclude else nil,
+			}
+			built = render(nested, imported.library, nestedContext)
+		else
+			built = kind.build(props, children, named)
+		end
 		local tags, tagging = node.tags, library.tags
 		if tags ~= nil and tagging ~= nil then
 			tagging.apply(built, tags)
@@ -645,3 +710,5 @@ return function(value: Types.Document, library: Types.Library, context: Context?
 	end
 	return root
 end
+
+return render

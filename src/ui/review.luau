@@ -1,4 +1,5 @@
 --!strict
+local ambient = require("./ambient")
 local Rules = require("./review_rules")
 
 export type ReviewReport = Rules.ReviewReport
@@ -83,11 +84,7 @@ local function role(object: unknown): string?
 end
 
 local function dataModel(): unknown
-	local environment: unknown = getfenv
-	if type(environment) ~= "function" then
-		return nil
-	end
-	return read(getfenv(0), "game")
+	return ambient()
 end
 
 local function roots(root: Instance?): { unknown }

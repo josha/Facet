@@ -6,8 +6,10 @@
     "batchCount": 1
   },
   "units": [
+    { "id": "lute/ambient", "locator": "tests/lute/ambient.verify.luau", "requires": ["lute"] },
     { "id": "resolution_scale", "locator": "tests/resolution_scale.verify.luau", "requires": ["local-luau"] },
     { "id": "native_game_hud", "locator": "tests/native_game_hud.verify.luau", "requires": ["local-luau"] },
+    { "id": "native_group", "locator": "tests/native_group.verify.luau", "requires": ["local-luau"] },
     { "id": "native_control_memory", "locator": "tests/native_control_memory.verify.luau", "requires": ["local-luau"] },
     { "id": "world_drag", "locator": "tests/world_drag.verify.luau", "requires": ["local-luau"] },
     { "id": "native_camera_rig", "locator": "tests/native_camera_rig.verify.luau", "requires": ["local-luau"] },
@@ -111,6 +113,7 @@
         "local-luau"
       ]
     },
+    { "id": "compose_design_host", "locator": "tests/compose_design_host.verify.luau", "requires": ["local-luau"] },
     {
       "id": "facet_home",
       "locator": "tests/facet_home.verify.luau",

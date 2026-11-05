@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
@@ -144,7 +145,7 @@ local function attachMeasuredLayout(
 		end
 	end
 	local revision = Compose.cell(0)
-	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
+	local framed = services.RunService ~= nil and dataModel() ~= nil
 	local box = label.AbsoluteSize
 	local bounds = Compose.cell(label.TextBounds)
 	local frameSource = runtime.host.frames

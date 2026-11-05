@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
@@ -409,7 +410,7 @@ return function(
 				}
 				label:AddTag("facet-skin-caption-text")
 				local bounds =
-					runtime.observe(label, "TextBounds", if getfenv(0).game then { frame = true, poll = true } else nil)
+					runtime.observe(label, "TextBounds", if dataModel() then { frame = true, poll = true } else nil)
 				Compose.watch(function(use: ComposeTypes.Use)
 					fit:set(use(bounds) :: Vector2)
 				end)

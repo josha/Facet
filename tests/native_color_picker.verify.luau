@@ -181,6 +181,56 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native ColorPicker colour values", function()
+		verifyHarness:case("named swatches show their labels and update the same native preview draft", function(t)
+			local red, blue = Color3.fromRGB(220, 50, 40), Color3.fromRGB(35, 90, 220)
+			local paint = Compose.cell(red)
+			local palette = Compose.cell<<{ Facet.ColorSwatch }>>({
+				{ color = red, label = "Vermilion" },
+				{ color = blue, label = "Cobalt" },
+			})
+			local w = world({ value = paint }, {
+				build = function(UI, Host)
+					return Host.Frame {
+						UI.ColorPicker "P" {
+							value = paint,
+							modes = { "swatches" },
+							style = "inline",
+							swatches = palette,
+						},
+						UI.Stage "ItemPreview" {
+							Size = Roblox.UDim2.fromScale(1, 1),
+							Ambient = Color3.new(1, 1, 1),
+							LightColor = Color3.new(1, 1, 1),
+							content = function(runtime, scene)
+								local Host = runtime.constructors
+								Host.Part "Subject" { Parent = Compose.static(scene), Anchored = true, Color = paint }
+								return nil
+							end,
+						},
+					}
+				end,
+			})
+			t:defer(w.stop)
+			local cells = w.cells()
+			for index, label in { "Vermilion", "Cobalt" } do
+				local text = cells[index]:FindFirstChild("Label")
+				t:expect(text.Text):toBe(label)
+				t:expect(text.Visible):toBe(true)
+				t:expect(cells[index].Size.X.Offset > 44):toBe(true)
+				t:expect(cells[index]:FindFirstChild("Swatch").Size.Y.Offset):toBe(44)
+			end
+			local preview = w.find("ItemPreview")
+			t:expect(preview.ClassName):toBe("ViewportFrame")
+			t:expect(preview:FindFirstChild("World").ClassName):toBe("WorldModel")
+			t:expect(preview.CurrentCamera ~= nil):toBe(true)
+			cells[2].Activated:Fire()
+			t:expect(hex(paint:peek())):toBe(hex(blue))
+			t:expect(hex(w.find("Subject").Color)):toBe(hex(blue))
+			t:expect(cells[2]:FindFirstChild("Check") ~= nil):toBe(true)
+			palette:set({ { color = red, label = "Vermilion" } })
+			t:expect(#w.cells()):toBe(1)
+			t:expect(w.cells()[1]:FindFirstChild("Label").Text):toBe("Vermilion")
+		end)
 		verifyHarness:case("a saturation round trip through the Sliders tab returns to the hue the player set", {
 			id = "native_color_picker::native ColorPicker colour values::a saturation round trip through the Sliders tab returns to the hue the player set",
 			run = function()

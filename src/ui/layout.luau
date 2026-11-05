@@ -272,6 +272,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		assert(spec.surface == nil or plate ~= nil, "Facet UI.Screen: surface must be surface, panel or pane")
 		local base: Types.Input<Types.Padding> = if spec.padding == nil then "m" else spec.padding
 		local under = Compose.cell(0)
+		local touch = Compose.cell(0)
 		local clearance: ComposeTypes.Value<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
 		local distant = ctx.tenFoot()
 		local authored = ctx.config.environment and ctx.config.environment.overscanInsets
@@ -307,7 +308,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					{
 						top = side("top", if chrome == "device" then use(under) else 0),
 						right = side("right", 0),
-						bottom = side("bottom", 0),
+						bottom = side("bottom", if chrome == "device" then use(touch) else 0),
 						left = side("left", 0),
 					} :: unknown
 				) :: Types.Padding
@@ -317,6 +318,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		}
 		local frame = kit.stack(children, properties :: Engine.FrameNativeProps, flow, true, "fill", "fill")
 		kit.underTopbar(frame, under)
+		if chrome == "device" then
+			kit.touchClearance(frame, touch)
+		end
 		if plate then
 			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")
 		end
@@ -375,6 +379,21 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			locate()
 		end)
 		return frame
+	end)
+
+	UI.Group = ctx.construct("Group", function(spec: LayoutProps.GroupProps): CanvasGroup
+		local properties, children = split(spec, { "groupTransparency", "width", "height", "padding" })
+		local size, automatic = kit.extent(spec, "hug", "hug")
+		local native: Engine.CanvasGroupNativeProps = {
+			BorderSizePixel = 0,
+			Size = size,
+			AutomaticSize = automatic,
+			GroupTransparency = spec.groupTransparency,
+		}
+		return kit.plain(
+			Host.CanvasGroup(kit.assemble(native, properties, { kit.insets(spec.padding) }, children)),
+			properties
+		)
 	end)
 
 	UI.ZStack = ctx.construct("ZStack", function(spec: LayoutProps.ZStackProps): Frame

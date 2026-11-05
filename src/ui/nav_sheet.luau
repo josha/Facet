@@ -11,6 +11,7 @@ local sheetContent = require("./nav_sheet_content")
 local transitions = require("./transition")
 local arrival = require("./overlay_arrival")
 local glass = require("./glass")
+local visualTarget = require("./visual_target")
 
 type Prepared = sheetDetents.Prepared
 
@@ -192,6 +193,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			})
 			custom.apply(panel)
 		end
+		visualTarget.bind(Compose, anchor, presentation)
 		ctx.styled(panel, "sheet")
 		runtime.decorate(panel, {
 			Attributes = {
@@ -327,6 +329,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		)
 
 		root:SetAttribute("FacetSheet", true)
+		visualTarget.create(Compose, root)
 		runtime.connect(root, "AttributeChanged", function(name: string)
 			local wanted = root:GetAttribute("FacetPresent")
 			if name == "FacetPresent" and type(wanted) == "boolean" then

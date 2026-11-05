@@ -12,6 +12,7 @@ export type ZoomViewOptions = {
 	content: () -> GuiObject,
 	zoom: Shared.Value<number>?,
 	focus: Shared.Input<Vector2>?,
+	preferredSelection: Shared.Input<GuiObject?>?,
 	minZoom: number?,
 	maxZoom: number?,
 	doubleTapZoom: number?,

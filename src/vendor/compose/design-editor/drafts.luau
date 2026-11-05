@@ -24,6 +24,27 @@ return function(ui: UI.UI, parent: Compose.Node, device: Devices.Profile, draft:
 	local releases: { () -> () } = {}
 	local connections: { UI.Connection } = {}
 	local disposed, busy = false, false
+	local function choose(index: number)
+		assert(not disposed and not busy, "Drafts are unavailable")
+		assert(draft.variants[index], "Unknown draft index")
+		busy = true
+		ui.set(status, "Text", "Saving selected variant...")
+		ui.runtime.scheduler(ui.owner).after(0, function()
+			if disposed then
+				return
+			end
+			local chosen = pcall(draft.pick, index)
+			if disposed then
+				return
+			end
+			busy = false
+			if chosen then
+				close()
+			else
+				ui.set(status, "Text", "Variant request failed; check source sync")
+			end
+		end)
+	end
 	table.insert(
 		connections,
 		ui.connect(discard, "Activated", function()
@@ -76,23 +97,7 @@ return function(ui: UI.UI, parent: Compose.Node, device: Devices.Profile, draft:
 					if busy then
 						return
 					end
-					busy = true
-					ui.set(status, "Text", "Saving selected variant...")
-					ui.runtime.scheduler(ui.owner).after(0, function()
-						if disposed then
-							return
-						end
-						local chosen = pcall(draft.pick, index)
-						if disposed then
-							return
-						end
-						busy = false
-						if chosen then
-							close()
-						else
-							ui.set(status, "Text", "Variant request failed; check source sync")
-						end
-					end)
+					choose(index)
 				end)
 			)
 		end
@@ -101,5 +106,5 @@ return function(ui: UI.UI, parent: Compose.Node, device: Devices.Profile, draft:
 		dispose()
 		error(failure, 0)
 	end
-	return { dispose = dispose }
+	return { dispose = dispose, choose = choose }
 end

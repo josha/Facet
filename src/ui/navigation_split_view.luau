@@ -1,6 +1,5 @@
 --!strict
 local Shared = require("./types")
-local Inputs = require("./input_types")
 local Nav = require("./navigation_types")
 local parts = require("./overlay_parts")
 local scrollLock = require("./scroll_lock")
@@ -15,7 +14,6 @@ type Props = NavigationProps.NavigationSplitViewProps
 type Registry = {
 	NavigationSplitView: Shared.Constructor<NavigationProps.NavigationSplitViewPropsInput, Frame>,
 	Button: Shared.Constructor<InputProps.ButtonPropsInput, TextButton>,
-	adjustable: (GuiObject, Inputs.AdjustableOptions) -> (),
 }
 
 return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
@@ -341,7 +339,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					AutoButtonColor = false,
 					BackgroundTransparency = 1,
 					Visible = split,
-					Selectable = canResize,
+					Selectable = false,
 					Position = function(use: Shared.Use)
 						return dimensions(0, use(actualExtent), 0, 0)
 					end,
@@ -349,7 +347,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 						return dimensions(0, gutter(use), 1, 0)
 					end,
 					Attributes = {
-						AccessibleLabel = "Resize split. Use L1 and R1, or comma and period.",
+						AccessibleLabel = "Resize split.",
 						FacetFocusPart = "Grip",
 					},
 					ctx.styled(
@@ -429,14 +427,6 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					},
 				}
 				resize = Host.TextButton(resizeProps)
-				UI.adjustable(resize, {
-					axis = "none",
-					repeats = true,
-					enabled = canResize,
-					onAdjust = function(direction: number)
-						setExtent(actualExtent:peek() + direction * 16)
-					end,
-				})
 				return resize
 			end)(),
 		})
@@ -446,20 +436,8 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
 		local lastSidebar: GuiObject? = nil
 		local lastDetail: GuiObject? = nil
-		local previousPane: GuiObject? = nil
 		Compose.watch(function(use: Shared.Use)
 			local current = use(selected)
-			local pane = if surfaces.within(current, sidebar)
-				then sidebar
-				elseif detail and surfaces.within(current, detail) then detail
-				else nil
-			local crossed = previousPane ~= nil and pane ~= nil and pane ~= previousPane
-			previousPane = pane
-			if crossed and canResize(use) and gui then
-				previousPane = nil
-				gui.SelectedObject = resize
-				return
-			end
 			if current and surfaces.within(current, sidebar) then
 				lastSidebar = current
 				if vertical then
