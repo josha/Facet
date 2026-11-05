@@ -713,7 +713,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
-		local cellSize = if spec.aspectRatio ~= nil then Compose.cell(Vector2.zero) else nil
+		local cellSize = if spec.aspectRatio ~= nil then Compose.cell(V2.zero) else nil
 		local cellHeight = 0
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
