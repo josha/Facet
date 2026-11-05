@@ -33,6 +33,12 @@ keeps the cap's text color. The default separator is
 cap outline. Without it, the outline is `strokes.hairline`. A value of 0 draws
 no outline.
 
+`keys` is fixed text. Use an InputAction with a gamepad binding for prompts
+that must follow the active input. A keyboard-only preferred binding is hidden
+on gamepad. At ten feet, controller glyphs are at least the theme's control
+text size, including compact hints. Both DisplayImage and platform glyphs use
+the cap text color.
+
 With `action`, the hint shows the action's native `PreferredBinding`: the
 binding's `DisplayImage` or the platform glyph when there is one, else the
 binding's `DisplayName`, else the key names. A touch control usually binds a

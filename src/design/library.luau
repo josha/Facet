@@ -225,11 +225,12 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		}
 	end
 	for key, field in spec.fields do
+		local runtime = typed[key]
 		local also: { string }? = if field.format == "padding"
 			then { "number", "table" }
 			elseif field.format == "spacing" then { "number" }
+			elseif runtime and runtime.also then table.clone(runtime.also)
 			else nil
-		local runtime = typed[key]
 		local kind = if runtime ~= nil then LITERAL_KINDS[runtime.type] else nil
 		local own = LITERAL_KINDS[field.type]
 		if kind ~= nil and kind ~= own and (also == nil or table.find(also, kind) == nil) then
@@ -251,19 +252,20 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		if field.perRow ~= nil then
 			result.perRow = field.perRow
 		end
-		local luauType = if field.format == "padding"
+		local luauType: string? = if field.format == "padding"
 			then "Facet.Sides"
 			elseif key == "options" and OPTION_LISTS[name] then "{ Facet.PickerOption<string> }"
 			elseif key == "columns" and name == "Table" then "{ Facet.TableColumn<$Item, $Key> }"
 			elseif key == "rowActions" then "Facet.RowActionsOptions?"
 			elseif name == "Sheet" and key == "detents" then "{ Facet.SheetDetent }"
+			elseif name == "TabView" and key == "tabs" then "{ Facet.Tab }"
 			elseif key == "actions" then "{ Facet." .. (if name == "Dialog"
 				then "DialogAction"
 				elseif name == "Alert" then "AlertAction"
 				else "OverlayAction") .. " }"
 			elseif name == "RowActions" and (key == "leading" or key == "trailing") then "{ Facet.RowAction }"
 			else nil
-		if luauType then
+		if luauType ~= nil then
 			result.luauType = luauType
 		end
 		fields[key] = result
@@ -764,18 +766,25 @@ local function create(context: Context): Design.Library
 				end
 				local anchorKey = spec.anchor
 				if anchorKey ~= nil then
-					local presented = states.isPresented
-					local trigger = UI.Button({
-						label = values.anchorLabel or spec.defaults.anchorLabel or "Open",
-						onActivate = function()
-							if presented ~= nil then
-								presented:set(true)
-							end
-						end,
-					}, name .. "Anchor")
-					values[anchorKey] = trigger
+					local label = values.anchorLabel or spec.defaults.anchorLabel or "Open"
 					values.anchorLabel = nil
-					return UI.VStack({ gap = "s", trigger, UI[name](values, nodeName) }, nodeName .. "Host")
+					local resolved = props[anchorKey]
+					if resolved ~= nil and resolved.node ~= nil then
+						values[anchorKey] = Compose.sample(resolved.node :: Compose.ReadOnlyValue<unknown>)
+					end
+					if values[anchorKey] == nil then
+						local presented = states.isPresented
+						local trigger = UI.Button({
+							label = label,
+							onActivate = function()
+								if presented ~= nil then
+									presented:set(true)
+								end
+							end,
+						}, name .. "Anchor")
+						values[anchorKey] = trigger
+						return UI.VStack({ gap = "s", trigger, UI[name](values, nodeName) }, nodeName .. "Host")
+					end
 				end
 				return UI[name](values, nodeName)
 			end,

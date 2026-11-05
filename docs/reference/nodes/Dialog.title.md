@@ -4,8 +4,9 @@ Dialog.title option values and behavior.
 
 - `title`, `actionLabel`: strings or bound strings. An empty bound title hides
   until it has text.
-- `content`: a factory for the one body. The body scrolls between the pinned
-  header, hero, action label and actions.
+- `content`: a factory for the one body. The default body scrolls between the pinned
+  header, hero, action label and actions. With `bodyHeight`, the child owns its
+  scrolling inside the offered body. See [bounded sizing](Dialog.sizing.md).
 - `hero`: the shared media shape.
 - `actionLayout`: `automatic`, `row` or `stacked`. `automatic` puts two short
   actions in a row and stacks three or more. `row` keeps any number in a row.

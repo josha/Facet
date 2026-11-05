@@ -1,11 +1,11 @@
 # Tasks.hud
 
-Mount accepted progress with its subject ("Beacons 2/4") and a bound InputAction.
+Show progress with a subject and InputAction.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local function hud(app: Facet.App, goal: Facet.ReadOnlyValue<string>,
-  progress: Facet.ReadOnlyValue<string>, resource: Facet.ReadOnlyValue<string>,
+  progress: Facet.ReadOnlyValue<string>, resource: Facet.ReadOnlyValue<string>?,
   label: string, command: InputAction, activate: () -> ()): Frame
   local UI = app.UI
   local env = UI.environment()
@@ -19,9 +19,9 @@ local function hud(app: Facet.App, goal: Facet.ReadOnlyValue<string>,
         UI.Text { text = progress, textRole = "caption" } },
       UI.HStack "Short" { surface = "panel", padding = "s",
         UI.Text { text = progress } } },
-    UI.Region "Resource" { zone = "topRight", rank = 3, reveal = false,
+    if resource then UI.Region "Resource" { zone = "topRight", rank = 3, mayDrop = true, reveal = false,
       UI.HStack "Counter" { surface = "panel", padding = "s",
-        UI.Text { text = resource, textRole = "numeral" } } },
+        UI.Text { text = resource, textRole = "numeral" } } } else nil,
     UI.Region "Command" { zone = "action", rank = 1,
       UI.VStack "Primary" { width = wide, align = "stretch",
         UI.Button "Command" { label = label, appearance = "emphasis",
@@ -35,8 +35,7 @@ portrait screen, bottom right otherwise. The Button and the bound action
 call activate; `shortcutHint` shows the action's glyph. The game owns its
 InputContext; activate can act in the world or open a
 [destination](Tasks.pages.md). Keep the center and movement controls clear.
-Test narrow layouts.
+Pass resources only when needed for play. Test short layouts.
 
-[Safe layout](Tasks.safe-layout.md), [HUD actions](HUD-actions.md),
-[minimaps](Tasks.minimap.md),
-[server state](Tasks.state.md), [collection/detail](Tasks.collection-detail.md).
+[Layout](Tasks.safe-layout.md), [actions](HUD-actions.md), [map](Tasks.minimap.md),
+[state](Tasks.state.md), [details](Tasks.collection-detail.md).

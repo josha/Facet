@@ -203,15 +203,7 @@ local function link(owner: Owner, release: Dispose, after: Dispose?): Entry
 	return entry
 end
 
-export type RunScope = { child: Owner?, base: number?, inherited: Owner? }
-
-local activationDepth: () -> number = function(): number
-	return 0
-end
-
-local function installActivationDepth(depth: () -> number)
-	activationDepth = depth
-end
+export type RunScope = { child: Owner?, inherited: Owner? }
 
 local function installCurrentOwner(current: () -> Owner?)
 	currentOwner = current
@@ -549,10 +541,7 @@ local function releaseScope(node: Types.Node)
 	end
 end
 
-watchModule.installScope(function(node: Types.Node)
-	releaseScope(node)
-	node.base = activationDepth()
-end, releaseScope)
+watchModule.installScope(releaseScope, releaseScope)
 
 local function watch(owner: Owner, body: (use: Types.Use) -> (), label: string?, after: Dispose?): Dispose
 	if inspecting.active then
@@ -610,7 +599,6 @@ return {
 	reactorOf = reactorOf,
 	isOwner = isOwner,
 	raiseAll = raiseAll,
-	installActivationDepth = installActivationDepth,
 	installCurrentOwner = installCurrentOwner,
 	runScopeOf = runScopeOf,
 	scopeOwner = scopeOwner,

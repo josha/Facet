@@ -8,6 +8,12 @@ callout is suspended. `seen`, `sessions`, `afterSessions`, `featureUsed` and
 priority set eligibility and queue order. Each fact can be a value, a readable
 or a function of `use`. Retirement is delivered once. A callout is contextual
 teaching attached to a control. It is not a second application presenter.
+
+`Design.render` uses an authored Callout `anchor` node reference in previews and
+live rendering. Place the anchor before the Callout in the tree, so its native
+Instance is captured first. The renderer adds a preview trigger only when no
+anchor is supplied.
+
 Without an authored `edge`, a callout prefers above its anchor on touch and
 below for other input. The default follows live input changes.
 `edge` accepts `top`, `bottom`, `leading` and `trailing`.

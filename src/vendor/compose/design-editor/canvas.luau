@@ -7,10 +7,12 @@ local UI = require "./ui"
 local Stage = require "./stage"
 local Stage3D = require "./stage3d"
 local Projection = require "./projection"
+local RenderPreview = require "./render-preview"
 
 export type SlotSample = (Design.Library, Devices.Profile) -> unknown
 
 export type Context = {
+	renderPreview: RenderPreview.RenderPreview?,
 	library: Design.Library?,
 	token: ((string) -> Design.Literal)?,
 	resolveToken: ((string) -> Design.Resolved)?,
@@ -163,6 +165,7 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 		local entry: Frame = { device = device, root = frame, scale = scale, actualSize = Compose.cell(false) }
 		if library.space == "3d" then
 			entry.scene = Stage3D(ui)(session, body, {
+				renderPreview = context.renderPreview or options.renderPreview,
 				target = options.scene,
 				readOnly = options.readOnly,
 				library = library,
@@ -174,6 +177,7 @@ return function(ui: UI.UI, session: Design.Session, parent: Compose.Node, option
 			})
 		else
 			entry.stage = Stage(ui)(session, body, {
+				renderPreview = context.renderPreview or options.renderPreview,
 				readOnly = options.readOnly,
 				library = library,
 				size = { X = device.size.X, Y = device.size.Y },

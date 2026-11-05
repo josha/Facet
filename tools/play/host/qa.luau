@@ -3,6 +3,7 @@
 local fs = require("@std/fs")
 local task = require("@std/task")
 
+local AssistantSandbox = require("../../../tools/facet/lib/assistant_sandbox")
 local Audit = require("../../../tools/vendor/verify/src/roblox/ui-audit")
 local Capture = require("./capture")
 local Devices = require("./devices")
@@ -192,19 +193,11 @@ local function create(context: Context, device: Devices.Device): QA
 			request[key] = value
 		end
 		request.command = command
-		local code = ([[
-local root = %s
-if SecurityCapabilities ~= nil and root:GetAttribute("FacetAssistantSandbox") ~= true then
-	local capabilities = SecurityCapabilities.fromCurrent():Remove(Enum.SecurityCapability.Unassigned)
-	for _, node in root:GetDescendants() do
-		if node:IsA("ModuleScript") then
-			node.Capabilities = capabilities
-			node.Sandboxed = true
-		end
-	end
-	root:SetAttribute("FacetAssistantSandbox", true)
-end
-return require(%s).call(%q)]]):format(context.probeRoot, context.probe, Lute.encode(request))
+		local code = ("%s\nreturn require(%s).call(%q)"):format(
+			AssistantSandbox.prelude("{ " .. context.probeRoot .. " }"),
+			context.probe,
+			Lute.encode(request)
+		)
 		local reply = execute("Client", code)
 		if reply.ok ~= true then
 			error(("probe %s failed: %s"):format(command, tostring(reply.error)), 0)

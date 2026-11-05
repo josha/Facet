@@ -83,13 +83,14 @@ return function(verifyHarness: Verify.Harness)
 			theme: any?,
 			pressHaptic: ((any) -> HapticEffect)?,
 			motionLevel: Shared.Input<Shared.MotionLevel>?,
+			layout: VerifyRoblox.UiLayoutOptions?,
 			runService: boolean?,
 			preRender: boolean?,
 			suspendGameplay: boolean?,
 			tweens: unknown?,
 		}?
 	)
-		local engine = engines.new()
+		local engine = engines.new({ layout = options and options.layout })
 		local gui = engine.new("GuiService")
 		gui.GuiNavigationEnabled = true
 		gui.AutoSelectGuiEnabled = true
@@ -1997,6 +1998,236 @@ return function(verifyHarness: Verify.Harness)
 				pages.CanvasPosition = world.engine.types.Vector2.zero
 				expect((selection:peek())):toBe("one")
 				world.stop()
+			end,
+		})
+
+		for _, initialScale in { 1, 4 / 3, 2 } do
+			it(`keeps five pages inside the viewport from scale {initialScale} through mounted scale changes`, {
+				id = `native_navigation::PageView scale::five pages from {initialScale}`,
+				limitations = {
+					"Computed layout and UDim rounding do not prove native Studio pixel rounding or physical input.",
+					"The computed fixture starts on the first page before navigation; non-first initial selection uses supplied native geometry in separate cases.",
+				},
+				run = function(own)
+					local roots: { VerifyRoblox.Instance } = {}
+					local selection = Compose.cell("one")
+					local scale = Compose.cell(initialScale)
+					local world = setup(function(UI: FacetControls, Host: RobloxHost, engine)
+						local pages: { Navigation.Tab } = {}
+						for _, id in { "one", "two", "three", "four", "five" } do
+							table.insert(pages, {
+								id = id,
+								content = Host.Frame(`Body-{id}`) {
+									Size = engine.types.UDim2.fromScale(1, 1),
+									UI.Button(`Focus-{id}`) {
+										label = id,
+										Size = engine.types.UDim2.fromOffset(80, 44),
+										Position = engine.types.UDim2.fromScale(0.5, 0.5),
+									},
+								},
+							})
+						end
+						return Host.Frame "Stage" {
+							Size = function(use: Use): UDim2
+								return engine.types.UDim2.fromScale(1 / use(scale), 1 / use(scale))
+							end,
+							Host.UIScale { Scale = scale },
+							UI.PageView { selection = selection, pages = pages },
+						}
+					end, {
+						motionLevel = "none",
+						layout = {
+							roots = function()
+								return roots
+							end,
+							viewport = function()
+								return { X = 1072, Y = 600 }
+							end,
+						},
+					})
+					own(world.stop)
+					table.insert(roots, VerifyRoblox.assertInstance(world.screen))
+					local pages: ScrollingFrame = find(world.screen, "Pages")
+					local function settleLayout()
+						for _ = 1, 60 do
+							local _window = pages.AbsoluteWindowSize
+							world.engine.environment.step(1 / 60)
+						end
+					end
+					settleLayout()
+					selection:set("four")
+					settleLayout()
+					for _, nextScale in { initialScale, 1, 4 / 3, 2 } do
+						local retained = selection:peek()
+						scale:set(nextScale)
+						settleLayout()
+						expect(selection:peek()):toBe(retained)
+						for _, id in { "four", "five", "three" } do
+							selection:set(id)
+							settleLayout()
+							local body: Frame = find(pages, `Body-{id}`)
+							local focus: GuiObject = find(body, `Focus-{id}`)
+							local left = pages.AbsolutePosition.X
+							local right = left + pages.AbsoluteWindowSize.X
+							local detail =
+								`scale {nextScale}, page {id}, scroll {pages.CanvasPosition}, window {pages.AbsoluteWindowSize}, body {body.AbsolutePosition} {body.AbsoluteSize}, focus {focus.AbsolutePosition} {focus.AbsoluteSize}`
+							expect(selection:peek()):toBe(id)
+							expect(pages.CanvasPosition.X > 0):toBeTrueWith(detail)
+							expect(math.abs(pages.AbsoluteWindowSize.X - 1072) < 0.01):toBeTrueWith(detail)
+							for _, node in { body, focus } do
+								expect(node.AbsolutePosition.X >= left - 0.01):toBeTrueWith(detail)
+								expect(node.AbsolutePosition.X + node.AbsoluteSize.X <= right + 0.01):toBeTrueWith(
+									detail
+								)
+								expect(node.AbsolutePosition.Y >= pages.AbsolutePosition.Y - 0.01):toBeTrueWith(detail)
+								expect(
+									node.AbsolutePosition.Y + node.AbsoluteSize.Y
+										<= pages.AbsolutePosition.Y + pages.AbsoluteWindowSize.Y + 0.01
+								):toBeTrueWith(detail)
+							end
+						end
+					end
+				end,
+			})
+		end
+
+		for _, sample in
+			{ { scale = 1, canvas = 5360 }, { scale = 4 / 3, canvas = 5358 }, { scale = 2, canvas = 5360 } }
+		do
+			it(`accepts the five-page canvas at scale {sample.scale} and scrolls once per forward and back command`, {
+				id = `native_navigation::PageView scale::rounded canvas and single navigation at {sample.scale}`,
+				limitations = {
+					"The fixture supplies the host's measured canvas; it does not calculate Studio rasterization.",
+				},
+				run = function(own)
+					local selection = Compose.cell("four")
+					local world = setup(function(UI: FacetControls, Host: RobloxHost)
+						local pages: { Navigation.Tab } = {}
+						for _, id in { "one", "two", "three", "four", "five" } do
+							table.insert(pages, { id = id, content = Host.Frame {} })
+						end
+						return Host.Frame {
+							Host.UIScale { Scale = sample.scale },
+							UI.PageView { selection = selection, pages = pages },
+						}
+					end)
+					own(world.stop)
+					local pages: ScrollingFrame = find(world.screen, "Pages")
+					local V2 = world.engine.types.Vector2
+					for _, node in pages:GetChildren() do
+						if node.Name == "LayoutUnit" and node:IsA("Frame") then
+							world.engine.environment.poke(
+								VerifyRoblox.assertInstance(node),
+								"AbsoluteSize",
+								V2.new(node.Size.X.Offset * sample.scale, sample.scale)
+							)
+						end
+					end
+					world.engine.environment.poke(
+						VerifyRoblox.assertInstance(pages),
+						"AbsoluteWindowSize",
+						V2.new(1072, 480)
+					)
+					world.engine.environment.poke(
+						VerifyRoblox.assertInstance(pages),
+						"AbsoluteCanvasSize",
+						V2.new(5300, 480)
+					)
+					expect(pages.CanvasPosition.X):toBe(0)
+					expect(selection:peek()):toBe("four")
+					world.engine.environment.poke(
+						VerifyRoblox.assertInstance(pages),
+						"AbsoluteCanvasSize",
+						V2.new(sample.canvas, 480)
+					)
+					expect(pages.CanvasPosition.X > 3200):toBe(true)
+					expect(selection:peek()):toBe("four")
+					local writes = 0
+					local subscription = world.engine.onWrite(function(node: unknown, property: string)
+						if node == pages and property == "CanvasPosition" then
+							writes += 1
+						end
+					end)
+					own(function()
+						subscription:Disconnect()
+					end)
+					find(world.screen, "Next").Activated:Fire()
+					expect(selection:peek()):toBe("five")
+					expect(pages.CanvasPosition.X):toBe(sample.canvas - 1072)
+					expect(writes):toBe(1)
+					find(world.screen, "Previous").Activated:Fire()
+					expect(selection:peek()):toBe("four")
+					expect(pages.CanvasPosition.X > 3200):toBe(true)
+					expect(writes):toBe(2)
+					world.settle()
+					expect(selection:peek()):toBe("four")
+					expect(writes):toBe(2)
+				end,
+			})
+		end
+
+		it("recomputes layout-unit changes without animating a resize at the same physical width", {
+			id = "native_navigation::PageView scale::layout-unit resize without animation",
+			run = function(own)
+				local animated = 0
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					local pages: { Navigation.Tab } = {}
+					for _, id in { "one", "two", "three", "four", "five" } do
+						table.insert(pages, { id = id, content = Host.Frame {} })
+					end
+					return UI.PageView { selection = Compose.cell("four"), pages = pages }
+				end, {
+					tweens = {
+						Create = function(
+							_self: unknown,
+							node: ScrollingFrame,
+							_info: TweenInfo,
+							goal: { CanvasPosition: Vector2 }
+						)
+							animated += 1
+							return {
+								Play = function()
+									node.CanvasPosition = goal.CanvasPosition
+								end,
+								Cancel = function() end,
+							}
+						end,
+					},
+				})
+				own(world.stop)
+				local pages: ScrollingFrame = find(world.screen, "Pages")
+				local V2 = world.engine.types.Vector2
+				world.engine.environment.poke(
+					VerifyRoblox.assertInstance(pages),
+					"AbsoluteWindowSize",
+					V2.new(1073, 480)
+				)
+				world.engine.environment.poke(
+					VerifyRoblox.assertInstance(pages),
+					"AbsoluteCanvasSize",
+					V2.new(5365, 480)
+				)
+				expect(pages.CanvasPosition.X):toBe(3219)
+				for _, scale in { 4 / 3, 2 } do
+					for _, node in pages:GetChildren() do
+						if node.Name == "LayoutUnit" and node:IsA("Frame") then
+							world.engine.environment.poke(
+								VerifyRoblox.assertInstance(node),
+								"AbsoluteSize",
+								V2.new(node.Size.X.Offset * scale, scale)
+							)
+						end
+					end
+					world.engine.environment.poke(
+						VerifyRoblox.assertInstance(pages),
+						"AbsoluteCanvasSize",
+						V2.new(5364, 480)
+					)
+					local row: Frame = find(pages, "Items"):FindFirstChild("four")
+					expect(row.Size.X.Offset):toBe(math.floor(1073 / scale))
+					expect(pages.CanvasPosition.X):toBeNear(row.Position.X.Offset * scale, 0.001)
+					expect(animated):toBe(0)
+				end
 			end,
 		})
 

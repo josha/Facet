@@ -1,5 +1,11 @@
 # Current package
 
+ScrollView and stack containers accept `maxHeight` beside `maxWidth` through
+one native size constraint. `ScrollView { height = "hug", maxHeight = limit }`
+grows with short content and caps the window for long content. Compose Design
+preserves the limits and their bindings. Horizontal ScrollView keeps room for
+its scroll bar within the authored limits.
+
 `Facet.Compose` includes `cubicBezier(x1, y1, x2, y2)` from the Compose pin.
 It returns an easing function for Compose motion.
 

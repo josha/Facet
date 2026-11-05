@@ -5,6 +5,19 @@ recipe or control node. With a shell, run `lute run tools/facet docs` to read th
 map, or `lute run tools/facet docs --search TEXT` to find a name. This page
 summarizes entry points and types that several nodes share.
 
+`ScrollView`, `VStack`, `HStack`, `ZStack` and `AdaptiveStack` accept bound
+`maxWidth` and `maxHeight` values in pixels. Each must be finite and at least
+zero. They use a native `UISizeConstraint`. For a window that grows with short
+content and then scrolls, use `ScrollView { height = "hug", maxHeight = limit }`.
+The Design library preserves both limits, including input and token bindings.
+See [ScrollView](nodes/ScrollView.reference.md).
+
+`Dialog.bodyHeight` offers a finite logical height or `"fill"` to a navigable
+body. `Dialog.presentation = "inset"` keeps the panel inset on short screens.
+`Facet.DialogBodyHeight` and `Facet.DialogPresentation` type these options.
+See [Dialog sizing](nodes/Dialog.sizing.md) for resolution scaling and the
+canonical Design sample.
+
 `Facet.Compose.cubicBezier(x1, y1, x2, y2)` returns an easing function for
 Compose motion. All control points must be finite. The x coordinates must be
 in `[0, 1]`; the y coordinates can produce overshoot.
@@ -34,6 +47,14 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 `Facet.design()` returns the design kit: `Design` (Compose Design), `library(context)`, `controls`, `seeds` and `motion(UI)`. `motion(UI)` gives a library context the `Facet.DesignMotion` that moves designed values and plays designed sequences with the theme's motion. `Facet.DesignSequence` and `Facet.DesignPlayer` type a designed sequence and its player.
 
 `Facet.composeDesign(options?)` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles, and Theme and Text size previews. Pass `Facet.DesignStudioOptions` with `registry`, `samples`, and optional `stages`, `themes`, `textSizes` and `capture` to open host Designs in that workspace. `kit.edit(parent, name, link?)` returns the Compose editor as `Facet.DesignStudioEditor`, with `execute`, `canvas`, `session`, `nested` and `dispose`. Commands and visible controls share selections and structured readback. See [host Design workspace](nodes/Design-workspace.md).
+
+`Facet.DesignStudioSampleBindings` types a sample's `bindings(UI, stage)` factory.
+It returns resolved slots, readables and cells under the preview owner. Set
+`DesignStudioOptions.theme` to a host theme package. `themes` accepts its palette
+names or `Facet.DesignStudioTheme` entries: `{ name, theme }` for full packages.
+Theme selection preserves mounted instances and editor history.
+Set `resolution = { X, Y }` for one canvas instead of device `stages`.
+Sample selection changes preview state and preserves authored source.
 
 `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).

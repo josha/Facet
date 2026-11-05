@@ -179,6 +179,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			}
 		local native = ctx.props(spec, { "content", "camera", "fieldOfView", "lazy" }, {
 			Size = D2.fromOffset(240, 180),
+			Ambient = types.Color3.new(1, 1, 1),
+			LightColor = types.Color3.new(1, 1, 1),
 			CurrentCamera = Compose.static(camera),
 			world,
 			if not externalCamera then camera else nil,
@@ -266,13 +268,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 		end
 		if spec.LightDirection == nil then
-			local frame = ctx.observeNative.CFrame(camera)
-			runtime.decorate(stage, {
-				LightDirection = function(use: ComposeTypes.Use): Vector3
-					local look = use(frame).LookVector
-					return (look + types.Vector3.new(0, -0.6, 0)).Unit
-				end,
-			})
+			local current = runtime.observe(stage, "CurrentCamera") :: ComposeTypes.ReadOnlyValue<Camera?>
+			Compose.watch(function(use: ComposeTypes.Use)
+				local active = use(current) or camera
+				local frame = ctx.observeNative.CFrame(active)
+				runtime.decorate(stage, {
+					LightDirection = function(read: ComposeTypes.Use): Vector3
+						return (read(frame).LookVector + types.Vector3.new(0, -0.6, 0)).Unit
+					end,
+				})
+			end)
 		end
 		prepareMedia(ctx, stage, spec.ImageTransparency)
 		return stage

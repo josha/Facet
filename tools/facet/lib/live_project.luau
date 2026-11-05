@@ -22,6 +22,7 @@ local function build(suites: { string }): Project
 	local storage = assert(Json.objectField(tree, "ReplicatedStorage"))
 	storage.FacetLive = { ["$path"] = "../tools/studio/live" }
 	storage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
+	storage.FacetDialogDesign = { ["$path"] = "blocks/navigable_dialog_design.luau" }
 	storage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
 	storage.Lab = {
 		["$className"] = "Folder",

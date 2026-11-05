@@ -83,6 +83,8 @@ export type DialogSpec = {
 	actionLayout: Overlay.Input<Overlay.ActionLayout?>?,
 	closeButton: boolean?,
 	width: Overlay.Input<Overlay.WidthPreset?>?,
+	presentation: Overlay.Input<Overlay.DialogPresentation>?,
+	bodyHeight: Overlay.Input<Overlay.DialogBodyHeight>?,
 	contentSelectable: boolean?,
 	[number]: Compose.Child?,
 }
@@ -164,6 +166,8 @@ export type DialogSpecInput = {
 	read actionLayout: Overlay.Input<Overlay.ActionLayout?>?,
 	read closeButton: boolean?,
 	read width: Overlay.Input<Overlay.WidthPreset?>?,
+	read presentation: Overlay.Input<Overlay.DialogPresentation>?,
+	read bodyHeight: Overlay.Input<Overlay.DialogBodyHeight>?,
 	read contentSelectable: boolean?,
 	read [number]: Compose.Child?,
 }

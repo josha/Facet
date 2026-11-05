@@ -9,16 +9,24 @@ Compose Design workspace. Supply the `Facet.DesignRegistered` entries that
 | Field | Contract |
 | --- | --- |
 | `registry` | Map from Design name to `Facet.DesignRegistered`. |
-| `samples` | Ordered list of `Facet.DesignStudioSample`: `{ design, name, props }`. `props` maps contract fields to Design literals. Each registered Design needs at least one sample. |
+| `samples` | Ordered list of `Facet.DesignStudioSample`: `{ design, name, props, bindings? }`. `props` maps contract fields to Design literals. Each registered Design needs at least one sample. |
 | `stages` | Optional ordered list of `Facet.DesignStudioStage` device profiles. The default is Compose's device list. Profiles include size, insets, input mode and text scale. |
-| `themes` | Optional ordered list of `"Light"` and `"Dark"`. The default is both, in that order. |
+| `resolution` | Optional `{ X, Y }` with finite positive pixel dimensions. It opens one canvas at that logical resolution. Supply `resolution` or `stages`. |
+| `theme` | Optional base `Facet.ReadOnlyThemePackage`. The default is Facet Neutral. |
+| `themes` | Optional ordered list of base palette names or `Facet.DesignStudioTheme` entries: `{ name, theme }`. Entries register full packages and use their default palette. The default list is all base palettes, or `"Light"`, then `"Dark"` without a host package. |
 | `textSizes` | Optional ordered list of `"Medium"`, `"Large"`, `"Larger"` and `"Largest"`. The default is all four, in that order. |
 | `capture` | Optional `(name, frame: Facet.DesignStudioFrame) -> { string }` callback. The host saves the frame and returns its file paths. |
 
 Lists must be nonempty. Stage ids and preview choices must be unique.
+Theme names must be nonempty. Unknown names fail with a clear error.
 Sample choices use `design/name`; the combined name must be unique.
 Sample props must match the registered contract. Omitted props use the
 contract's preview defaults. Samples belong to the host, outside Design source.
+
+See [samples and themes](Design-workspace.samples.md) for examples. Sample
+selection preserves authored source. Theme selection updates the mounted
+StyleSheet and control theme. It preserves instances, source and undo history.
+Explicit edit commands change the authored document.
 
 Call `kit.edit(parent, designName)` with the existing host container and a
 registered Design name. It opens that Design's first sample. The workspace
@@ -49,23 +57,6 @@ frames built so far.
 Close, its visible control, and `dispose()` release the editor and its runtime
 once. After the Close command, Read reports `closed = true` and later edit
 commands fail.
-
-For example, assume `registry` supplies `Emblem` and `Bulletin` components with
-a string `label` input, and `parent` is the host's existing editor container:
-
-```luau
-local function openSample(registry: { [string]: Facet.DesignRegistered }, parent: Instance)
-    local samples: { Facet.DesignStudioSample } = {
-        { design = "Emblem", name = "Ready", props = { label = "Ready" } },
-        { design = "Bulletin", name = "Empty", props = { label = "No entries" } },
-    }
-    local kit = Facet.composeDesign({ registry = registry, samples = samples })
-    local editor = kit.edit(parent, "Emblem")
-    local result = editor.execute({ action = "Preview", name = "Sample", choice = "Bulletin/Empty" })
-    assert(result.ok, result.problem)
-    return editor
-end
-```
 
 Without options, `Facet.composeDesign()` opens the base Facet library with a
 Screen document. It returns the same editor handle. `edit` also accepts

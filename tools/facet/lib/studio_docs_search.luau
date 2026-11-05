@@ -72,11 +72,9 @@ local function sectionsOf(doc: Doc): { { heading: string, text: string } }
 	return sections
 end
 
-local function find(query: string, budget: number?): string
+local function find(query: string, limit: number): string
 	local terms = termsOf(query)
 	assert(#terms > 0, "search needs at least one word")
-	local limit = budget or 4000
-	assert(limit >= 1 and limit < math.huge and limit % 1 == 0, "search budget must be a positive whole number")
 	local function bounded(value: string, room: number): string
 		if #value <= room then
 			return value
@@ -156,7 +154,11 @@ local function find(query: string, budget: number?): string
 	end
 	local shown: { [string]: boolean } = {}
 	for _, section in candidates do
-		local entry = ("---- %s § %s\n%s"):format(section.path, section.heading, section.text)
+		if shown[section.path] then
+			continue
+		end
+		local excerpt = string.match(section.text, "^#+[^\n]*\n+([^\n]+)") or string.match(section.text, "[^\n]+") or ""
+		local entry = ("%s § %s\n%s"):format(section.path, section.heading, bounded(excerpt, 320))
 		if not append(entry) then
 			if used == 0 then
 				append(bounded(entry, limit))
@@ -164,6 +166,9 @@ local function find(query: string, budget: number?): string
 			break
 		end
 		shown[section.path] = true
+		if #out >= 3 then
+			break
+		end
 	end
 	local others: { string } = {}
 	for index = 1, math.min(#ranked, 12) do
@@ -173,8 +178,9 @@ local function find(query: string, budget: number?): string
 		end
 	end
 	if #others > 0 then
-		append("Other matches (search.read(path) for one): " .. table.concat(others, ", "))
+		append("More: " .. table.concat(others, ", "))
 	end
+	append("Read full API: search.read(path)")
 	return table.concat(out, "\n\n")
 end
 
@@ -189,7 +195,26 @@ local function read(path: string): string
 end
 
 return setmetatable({ read = read }, {
-	__call = function(_: unknown, query: string, budget: number?): string
-		return find(query, budget)
+	__call = function(_: unknown, query: string | { string }, budget: number?): string
+		local limit = budget or (if type(query) == "string" then 2400 else 4000)
+		assert(limit >= 1 and limit < math.huge and limit % 1 == 0, "search budget must be a positive whole number")
+		limit = math.min(limit, 4000)
+		if type(query) == "string" then
+			return find(query, limit)
+		end
+		assert(#query > 0, "search needs at least one query")
+		local results: { string } = {}
+		local remaining = limit
+		for index, term in query do
+			local separator = if index == 1 then 0 else 2
+			local room = math.floor((remaining - separator) / (#query - index + 1))
+			if room < 1 then
+				break
+			end
+			local result = find(term, room)
+			table.insert(results, result)
+			remaining -= separator + #result
+		end
+		return table.concat(results, "\n\n")
 	end,
 })

@@ -13,6 +13,7 @@ local Prompt = require "./prompt"
 local ThemePanel = require "./theme-panel"
 local Stage = require "./stage"
 local Stage3D = require "./stage3d"
+local RenderPreview = require "./render-preview"
 
 export type Command =
 	{ action: "Read" }
@@ -104,6 +105,7 @@ export type Device = Devices.Profile
 export type Preview = { name: string, choices: { string }, initial: string?, select: (choice: string) -> () }
 
 export type Options = {
+	renderPreview: RenderPreview.RenderPreview?,
 	identity: { commit: string, path: string }?,
 	scene: Stage3D.Target?,
 	stageSize: UI.Point?,
@@ -300,6 +302,7 @@ return function(ui: UI.UI, open: (Design.Library, Design.Document, Compose.Node,
 				then { Devices.custom("Canvas", options.stageSize) }
 				else Devices.all
 		local canvasOptions: Canvas.Options = {
+			renderPreview = options.renderPreview,
 			scene = options.scene,
 			devices = devices,
 			device = options.device,

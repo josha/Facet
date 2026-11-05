@@ -1,17 +1,19 @@
 # Tasks.appearance
 
-Use this for an editable 3D subject. The camera frames a sample cube; choose
-its pose and field of view for the actual subject. The parent bounds both axes.
-Stage uses a native ViewportFrame, Camera and WorldModel. Compose owns the scene.
+Edit a 3D subject in a bounded parent. This camera frames a cube.
+Stage uses ViewportFrame, Camera and WorldModel. Compose owns the scene.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local function appearance(app: Facet.App, paint: Facet.Value<Color3>, palette: { Facet.ColorSwatch }): Frame
   local C, UI = Facet.Compose, app.UI
-  return UI.VStack {
-    width = "fill", height = "fill", gap = "s",
+  local body = UI.ZStack { width = "fill", height = "fill" }
+  local room = UI.environment(body)
+  UI.ScrollView {
+    Parent = C.static(body), width = "fill", height = "fill", gap = "s",
     UI.ZStack {
-      width = "fill", height = "fill", UI.fill(),
+      width = "fill",
+      height = function(use: Facet.Use) return math.min(240, use(room.viewportHeight) * 0.36) end,
       UI.Stage "Subject" {
         Size = UDim2.fromScale(1, 1),
         Ambient = Color3.new(1, 1, 1), LightColor = Color3.new(1, 1, 1),
@@ -32,6 +34,7 @@ local function appearance(app: Facet.App, paint: Facet.Value<Color3>, palette: {
       style = "inline", modes = { "swatches" },
     },
   }
+  return body
 end
 ```
 

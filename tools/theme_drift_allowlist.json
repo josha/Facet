@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "path": "src/ui/media_stage.luau",
+      "rule": "paint-color",
+      "match": "Ambient = types.Color3.new(1, 1, 1),",
+      "status": "no-metric",
+      "reason": "Neutral 3D ambient light preserves subject colors across UI palettes. Stage accepts native Ambient overrides for deliberate scene lighting."
+    },
+    {
+      "path": "src/ui/media_stage.luau",
+      "rule": "paint-color",
+      "match": "LightColor = types.Color3.new(1, 1, 1),",
+      "status": "no-metric",
+      "reason": "Neutral 3D directional light preserves subject colors across UI palettes. Stage accepts native LightColor overrides for deliberate scene lighting."
+    },
+    {
       "path": "src/design/library.luau",
       "rule": "paint-color",
       "match": "return types.Color3.fromHex(value)",

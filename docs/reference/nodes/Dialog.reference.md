@@ -8,3 +8,4 @@ Open:
 
 - [Dialog.Dialog](Dialog.Dialog.md)
 - [Dialog.title](Dialog.title.md)
+- [Dialog.sizing](Dialog.sizing.md)

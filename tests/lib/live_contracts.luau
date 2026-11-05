@@ -4,6 +4,11 @@ local Double = require("./live_double")
 
 local SUITES: { { id: string, cases: { string }, controller: boolean?, touch: boolean? } } = {
 	{
+		id = "touch_reservations",
+		cases = { "medium", "largest" },
+		touch = true,
+	},
+	{
 		id = "ascent",
 		cases = {
 			"ascent-pointer-touch-and-themes",

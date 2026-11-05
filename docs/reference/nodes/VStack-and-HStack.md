@@ -4,8 +4,14 @@
 
 `UI.VStack(spec) -> Frame` stacks its children vertically. `UI.HStack(spec) ->
 Frame` stacks them horizontally. Both hug their content by default. Options:
-`gap`, `padding`, `align`, `distribute`, `wrap`, `width` and `height`. `wrap`
+`gap`, `padding`, `align`, `distribute`, `wrap`, `width`, `height`, `maxWidth`
+and `maxHeight`. `wrap`
 sets `UIListLayout.Wraps`. The shared props type is `StackProps`.
+
+`maxWidth` and `maxHeight` accept bound finite numbers of pixels, zero or more.
+They set a native `UISizeConstraint`; an omitted maximum leaves that axis
+unbounded. They cap the frame, but do not scroll its children. Use
+[ScrollView](ScrollView.reference.md) when overflow must stay reachable.
 
 Bound a form or collection body with `width = "fill"`. A fill-width field
 needs a parent with a defined width; placing two such fields in a hugging

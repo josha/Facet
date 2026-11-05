@@ -144,6 +144,7 @@ export type CalloutSpec = NavigationProps.CalloutSpecInput
 export type Tab = NavigationTypes.Tab
 export type TabViewSpec = NavigationProps.TabViewSpecInput
 export type NavigationEntry<P = unknown> = NavigationTypes.NavigationEntry<P>
+export type NavigationPath<P = unknown> = { NavigationTypes.NavigationEntry<P> }
 export type NavigationDestination<P = unknown> = NavigationTypes.NavigationDestination<P>
 export type NavigationStackSpec<P = unknown> = NavigationProps.NavigationStackSpec<P>
 export type PageViewSpec = NavigationProps.PageViewSpecInput
@@ -226,6 +227,8 @@ export type ToastAction = OverlayTypes.ToastAction
 export type PopoverSource = OverlayTypes.PopoverSource
 export type OverlayRect = OverlayTypes.Rect
 export type DialogDismissReason = OverlayTypes.DialogDismissReason
+export type DialogPresentation = OverlayTypes.DialogPresentation
+export type DialogBodyHeight = OverlayTypes.DialogBodyHeight
 export type PopoverDismissReason = OverlayTypes.PopoverDismissReason
 export type ToastDismissReason = OverlayTypes.ToastDismissReason
 export type NoticeSeverity = OverlayTypes.NoticeSeverity
@@ -286,6 +289,7 @@ export type Component = createApp.Component
 export type AnchoredOptions = createApp.AnchoredOptions
 export type ToastOptions = createApp.ToastOptions
 export type ControlOptions = ControlTypes.Config
+export type TouchReservation = SharedTypes.TouchReservation
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ReadOnlyThemePackage = ThemeTypes.ReadOnlyThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
@@ -323,6 +327,8 @@ export type DesignStudioKit = FacetDesign.StudioKit
 export type DesignStudioOptions = FacetDesign.StudioOptions
 export type DesignStudioEditor = FacetDesign.StudioEditor
 export type DesignStudioSample = FacetDesign.StudioSample
+export type DesignStudioSampleBindings = FacetDesign.StudioSampleBindings
+export type DesignStudioTheme = FacetDesign.StudioTheme
 export type DesignStudioStage = FacetDesign.StudioStage
 export type DesignStudioFrame = FacetDesign.StudioFrame
 export type DesignStudioResult = FacetDesign.StudioResult
@@ -379,7 +385,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "bf08074aacc3d5eedd9e49c9b7012d29ade7f96c"
+local COMPOSE_COMMIT = "639ce51f4f8c525b9f5d9b984717f06931293552"
 local USED = {
 	"boundary",
 	"cell",
@@ -465,12 +471,23 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 	local function composeDesign(options: DesignStudioOptions?): DesignStudioKit
 		local DesignEditor = require("@self/vendor/compose/design-editor")
 		local studio = require("@self/design/studio")
-		return studio(function(): DesignEditor.Workspace
+		return studio(function(workspaceThemes: { studio.WorkspaceTheme }): studio.Workspace
 			local runtime = roblox.createRuntime()
-			local ok, result = pcall(function(): DesignEditor.Workspace
+			local ok, result = pcall(function(): studio.Workspace
 				local Host = runtime.constructors
-				local theme = themes.neutralPackage()
-				local palette = core.cell("Light")
+				local themeChoices: { string } = {}
+				local byName: { [string]: studio.WorkspaceTheme } = {}
+				for _, choice in workspaceThemes do
+					table.insert(themeChoices, choice.name)
+					byName[choice.name] = choice
+				end
+				local selectedTheme = core.cell(workspaceThemes[1])
+				local theme = core.formula(function(use: Use): ReadOnlyThemePackage
+					return use(selectedTheme).theme
+				end)
+				local palette = core.formula(function(use: Use): string
+					return use(selectedTheme).palette
+				end)
 				local textSize = core.cell("Medium")
 				local UI = controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
 				local kit = design()
@@ -499,17 +516,21 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 					end,
 				})
 				return {
+					UI = UI,
 					runtime = runtime,
 					environment = roblox.designEnvironment(),
 					library = library,
 					root = "Screen",
-					devices = if options then options.stages else nil,
+					devices = if options and options.resolution
+						then { DesignEditor.devices.custom("Canvas", options.resolution) }
+						elseif options then options.stages
+						else nil,
 					previews = {
 						{
 							name = "Theme",
-							choices = if options and options.themes then options.themes else { "Light", "Dark" },
+							choices = themeChoices,
 							select = function(choice: string)
-								palette:set(choice)
+								selectedTheme:set(assert(byName[choice], "Unknown workspace theme: " .. choice))
 							end,
 						},
 						{
@@ -532,7 +553,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 				error(result, 0)
 			end
 			return result
-		end, options)
+		end, options, themes.neutralPackage())
 	end
 	surface = freeze({
 		VERSION = VERSION,

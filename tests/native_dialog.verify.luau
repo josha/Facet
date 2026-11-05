@@ -879,6 +879,13 @@ return function(verifyHarness: Verify.Harness)
 				refuses({ isPresented = fact, closeButton = false, title = "T", widht = "wide" }, "widht")
 				refuses({ isPresented = fact, closeButton = false, title = "T", width = "huge" :: "huge" }, "width")
 				refuses({ isPresented = fact, closeButton = false, title = "T", actionLayout = "grid" }, "actionLayout")
+				refuses(
+					{ isPresented = fact, closeButton = false, title = "T", presentation = "cover" },
+					"presentation"
+				)
+				for _, height in { -1, math.huge, 0 / 0, "hug" } do
+					refuses({ isPresented = fact, closeButton = false, title = "T", bodyHeight = height }, "bodyHeight")
+				end
 				refuses({ isPresented = fact, closeButton = false, title = "T", hero = { image = "x" } }, "aspectRatio")
 				refuses({
 					isPresented = fact,

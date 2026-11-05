@@ -1,6 +1,6 @@
 # Tasks.safe-layout
 
-Keep touch actions clear of native movement controls.
+Keep touch actions clear of native and host movement controls.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -30,7 +30,8 @@ Bottom actions stay grouped above these controls; the world stays visible.
 This policy applies to ScreenGui content in PlayerGui. Plugin and world
 surfaces do not reserve touch space. Screen `chrome = "band"` or `"edge"`
 opts out; keep interactive content in safe children. Game-owned controls
-outside TouchGui still need authored `padding`.
+outside TouchGui can declare `touchReservations` through Facet.app or
+Facet.controls. See [host touch reservations](Tasks.safe-layout.host.md).
 
 Keep one Composition per HUD. Supply shorter region forms when the remaining
 height is small. Check native-control clearance after rotation and dismissal

@@ -35,6 +35,15 @@ existing navigation and a quiet, dense layout instead of a gameplay HUD.
 
 ## Allocate the remaining room
 
+During time-critical world interaction, keep permanent HUD content limited to
+the current decision, progress and usable commands. Show other resources when
+they affect an action or in a destination page. Check the view ahead and world
+nameplates at short heights. Move or hide optional regions when they cover
+those subjects. Composition fits its own regions; it does not project or avoid
+arbitrary BillboardGui nameplates. The game owns that visibility decision.
+This advice applies to overlays during play. A text-led task, a quiet status
+tool or a plugin can keep persistent facts when users need them.
+
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains
 after navigation, insets, padding and actions. Width alone cannot establish fit.
 

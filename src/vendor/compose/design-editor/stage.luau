@@ -5,6 +5,7 @@ local Math = require "./math"
 
 local Compose = require "../core"
 local Design = require "../design"
+local RenderPreview = require "./render-preview"
 
 export type Stage = {
 	surface: Compose.Node,
@@ -19,6 +20,7 @@ export type Stage = {
 }
 
 export type Options = {
+	renderPreview: RenderPreview.RenderPreview?,
 	size: UI.Point,
 	library: Design.Library?,
 	compact: boolean?,
@@ -633,13 +635,17 @@ return function(ui: UI.UI)
 				table.clear(nodes)
 				stopDesign = runtime.mountFragment(function(): { Compose.Child }
 					local rendered, content = pcall(function(): unknown
-						return Design.render(value, library, {
+						local preview, bindings = value, options.bindings
+						if options.renderPreview then
+							preview, bindings = options.renderPreview(value, library, use)
+						end
+						return Design.render(preview, library, {
 							use = use,
 							exclude = function(node: Design.Node): boolean
 								return node.hidden == true
 							end,
 							inputs = options.inputs,
-							bindings = options.bindings,
+							bindings = bindings,
 							outputs = options.outputs,
 							slots = options.slots,
 							token = options.token,

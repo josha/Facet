@@ -9,6 +9,7 @@ local Gate = require("../vendor/verify/src/gate")
 local Files = require("../facet/lib/files")
 local Run = require("../facet/lib/run")
 local gate = require("../facet/lib/gate")
+local AssistantSandbox = require("../facet/lib/assistant_sandbox")
 local Cli = require("../facet/lib/cli")
 local Json = require("../facet/lib/json")
 
@@ -386,6 +387,8 @@ harness:suite("Facet live CI policy", function()
 					)
 				elseif module == "../../studio/live/attachment_limits" then
 					return {}
+				elseif module == "../lib/assistant_sandbox" then
+					return AssistantSandbox
 				end
 				return {}
 			end,

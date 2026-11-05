@@ -12,7 +12,7 @@ type Record = { [string | number]: Literal }
 
 local source = {}
 
-type Token = { kind: "name" | "string" | "number" | "symbol", text: string }
+type Token = { kind: "name" | "string" | "number" | "symbol", text: string, start: number, finish: number }
 
 local function tokenize(code: string): { Token }
 	local tokens: { Token } = {}
@@ -30,22 +30,22 @@ local function tokenize(code: string): { Token }
 			while stop <= #code and string.sub(code, stop, stop) ~= '"' do
 				stop += if string.sub(code, stop, stop) == "\\" then 2 else 1
 			end
-			tokens[#tokens + 1] = { kind = "string", text = string.sub(code, at, stop) }
+			tokens[#tokens + 1] = { kind = "string", text = string.sub(code, at, stop), start = at, finish = stop }
 			at = stop + 1
 		elseif string.match(character, "[%a_]") then
 			local word = assert(string.match(code, "^[%w_]+", at))
-			tokens[#tokens + 1] = { kind = "name", text = word }
+			tokens[#tokens + 1] = { kind = "name", text = word, start = at, finish = at + #word - 1 }
 			at += #word
 		elseif string.match(code, "^%-?%d", at) then
 			local number = string.match(code, "^%-?%d+%.?%d*[eE][%+%-]?%d+", at)
 				or assert(string.match(code, "^%-?%d+%.?%d*", at))
-			tokens[#tokens + 1] = { kind = "number", text = number }
+			tokens[#tokens + 1] = { kind = "number", text = number, start = at, finish = at + #number - 1 }
 			at += #number
 		elseif string.sub(code, at, at + 2) == "..." then
-			tokens[#tokens + 1] = { kind = "symbol", text = "..." }
+			tokens[#tokens + 1] = { kind = "symbol", text = "...", start = at, finish = at + 2 }
 			at += 3
 		else
-			tokens[#tokens + 1] = { kind = "symbol", text = character }
+			tokens[#tokens + 1] = { kind = "symbol", text = character, start = at, finish = at }
 			at += 1
 		end
 	end
@@ -59,6 +59,87 @@ local function unquote(text: string): string
 			return if escaped == "n" then "\n" elseif escaped == "t" then "\t" else escaped
 		end)
 	)
+end
+
+function source.typeImports(code: string, provided: string): { string }?
+	local known: { [string]: boolean } = {}
+	local supplied = tokenize(provided)
+	for index, token in supplied do
+		local name, equals, call = supplied[index + 1], supplied[index + 2], supplied[index + 3]
+		if token.text == "local" and name and equals and call and equals.text == "=" and call.text == "require" then
+			known[name.text] = true
+		end
+	end
+	local function declarations(text: string): { string }
+		local tokens = tokenize(text)
+		local result: { string } = {}
+		local at = 1
+		local function peek(offset: number?): string
+			local token = tokens[at + (offset or 0)]
+			return if token then token.text else ""
+		end
+		local function take(expected: string)
+			assert(peek() == expected, "Type imports require a static module path")
+			at += 1
+		end
+		while tokens[at] do
+			if peek() == "local" and (peek(1) == "design" or peek(1) == "_design") then
+				break
+			end
+			if peek() ~= "local" or peek(2) ~= "=" or peek(3) ~= "require" then
+				at += 1
+				continue
+			end
+			local start = at
+			local imported = tokens[at + 1]
+			assert(imported.kind == "name", "Type imports declare a local name")
+			at += 4
+			if known[imported.text] then
+				continue
+			end
+			local parenthesized = peek() == "("
+			if parenthesized then
+				at += 1
+			end
+			local first = assert(tokens[at], "Type imports require a module path")
+			at += 1
+			if first.kind ~= "string" then
+				assert(parenthesized and first.kind == "name", "Type imports require a static module path")
+				if first.text == "game" and peek() == ":" then
+					take ":"
+					take "GetService"
+					take "("
+					assert(tokens[at] and tokens[at].kind == "string", "Type imports name a service")
+					at += 1
+					take ")"
+				end
+				while peek() == "." or peek() == "[" do
+					local bracketed = peek() == "["
+					at += 1
+					local segment = assert(tokens[at], "Type imports require a path segment")
+					assert(
+						segment.kind == (if bracketed then "string" else "name"),
+						"Type imports require static path segments"
+					)
+					at += 1
+					if bracketed then
+						take "]"
+					end
+				end
+			end
+			if parenthesized then
+				take ")"
+			end
+			assert(
+				peek() == "" or peek() == "local" or peek() == "export" or peek() == "type" or peek() == "return",
+				"Type imports require a static module path"
+			)
+			table.insert(result, string.sub(text, tokens[start].start, tokens[at - 1].finish))
+		end
+		return result
+	end
+	local imports = declarations(code)
+	return if #imports > 0 then imports else nil
 end
 
 local function readLiteral(
@@ -565,6 +646,18 @@ function source.parse(code: string, library: Library): Types.Document
 			take "state"
 			take "."
 			return { state = name() }, nil
+		elseif peek() == "assert" then
+			take "assert"
+			take "("
+			take "refs"
+			take "."
+			local target = name()
+			take ":"
+			take "peek"
+			take "("
+			take ")"
+			referenceMessage()
+			return { node = target }, nil
 		elseif peek() == "refs" then
 			take "refs"
 			take "."
@@ -1430,6 +1523,7 @@ function source.parse(code: string, library: Library): Types.Document
 		library = library.name,
 		nextId = nextId,
 		contract = contractOf(header),
+		typeImports = source.typeImports(code, table.concat(library.prelude, "\n")),
 		state = stateFrom(header),
 		sequences = sequencesFrom(header),
 		root = root,

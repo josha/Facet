@@ -140,6 +140,92 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
+	local function anchoredCallout(library: Facet.DesignLibrary): Facet.DesignDocument
+		local value = Design.document.new("AnchoredHelp", library, "VStack")
+		local trigger, callout
+		value, trigger = Design.document.insert(value, library, "n1", "Button")
+		value = Design.document.rename(value, library, trigger, "AuthoredTrigger")
+		value = Design.document.change(value, library, trigger, "label", { literal = "Learn more" })
+		value, callout = Design.document.insert(value, library, "n1", "Callout")
+		return Design.document.change(value, library, callout, "anchor", { node = trigger })
+	end
+
+	verifyHarness:case("round trips captured optional Callout references", function()
+		local library = offline()
+		local code = Design.emit(anchoredCallout(library), library)
+		Verify.expect(string.find(code, "Facet.Value<GuiObject?>", 1, true) ~= nil):toBe(true)
+		Verify.expect(string.find(code, "Facet.Compose.cell<<GuiObject?>>(nil)", 1, true) ~= nil):toBe(true)
+		local parsed = Design.parse(code, library)
+		Verify.expect(parsed.root.children[2].props.anchor.node):toBe(parsed.root.children[1].id)
+		Verify.expect(Design.emit(parsed, library)):toBe(code)
+	end)
+
+	verifyHarness:case("keeps the authored Callout anchor in live rendering", function(test: Verify.Context)
+		local received: Instance? = nil
+		local trigger: unknown = nil
+		test:defer(mount(function(ctx: Context): unknown
+			local controls = setmetatable({
+				Callout = function(props: Facet.CalloutSpec, name: string?): Frame
+					received = props.anchor
+					return ctx.UI.Callout(props, name)
+				end,
+			}, { __index = ctx.UI })
+			local library = Kit.library({ UI = controls, types = ctx.types })
+			return Design.render(anchoredCallout(library), library, {
+				decorate = function(node: Facet.DesignNode, made: unknown)
+					if node.name == "AuthoredTrigger" then
+						trigger = made
+					elseif node.kind == "Callout" then
+						local root = VerifyRoblox.assertInstance(made)
+						Verify.expect(root.Name):toBe("Callout")
+					end
+				end,
+			})
+		end).dispose)
+		Verify.expect(received ~= nil):toBe(true)
+		Verify.expect(received):toBe(trigger)
+	end)
+
+	verifyHarness:case("keeps the authored Callout anchor at every editor device stage", function(test: Verify.Context)
+		local DesignEditor = require("../src/vendor/compose/design-editor")
+		local editor: DesignEditor.Editor? = nil
+		local runtime: Facet.Runtime? = nil
+		local anchors: { unknown } = {}
+		test:defer(mount(function(ctx: Context, engine: Engine): unknown
+			runtime = ctx.runtime
+			local controls = setmetatable({
+				Callout = function(props: Facet.CalloutSpec, name: string?): Frame
+					table.insert(anchors, props.anchor)
+					return ctx.UI.Callout(props, name)
+				end,
+			}, { __index = ctx.UI })
+			local library = Kit.library({ UI = controls, types = ctx.types })
+			local host = ctx.UI.VStack "Editor" { width = "fill" }
+			editor = DesignEditor.create(library, anchoredCallout(library), host, {
+				runtime = ctx.runtime,
+				environment = designEnvironment(ctx, engine),
+				devices = DesignEditor.devices.all,
+			})
+			return host
+		end).dispose)
+		local opened = assert(editor)
+		test:defer(opened.dispose)
+		for _, device in DesignEditor.devices.all do
+			Verify.expect(opened.execute({ action = "Device", id = device.id }).ok):toBe(true)
+			assert(runtime):settle()
+			Verify.expect(opened.session.problem:peek()):toBeNil()
+			local frame = opened.canvas.current()
+			Verify.expect(frame.device.id):toBe(device.id)
+			local stage = assert(frame.stage)
+			local trigger = VerifyRoblox.assertInstance(stage.nodes.n2)
+			Verify.expect(trigger.Name):toBe("AuthoredTrigger")
+			Verify.expect(table.find(anchors, trigger) ~= nil):toBe(true)
+			local callout = VerifyRoblox.assertInstance(stage.nodes.n3)
+			Verify.expect(callout.Name):toBe("Callout")
+			Verify.expect(VerifyRoblox.assertInstance(stage.nodes.n1):FindFirstChild("CalloutAnchor", true)):toBeNil()
+		end
+	end)
+
 	for _, mode in { "Sheet", "Dialog", "Toast", "ActionToast" } do
 		verifyHarness:case(`resolves the presented {mode} surface inside its preview stage`, function()
 			local presented = Facet.Compose.cell(true)
@@ -567,6 +653,58 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+
+		verifyHarness:case("round trips and renders capped natural layout dimensions", function(test)
+			for _, kind in { "ScrollView", "VStack", "HStack", "ZStack", "AdaptiveStack" } do
+				test:defer(mount(function(ctx)
+					local library = live(ctx)
+					local document = Design.document.new("CappedPanel", library, kind)
+					document = Design.document.setContract(document, library, {
+						inputs = { { id = "limit", kind = "readable", type = "number", preview = 240 } },
+						outputs = {},
+					})
+					document =
+						Design.document.change(document, library, document.root.id, "height", { literal = "hug" })
+					document =
+						Design.document.change(document, library, document.root.id, "maxWidth", { literal = 320 })
+					document =
+						Design.document.change(document, library, document.root.id, "maxHeight", { input = "limit" })
+					local source = Design.emit(document, library, { name = document.name })
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library, { name = parsed.name })):toBe(source)
+					Verify.expect(source):toContain("maxHeight = props.limit")
+					Verify.expect(source):toContain("maxWidth = 320")
+					local limit = Facet.Compose.cell<<Facet.DesignLiteral?>>(240)
+					local built = Design.render(parsed, library, { bindings = { limit = { readable = limit } } })
+					assert(typeof(built) == "Instance")
+					local constraint = assert(built:FindFirstChildWhichIsA("UISizeConstraint"))
+					Verify.expect(constraint.MaxSize.X):toBe(320)
+					Verify.expect(constraint.MaxSize.Y):toBe(240)
+					limit:set(120)
+					Verify.expect(constraint.MaxSize.Y):toBe(120)
+					local tokenLibrary = Kit.library({
+						UI = ctx.UI,
+						types = ctx.types,
+						tokens = { path = "T.", require = "local T = require(game.ReplicatedStorage.Tokens)" },
+					})
+					local tokenDocument =
+						Design.document.change(document, tokenLibrary, document.root.id, "maxHeight", {
+							token = "size.panelHeight",
+						})
+					local tokenSource = Design.emit(tokenDocument, tokenLibrary, { name = tokenDocument.name })
+					Verify.expect(tokenSource):toContain("maxHeight = T.size.panelHeight")
+					Verify.expect(
+						Design.emit(
+							Design.parse(tokenSource, tokenLibrary),
+							tokenLibrary,
+							{ name = tokenDocument.name }
+						)
+					)
+						:toBe(tokenSource)
+					return built
+				end).dispose)
+			end
+		end)
 
 		verifyHarness:case("round trips Button hover and selection actions without activation", {
 			id = "facet_compose_library::round trips Button hover and selection actions without activation",
@@ -1568,6 +1706,12 @@ return function(verifyHarness: Verify.Harness)
 				local edited = 0
 				for _, name in names() do
 					opened.session.replace(Design.document.new("Every", library, "VStack"))
+					local anchor: string? = nil
+					if name == "Callout" then
+						opened.session.select("n1")
+						Verify.expect(opened.session.insert("Button")):toBe(true)
+						anchor = opened.session.selected:peek()
+					end
 					opened.session.select("n1")
 					if not opened.session.insert(name) then
 						table.insert(failures, `{name}: insert`)
@@ -1589,6 +1733,9 @@ return function(verifyHarness: Verify.Harness)
 					for _, key in keys do
 						local defaults = kind.defaults
 						local value = sample(kind.fields[key], if defaults then defaults[key] else nil)
+						if value ~= nil and value.node ~= nil and anchor ~= nil then
+							value.node = anchor
+						end
 						local field = kind.fields[key]
 						local steps = 0
 						local pending: { [string]: Facet.DesignValue } = {}
@@ -1785,6 +1932,24 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
 			end,
 		})
+
+		verifyHarness:case("round trips strict Table Sheet and TabView consumers without casts", function()
+			local fs = require("@std/fs")
+			local code = fs.readFileToString("tests/types/design_consumers.luau")
+			local library = offline()
+			library.prelude = { 'local Facet = require("../../src")' }
+			local value = Design.parse(code, library)
+			Verify.expect(Design.emit(value, library)):toBe(code)
+			for _, shape in { "{ Facet.TableColumn<RowsItem, string> }", "{ Facet.SheetDetent }", "{ Facet.Tab }" } do
+				Verify.expect(string.find(code, `: {shape} =`, 1, true) ~= nil):toBe(true)
+			end
+			Verify.expect(string.find(code, "::", 1, true)):toBeNil()
+			local tabs = Design.document.find(value.root, "n6")
+			assert(tabs)
+			Verify.expect(tabs.kind):toBe("TabView")
+			Verify.expect(#tabs.children):toBe(2)
+			Verify.expect(tabs.props.selection.state):toBe("selection")
+		end)
 
 		verifyHarness:case("represents fill and constrained Text with native editable children", {
 			id = "facet_compose_library::represents fill and constrained Text with native editable children",

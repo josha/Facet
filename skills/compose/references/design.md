@@ -14,6 +14,11 @@ not overwrite the module. Keep every edit inside the shapes below.
 
 1. The `--!strict` line and the library prelude, for example
    `local Facet = require(game:GetService("ReplicatedStorage").Facet)`.
+   Additional static `local Name = require(...)` declarations can import public
+   prop types used by contract `luauType` annotations. The editor retains them.
+   Use string module paths or named paths with literal string indexing;
+   `game:GetService("Service")` can start a path. Prepare computed paths outside
+   the Design.
 2. Exported types: one `export type <List>Item` for each list input with
    fields, and `export type Props`. The editor writes these from the contract.
    Do not edit them by hand. Change the contract in the header.
@@ -69,7 +74,12 @@ not overwrite the module. Keep every edit inside the shapes below.
   list in the caller; the document contains no tag selection expression.
   `Design.document.bindTags` stores the input or item binding. For a list,
   declare a named string-list `luauType` in the library prelude.
-- A node reference: `refs.nN`, with the node wrapped in `capture("nN", <node>)`.
+- A node reference wraps its target in `capture("nN", <node>)`. Fields default to
+  a deferred `function(use)` that asserts `use(refs.nN)`. A library field with
+  `type = "node", reference = "native"` emits
+  `assert(refs.nN:peek(), "Node reference is not captured")` directly. Capture
+  that target before the receiving node; native fields reject `nodeFrom`.
+  Direct-render builders still sample `Resolved.node` before passing it onward.
 - A static root variant: a required string input declares enum `options`.
   `Design.document.setRootVariant` selects one alternative kind and its props
   for a matching option. An optional `children` list gives the alternative its
@@ -153,6 +163,9 @@ Keep layer names stable so linked edits preserve selection.
 
 For populated slot previews, supply editor or frame `slotSamples = { body = function(library, device) return Design.render(child, library, childContext) end }`.
 Factories run under each frame's owner with its projected library and must build fresh children.
+Slot inputs use `kind = "value"`; optional `luauType` names the factory's return type
+(for example `Model`) instead of the library's root return type. Bind native samples
+to the host runtime and WorldModel outside the source; normal owners release replacements.
 Keep live sample bindings and `previews` callbacks in the host. `execute` shares named controls;
 Read reports preview/device/camera selections and source identity, Capture returns host file paths,
 and Close disposes once. These callbacks do not belong in the Design module.
