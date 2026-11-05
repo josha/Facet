@@ -1,5 +1,18 @@
 # Current package
 
+Facet does not read layout inside a layout change signal. In a game, the
+geometry that controls observe (collection viewports and measured rows,
+navigation chrome, pickers, popovers, Button `compactLabel`, level pickers,
+focus rings, world markers, grid cells and feedback decoration) is read on the
+next frame. Fast resizes and scrolls no longer run layout reads during the
+engine's layout pass. A form, a placement or a title style can update one
+frame after its bounds change.
+
+`Facet.DesignStudioKit` is now the read-only form of the Compose design editor
+kit type, so a kit built with the Compose design editor has this type.
+`Facet.composeDesign` returns `Facet.DesignStudioEditorKit`, whose `edit`
+returns the full `Facet.DesignStudioEditor`.
+
 ScrollView and stack containers accept `maxHeight` beside `maxWidth` through
 one native size constraint. `ScrollView { height = "hug", maxHeight = limit }`
 grows with short content and caps the window for long content. Compose Design

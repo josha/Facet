@@ -206,7 +206,7 @@ return function<V, K>(
 			local candidate = body:FindFirstChild("LayoutUnit")
 			if candidate and candidate:IsA("GuiObject") then
 				unitSize = Compose.withOwner(owner, function()
-					return ctx.observeNative.AbsoluteSize(candidate)
+					return ctx.observe.AbsoluteSize(candidate)
 				end)
 			end
 		end

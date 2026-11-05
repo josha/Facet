@@ -105,10 +105,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				content:set(value)
 			end
 		end
+		local remeasure = ctx.afterLayout(measure)
 		local function track(child: Instance)
 			if child:IsA("GuiObject") and watched[child] == nil then
 				watched[child] = {
-					child:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure),
+					child:GetPropertyChangedSignal("AbsoluteSize"):Connect(remeasure),
 					child:GetPropertyChangedSignal("Visible"):Connect(measure),
 				}
 			end
@@ -139,12 +140,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local function bump()
 			geometry:set(geometry:peek() + 1)
 		end
+		local moved = ctx.afterLayout(bump)
 		local function hold()
 			release()
 			local parent = root.Parent
 			if parent and parent:IsA("GuiObject") then
-				table.insert(holding, parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(bump))
-				table.insert(holding, parent:GetPropertyChangedSignal("AbsolutePosition"):Connect(bump))
+				table.insert(holding, parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(moved))
+				table.insert(holding, parent:GetPropertyChangedSignal("AbsolutePosition"):Connect(moved))
 			end
 			bump()
 		end

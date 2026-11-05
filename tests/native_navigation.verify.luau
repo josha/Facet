@@ -3852,8 +3852,8 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		it("uses the native navigation width before its framed observation publishes", {
-			id = "native_navigation::native navigation controls::uses the native navigation width before its framed observation publishes",
+		it("titles the navigation bar from its width once the framed observation publishes", {
+			id = "native_navigation::native navigation controls::titles the navigation bar from its width once the framed observation publishes",
 			run = function()
 				local engine = engines.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
@@ -3863,9 +3863,9 @@ return function(verifyHarness: Verify.Harness)
 				require("../src/ui/inputs")(ctx, UI)
 				require("../src/ui/nav_pages")(ctx, UI, require("../src/ui/nav_modal")(ctx))
 				local observeSize = ctx.observe.AbsoluteSize
-				local stale = Compose.cell(engine.types.Vector2.zero)
+				local framed = Compose.cell(engine.types.Vector2.zero)
 				ctx.observe.AbsoluteSize = function(node: GuiBase2d)
-					return if node.Name == "NavigationBar" then stale else observeSize(node)
+					return if node.Name == "NavigationBar" then framed else observeSize(node)
 				end
 				local Host = Facet.host(runtime)
 				local path = Compose.cell({} :: { NavigationFixtures.NavigationEntry<unknown> })
@@ -3888,9 +3888,11 @@ return function(verifyHarness: Verify.Harness)
 				local title = assert(bar:FindFirstChild("Title")) :: TextLabel
 				local geometry = VerifyRoblox.assertInstance(bar)
 				engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(1024, 44))
+				expect(title:HasTag("facet-type-heading")):toBe(true)
+				expect(title:HasTag("facet-type-title")):toBe(false)
+				framed:set(engine.types.Vector2.new(1024, 44))
 				expect(title:HasTag("facet-type-title")):toBe(true)
 				expect(title:HasTag("facet-type-heading")):toBe(false)
-				expect(stale:peek()):toBe(engine.types.Vector2.zero)
 				stop()
 				runtime:dispose()
 			end,
@@ -3916,8 +3918,8 @@ return function(verifyHarness: Verify.Harness)
 				world.stop()
 			end,
 		})
-		it("resolves an automatic picker from native width and text bounds before framed observations", {
-			id = "native_navigation::native navigation controls::resolves an automatic picker from native width and text bounds before framed observations",
+		it("resolves an automatic picker from width and text bounds once framed observations publish", {
+			id = "native_navigation::native navigation controls::resolves an automatic picker from width and text bounds once framed observations publish",
 			run = function()
 				local engine = engines.new()
 				local runtime: ComposeRuntime = Roblox.createRuntime(engine)
@@ -3947,12 +3949,13 @@ return function(verifyHarness: Verify.Harness)
 				require("../src/ui/inputs")(ctx, UI)
 				require("../src/ui/nav_menu")(ctx, UI, require("../src/ui/nav_modal")(ctx))
 				local observeSize, observeBounds = ctx.observe.AbsoluteSize, ctx.observe.TextBounds
-				local stale = Compose.cell(engine.types.Vector2.zero)
+				local size = Compose.cell(engine.types.Vector2.zero)
+				local bounds = Compose.cell(engine.types.Vector2.zero)
 				ctx.observe.AbsoluteSize = function(node: GuiBase2d)
-					return if node.Name == "Auto" then stale else observeSize(node)
+					return if node.Name == "Auto" then size else observeSize(node)
 				end
 				ctx.observe.TextBounds = function(node: TextBox | TextButton | TextLabel)
-					return if node.Name == "LabelMeasure" then stale else observeBounds(node)
+					return if node.Name == "LabelMeasure" then bounds else observeBounds(node)
 				end
 				local stop, mounted = runtime.mount(function()
 					local controlProps: NavigationProps.SinglePickerSpec<string> = {
@@ -3965,14 +3968,21 @@ return function(verifyHarness: Verify.Harness)
 				local measure = assert(picker:FindFirstChild("LabelMeasure")) :: TextLabel
 				local geometry = VerifyRoblox.assertInstance(picker)
 				local metrics = VerifyRoblox.assertInstance(measure)
-				engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(120, 44))
-				engine.environment.poke(metrics, "TextBounds", engine.types.Vector2.new(500, 18))
+				local function publish(width: number, label: number)
+					local wide, measured = engine.types.Vector2.new(width, 44), engine.types.Vector2.new(label, 18)
+					engine.environment.poke(geometry, "AbsoluteSize", wide)
+					engine.environment.poke(metrics, "TextBounds", measured)
+					size:set(wide)
+					bounds:set(measured)
+				end
+				publish(120, 500)
 				expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
 				engine.environment.poke(geometry, "AbsoluteSize", engine.types.Vector2.new(1000, 44))
-				expect(picker:FindFirstChild("Trigger", true) == nil):toBe(true)
-				engine.environment.poke(metrics, "TextBounds", engine.types.Vector2.new(1200, 18))
 				expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
-				expect(stale:peek()):toBe(engine.types.Vector2.zero)
+				publish(1000, 500)
+				expect(picker:FindFirstChild("Trigger", true) == nil):toBe(true)
+				publish(1000, 1200)
+				expect(picker:FindFirstChild("Trigger", true) ~= nil):toBe(true)
 				stop()
 				runtime:dispose()
 			end,

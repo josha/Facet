@@ -724,7 +724,18 @@ local function attachLayout(
 					attachMeasuredLayout(ctx, label, stable, watchPadding, property ~= "Text", warm, text, face, size)
 				end)
 			end
-			changed = label.Changed:Connect(start)
+			local laidOut = ctx.afterLayout(function()
+				if changed then
+					start("AbsoluteSize")
+				end
+			end)
+			changed = label.Changed:Connect(function(property: string)
+				if property == "AbsoluteSize" or property == "TextBounds" then
+					laidOut()
+				else
+					start(property)
+				end
+			end)
 			styled = label.StyledPropertiesChanged:Connect(start)
 			Compose.cleanup(release)
 			start("AbsoluteSize")
