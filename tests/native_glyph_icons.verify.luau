@@ -149,6 +149,28 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("draws a standard icon name that a theme package maps to a glyph", {
+			id = "native_glyph_icons::font glyph icons::draws a standard icon name that a theme package maps to a glyph",
+			run = function()
+				local catalog: { [string]: ThemeTypes.IconEntry } = { ["chevron.trailing"] = COIN }
+				local definition: ThemeTypes.ThemeDefinition = { identity = { id = "glyph-standard" }, icons = catalog }
+				local package = assert((themes.define(definition)))
+				local world = worlds.new(function(UI: Facet.Controls, Host: RobloxHost): Facet.Child
+					return Host.Frame {
+						UI.Button "Next" { label = "Next", icon = "chevron.trailing" },
+						UI.Button "Back" { label = "Back", icon = "chevron.leading" },
+					}
+				end, { theme = package })
+				local forward = world.find("LeadingIcon", world.find("Next"))
+				expect(forward.Image):toBe("")
+				expect(glyphOf(forward).Text):toBe(utf8.char(0xE001))
+				local back = world.find("LeadingIcon", world.find("Back"))
+				expect(back.Image):toBe("")
+				expect(back:FindFirstChild("Glyph") == nil):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("tints a glyph with the theme paint of its icon in each state", {
 			id = "native_glyph_icons::font glyph icons::tints a glyph with the theme paint of its icon in each state",
 			run = function()
