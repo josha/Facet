@@ -6501,6 +6501,41 @@ return function(verifyHarness: Verify.Harness)
 			t:expect(fadeKit.of(find(world.screen, "TabView"))):toBe(0)
 		end)
 
+		it("reveals the tab view within the rest limit when a visible collection row never prepares", function(_own, t)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return UI.TabView {
+					selection = Compose.cell("one"),
+					placement = "none",
+					tabs = {
+						{
+							id = "one",
+							content = function()
+								return Host.Frame "Feed" {
+									Host.CanvasGroup "StuckRow" {
+										Attributes = {
+											FacetCollectionRow = true,
+											FacetCollectionReady = false,
+										} :: Shared.Attributes,
+										GroupTransparency = 1,
+									},
+								}
+							end,
+						},
+					},
+				}
+			end, { preRender = true })
+			t:defer(world.stop)
+			for _ = 1, 600 do
+				for _, node in world.screen:GetDescendants() do
+					if node:IsA("GuiObject") then
+						world.engine.environment.poke(node, "AbsoluteSize", world.engine.types.Vector2.new(400, 240))
+					end
+				end
+				world.engine.heartbeat:Fire(1 / 60)
+			end
+			t:expect(fadeKit.of(find(world.screen, "TabView"))):toBe(0)
+		end)
+
 		it("crossfades tab pages without blocking the incoming page and shows the first page at once", {
 			id = "native_navigation::native navigation controls::crossfades tab pages without blocking the incoming page and shows the first page at once",
 			run = function()

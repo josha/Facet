@@ -26,7 +26,6 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 	local fontsReady = fontReadiness(ctx, roots)
 	local snapshot = ""
 	local limit = math.ceil(math.max(1, ctx.metric("motion.restLimit")) * 60)
-	local laidOut = false
 	local waiting = 0
 	local function prepared(): boolean
 		local parts: { string } = {}
@@ -72,7 +71,6 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 			visit(root, root.Visible)
 		end
 		snapshot = table.concat(parts, ";")
-		laidOut = laidOut or attached
 		local settling = false
 		for _, root in roots do
 			local at: Instance? = root.Parent
@@ -90,9 +88,6 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 				local first = not graced and ctx.metric("motion.frameLimit") > 0
 				graced = true
 				return not first
-			end
-			if laidOut then
-				return false
 			end
 			waiting += 1
 			return waiting >= limit
