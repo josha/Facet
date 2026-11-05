@@ -539,6 +539,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local gap: Types.Input<Types.Space> = if spec.gap == nil then "s" else spec.gap
 		local base: Types.Input<Types.Padding> = if spec.padding == nil then "s" else spec.padding
 		local under = Compose.cell(0)
+		local touch = Compose.cell(0)
 		local direct = Compose.cell(false)
 		local distant = ctx.tenFoot()
 		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
@@ -567,7 +568,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				{
 					top = side("top", kit.spacing(sides.top, use) + use(under)),
 					right = side("right", kit.spacing(sides.right, use)),
-					bottom = side("bottom", kit.spacing(sides.bottom, use)),
+					bottom = side("bottom", kit.spacing(sides.bottom, use) + use(touch)),
 					left = side("left", kit.spacing(sides.left, use)),
 				} :: unknown
 			) :: Types.Padding
@@ -701,6 +702,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end)
 		end
 		kit.underTopbar(root, under)
+		kit.touchClearance(root, touch)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end

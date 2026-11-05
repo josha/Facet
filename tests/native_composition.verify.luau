@@ -2,6 +2,8 @@
 local Verify = require("../tools/vendor/verify/src/core")
 local Bdd = require("../tools/vendor/verify/src/bdd")
 local LayoutProps = require("../src/ui/layout_props")
+local Roblox = require("../tools/vendor/verify/src/roblox")
+local Lute = require("../tools/vendor/verify/src/lute")
 
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
@@ -14,6 +16,145 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
+
+	for _, kind in { "Composition", "Screen" } do
+		it(`keeps {kind} actions above native touch controls through rotation and visibility changes`, function()
+			local roots: { Roblox.Instance } = {}
+			local viewport = { X = 844, Y = 390 }
+			local engine, bridge = engineLib.new({
+				layout = {
+					roots = function()
+						return roots
+					end,
+					viewport = function()
+						return viewport
+					end,
+				},
+			})
+			local T = engine.types
+			local player: PlayerGui = engine.new("PlayerGui")
+			player.Parent = engine.new("DataModel")
+			table.insert(roots, Roblox.assertInstance(player))
+			local input: UserInputService = engine.new("UserInputService")
+			local gui: GuiService = engine.new("GuiService")
+			input.Parent, gui.Parent = player.Parent, player.Parent
+			engine.environment.fakeOn(gui, "GetInsetArea", function()
+				return T.Rect.new(0, 0, viewport.X, viewport.Y)
+			end)
+			engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", true)
+			engine.environment.poke(Roblox.assertInstance(input), "MouseEnabled", false)
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local Host = runtime.constructors
+			local UI = Facet.controls(
+				runtime,
+				{ types = T, motionLevel = "none", services = { UserInputService = input, GuiService = gui } }
+			)
+			local jumps, activations, contacts = 0, 0, 0
+			local contact = input.TouchStarted:Connect(function()
+				contacts += 1
+			end)
+			local native = engine.new("ScreenGui")
+			native.Name, native.IgnoreGuiInset, native.DisplayOrder, native.Parent = "TouchGui", true, 10, player
+			local jump: TextButton = engine.new("TextButton")
+			jump.Name, jump.Size, jump.Position, jump.Parent =
+				"JumpButton", T.UDim2.fromOffset(70, 70), T.UDim2.new(1, -95, 1, -90), native
+			local jumped = jump.Activated:Connect(function()
+				jumps += 1
+			end)
+			local thumb: Frame = engine.new("Frame")
+			thumb.Name, thumb.Size, thumb.Position, thumb.Parent =
+				"DynamicThumbstickFrame", T.UDim2.fromScale(0.5, 0.4), T.UDim2.fromScale(0, 0.6), native
+			local app = Facet.app({
+				runtime = runtime,
+				types = T,
+				parent = player,
+				motionLevel = "none",
+				services = { UserInputService = input, GuiService = gui },
+			})
+			app.mount(function()
+				local button = UI.Button "Continue" {
+					label = "Continue",
+					Size = T.UDim2.fromOffset(120, 48),
+					onActivate = function()
+						activations += 1
+					end,
+				}
+				if kind == "Composition" then
+					return UI.Composition "HUD" {
+						padding = 8,
+						topbar = false,
+						UI.Region { zone = "bottomRight", rank = 1, button },
+					}
+				end
+				return UI.Screen { padding = 8, UI.Spacer {}, button }
+			end)
+			local backend = Roblox.inputHost.simulated(engine.environment, {
+				playerGui = Roblox.assertInstance(player),
+				inputService = Roblox.assertInstance(input),
+				layout = assert(bridge.layout),
+				inset = function()
+					return { X = 0, Y = 0 }
+				end,
+				library = Roblox.reflectionSnapshot.library(Lute.fixture.load()),
+				activationWindowSeconds = 0.5,
+				read = assert(bridge.ui).styled,
+			})
+			local function settle()
+				for _ = 1, 8 do
+					assert(bridge.layout).step()
+					engine.environment.step(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
+				end
+			end
+			local function tap(button: GuiObject)
+				local point = button.AbsolutePosition + button.AbsoluteSize / 2
+				backend.pointer({ x = point.X, y = point.Y, button = "left", down = true })
+				backend.pointer({ x = point.X, y = point.Y, button = "left", down = false })
+			end
+			for _, size in { { X = 844, Y = 390 }, { X = 1024, Y = 768 }, { X = 390, Y = 844 } } do
+				viewport.X, viewport.Y = size.X, size.Y
+				settle()
+				local button = player:FindFirstChild("Continue", true) :: TextButton
+				expect(button.AbsoluteSize.Y >= 48):toBe(true)
+				expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+				tap(button)
+			end
+			expect(activations):toBe(3)
+			expect(jumps):toBe(0)
+			expect(contacts):toBe(3)
+			tap(jump)
+			expect(jumps):toBe(1)
+			thumb.Visible = false
+			settle()
+			local button = player:FindFirstChild("Continue", true) :: TextButton
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			gui.TouchControlsEnabled = false
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > jump.AbsolutePosition.Y):toBe(true)
+			gui.TouchControlsEnabled = true
+			native.Enabled = false
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > jump.AbsolutePosition.Y):toBe(true)
+			native.Enabled = true
+			jump.Parent = nil
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > viewport.Y - 90):toBe(true)
+			jump.Parent = native
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", false)
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > jump.AbsolutePosition.Y):toBe(true)
+			backend.close()
+			contact:Disconnect()
+			jumped:Disconnect()
+			app.dispose()
+			runtime:dispose()
+			jump:Destroy()
+			player:Destroy()
+			bridge.close()
+		end)
+	end
 
 	local function make(options: { [string]: any }?): (any, any, any, any)
 		local engine: any = engineLib.new()
