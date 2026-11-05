@@ -3,6 +3,7 @@ local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
+local standardIcons = require("./icons")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 local support = require("./theme_support")
@@ -1050,6 +1051,9 @@ return function(
 				return requested
 			end
 			local icon = themes.resolveIcon(registry(use), requested, skin)
+			if icon == nil and standardIcons.registered(requested) then
+				return nil
+			end
 			assert(icon ~= nil, `Facet icon {requested} requires an image asset or a font glyph`)
 			return icon
 		end

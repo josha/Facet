@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local Facet = require("../src")
+	local StandardIcons = require("../examples/standard_icons")
 	local Shared = require("../src/ui/types")
 	local Radial = require("../src/ui/radial_types")
 	local RadialProps = require("../src/ui/radial_props")
@@ -75,6 +76,7 @@ return function(verifyHarness: Verify.Harness)
 			services = { GuiService = gui, UserInputService = input },
 			motionLevel = if not animated then "none" else "normal",
 			environment = environment,
+			icons = StandardIcons.apply(Facet.themes.neutralPackage()).icons,
 		})
 		local opened = actual.isPresented or Compose.cell(true)
 		actual.isPresented = opened
@@ -2123,7 +2125,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(launcher.Visible):toBe(false)
 				expect(back == 0 and own == 1):toBe(true)
 				local glyph = world.find("Center"):FindFirstChild("LauncherIcon", true)
-				expect(glyph.Image):toBe(themes.resolveIcon({} :: any, "more"))
+				expect(glyph.Image):toBe(StandardIcons.CONTENT.more)
 				world.step(0.1)
 				w, h, back, own = state()
 				expect(w > 32 and w < 40 and w == h):toBe(true)

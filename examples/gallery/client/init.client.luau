@@ -21,6 +21,7 @@ pcall(function()
 end)
 local Facet = require(storage:WaitForChild("Facet"))
 local gallery = require(script:WaitForChild("screen"))
+local StandardIcons = require(storage:WaitForChild("FacetStandardIcons"))
 local Compose: ComposeModule = Facet.Compose
 local runtime: ComposeRuntime = Facet.Roblox.createRuntime()
 local Host: RobloxHost = Facet.host(runtime)
@@ -50,7 +51,7 @@ local owner = Compose.createRootOwner(function()
 		end
 	end
 	local selected = Compose.cell(initial)
-	local defined = Facet.themes.define(Facet.themes.neutralPackage())
+	local defined = Facet.themes.define(StandardIcons.apply(Facet.themes.neutralPackage()))
 	local neutral = assert(defined)
 	local theme = Compose.cell(neutral)
 	local selectedTheme = Compose.cell(neutral.style.defaultTheme)
@@ -63,6 +64,9 @@ local owner = Compose.createRootOwner(function()
 		end
 	)
 	packages.Neutral = neutral
+	for name, package in packages do
+		packages[name] = StandardIcons.apply(package)
+	end
 	local function find(kind: string, name: string, ...: string): ModuleScript
 		local folder: Instance = if kind == "example"
 			then storage.FacetExamples

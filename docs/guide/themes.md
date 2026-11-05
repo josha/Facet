@@ -176,6 +176,10 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 
 The report lists the covered entries and the missing entries.
 
+Facet ships the standard icon names without image content. Map each name that
+the game uses to image content or a font glyph in the theme package `icons`. A
+standard name without art shows an empty image. An unknown name causes an error.
+
 Icons resolve through `themes.resolveIcon`. An icon entry is image content,
 the name of a declared asset or a font glyph. A font glyph is
 `{ font, codepoint, tintRole? }`. `font` is a `Font` or a font spec, and

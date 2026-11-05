@@ -678,7 +678,7 @@ return function(verifyHarness: Verify.Harness)
 							:toBe(true)
 						Verify.expect(chrome.Visible):toBe(true)
 						Verify.expect(menu.Visible):toBe(false)
-					end)
+					end, { theme = theme.create(Facet, "Discover") })
 				end,
 			}
 		)

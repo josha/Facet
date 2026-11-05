@@ -41,6 +41,7 @@ return function(verifyHarness: Verify.Harness)
 			id = `art_regression::standard icon registry::{name}`,
 			run = function()
 				local icons = require("../src/ui/icons")
+				local StandardIcons = require("../examples/standard_icons")
 				local Json = require("../tools/facet/lib/json")
 				local manifest = Json.objectField(
 					Json.decode(fs.readFileToString("assets/icons/upload-manifest.json")),
@@ -53,9 +54,16 @@ return function(verifyHarness: Verify.Harness)
 					if not fs.exists(`assets/icons/{art.assetName}.png`) then
 						table.insert(problems, `{iconName}: assets/icons/{art.assetName}.png is not committed`)
 					end
+					if art.contentId ~= nil then
+						table.insert(problems, `{iconName}: src/ui/icons.luau ships content {art.contentId}`)
+					end
 					local uploaded = Json.stringField(manifest[art.assetName], "contentId") or ""
-					if art.contentId ~= uploaded then
-						table.insert(problems, `{iconName}: registry '{art.contentId}', manifest '{uploaded}'`)
+					local content = StandardIcons.CONTENT[iconName] or ""
+					if content ~= uploaded then
+						table.insert(
+							problems,
+							`{iconName}: examples/standard_icons.luau {content}, manifest {uploaded}`
+						)
 					end
 				end
 				for _, entry in fs.listDirectory("assets/icons") do

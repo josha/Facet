@@ -180,13 +180,31 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_restored_controls::native restored controls: Label::shows every standard glyph with its registry art",
 			run = function()
 				local icons = require("../src/ui/icons")
+				local StandardIcons = require("../examples/standard_icons")
+				local theme = StandardIcons.apply(Facet.themes.neutralPackage())
 				for name, art in icons.ART do
-					local root, _, stop = build(nil, function(UI)
+					local root, _, stop = build({ theme = theme }, function(UI)
 						return UI.Label { title = name, icon = name }
 					end)
-					Verify.expect(root:FindFirstChild("Icon", true).Image):toBe(art.contentId)
+					Verify.expect(root:FindFirstChild("Icon", true).Image):toBe(StandardIcons.CONTENT[name])
+					Verify.expect(art.contentId):toBe(nil)
 					stop()
 				end
+			end,
+		})
+
+		verifyHarness:case("leaves a standard glyph blank until the theme supplies its art", {
+			id = "native_restored_controls::native restored controls: Label::leaves a standard glyph blank until the theme supplies its art",
+			run = function()
+				local root, _, stop = build(nil, function(UI)
+					return UI.Label { title = "Saved", icon = "checkmark" }
+				end)
+				Verify.expect(root:FindFirstChild("Icon", true).Image):toBe("")
+				stop()
+				local unknown = refusal(function(UI)
+					return UI.Label { title = "Kart", icon = "kart" }
+				end)
+				Verify.expect((mentions(unknown, "unknown icon 'kart'"))):toBe(true)
 			end,
 		})
 	end)
@@ -461,8 +479,9 @@ return function(verifyHarness: Verify.Harness)
 			return nil
 		end
 
+		local StandardIcons = require("../examples/standard_icons")
 		local function glyph(name: string): string?
-			local icon = themes.resolveIcon({}, name)
+			local icon = themes.resolveIcon(StandardIcons.apply(themes.neutralPackage()), name)
 			return if type(icon) == "string" then icon else nil
 		end
 
@@ -476,7 +495,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_restored_controls::native parity weak3 h1::resolves the Club check icon when a collapsible title changes",
 				run = function()
 					local club = Compose.cell(false)
-					local theme = Compose.cell(themes.neutralPackage())
+					local theme = Compose.cell(StandardIcons.apply(themes.neutralPackage()))
 					local world = setup(function(UI)
 						return UI.CollapsibleView "Settings" {
 							label = "Race settings",
@@ -499,7 +518,7 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(paintedIcon(trigger)):toBe(glyph("checkmark"))
 					Verify.expect(find(world.root, "Settings")):toBe(trigger)
 					for _, name in { "glossy_mobile", "fantasy_parchment", "scifi_hud" } do
-						theme:set((require :: any)("../examples/themes/" .. name).build(themes))
+						theme:set(StandardIcons.apply((require :: any)("../examples/themes/" .. name).build(themes)))
 						Verify.expect(paintedIcon(trigger)):toBe(glyph("checkmark"))
 					end
 					world.stop()

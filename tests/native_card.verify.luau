@@ -256,7 +256,7 @@ return function(verifyHarness: Verify.Harness)
 		it("clears a reactive badge icon while its label stays visible", {
 			id = "native_card::native Card::clears a reactive badge icon while its label stays visible",
 			run = function()
-				local initialIcon: string? = "checkmark"
+				local initialIcon: string? = "rbxassetid://7"
 				local icon = Compose.cell(initialIcon)
 				local world = worlds.new(function(UI: FacetControls)
 					return UI.Badge { label = "Owned", icon = icon }

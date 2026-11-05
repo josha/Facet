@@ -16,9 +16,10 @@ return function(verifyHarness: Verify.Harness)
 				local themes = require("../src").themes
 				for _, name in { "speaker", "volume", "mute" } do
 					local entry = assert(icons.resolve(name))
-					expect(string.find(entry.contentId, "rbxasset://textures/ui/VoiceChat/SpeakerLight/", 1, true) == 1):toBe(
-						true
-					)
+					expect(
+						string.find(assert(entry.contentId), "rbxasset://textures/ui/VoiceChat/SpeakerLight/", 1, true)
+							== 1
+					):toBe(true)
 					expect(themes.resolveIcon({}, name)):toBe(entry.contentId)
 				end
 				local ThemeTypes = require("../src/ui/theme_types")
@@ -33,6 +34,7 @@ return function(verifyHarness: Verify.Harness)
 			id = "native_themes_media::game glyph catalog::registers game glyphs as standard art below theme icons",
 			run = function()
 				local icons = require("../src/ui/icons")
+				local StandardIcons = require("../examples/standard_icons")
 				local themes = require("../src").themes
 				local ThemeTypes = require("../src/ui/theme_types")
 				for _, name in
@@ -56,13 +58,18 @@ return function(verifyHarness: Verify.Harness)
 					local art = assert(icons.ART[name], name)
 					expect(art.assetName):toBe("facet_icon_" .. name)
 					expect(art.tintRole):toBe("content")
-					expect(themes.resolveIcon({}, name)):toBe(art.contentId)
-					expect(themes.resolveIcon({}, name .. ".fill")):toBe(art.contentId)
+					expect(art.contentId):toBe(nil)
+					expect(themes.resolveIcon({}, name)):toBe(nil)
+					local standard = StandardIcons.apply(themes.neutralPackage())
+					expect(themes.resolveIcon(standard, name)):toBe(StandardIcons.CONTENT[name])
+					expect(themes.resolveIcon(standard, name .. ".fill")):toBe(StandardIcons.CONTENT[name])
 					local catalog: { [string]: ThemeTypes.IconEntry } = { [name] = "rbxassetid://7" }
 					local themed: ThemeTypes.IconRegistry = { icons = catalog }
 					expect(themes.resolveIcon(themed, name)):toBe("rbxassetid://7")
 				end
-				expect(themes.resolveIcon({}, "person")):toBe(icons.ART.person.contentId)
+				expect(themes.resolveIcon(StandardIcons.apply(themes.neutralPackage()), "person")):toBe(
+					StandardIcons.CONTENT.person
+				)
 				expect(themes.resolveIcon({}, "kart")):toBe(nil)
 			end,
 		})
