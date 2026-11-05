@@ -141,23 +141,20 @@ return function(
 			if spec.header == nil then
 				table.insert(
 					header,
-					ctx.textRole(
-						ctx.text({
-							Name = "Title",
-							LayoutOrder = 1,
-							Visible = function(use: ComposeTypes.Use)
-								return not use(plaqued)
-							end,
-							Text = function(use: ComposeTypes.Use)
-								return readString(spec.title, use) or ""
-							end,
-							TextWrapped = true,
-							Size = D2.new(1, 0, 0, 0),
-							AutomaticSize = E.AutomaticSize.Y,
-							Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
-						}),
-						"heading"
-					)
+					ctx.text({
+						Name = "Title",
+						LayoutOrder = 1,
+						Visible = function(use: ComposeTypes.Use)
+							return not use(plaqued)
+						end,
+						Text = function(use: ComposeTypes.Use)
+							return readString(spec.title, use) or ""
+						end,
+						TextWrapped = true,
+						Size = D2.new(1, 0, 0, 0),
+						AutomaticSize = E.AutomaticSize.Y,
+						Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+					}, nil, "heading")
 				)
 			elseif spec.header ~= false then
 				local custom = spec.header

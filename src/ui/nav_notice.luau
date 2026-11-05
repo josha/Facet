@@ -603,7 +603,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 			})
-			ctx.textRole(label, spec.titleSize or "title")
+			ctx.textRole(label, (spec.titleSize or "title") :: Types.TextRole)
 			center = label
 			local measure = ctx.text({
 				Name = "TitleMeasure",
@@ -615,7 +615,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Size = D2.fromOffset(0, 0),
 				AutomaticSize = E.AutomaticSize.XY,
 			})
-			ctx.textRole(measure, spec.titleSize or "title")
+			ctx.textRole(measure, (spec.titleSize or "title") :: Types.TextRole)
 			titleMeasure = measure
 		end
 		local centerProps: Types.FrameProps = {

@@ -88,7 +88,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				Size = size,
 			}
 		)
-		local node = ctx.textRole(ctx.styled(Host.TextLabel(native), "text"), "caption")
+		local node = ctx.styled(Host.TextLabel(native), "text")
+		ctx.textRole(node, "caption")
 		if spec.icon == nil then
 			Host.UIPadding {}.Parent = node
 		end
@@ -368,7 +369,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			}
 			native[#native + 1] = Host.UIListLayout { HorizontalAlignment = E.HorizontalAlignment.Center }
 		end
-		local node = ctx.textRole(ctx.styled(Host.TextLabel(native), "text"), "body")
+		local node = ctx.styled(Host.TextLabel(native), "text")
+		ctx.textRole(node, "body")
 		ctx.styled(node, "badge")
 		statusTag(node, spec.status)
 		Compose.watch(function(use: ComposeTypes.Use)

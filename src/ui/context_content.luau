@@ -769,7 +769,7 @@ return function(
 			node:AddTag(wanted)
 		end
 	end
-	function ctx.textRole<N>(node: N & Instance, role: Shared.Input<Shared.TextRole>?): N & Instance
+	function ctx.textRole(node: Instance, role: Shared.Input<Shared.TextRole>?)
 		if Compose.isValue(role) or type(role) == "function" then
 			Compose.watch(function(use: ComposeTypes.Use)
 				applyRole(node, ctx.read<<Shared.TextRole?>>(role, use))
@@ -777,7 +777,6 @@ return function(
 		else
 			applyRole(node, role :: Shared.TextRole?)
 		end
-		return node
 	end
 	local layout = layoutKit.attach(ctx)
 	function ctx.textLayout(label: TextLabel | TextButton, stable: boolean?, watchPadding: boolean?, lazy: boolean?)

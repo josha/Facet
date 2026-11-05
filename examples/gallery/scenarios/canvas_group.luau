@@ -57,6 +57,7 @@ return {
 				UI.Text {
 					LayoutOrder = 2,
 					text = "The same plates and opacity. One CanvasGroup composites the image before fading it; separate groups reveal every overlap.",
+					wrap = true,
 				},
 				Host.Frame "Stops" {
 					LayoutOrder = 3,

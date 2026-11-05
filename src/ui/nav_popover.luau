@@ -348,20 +348,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				if spec.title ~= nil then
 					table.insert(
 						header,
-						ctx.textRole(
-							ctx.text({
-								Name = "Title",
-								LayoutOrder = 1,
-								Text = function(use: ComposeTypes.Use)
-									return read(spec.title, use) or ""
-								end,
-								TextWrapped = true,
-								Size = D2.new(1, 0, 0, 0),
-								AutomaticSize = E.AutomaticSize.Y,
-								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
-							}),
-							"heading"
-						)
+						ctx.text({
+							Name = "Title",
+							LayoutOrder = 1,
+							Text = function(use: ComposeTypes.Use)
+								return read(spec.title, use) or ""
+							end,
+							TextWrapped = true,
+							Size = D2.new(1, 0, 0, 0),
+							AutomaticSize = E.AutomaticSize.Y,
+							Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+						}, nil, "heading")
 					)
 				end
 				if closes then

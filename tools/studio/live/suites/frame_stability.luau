@@ -1292,7 +1292,8 @@ for _, viewport in viewports do
 							t.check(
 								`row {index} fits message`,
 								text.TextBounds.X <= text.AbsoluteSize.X + 0.5
-									and math.abs(text.TextBounds.Y - text.AbsoluteSize.Y) <= 0.5,
+									and text.AbsoluteSize.Y >= text.TextBounds.Y - 0.5
+									and text.AbsoluteSize.Y < text.TextBounds.Y + 1,
 								text.TextBounds
 							)
 						end

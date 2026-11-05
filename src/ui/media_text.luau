@@ -149,10 +149,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			sizeRole == nil or spec.textRole == nil,
 			"Facet Text: set the type role one time, with textSize or textRole"
 		)
-		assert(
-			pixels == nil or spec.textRole == nil,
-			"Facet Text: set the size one time, with a pixel textSize or with textRole"
-		)
 		local fit = if pixels == nil and sizeRole == nil then fitOf(size) else nil
 		local lines = spec.lines
 		assert(
@@ -238,14 +234,23 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			true,
 			if pixels == nil and nativeSize == nil then roleSource else nil
 		)
-		if nativeSize ~= nil and roleSource ~= nil then
+		if (pixels ~= nil or nativeSize ~= nil) and roleSource ~= nil then
 			ctx.textRole(label, roleSource)
 		end
 		if not lines and not cut and not fit and spec.Size == nil and spec.AutomaticSize == nil then
 			local wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true)
 			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
 			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
+			local appliedSize, appliedMode = label.Size, label.AutomaticSize
+			local connection: RBXScriptConnection? = nil
 			local function hug()
+				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
+					if connection then
+						connection:Disconnect()
+						connection = nil
+					end
+					return
+				end
 				local parent = label.Parent
 				local frame = parent ~= nil and parent:IsA("GuiObject")
 				local automatic = if parent and frame then (parent :: GuiObject).AutomaticSize else nil
@@ -261,8 +266,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							or automatic == E.AutomaticSize.XY
 							or (list == nil and (placed or label:GetAttribute("FacetPlaced") == true))
 						)
-				label.Size = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
-				label.AutomaticSize = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+				appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+				appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+				label.Size = appliedSize
+				label.AutomaticSize = appliedMode
 				if not wrapped and not aligned and list ~= nil and not across then
 					label.TextXAlignment = if list.HorizontalAlignment == E.HorizontalAlignment.Center
 						then E.TextXAlignment.Center
@@ -270,7 +277,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						else E.TextXAlignment.Left
 				end
 			end
-			runtime.connect(label, "AncestryChanged", hug)
+			connection = label.AncestryChanged:Connect(hug)
+			Compose.cleanup(function()
+				if connection then
+					connection:Disconnect()
+					connection = nil
+				end
+			end)
 			hug()
 		end
 		if lines then

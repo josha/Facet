@@ -300,7 +300,7 @@ export type Context = {
 	fade: (CanvasGroupProps, boolean?, boolean?, boolean?) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
 	text: (TextLabelNativeProps?, boolean?, Input<TextRole>?) -> TextLabel,
-	textRole: <N>(N & Instance, Input<TextRole>?) -> N & Instance,
+	textRole: (Instance, Input<TextRole>?) -> (),
 	clampLines: (TextLabel, number) -> (),
 	textLayout: (TextLabel | TextButton, boolean?, boolean?, boolean?) -> (),
 	row: (ChildList, FrameNativeProps?) -> Frame,

@@ -934,7 +934,7 @@ add("progress-track-centring", {}, function(t)
 			width = "fill" :: "fill",
 			gap = 16,
 			UI.ProgressView "Down" { label = "Download", value = Compose.cell(0.35), showValue = true },
-			UI.Text "Cap" { text = "Save changes" },
+			UI.Text "Cap" { text = "Save changes", AutomaticSize = Enum.AutomaticSize.XY },
 		}
 	end, { size = Vector2.new(400, 400), frames = 12 })
 	local root = t.find(stage, "Down")

@@ -64,6 +64,18 @@ return function(verifyHarness: Verify.Harness)
 		table.insert(roots, (screen :: unknown) :: VerifyRoblox.Instance)
 		local layout = assert(bridge.layout)
 		layout.step()
+		for _, node in screen:GetDescendants() do
+			if node:IsA("ScrollingFrame") then
+				engine.environment.poke(
+					(node :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteWindowSize",
+					node.AbsoluteSize
+				)
+			end
+		end
+		for _ = 1, 4 do
+			layout.step()
+		end
 		local ui = assert(bridge.ui)
 		return {
 			screen = screen,
@@ -215,6 +227,7 @@ return function(verifyHarness: Verify.Harness)
 				local item = w.find("Item1") :: TextLabel
 				local content = assert(item:FindFirstAncestor("Content")) :: CanvasGroup
 				expect(content.AutomaticSize):toBe(E.AutomaticSize.Y)
+				expect(item.AbsoluteSize.X > 0):toBe(true)
 				expect(item.AbsoluteSize.X <= 160):toBe(true)
 				expect(content.AbsoluteSize.X <= 160):toBe(true)
 				w.stop()
@@ -251,6 +264,8 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local short = w.find("Card1"):FindFirstChild("Title", true) :: TextLabel
 				local long = w.find("Card2"):FindFirstChild("Title", true) :: TextLabel
+				expect(short.AbsoluteSize.Y > 0):toBe(true)
+				expect(long.AbsoluteSize.X > 0):toBe(true)
 				expect(long.AbsoluteSize.X <= 160):toBe(true)
 				expect(long.AbsoluteSize.Y > short.AbsoluteSize.Y):toBe(true)
 				expect(long.AbsoluteSize.Y <= 2 * short.AbsoluteSize.Y):toBe(true)

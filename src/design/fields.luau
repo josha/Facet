@@ -1448,7 +1448,10 @@ local derived: Types.Derived = {
 				padding = { type = "number" },
 				surface = { type = "choice", options = { "surface", "panel", "pane" } },
 				title = { type = "string" },
-				titleSize = { type = "string" },
+				titleSize = {
+					type = "choice",
+					options = { "caption", "label", "body", "heading", "title", "control", "strong", "numeral" },
+				},
 			},
 		},
 		NavigationSplitView = {

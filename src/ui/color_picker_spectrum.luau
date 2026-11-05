@@ -296,14 +296,11 @@ return function(
 			{ Name = "StickKey", keys = { { "Right Stick" } }, controlSize = "compact" }
 		local hint = ctx.row({
 			UI.ShortcutHint(hintProps),
-			ctx.textRole(
-				ctx.text({
-					Name = "Words",
-					Text = "Move saturation and brightness",
-					AutomaticSize = E.AutomaticSize.XY,
-				}),
-				"caption"
-			),
+			ctx.text({
+				Name = "Words",
+				Text = "Move saturation and brightness",
+				AutomaticSize = E.AutomaticSize.XY,
+			}, nil, "caption"),
 		}, {
 			Name = "StickHint",
 			Visible = function(use: Use)

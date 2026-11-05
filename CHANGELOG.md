@@ -5,8 +5,8 @@ Text size comes from a type role. The base `facet-text` rule no longer sets
 by default. A Badge label and a ShortcutHint key use `caption`, and the text of
 a Chip with leading, trailing or remove content uses `control`. A pixel
 `textSize` on Text, Toggle or Picker sets the size with no role tag, so a size
-of 14 (the engine default) is no longer replaced by the body size. A pixel
-`textSize` together with `textRole` on Text is an error.
+of 14 (the engine default) is no longer replaced by the body size. NavBar
+`titleSize` is a type role.
 
 Text fills the width that its parent gives and grows only in height. It still
 hugs its words in a horizontal stack, in a parent that hugs its width and at an

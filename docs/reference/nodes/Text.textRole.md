@@ -8,24 +8,13 @@ Text.textRole option values and behavior.
   default is `body`. `textSize` can give the role instead, as a role name.
   Both together cause an error. The role is the only theme source of the text
   size: the base `facet-text` rule sets the colour and the font, not the size.
-- `textSize` as a number sets `TextSize` in pixels. The text then has no type
-  role tag, so no theme rule replaces the size. A pixel `textSize` with
-  `textRole` causes an error. `"fit"` and `{ fit = { cap, floor } }` fit the
+- `textSize` as a number sets `TextSize` in pixels. Without `textRole` the
+  text has no type role tag, so no theme rule replaces the size. `"fit"` and `{ fit = { cap, floor } }` fit the
   text to its box. See [Text-fit](Text-fit.md).
-- Native `TextSize` accepts a live numeric input. Without `textRole` the text
-  has no type role tag. With `textRole` the role supplies the other typography
-  properties, and the native size wins only while it is not the engine
-  default of 14, because the engine treats a property at its default as unset.
-  Use a numeric `textSize` for a fixed pixel size.
-- Without native `Size` and `AutomaticSize`, a Text fills the width that its
-  parent gives and grows only in height (`Size = UDim2.fromScale(1, 0)`,
-  `AutomaticSize = Enum.AutomaticSize.Y`). In a horizontal stack, in a parent
-  that hugs its width, outside a GuiObject or at an explicit `Position` or
-  `AnchorPoint` in a parent without a layout, a one-line Text hugs its text
-  (`AutomaticSize = Enum.AutomaticSize.XY`). A filled one-line Text in a
-  vertical stack takes the stack's horizontal alignment unless `textAlign` or
-  `TextXAlignment` is set. Set `AutomaticSize = Enum.AutomaticSize.XY` to make
-  the text set its own width in any parent.
+- Native `TextSize` accepts a live numeric input. With `textRole`, a pixel
+  size (native or numeric `textSize`) keeps the role's other typography and
+  wins only while it is not 14, the engine default. Omit `textRole` for an
+  exact pixel size.
 - `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
