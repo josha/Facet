@@ -1,5 +1,14 @@
 # Current package
 
+Theme and factory `icons` entries accept a font glyph
+`{ font, codepoint, tintRole? }` beside image content. Each control that takes
+an icon name draws the glyph at the short side of the icon box without
+`TextScaled`. The glyph follows the image icon state colors and transparency,
+and state maps can mix glyph and image entries. `themes.resolveIcon` returns
+the content string or the glyph table. `themes.define` rejects a glyph without
+a font or with an invalid codepoint. `Facet.IconEntry` and `Facet.IconGlyph`
+type the entries.
+
 ScrollView and stack containers accept `maxHeight` beside `maxWidth` through
 one native size constraint. `ScrollView { height = "hug", maxHeight = limit }`
 grows with short content and caps the window for long content. Compose Design

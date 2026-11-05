@@ -169,11 +169,14 @@ return function<V>(
 	if corner and launcher and launcher:IsA("GuiObject") then
 		local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 		if glyph then
-			runtime.decorate(glyph, {
-				ImageTransparency = function(use: ComposeTypes.Use): number
-					return 1 - morph(use)
-				end,
-			})
+			local function fade(use: ComposeTypes.Use): number
+				return 1 - morph(use)
+			end
+			runtime.decorate(glyph, { ImageTransparency = fade })
+			local mark = glyph:FindFirstChild("Glyph")
+			if mark then
+				runtime.decorate(mark, { TextTransparency = fade })
+			end
 		end
 		surfaces.attach(centerNode, {
 			ctx.icon(spec.icon or "more", {
@@ -188,6 +191,10 @@ return function<V>(
 		local glyph = centerNode:FindFirstChild("LeadingIcon", true)
 		if glyph then
 			runtime.decorate(glyph, { ImageTransparency = transparency })
+			local mark = glyph:FindFirstChild("Glyph")
+			if mark then
+				runtime.decorate(mark, { TextTransparency = transparency })
+			end
 		end
 	end
 	if spec.center == "content" and spec.centerContent and not corner then

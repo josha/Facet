@@ -462,7 +462,8 @@ return function(verifyHarness: Verify.Harness)
 		end
 
 		local function glyph(name: string): string?
-			return themes.resolveIcon({}, name)
+			local icon = themes.resolveIcon({}, name)
+			return if type(icon) == "string" then icon else nil
 		end
 
 		local function paintedIcon(row: any): string?

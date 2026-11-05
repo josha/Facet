@@ -40,7 +40,7 @@ A theme package contains these fields:
 | `identity` | Stable id, display name, version and schema metadata. |
 | `style` | `defaultTheme` and the named palette array `themes`. |
 | `metrics` | Typography, spacing, corner radii, control sizes and control-specific measures. |
-| `icons` | Semantic icon names mapped to image content or declared assets. |
+| `icons` | Semantic icon names mapped to image content, declared assets or font glyphs. |
 | `assets` | Art declarations with content ids and optional slice geometry. |
 | `chrome` | Native or image-based skin recipes for semantic control slots. |
 | `rules` | Additional native `{ selector, properties }` rules. A property value `{ role = "content" }` takes that palette colour, so the rule follows a palette change. `{ metric = "strokes.outline" }` reads a numeric metric after distance scaling. Literal numbers remain fixed. |
@@ -176,11 +176,42 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 
 The report lists the covered entries and the missing entries.
 
-Icons resolve through `themes.resolveIcon`. Supply real image or vector image
-assets. Do not use arbitrary text glyphs as interface icons. An image
-declaration does not prove ownership or successful loading. Keep the asset
-provenance with the theme package. Verify the images at native scale in the
-running application.
+Icons resolve through `themes.resolveIcon`. An icon entry is image content,
+the name of a declared asset or a font glyph. A font glyph is
+`{ font, codepoint, tintRole? }`. `font` is a `Font` or a font spec, and
+`codepoint` is the glyph's Unicode codepoint. `tintRole` has the same meaning
+as on an asset record. A state map can mix kinds:
+
+```luau
+local iconFont = { family = "rbxassetid://1234" }
+local package, report = Facet.themes.define({
+	identity = { id = "harbor" },
+	icons = {
+		["game:coin"] = { font = iconFont, codepoint = 0xE001 },
+		["game:star"] = {
+			default = { font = iconFont, codepoint = 0xE002 },
+			selected = "rbxassetid://5678",
+		},
+	},
+})
+assert(package, report.errors[1] and report.errors[1].message)
+```
+
+The sample font id and codepoints are placeholders. Use the values of your own
+icon font. The `icons` factory option and `Facet.app({ icons = ... })` accept
+the same entries without a theme package.
+
+Each control that takes an icon name can draw a font glyph. The glyph uses the
+same state colors and transparency as image icons. Its text size is the short
+side of the icon box. It does not use `TextScaled`. The glyph is a TextLabel
+named `Glyph` inside the icon ImageLabel. The ImageLabel keeps its name and
+size, and its `Image` is empty. `themes.define` rejects a glyph without a font
+or with a codepoint that is not an integer from 0 to 0x10FFFF.
+
+Use an icon font that has real icon designs. Do not use arbitrary letters,
+symbols or emoji as interface icons. An image or font declaration does not
+prove ownership or successful loading. Keep the asset provenance with the theme
+package. Verify the icons at native scale in the running application.
 
 See [rich skinning](skinning.md) for artwork.
 

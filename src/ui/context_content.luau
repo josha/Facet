@@ -5,6 +5,7 @@ local Shared = require("./types")
 local Theme = require("./theme_types")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
+local support = require("./theme_support")
 local NATIVE_KEYS = table.freeze({ "ref" })
 
 type Geometry = { apply: () -> (), frame: number }
@@ -925,51 +926,129 @@ return function(
 				end
 			end
 	end
-	function ctx.iconVaries(name: Shared.Input<string>?): boolean
+	local function registry(use: ComposeTypes.Use?): Theme.IconRegistry
+		local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use) or {}
+		local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons, use)
+		if overrides then
+			package = { icons = overrides, assets = package.assets }
+		end
+		return package
+	end
+	function ctx.iconVaries(name: Shared.Input<Theme.ResolvedIcon?>?): boolean
 		if name == nil then
 			return false
 		end
 		if live(name) or live(config.theme) or live(config.icons) then
 			return true
 		end
-		local requested: string = ctx.read<<string>>(name)
-		if requested == "" or string.match(requested, "^rbx") then
+		local requested = ctx.read<<Theme.ResolvedIcon?>>(name)
+		if type(requested) ~= "string" or requested == "" or string.match(requested, "^rbx") then
 			return false
 		end
-		local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme) or {}
-		local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons)
-		if overrides then
-			package = { icons = overrides, assets = package.assets }
-		end
+		local package = registry()
 		local resting = themes.resolveIcon(package, requested, "default")
 		return themes.resolveIcon(package, requested, "hover") ~= resting
 			or themes.resolveIcon(package, requested, "pressed") ~= resting
 			or themes.resolveIcon(package, requested, "selected") ~= resting
 			or themes.resolveIcon(package, requested, "disabled") ~= resting
 	end
+	local function glyphText(glyph: Theme.IconGlyph): string
+		local point = glyph.codepoint
+		assert(
+			type(point) == "number" and point % 1 == 0 and point >= 0 and point <= 0x10FFFF,
+			`Facet icon glyph codepoint {tostring(point)} must be an integer from 0 to 0x10FFFF`
+		)
+		return utf8.char(point)
+	end
+	local function glyphFace(glyph: Theme.IconGlyph): Font
+		assert(glyph.font ~= nil, "Facet icon glyph requires a font")
+		return support.font(types, glyph.font)
+	end
+	local function glyphLabel(
+		icon: ImageLabel,
+		glyph: (ComposeTypes.Use?) -> Theme.IconGlyph,
+		changing: boolean,
+		transparency: Shared.Input<number>?
+	): TextLabel
+		local box = runtime.observe(icon, "Size")
+		local measured = ctx.layoutSize(icon)
+		local native: Shared.TextLabelProps = {
+			Name = "Glyph",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = types.UDim2.fromScale(1, 1),
+			AutoLocalize = false,
+			TextScaled = false,
+			TextWrapped = false,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextTransparency = transparency,
+			Text = if changing
+				then function(use: ComposeTypes.Use): string
+					return glyphText(glyph(use))
+				end
+				else glyphText(glyph()),
+			FontFace = if changing
+				then function(use: ComposeTypes.Use): Font
+					return glyphFace(glyph(use))
+				end
+				else glyphFace(glyph()),
+			TextSize = function(use: ComposeTypes.Use): number
+				local area = use(measured)
+				if area.X > 0 and area.Y > 0 then
+					return math.round(math.min(area.X, area.Y))
+				end
+				local size = use(box)
+				assert(typeof(size) == "UDim2")
+				return math.max(0, math.min(size.X.Offset, size.Y.Offset))
+			end,
+		}
+		return ctx.styled(Host.TextLabel(native), "icon-glyph")
+	end
 	function ctx.icon(
-		name: Shared.Input<string?>,
+		name: Shared.Input<Theme.ResolvedIcon?>,
 		properties: Shared.ImageLabelNativeProps?,
 		state: Shared.Input<Theme.SkinState>?
 	): ImageLabel
-		local function image(use: ComposeTypes.Use?): string
-			local requested = ctx.read<<string?>>(name, use)
+		local function resolve(use: ComposeTypes.Use?, skin: Theme.SkinState?): Theme.ResolvedIcon?
+			local requested = ctx.read<<Theme.ResolvedIcon?>>(name, use)
 			if requested == nil or requested == "" then
-				return ""
+				return nil
 			end
-			local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use) or {}
-			local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons, use)
-			if overrides then
-				package = { icons = overrides, assets = package.assets }
+			if type(requested) ~= "string" then
+				return requested
 			end
-			local asset = if type(requested) == "string" and string.match(requested, "^rbx")
-				then requested
-				else themes.resolveIcon(package, requested, ctx.read<<Theme.SkinState?>>(state, use))
-			assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
-			return asset
+			if string.match(requested, "^rbx") then
+				return requested
+			end
+			local icon = themes.resolveIcon(registry(use), requested, skin)
+			assert(icon ~= nil, `Facet icon {requested} requires an image asset or a font glyph`)
+			return icon
 		end
+		local function resolved(use: ComposeTypes.Use?): Theme.ResolvedIcon?
+			return resolve(use, ctx.read<<Theme.SkinState?>>(state, use))
+		end
+		local armed, wanted = false, false
+		local arm: (() -> ())? = nil
+		local function image(use: ComposeTypes.Use?): string
+			local icon = resolved(use)
+			if type(icon) == "string" then
+				return icon
+			end
+			if icon ~= nil and not armed then
+				armed = true
+				if arm then
+					arm()
+				else
+					wanted = true
+				end
+			end
+			return ""
+		end
+		local changing = live(name) or live(config.theme) or live(config.icons) or live(state)
+		local initial = if changing then nil else resolved()
 		local native: Shared.ImageLabelProps = {
-			Image = if live(name) or live(config.theme) or live(config.icons) or live(state) then image else image(),
+			Image = if changing then image else (if type(initial) == "string" then initial else ""),
 			BackgroundTransparency = 1,
 		}
 		local function iconSize(use: ComposeTypes.Use?): UDim2
@@ -989,6 +1068,42 @@ return function(
 		elseif resample() ~= Enum.ResamplerMode.Default then
 			native.ResampleMode = resample()
 		end
-		return ctx.styled(Host.ImageLabel(ctx.props(properties or {}, NATIVE_KEYS, native)), "Icon")
+		local icon = ctx.styled(Host.ImageLabel(ctx.props(properties or {}, NATIVE_KEYS, native)), "Icon")
+		local transparency = if properties then properties.ImageTransparency else nil
+		if type(initial) == "table" then
+			local glyph = initial
+			runtime.mount(function()
+				return glyphLabel(icon, function()
+					return glyph
+				end, false, transparency)
+			end, icon)
+		elseif changing then
+			local last: Theme.IconGlyph? = nil
+			local function current(use: ComposeTypes.Use?): Theme.IconGlyph?
+				local found = resolved(use)
+				if type(found) == "table" then
+					last = found
+				end
+				return last
+			end
+			local mountGlyph = Compose.bindOwner(function()
+				runtime.mountFragment(function()
+					return {
+						Compose.show(function(use: ComposeTypes.Use): boolean
+							return type(resolved(use)) == "table"
+						end, function()
+							return glyphLabel(icon, function(use: ComposeTypes.Use?): Theme.IconGlyph
+								return assert(current(use))
+							end, true, transparency)
+						end),
+					}
+				end, icon)
+			end)
+			arm = mountGlyph
+			if wanted then
+				mountGlyph()
+			end
+		end
+		return icon
 	end
 end

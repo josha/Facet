@@ -148,6 +148,18 @@ return function(
 			add(selector .. ", " .. string.sub(selector, 1, -12) .. " > UIPadding", properties)
 		else
 			add(selector, properties)
+			local color, fade = properties.ImageColor3, properties.ImageTransparency
+			if color ~= nil or fade ~= nil then
+				local glyphs: { string } = {}
+				for _, part in string.split(selector, ", ") do
+					if not string.find(part, "::", 1, true) then
+						table.insert(glyphs, part .. " > .facet-icon-glyph")
+					end
+				end
+				if #glyphs > 0 then
+					add(table.concat(glyphs, ", "), { TextColor3 = color, TextTransparency = fade })
+				end
+			end
 		end
 	end
 	add(".facet-fade-stroke", { Enabled = false, Transparency = 1 })

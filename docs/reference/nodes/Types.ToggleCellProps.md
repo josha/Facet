@@ -27,7 +27,7 @@ Types.ToggleCellProps option values and behavior.
   `ToastDismissReason`, `ColorPickerDismissReason` and
   `DateTimePickerDismissReason`.
 - The theme definition types `ThemeDefinition`, `PalettePatch`,
-  `PaletteExtra` and `TypographyPatch`.
+  `PaletteExtra`, `TypographyPatch`, `IconEntry` and `IconGlyph`.
 
 Give option arrays an explicit item type when their union or generic type is
 ambiguous. This applies to `actions`, `items`, `options`, `tabs`, `steps` and

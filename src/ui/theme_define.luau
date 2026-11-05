@@ -474,6 +474,35 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			end
 			checkLinks(recipe, "chrome." .. slot)
 		end
+		local function checkGlyph(value: unknown, path: string)
+			if type(value) ~= "table" or ((value :: unknown) :: { codepoint: unknown }).codepoint == nil then
+				return
+			end
+			local glyph = (value :: unknown) :: { codepoint: unknown, font: unknown }
+			local point = glyph.codepoint
+			if type(point) ~= "number" or point % 1 ~= 0 or point < 0 or point > 0x10FFFF then
+				table.insert(
+					errors,
+					{
+						field = path .. ".codepoint",
+						message = "A glyph codepoint must be an integer from 0 to 0x10FFFF",
+					}
+				)
+			end
+			if typeof(glyph.font) ~= "Font" and type(glyph.font) ~= "table" then
+				table.insert(errors, { field = path .. ".font", message = "A glyph needs a Font or a font spec" })
+			end
+		end
+		local declared: unknown = package.icons
+		for name, entry in (if type(declared) == "table" then declared else {}) :: { [string]: unknown } do
+			if type(entry) == "table" and ((entry :: unknown) :: { default: unknown }).default ~= nil then
+				for state, variant in (entry :: unknown) :: { [string]: unknown } do
+					checkGlyph(variant, `icons.{name}.{state}`)
+				end
+			else
+				checkGlyph(entry, `icons.{name}`)
+			end
+		end
 		if #errors > 0 then
 			return nil, { ok = false, errors = errors, missing = {}, contrast = {}, advice = {} }
 		end
