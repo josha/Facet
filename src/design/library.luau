@@ -10,6 +10,7 @@ local Motion = require("./motion")
 local Roblox3D = require("../vendor/compose/design-editor/roblox-3d-library")
 local robloxTypes = require("../ui/roblox_types")
 local updateStyleTags = require("../ui/style_tags")
+local visualTarget = require("../ui/visual_target")
 
 type Literal = Design.Literal
 type Resolved = Design.Resolved
@@ -526,6 +527,11 @@ local function create(context: Context): Design.Library
 			template = if templated then "render" else nil,
 			key = if bound then "key" else nil,
 			call = "UI." .. name,
+			selectionTarget = if name == "Sheet"
+					or name == "Dialog"
+					or name == "Toast"
+				then visualTarget.resolve
+				else nil,
 			build = function(props: { [string]: Resolved }, children: { unknown }, nodeName: string): unknown
 				local values: Record = {}
 				local live: Record = {}

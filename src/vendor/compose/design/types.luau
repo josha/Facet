@@ -89,6 +89,7 @@ export type Kind = {
 	iteration: { fields: { ItemField } }?,
 	call: string,
 	build: (props: { [string]: Resolved }, children: { unknown }, name: string) -> unknown,
+	selectionTarget: ((built: unknown, use: Core.Use) -> unknown)?,
 }
 
 export type Motion = {

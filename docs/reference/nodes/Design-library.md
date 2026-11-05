@@ -26,6 +26,9 @@ local source = kit.Design.emit(document, library, { name = "Shop" })
   child mode.
 - `kit.seeds(kind)` returns the child nodes a new node of that kind starts with.
 
+Sheet, Dialog and Toast use `selectionTarget` for editor outlines.
+Closed surfaces have no target.
+
 Child modes:
 
 - Stacks, grids and other containers take a list of children.

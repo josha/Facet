@@ -12,6 +12,7 @@ local reservations = require("./reservations")
 local OverlayProps = require("./overlay_props")
 local arrival = require("./overlay_arrival")
 local textMeasure = require("./text_measure")
+local visualTarget = require("./visual_target")
 
 type Reason = Overlay.ToastDismissReason
 type Record = {
@@ -497,6 +498,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			}
 		end
 		local row = ctx.styled(ctx.fade(props), "snackbar")
+		visualTarget.bind(Compose, record.root, row)
 		ctx.styled(row, "panel")
 		ctx.styled(row, "floating")
 		surfaces.skin(row, "panel")
@@ -714,6 +716,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			record.hovered = use(state) == E.GuiState.Hover
 		end)
 		record.row = row
+		visualTarget.bind(Compose, record.root, row)
 		actionRows[row] = true
 		actionTokens[row] = true
 		local at = ctx.observe.AbsolutePosition(row)
@@ -804,6 +807,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local visible = properties.Visible
 		properties.Visible = false
 		local root = Host.Frame(properties)
+		visualTarget.create(Compose, root)
 		root:SetAttribute("FacetOverlayPlaceholder", true)
 		local record: Record = {
 			spec = spec,

@@ -140,6 +140,84 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
+	for _, mode in { "Sheet", "Dialog", "Toast", "ActionToast" } do
+		verifyHarness:case(`resolves the presented {mode} surface inside its preview stage`, function()
+			local presented = Facet.Compose.cell(true)
+			local selected: unknown = nil
+			local anchor: Instance? = nil
+			local stage: Frame? = nil
+			local resolve: ((unknown, Facet.Use) -> unknown)? = nil
+			local function peek<T>(value: Facet.ReadOnlyValue<T>): T
+				return value:peek()
+			end
+			local session = mount(function(ctx: Context): unknown
+				local Host = Facet.host(ctx.runtime)
+				local container = Host.Frame "DeviceStage" { Size = ctx.types.UDim2.fromOffset(480, 320) }
+				stage = container
+				local UI = Facet.controls(ctx.runtime, {
+					types = ctx.types,
+					motionLevel = "none",
+					overlayParent = container,
+					strictBuild = true,
+				})
+				local library = Kit.library({ UI = UI, types = ctx.types })
+				resolve = assert(library.kinds[if mode == "ActionToast" then "Toast" else mode].selectionTarget)
+				ctx.runtime.mount(function(): Instance
+					local built: Frame
+					if mode == "Sheet" then
+						built = UI.Sheet {
+							isPresented = presented,
+							title = "Details",
+							content = function(): Instance
+								return UI.Text { text = "Details" }
+							end,
+						}
+					elseif mode == "Dialog" then
+						built = UI.Dialog { isPresented = presented, title = "Details", closeButton = false }
+					else
+						built = UI.Toast {
+							isPresented = presented,
+							onPresentedChange = function(value: boolean)
+								presented:set(value)
+							end,
+							message = "Saved",
+							duration = 0,
+							action = if mode == "ActionToast"
+								then { label = "Done", onActivate = function() end }
+								else nil,
+						}
+					end
+					anchor = built
+					Facet.Compose.watch(function(use: Facet.Use)
+						selected = assert(resolve)(built, use)
+					end)
+					return built
+				end, container)
+				return container
+			end)
+			local first = selected
+			assert(typeof(first) == "Instance" and first:IsA("GuiObject"))
+			Verify.expect(first == anchor):toBe(false)
+			Verify.expect(first:IsDescendantOf(assert(stage))):toBe(true)
+			Verify.expect(first.Name):toBe(
+				if mode == "Sheet"
+					then "SheetPanel"
+					elseif mode == "Dialog" then "Panel"
+					elseif mode == "Toast" then "ToastRow"
+					else "Snack"
+			)
+			presented:set(false)
+			Verify.expect(selected):toBeNil()
+			presented:set(true)
+			local reopened = selected
+			assert(typeof(reopened) == "Instance" and reopened:IsA("GuiObject"))
+			Verify.expect(reopened:IsDescendantOf(assert(stage))):toBe(true)
+			Verify.expect(reopened == first):toBe(false)
+			session.dispose()
+			Verify.expect(assert(resolve)(anchor, peek)):toBeNil()
+		end)
+	end
+
 	local function documentWith(kinds: { string }, library: Facet.DesignLibrary): Facet.DesignDocument
 		local nextId = 2
 		local function seeded(seed: Facet.DesignSeed): Facet.DesignNode

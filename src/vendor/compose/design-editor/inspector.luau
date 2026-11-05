@@ -328,35 +328,38 @@ return function(ui: UI.UI)
 				return
 			end
 			local kind = session.library.kinds[node.kind]
+			local fields: { [string]: Design.Field } = if kind then kind.fields else {}
 			local mixed: { [string]: boolean } = {}
 			if #ids > 1 then
 				node = table.clone(node)
 				local props: { [string]: Design.Value } = table.clone(node.props)
 				node.props = props
-				kind = table.clone(kind)
-				kind.fields = table.clone(kind.fields)
+				fields = table.clone(fields)
 				local function effective(current: Design.Node, key: string): Design.Value?
 					local definition = session.library.kinds[current.kind]
+					if definition == nil then
+						return current.props[key]
+					end
 					local fallback = if definition.defaults then definition.defaults[key] else nil
 					if fallback == nil then
 						fallback = definition.fields[key].default
 					end
 					return current.props[key] or (if fallback ~= nil then { literal = fallback } else nil)
 				end
-				for key, field in table.clone(kind.fields) do
+				for key, field in table.clone(fields) do
 					local common = effective(node, key)
 					for _, other in ids do
 						local target = assert(Design.document.find(value.root, other), "Choose a node")
 						local definition = session.library.kinds[target.kind]
-						local entry = definition.fields[key]
+						local entry = if definition then definition.fields[key] else nil
 						if
 							entry == nil
 							or entry.type ~= field.type
 							or entry.datatype ~= field.datatype
 							or not equalList(entry.options, field.options)
-							or not Design.document.applies(target, definition, key)
+							or (definition ~= nil and not Design.document.applies(target, definition, key))
 						then
-							kind.fields[key] = nil
+							fields[key] = nil
 							break
 						end
 						if not equalValue(common, effective(target, key)) then
@@ -424,7 +427,7 @@ return function(ui: UI.UI)
 				ui.set(tags, "Size", ui.values.udim2(1, 0, 1, 0))
 				ui.set(tags, "Parent", editorSlot(tagRow))
 			end
-			if #ids == 1 and kind.children == "template" then
+			if #ids == 1 and kind and kind.children == "template" then
 				section "Data"
 				local lists: { string } = {}
 				for _, input in value.contract.inputs do
@@ -457,8 +460,8 @@ return function(ui: UI.UI)
 			local grouped: { [string]: { string } } = {}
 			local extra: { string } = {}
 			local advancedKeys: { string } = {}
-			for key, entry in kind.fields do
-				if #ids == 1 and not Design.document.applies(node, kind, key) then
+			for key, entry in fields do
+				if #ids == 1 and kind and not Design.document.applies(node, kind, key) then
 					continue
 				end
 				if entry.advanced and node.props[key] == nil then
@@ -486,7 +489,7 @@ return function(ui: UI.UI)
 						continue
 					end
 					table.sort(keys, function(left: string, right: string): boolean
-						local a, b = kind.fields[left].order or math.huge, kind.fields[right].order or math.huge
+						local a, b = fields[left].order or math.huge, fields[right].order or math.huge
 						if a == b then
 							return left < right
 						end
@@ -494,7 +497,7 @@ return function(ui: UI.UI)
 					end)
 					section(group)
 					for _, key in keys do
-						local entry = kind.fields[key]
+						local entry = fields[key]
 						local property = node.props[key]
 						local label = entry.label or humanize(key)
 						local line, caption = row(key, label .. if mixed[key] then " (Mixed)" else "")
@@ -521,7 +524,7 @@ return function(ui: UI.UI)
 							ui.set(pill, "Parent", slot)
 						elseif entry.type == "boolean" then
 							local fallback = entry.default
-							local defaults = kind.defaults
+							local defaults = if kind then kind.defaults else nil
 							if fallback == nil and defaults then
 								fallback = defaults[key]
 							end
@@ -664,7 +667,7 @@ return function(ui: UI.UI)
 							and Datatype.arity[entry.datatype] ~= nil
 						then
 							local arity = Datatype.arity[entry.datatype]
-							local defaults = kind.defaults
+							local defaults = if kind then kind.defaults else nil
 							local fallback = if defaults then defaults[key] else entry.default
 							local current = if type(literal) == "table"
 								then literal
