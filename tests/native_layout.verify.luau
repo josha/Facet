@@ -513,6 +513,24 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("tags a pill plate so the buttons inside it hover in its shape", {
+			id = "native_layout::stack corners option::tags a pill plate so the buttons inside it hover in its shape",
+			run = function()
+				local corners = Compose.cell("pill" :: Corners)
+				local root, _, stop = build(nil, function(UI)
+					return UI.HStack "Bar" {
+						surface = "panel",
+						corners = corners,
+						UI.Button "Menu" { name = "Menu", icon = "menu", onActivate = function() end },
+					}
+				end)
+				expect(root:HasTag("facet-stack-pill")):toBe(true)
+				corners:set("panel")
+				expect(root:HasTag("facet-stack-pill")):toBe(false)
+				stop()
+			end,
+		})
+
 		it("takes a theme radius name or a pixel radius and clears content from it", {
 			id = "native_layout::stack corners option::takes a theme radius name or a pixel radius and clears content from it",
 			run = function()

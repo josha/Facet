@@ -235,6 +235,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if plate then
 			frame:AddTag(plate)
 		end
+		if corners ~= nil then
+			Compose.watch(function(use: ComposeTypes.Use)
+				if read(corners, use) == "pill" then
+					frame:AddTag("facet-stack-pill")
+				elseif frame:HasTag("facet-stack-pill") then
+					frame:RemoveTag("facet-stack-pill")
+				end
+			end)
+		end
 		if spec.surface == "panel" then
 			ctx.skin(frame, "panel")
 		end

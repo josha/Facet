@@ -7549,8 +7549,8 @@ return function(verifyHarness: Verify.Harness)
 					world.stop()
 				end,
 			})
-			it("shows a scroll bar on an overflowing tab bar and hands a vertical drag to the page", {
-				id = "native_navigation::Segmented Picker overflow::shows a scroll bar on an overflowing tab bar and hands a vertical drag to the page",
+			it("scrolls an overflowing tab bar without a scroll bar and hands a vertical drag to the page", {
+				id = "native_navigation::Segmented Picker overflow::scrolls an overflowing tab bar without a scroll bar and hands a vertical drag to the page",
 				run = function()
 					local world = setup(function(UI)
 						local tabs: { Navigation.Tab } = {}
@@ -7579,7 +7579,8 @@ return function(verifyHarness: Verify.Harness)
 						"AbsoluteContentSize",
 						V2(world, 520, 44)
 					)
-					expect(bar.ScrollBarThickness):toBe(2)
+					expect(bar.ScrollBarThickness):toBe(0)
+					expect(bar.ScrollingEnabled):toBe(true)
 					local touch = {
 						UserInputType = types.Enum.UserInputType.Touch,
 						UserInputState = types.Enum.UserInputState.Begin,

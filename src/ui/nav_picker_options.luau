@@ -154,6 +154,40 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local room = Compose.cell(math.huge)
 		local spilling = Compose.cell(false)
+		local labelled = spec.label ~= nil and not vertical
+		local strip = style == "segmented" and spec.label == nil and (spec.Size ~= nil or spec.AutomaticSize ~= nil)
+		local declaredSize, declaredAutomatic = spec.Size, spec.AutomaticSize
+		local function tall(use: ComposeTypes.Use?): boolean
+			local sizing = readAutomatic(declaredAutomatic, use)
+			return across(use) and (sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY)
+		end
+		local function stripAutomatic(use: ComposeTypes.Use?): Enum.AutomaticSize
+			local sizing: Enum.AutomaticSize = readAutomatic(declaredAutomatic, use) or E.AutomaticSize.None
+			if tall(use) then
+				return if sizing == E.AutomaticSize.XY then E.AutomaticSize.X else E.AutomaticSize.None
+			end
+			if not across(use) then
+				local wide = sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
+				return if wide then E.AutomaticSize.XY else E.AutomaticSize.Y
+			end
+			return sizing
+		end
+		local function hugsLabels(use: ComposeTypes.Use?): boolean
+			return labelled or read(spec.sizing, use) == "hug"
+		end
+		local function segmentedAutomatic(use: ComposeTypes.Use?): Enum.AutomaticSize
+			return if not across(use)
+				then E.AutomaticSize.Y
+				elseif hugsLabels(use) then E.AutomaticSize.X
+				else E.AutomaticSize.None
+		end
+		local function hugs(use: ComposeTypes.Use?): boolean
+			if not across(use) then
+				return false
+			end
+			local sizing = if strip then stripAutomatic(use) else segmentedAutomatic(use)
+			return sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
+		end
 		local segmentBoxes: {
 			[GuiObject]: {
 				order: ComposeTypes.ReadOnlyValue<number>,
@@ -228,9 +262,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					return if style == "segmented"
 							and read(spec.axis, use) ~= "y"
 							and read(spec.sizing, use) ~= "hug"
+							and not hugs(use)
 						then E.UIFlexAlignment.Fill
 						else E.UIFlexAlignment.None
-				end, spec.axis, spec.sizing),
+				end, spec.axis, spec.sizing, spec.AutomaticSize),
 				VerticalFlex = derive(function(use: ComposeTypes.Use?)
 					return if style == "segmented"
 							and read(spec.axis, use) == "y"
@@ -496,7 +531,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								FlexMode = function(use: ComposeTypes.Use): Enum.UIFlexMode
 									return if read(spec.sizing, use) == "hug"
 										then E.UIFlexMode.None
-										elseif across(use) then if use(spilling)
+										elseif across(use) then if use(spilling) or hugs(use)
 											then E.UIFlexMode.None
 											else E.UIFlexMode.Grow
 										else E.UIFlexMode.Fill
@@ -601,13 +636,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				end,
 			})
 		)
-		local labelled = spec.label ~= nil and not vertical
-		local strip = style == "segmented" and spec.label == nil and (spec.Size ~= nil or spec.AutomaticSize ~= nil)
-		local declaredSize, declaredAutomatic = spec.Size, spec.AutomaticSize
-		local function tall(use: ComposeTypes.Use): boolean
-			local sizing = readAutomatic(declaredAutomatic, use)
-			return across(use) and (sizing == E.AutomaticSize.Y or sizing == E.AutomaticSize.XY)
-		end
 		local source = spec
 		if strip then
 			source = table.clone(spec)
@@ -629,27 +657,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					if not across(use) then
 						return D2.new(1, 0, 0, 0)
 					end
-					return D2.new(if labelled then 0 else 1, 0, 0, stripHeight(use))
+					return D2.new(if hugsLabels(use) then 0 else 1, 0, 0, stripHeight(use))
 				end
 				else D2.new(1, 0, 0, 0),
 			AutomaticSize = if strip
-				then function(use: ComposeTypes.Use): Enum.AutomaticSize
-					local sizing: Enum.AutomaticSize = readAutomatic(declaredAutomatic, use) or E.AutomaticSize.None
-					if tall(use) then
-						return if sizing == E.AutomaticSize.XY then E.AutomaticSize.X else E.AutomaticSize.None
-					end
-					if not across(use) then
-						local wide = sizing == E.AutomaticSize.X or sizing == E.AutomaticSize.XY
-						return if wide then E.AutomaticSize.XY else E.AutomaticSize.Y
-					end
-					return sizing
-				end
-				elseif style == "segmented" then derive(function(use: ComposeTypes.Use?)
-					return if not across(use)
-						then E.AutomaticSize.Y
-						elseif labelled then E.AutomaticSize.X
-						else E.AutomaticSize.None
-				end, spec.axis)
+				then stripAutomatic
+				elseif style == "segmented" then derive(segmentedAutomatic, spec.axis, spec.sizing)
 				else E.AutomaticSize.Y,
 		}
 		local p = if spec.label == nil then ctx.props(source, pickerKeys, defaults) else defaults
@@ -736,7 +749,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					return
 				end
 				local view = use(window).X
-				local room = if spilling:peek() then view - 2 * segmentMetrics.inset * scaleOf(use) else view
+				local room = view - 2 * segmentMetrics.inset * scaleOf(use)
 				spilling:set(room > 0 and use(extent).X > room + 1)
 			end)
 			local spills: ComposeTypes.ReadOnlyValue<boolean> = spilling

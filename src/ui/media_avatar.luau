@@ -88,6 +88,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local ring = Host.UIStroke {
 					Name = "HoverRing",
 					ApplyStrokeMode = E.ApplyStrokeMode.Border,
+					BorderStrokePosition = E.BorderStrokePosition.Inner,
 					Thickness = ringWidth,
 					Transparency = function(use: ComposeTypes.Use): number
 						return if use(state) == E.GuiState.Hover then 0 else 1

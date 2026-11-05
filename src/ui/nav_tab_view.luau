@@ -398,7 +398,7 @@ return function(
 			end,
 			BorderSizePixel = 0,
 			ScrollBarThickness = function(use: ComposeTypes.Use)
-				return if use(placement) == "sidebar" or use(stripOverflows) then 2 else 0
+				return if use(placement) == "sidebar" then 2 else 0
 			end,
 			VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 			HorizontalScrollBarInset = E.ScrollBarInset.None,

@@ -1063,6 +1063,7 @@ local function rulesFor(
 	rule(".facet-segment", { BackgroundTransparency = 1, TextColor3 = segmentInk })
 	rule(".facet-segment::UICorner", { CornerRadius = types.UDim.new(0, math.max(0, trackRadius - SEGMENT_INSET)) })
 	rule(".facet-segmented-pill >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(1, 0) })
+	rule(".facet-stack-pill >> .facet-button::UICorner", { CornerRadius = types.UDim.new(1, 0) })
 	rule(".facet-segmented-square >> .facet-segment::UICorner", { CornerRadius = types.UDim.new(0, 0) })
 	rule(".facet-segment-fill", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
 	rule(
