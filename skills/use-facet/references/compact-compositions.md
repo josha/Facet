@@ -25,6 +25,14 @@ Keep requirements available. Filters uses the same query/category/sort model;
 show active filters and result count. Reset/Clear retain their specified meaning.
 Price, consequence, pending/error state and required terms stay with the action.
 
+For a world-led hub, keep related actions in one bottom Composition group
+above native movement controls. For a live readout, give deciding values
+enough type size and limit competing accents. Keep brief guidance visible
+near its target. State affordability, unsaved changes, confirmation terms
+and the accepted result in words when they affect the decision. These are
+task conditions: a text-led record browser or a plugin tool can use its
+existing navigation and a quiet, dense layout instead of a gameplay HUD.
+
 ## Allocate the remaining room
 
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains

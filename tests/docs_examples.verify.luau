@@ -267,8 +267,27 @@ end
 		)()
 		app.mount(component :: () -> Child)
 		t:expect(sceneBuilds):toBe(0)
+		local actions = parent:FindFirstChild("Actions", true)
+		assert(actions and actions.Parent)
+		t:expect(actions.Parent.Name):toBe("BottomRight")
+		local labels: { [string]: boolean } = {}
+		for _, node in parent:GetDescendants() do
+			if node:IsA("TextLabel") or node:IsA("TextButton") then
+				labels[node.Text] = true
+			end
+		end
+		t:expect(labels["Pack equipped"]):toBe(true)
+		t:expect(labels["Begin expedition"]):toBe(true)
+		t:expect(labels["Back"]):toBe(nil)
 		assert(open)()
 		t:expect(sceneBuilds):toBe(1)
+		local terms = false
+		for _, node in parent:GetDescendants() do
+			if node:IsA("TextLabel") and node.Text == "Record in your journal" then
+				terms = true
+			end
+		end
+		t:expect(terms):toBe(true)
 		app.dispose()
 		t:expect(#parent:GetChildren()):toBe(0)
 	end)
