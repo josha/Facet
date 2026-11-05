@@ -47,6 +47,26 @@ return function(
 	end
 
 	local function gridView(name: string, items: (Use) -> { Item }, removable: boolean, mode: string): Frame
+		local labeled = Compose.formula(function(use: Use): boolean
+			if mode == "swatches" then
+				for _, item in items(use) do
+					if item.label ~= nil then
+						return true
+					end
+				end
+			end
+			return false
+		end)
+		local function span(use: Use): number
+			return if use(labeled) then math.min(2, use(columns)) else 1
+		end
+		local function cellWidth(use: Use): number
+			local count = span(use)
+			return count * state.cellSize(use) + (count - 1) * GAP
+		end
+		local function labelHeight(use: Use): number
+			return math.ceil(ctx.metric("typography.caption.size", use) * 2.4)
+		end
 		local owned: { [Instance]: { item: ComposeTypes.ReadOnlyValue<Item>, index: ComposeTypes.ReadOnlyValue<number> } } =
 			{}
 		local grid: Frame
@@ -81,7 +101,7 @@ return function(
 				appearance = "utility",
 				Size = function(use: Use)
 					local side = state.cellSize(use)
-					return D2.fromOffset(side, side)
+					return D2.fromOffset(cellWidth(use), side + (if use(labeled) then GAP + labelHeight(use) else 0))
 				end,
 				AutomaticSize = E.AutomaticSize.None,
 				LayoutOrder = function(use: Use)
@@ -140,7 +160,7 @@ return function(
 				appearance = "utility",
 				Size = function(use: Use)
 					local side = state.cellSize(use)
-					return D2.fromOffset(side, side)
+					return D2.fromOffset(cellWidth(use), side + (if use(labeled) then GAP + labelHeight(use) else 0))
 				end,
 				AutomaticSize = E.AutomaticSize.None,
 				LayoutOrder = function(use: Use)
@@ -160,8 +180,30 @@ return function(
 						state.commit()
 					end
 				end,
-				kit.solid("Swatch", D2.fromScale(1, 1), function(use: Use): Color3
+				kit.solid("Swatch", function(use: Use): UDim2
+					return if use(labeled) then D2.new(1, 0, 0, state.cellSize(use)) else D2.fromScale(1, 1)
+				end, function(use: Use): Color3
 					return use(source).color
+				end),
+				Compose.show(labeled, function(): TextLabel
+					return ctx.styled(
+						ctx.text({
+							Name = "Label",
+							Text = function(use: Use): string
+								local item = use(source)
+								return item.label or color.hex(item.color)
+							end,
+							Position = function(use: Use): UDim2
+								return D2.fromOffset(0, state.cellSize(use) + GAP)
+							end,
+							Size = function(use: Use): UDim2
+								return D2.new(1, 0, 0, labelHeight(use))
+							end,
+							TextWrapped = true,
+							TextTruncate = E.TextTruncate.AtEnd,
+						}),
+						"type-caption"
+					)
 				end),
 				Compose.show(function(use: Use): boolean
 					return chosen(use) and not (removable and use(editing))
@@ -169,7 +211,11 @@ return function(
 					return ctx.icon("checkmark", {
 						Name = "Check",
 						AnchorPoint = V2.new(0.5, 0.5),
-						Position = D2.fromScale(0.5, 0.5),
+						Position = function(use: Use): UDim2
+							return if use(labeled)
+								then D2.new(0.5, 0, 0, state.cellSize(use) / 2)
+								else D2.fromScale(0.5, 0.5)
+						end,
 					})
 				end),
 			})
@@ -193,8 +239,8 @@ return function(
 		grid = Host.Frame(name)({
 			BackgroundTransparency = 1,
 			Size = function(use: Use)
-				local n = math.max(1, math.min(use(columns), #items(use)))
-				return D2.fromOffset(n * state.cellSize(use) + (n - 1) * GAP, 0)
+				local n = math.max(1, math.min(math.floor(use(columns) / span(use)), #items(use)))
+				return D2.fromOffset(n * cellWidth(use) + (n - 1) * GAP, 0)
 			end,
 			AutomaticSize = E.AutomaticSize.Y,
 			Host.UIListLayout {

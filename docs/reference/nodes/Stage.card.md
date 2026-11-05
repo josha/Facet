@@ -1,6 +1,6 @@
 # Stage.card
 
-Inspect a 3D object in a bounded area.
+Inspect a 3D object in a bounded area with a native ViewportFrame and WorldModel.
 
 Inside an app mount, set `local UI = app.UI`. The parent must bound both axes.
 
@@ -22,12 +22,11 @@ UI.Stage "Preview" {
 }
 ```
 
-Compose owns scene parts built through the supplied runtime. Use
-`Compose.static(world)` for their `Parent`. Bind them to selection or a draft.
-This camera frames the sample cube. Adjust `camera` and `fieldOfView` for
-the real subject and aspect ratio. Card sizes thumbnails; inspection art
-must fill its bounded parent.
+Compose owns scene parts built with the supplied runtime. Bind them to selection
+or a draft. This camera frames the sample cube; adjust it for the real subject
+and aspect ratio. Inspection art fills its bounded parent.
 
 Open:
 
 - [Stage.reference](Stage.reference.md)
+- [Preview and color](Tasks.appearance.md)
