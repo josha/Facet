@@ -1377,17 +1377,18 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		it("compact captions resolve native width and glyph bounds before the next frame", function(_own, t)
+		it("compact captions resolve width and glyph bounds once framed observations publish", function(_own, t)
 			local engine = engineLib.new()
 			local runtime = Roblox.createRuntime(engine)
 			local ctx = context(Compose, runtime, { types = engine.types })
 			local UI = ({} :: unknown) :: SharedTypes.Controls
-			local stale = Compose.cell(engine.types.Vector2.zero)
+			local size = Compose.cell(engine.types.Vector2.zero)
+			local bounds = Compose.cell(engine.types.Vector2.zero)
 			ctx.observe.AbsoluteSize = function()
-				return stale
+				return size
 			end
 			ctx.observe.TextBounds = function()
-				return stale
+				return bounds
 			end
 			register(ctx, UI)
 			local button: TextButton? = nil
@@ -1404,20 +1405,20 @@ return function(verifyHarness: Verify.Harness)
 			local measure = assert(node:FindFirstChild("FullLabelMeasure"))
 			local glyphs = measure
 			local box = node
-			engine.environment.poke(
-				VerifyRoblox.assertInstance(glyphs),
-				"TextBounds",
-				engine.types.Vector2.new(180, 20)
-			)
-			engine.environment.poke(VerifyRoblox.assertInstance(box), "AbsoluteSize", engine.types.Vector2.new(110, 44))
+			local function publish(width: number, label: number)
+				local wide, measured = engine.types.Vector2.new(width, 44), engine.types.Vector2.new(label, 20)
+				engine.environment.poke(VerifyRoblox.assertInstance(glyphs), "TextBounds", measured)
+				engine.environment.poke(VerifyRoblox.assertInstance(box), "AbsoluteSize", wide)
+				size:set(wide)
+				bounds:set(measured)
+			end
+			publish(110, 180)
 			t:expect(node.Text):toBe("Continue")
 			engine.environment.poke(VerifyRoblox.assertInstance(box), "AbsoluteSize", engine.types.Vector2.new(240, 44))
+			t:expect(node.Text):toBe("Continue")
+			publish(240, 180)
 			t:expect(node.Text):toBe("Continue to checkout")
-			engine.environment.poke(
-				VerifyRoblox.assertInstance(glyphs),
-				"TextBounds",
-				engine.types.Vector2.new(300, 20)
-			)
+			publish(240, 300)
 			t:expect(node.Text):toBe("Continue")
 			stop()
 			runtime:dispose()

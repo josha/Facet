@@ -103,7 +103,7 @@ return function(verifyHarness: Verify.Harness)
 				"AbsoluteSize",
 				engine.types.Vector2.new(280, 160)
 			)
-			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 160))
+			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 140))
 			cached:set(engine.types.Vector2.new(280, 160))
 			Verify.expect(assert(held):peek()):toBe(engine.types.Vector2.new(280, 160))
 			stop()

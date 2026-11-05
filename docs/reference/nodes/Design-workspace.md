@@ -33,9 +33,6 @@ registered Design name. It opens that Design's first sample. The workspace
 creates one Compose runtime and mounts its editor under `parent`. It creates
 no host ScreenGui. The host keeps ownership of `parent`.
 
-The kit has type `Facet.DesignStudioEditorKit`. Code that accepts any kit uses
-`Facet.DesignStudioKit`. A kit from the Compose design editor also has that type.
-
 The returned `Facet.DesignStudioEditor` is Compose's editor handle. Use its
 `execute` and `canvas` APIs. These commands use the same actions as the visible
 controls:

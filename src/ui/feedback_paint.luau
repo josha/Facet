@@ -149,7 +149,7 @@ return function(
 	if geometry.reflow then
 		painted = ctx.layoutSize(paint)
 	end
-	local boundary = decoration(Compose, runtime, ctx.types, node, paint)
+	local boundary = decoration(Compose, runtime, ctx.types, node, paint, { immediate = true })
 	runtime.mount(function()
 		return if geometry.reflow then Host.Folder "FeedbackLayer" { boundary } else boundary
 	end, node)

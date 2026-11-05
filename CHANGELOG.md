@@ -1,12 +1,12 @@
 # Current package
 
-Facet does not read layout inside a layout change signal. In a game, the
+Controls no longer read layout inside a layout change signal. In a game, the
 geometry that controls observe (collection viewports and measured rows,
 navigation chrome, pickers, popovers, Button `compactLabel`, level pickers,
-focus rings, world markers, grid cells and feedback decoration) is read on the
-next frame. Fast resizes and scrolls no longer run layout reads during the
-engine's layout pass. A form, a placement or a title style can update one
-frame after its bounds change.
+focus rings, world markers and grid cells) is read on the next frame. Fast
+resizes and scrolls no longer run these reads during the engine's layout pass.
+A form, a placement or a title style can update one frame after its bounds
+change. Feedback decoration still follows its host in the same frame.
 
 `Facet.DesignStudioKit` is now the read-only form of the Compose design editor
 kit type, so a kit built with the Compose design editor has this type.
