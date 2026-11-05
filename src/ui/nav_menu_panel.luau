@@ -623,7 +623,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local gui = surfaces.service("GuiService")
 		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
+			then ctx.selection.observe()
 			else Compose.cell(nil)
 		local function selectedBranch(use: ComposeTypes.Use?): Nav.MenuAction<V>?
 			local node = ctx.readSource(selected, use)
@@ -704,7 +704,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					end
 				end
 				if target and modal.Parent then
-					gui.SelectedObject = target
+					ctx.selection.set(target)
 				end
 			end
 		end)

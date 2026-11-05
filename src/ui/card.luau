@@ -121,9 +121,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		local gui = ctx.config.services.GuiService
 		local input = ctx.config.services.UserInputService
-		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
-			else unselected
+		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui then ctx.selection.observe() else unselected
 		local touchEnabled = if input then ctx.observe.TouchEnabled(input) else inactive
 		local preferred = if input then ctx.observe.PreferredInput(input) else nil
 		local function prefersTouch(use: ComposeTypes.Use): boolean
@@ -234,7 +232,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end
 			entered:set(true)
 			if gui then
-				gui.SelectedObject = first
+				ctx.selection.set(first)
 			end
 			return true
 		end
@@ -243,14 +241,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return
 			end
 			entered:set(false)
-			if gui and root and within(gui.SelectedObject, root) then
+			if gui and root and within(ctx.selection.get(), root) then
 				local target = if spec.browseTarget then spec.browseTarget() else nil
 				if target and target.Parent then
-					gui.SelectedObject = target
+					ctx.selection.set(target)
 				elseif root.Parent then
 					local body = root:FindFirstChild("Body")
 					if body and body:IsA("GuiObject") and body.Selectable then
-						gui.SelectedObject = body
+						ctx.selection.set(body)
 					end
 				end
 			end
@@ -835,10 +833,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				end)
 			end
 			Compose.cleanup(function()
-				if entered:peek() and gui and within(gui.SelectedObject, card) then
+				if entered:peek() and gui and within(ctx.selection.get(), card) then
 					entered:set(false)
 					local target = if spec.browseTarget then spec.browseTarget() else nil
-					gui.SelectedObject = if target and target.Parent and not within(target, card) then target else nil
+					ctx.selection.set(if target and target.Parent and not within(target, card) then target else nil)
 				end
 			end)
 		end

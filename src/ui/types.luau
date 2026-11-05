@@ -227,6 +227,7 @@ export type ReservedKeyHandler = {
 	editing: ((TextBox) -> boolean)?,
 	node: Instance?,
 	gui: GuiService?,
+	selected: (() -> GuiObject?)?,
 	enabled: () -> boolean,
 	press: () -> (),
 	release: () -> (),
@@ -255,6 +256,12 @@ export type ResponderOptions = {
 }
 export type ResponderState = "passive" | "engaged"
 export type Responder = { read state: ReadOnlyValue<ResponderState>, read engage: () -> (), read resign: () -> () }
+export type HostSelection = {
+	get: () -> GuiObject?,
+	set: (GuiObject?) -> (),
+	changed: (() -> ()) -> () -> (),
+	observe: () -> ReadOnlyValue<GuiObject?>,
+}
 export type Context = {
 	motionCodecs: MotionCodecs?,
 	runtime: Runtime,
@@ -289,6 +296,7 @@ export type Context = {
 	shiftRoute: (Instance, () -> ()) -> (),
 	whenSelected: (Instance, Instance, () -> ()) -> (),
 	selectionHooks: { (unknown) -> () },
+	selection: HostSelection,
 	shiftActivation: (Instance, InputObject?) -> (() -> ())?,
 	playWhileShown: (Playback, Instance) -> (),
 	props: <P>(P, { string } | { [string]: boolean }?, unknown?) -> P,

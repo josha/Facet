@@ -261,7 +261,7 @@ return function(ctx: Shared.Context): Selection
 		if gui == nil then
 			return
 		end
-		local selected = gui.SelectedObject
+		local selected = ctx.selection.get()
 		local list = {}
 		for _, node in scopeOf(selected) do
 			if not node:IsA("ScrollingFrame") or node:GetAttribute("FacetSelectionOwner") == true then
@@ -290,7 +290,7 @@ return function(ctx: Shared.Context): Selection
 		if editing and editing ~= target then
 			editing:ReleaseFocus(false)
 		end
-		gui.SelectedObject = target
+		ctx.selection.set(target)
 	end
 
 	local function resting(node: Instance): boolean
@@ -311,13 +311,13 @@ return function(ctx: Shared.Context): Selection
 		if gui == nil or (gamepad and gamepad.GamepadCursorEnabled) then
 			return
 		end
-		local selected = gui.SelectedObject
+		local selected = ctx.selection.get()
 		if selected and shown(selected) then
 			return
 		end
 		for _, candidate in scopeOf(nil) do
 			if not resting(candidate) then
-				gui.SelectedObject = candidate
+				ctx.selection.set(candidate)
 				return
 			end
 		end
@@ -327,7 +327,7 @@ return function(ctx: Shared.Context): Selection
 		for _, screen in screens() do
 			for _, candidate in candidates(screen) do
 				if not resting(candidate) then
-					gui.SelectedObject = candidate
+					ctx.selection.set(candidate)
 					return
 				end
 			end
@@ -409,13 +409,13 @@ return function(ctx: Shared.Context): Selection
 			end
 			return nil, nil
 		end
-		local selectedObject = ctx.observe.SelectedObject(service)
+		local selectedObject = ctx.selection.observe()
 		local gamepad = config.services.GamepadService
 		if gamepad then
 			local cursor = ctx.observe.GamepadCursorEnabled(gamepad)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(cursor) then
-					service.SelectedObject = nil
+					ctx.selection.set(nil)
 				end
 			end)
 		end
@@ -438,8 +438,8 @@ return function(ctx: Shared.Context): Selection
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local pad = use(preferred) == E.PreferredInput.Gamepad
-			if padPreferred and not pad and padMade and service.SelectedObject ~= nil then
-				service.SelectedObject = nil
+			if padPreferred and not pad and padMade and ctx.selection.get() ~= nil then
+				ctx.selection.set(nil)
 			end
 			padPreferred = pad
 		end)
@@ -450,7 +450,7 @@ return function(ctx: Shared.Context): Selection
 			if #ctx.modalScopes:peek() > 0 then
 				return
 			end
-			local current = service.SelectedObject
+			local current = ctx.selection.get()
 			if current and shown(current) then
 				return
 			end
@@ -463,7 +463,7 @@ return function(ctx: Shared.Context): Selection
 			end
 			local target = survivor(previous)
 			if target then
-				service.SelectedObject = target
+				ctx.selection.set(target)
 			end
 		end
 		local wake = Compose.cell(0)
@@ -489,7 +489,7 @@ return function(ctx: Shared.Context): Selection
 			if target == nil then
 				return false
 			end
-			service.SelectedObject = target
+			ctx.selection.set(target)
 			return true
 		end
 		local function track(current: GuiObject): ()
@@ -515,7 +515,7 @@ return function(ctx: Shared.Context): Selection
 					for _, source in sources do
 						use(source)
 					end
-					if service.SelectedObject ~= current then
+					if ctx.selection.get() ~= current then
 						return
 					end
 					if not shown(current) then
@@ -606,6 +606,7 @@ return function(ctx: Shared.Context): Selection
 				sink = true,
 				editing = ownedByFacet,
 				gui = service,
+				selected = ctx.selection.get,
 				enabled = function(): boolean
 					return traversable:peek()
 				end,
@@ -694,14 +695,13 @@ return function(ctx: Shared.Context): Selection
 				return
 			end
 			engaged:set(false)
-			if gui and inside(gui.SelectedObject) then
-				gui.SelectedObject = nil
+			if gui and inside(ctx.selection.get()) then
+				ctx.selection.set(nil)
 			end
 		end
 		local parent = inputHost()
 		if passive and gui and gui.GetPropertyChangedSignal then
-			local service = gui
-			local selected = ctx.observe.SelectedObject(service)
+			local selected = ctx.selection.observe()
 			Compose.watch(function(use: ComposeTypes.Use)
 				local current = use(selected)
 				if current == nil then
@@ -745,7 +745,7 @@ return function(ctx: Shared.Context): Selection
 									and at:IsA("GuiObject")
 									and at.Selectable
 								then
-									service.SelectedObject = at
+									ctx.selection.set(at)
 									break
 								end
 								at = at.Parent
@@ -763,12 +763,12 @@ return function(ctx: Shared.Context): Selection
 					if event.KeyCode ~= E.KeyCode.ButtonA then
 						return
 					end
-					local pressed = service.SelectedObject
+					local pressed = ctx.selection.get()
 					if pressed == nil or not inside(pressed) or not pressed:IsA("GuiButton") then
 						return
 					end
 					local function settle()
-						if service.SelectedObject == pressed and ctx.withinModal(root) then
+						if ctx.selection.get() == pressed and ctx.withinModal(root) then
 							resign()
 						end
 					end

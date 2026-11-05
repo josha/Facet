@@ -433,7 +433,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 		surfaces.keep(spec.sidebar)
 		local gui = surfaces.service("GuiService")
 		local selecting = surfaces.selecting()
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
+		local selected = if gui then ctx.selection.observe() else Compose.cell<<GuiObject?>>(nil)
 		local lastSidebar: GuiObject? = nil
 		local lastDetail: GuiObject? = nil
 		Compose.watch(function(use: Shared.Use)
@@ -470,7 +470,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			root:SetAttribute("FacetSplitColumn", current)
 			if not canResize(use) then
 				finish()
-				if gui and gui.SelectedObject == resize then
+				if gui and ctx.selection.get() == resize then
 					pendingFocus = true
 				end
 			end
@@ -478,11 +478,11 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			previousCompact, previousColumn, previousShown = collapsed, current, visible
 			if changed then
 				pendingFocus = gui ~= nil
-					and (handing or surfaces.within(gui.SelectedObject, root) or (not use(cursor) and selecting(use)))
+					and (handing or surfaces.within(ctx.selection.get(), root) or (not use(cursor) and selecting(use)))
 				handing = false
 			end
 			if pendingFocus and gui and ctx.available(root, use) then
-				if not collapsed and gui.SelectedObject ~= resize and ctx.available(gui.SelectedObject or root) then
+				if not collapsed and ctx.selection.get() ~= resize and ctx.available(ctx.selection.get() or root) then
 					pendingFocus = false
 					return
 				end
@@ -498,7 +498,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 					else surfaces.firstSelectable(pane)
 				if target then
 					pendingFocus = false
-					gui.SelectedObject = target
+					ctx.selection.set(target)
 				end
 			end
 		end)
@@ -518,7 +518,7 @@ return function(ctx: Shared.Context, UI: Registry, surfaces: Nav.Surfaces)
 			Compose.watch(function(use: Shared.Use)
 				local requested = use(handed) == false and not released
 				if requested and compact:peek() and shown:peek() and selectedColumn:peek() == "detail" then
-					handing = gui ~= nil and gui.SelectedObject ~= nil
+					handing = gui ~= nil and ctx.selection.get() ~= nil
 					back()
 				end
 			end)

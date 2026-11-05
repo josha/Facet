@@ -232,7 +232,7 @@ return function<V, K>(
 				ctx.action(grip, "ReleaseColumn", { E.KeyCode.Escape, E.KeyCode.ButtonB }, selected, function()
 					local gui = ctx.config.guiService
 					if gui then
-						gui.SelectedObject = button
+						ctx.selection.set(button)
 					end
 				end, { priority = 300 })
 			end

@@ -333,7 +333,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 			end)
 		end
-		local selected = if gui then ctx.observe.SelectedObject(gui) else nil
+		local selected = if gui then ctx.selection.observe() else nil
 		if selected then
 			Compose.watch(function(use)
 				local target = use(selected)
@@ -408,7 +408,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			return drop(nil)
 		end
 		if not keyActivation(focusTarget, dropAtFocus) then
-			local selected = if gui then ctx.observe.SelectedObject(gui) else nil
+			local selected = if gui then ctx.selection.observe() else nil
 			ctx.action(focusTarget, "DragDrop", { E.KeyCode.Return, E.KeyCode.ButtonA }, function(use)
 				local current = use(service.state)
 				return current ~= nil and current.mode == "armed" and selected ~= nil and use(selected) == focusTarget

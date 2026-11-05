@@ -202,7 +202,7 @@ return function(
 			stopSnap()
 			later.cancel("wheel")
 			target = pageOffset(indexById[id], box, canvas)
-			if gui and surfaces.within(gui.SelectedObject, pages) then
+			if gui and surfaces.within(ctx.selection.get(), pages) then
 				focusPending = true
 			end
 			initialized:set(true)
@@ -259,7 +259,7 @@ return function(
 					spec.selection:set(id)
 				end
 				local page = pageNodes[id]
-				local selected = if gui then gui.SelectedObject else nil
+				local selected = if gui then ctx.selection.get() else nil
 				if gui and ((focusPending and selected == nil) or surfaces.within(selected, pages)) then
 					focusPending = false
 					if not surfaces.within(selected, page) then
@@ -274,14 +274,14 @@ return function(
 							page.Selectable = true
 							nextControl = page
 						end
-						gui.SelectedObject = nextControl
+						ctx.selection.set(nextControl)
 					end
 				end
 			end
 		end)
 		if paused then
 			local interaction = paused
-			local focused = if gui then ctx.observe.SelectedObject(gui) else nil
+			local focused = if gui then ctx.selection.observe() else nil
 			runtime.connect(pages, "MouseEnter", function()
 				hovering = true
 				interaction:set(true)
@@ -313,7 +313,7 @@ return function(
 			spec.selection:set(spec.pages[at].id)
 		end
 		if gui and ctx.action then
-			local selectedObject = ctx.observe.SelectedObject(gui)
+			local selectedObject = ctx.selection.observe()
 			local function inside(use: ComposeTypes.Use): boolean
 				return surfaces.within(use(selectedObject), pages)
 			end

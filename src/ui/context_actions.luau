@@ -26,7 +26,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 	type SelectionWaiters = { waiting: { [unknown]: () -> () }, count: number, stop: (() -> ())? }
 	local selectionWaiters: { [Instance]: SelectionWaiters } = {}
 	function ctx.whenSelected(gui: Instance, node: Instance, callback: () -> ()): ()
-		local observation = assert(runtime.host.observation, "Roblox property observation is required")
+		assert(runtime.host.observation, "Roblox property observation is required")
 		local waiters = selectionWaiters[gui]
 		if waiters == nil then
 			local created: SelectionWaiters = { waiting = {}, count = 0, stop = nil }
@@ -47,15 +47,15 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		registry.waiting[node] = callback
 		registry.count += 1
 		if registry.stop == nil then
-			registry.stop = observation.observeProperty(gui, "SelectedObject", function()
-				local target = observation.readProperty(gui, "SelectedObject")
+			registry.stop = ctx.selection.changed(function()
+				local target = ctx.selection.get()
 				local waiting = registry.waiting[target]
 				if waiting then
 					waiting()
 				end
 			end)
 		end
-		if rawequal(observation.readProperty(gui, "SelectedObject"), node) then
+		if rawequal(ctx.selection.get(), node) then
 			callback()
 		end
 	end
@@ -342,6 +342,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 				sink = settings.sink ~= false,
 				node = node,
 				gui = config.guiService,
+				selected = ctx.selection.get,
 				enabled = function(): boolean
 					local gate = activationGate
 					return gate ~= nil and gate.Enabled
@@ -427,7 +428,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 		end
 		local inputService = config.userInputService
 		if settings.capture and gui and gui.GetPropertyChangedSignal and inputService then
-			local selection = ctx.observe.SelectedObject(gui)
+			local selection = ctx.selection.observe()
 			local enabled = ctx.observe.Enabled(gate)
 			local steering: { [string]: string } = {}
 			local letters: { [string]: string } = {}
@@ -506,7 +507,7 @@ return function(ctx: Shared.Context, config: Shared.Config)
 					for letter in letters do
 						local code = assert(Enum.KeyCode:FromName(letter))
 						if inputService:IsKeyDown(code) then
-							gui.SelectedObject = pinned
+							ctx.selection.set(pinned)
 							return
 						end
 					end

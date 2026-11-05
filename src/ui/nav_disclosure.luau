@@ -144,8 +144,8 @@ return function(
 						fade,
 					}
 					local function handBack()
-						if gui and surfaces.within(gui.SelectedObject, reveal) and header.Parent then
-							gui.SelectedObject = header
+						if gui and surfaces.within(ctx.selection.get(), reveal) and header.Parent then
+							ctx.selection.set(header)
 						end
 					end
 					Compose.watch(function(use: ComposeTypes.Use)

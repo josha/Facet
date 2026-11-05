@@ -290,7 +290,7 @@ return function(
 		local tabMeasures: { [string]: { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> } } =
 			{}
 		local gui = surfaces.service("GuiService")
-		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
+		local selectedObject = if gui then ctx.selection.observe() else Compose.cell<<GuiObject?>>(nil)
 		local previous: string?
 		local handoff = Compose.cell<<string?>>(nil)
 		local needsFocus = Compose.selector(handoff)
@@ -731,16 +731,18 @@ return function(
 						end
 						bookmarkPaths[id] = nil
 						local button = tabButtons[id]
-						service.SelectedObject = if bookmark
-								and surfaces.within(bookmark, panel)
-								and bookmark.Visible
-								and bookmark.Interactable
-							then bookmark
-							else surfaces.firstSelectable(panel) or (if button
-									and button.Parent
-									and button.Visible
-								then button
-								else nil)
+						ctx.selection.set(
+							if bookmark
+									and surfaces.within(bookmark, panel)
+									and bookmark.Visible
+									and bookmark.Interactable
+								then bookmark
+								else surfaces.firstSelectable(panel) or (if button
+										and button.Parent
+										and button.Visible
+									then button
+									else nil)
+						)
 					end)
 					Compose.cleanup(function()
 						local bookmark = bookmarks[id]
@@ -937,10 +939,10 @@ return function(
 					return
 				end
 				local button = tabButtons[spec.selection:peek()]
-				local current = gui and gui.SelectedObject
+				local current = gui and ctx.selection.get()
 				if gui and button and (accessory ~= nil or inChrome(current)) and current ~= button then
 					accessory = nil
-					gui.SelectedObject = button
+					ctx.selection.set(button)
 				end
 			end)
 		end

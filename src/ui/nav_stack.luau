@@ -38,7 +38,7 @@ return function(
 		)
 		checkTransition(spec.transition)
 		local gui = surfaces.service("GuiService")
-		local selectedObject = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
+		local selectedObject = if gui then ctx.selection.observe() else Compose.cell<<GuiObject?>>(nil)
 		local depth = navigationDepth
 		local rootEntry: Nav.NavigationEntry<P> = { id = "@root" }
 		local errorText = Compose.cell<<string?>>(nil)
@@ -82,13 +82,13 @@ return function(
 				local former = shownList
 				shownList = list
 				local top = former[#former]
-				if top ~= list[#list] and gui and root and surfaces.within(gui.SelectedObject, root) then
+				if top ~= list[#list] and gui and root and surfaces.within(ctx.selection.get(), root) then
 					handoff = true
 					root:SetAttribute("FacetSelectionOwner", true)
-					gui.SelectedObject = nil
+					ctx.selection.set(nil)
 				end
 				if top ~= list[#list] and gui then
-					changedFrom = { selected = gui.SelectedObject }
+					changedFrom = { selected = ctx.selection.get() }
 				end
 				local departing = leaving:peek()
 				if table.find(list, top) == nil and (animated or timing ~= nil) and level() ~= "none" then
@@ -464,10 +464,10 @@ return function(
 							if not use(moving) then
 								return
 							end
-							if gui and surfaces.within(gui.SelectedObject, panel) then
+							if gui and surfaces.within(ctx.selection.get(), panel) then
 								handoff = true
 								root:SetAttribute("FacetSelectionOwner", true)
-								gui.SelectedObject = nil
+								ctx.selection.set(nil)
 							end
 							local departure = use(leaving)
 							if
@@ -567,10 +567,10 @@ return function(
 								top
 								and previousTop ~= true
 								and (previousTop == false or use(state).index > 1)
-								and (handoff or focusing(use) or claims(guiService.SelectedObject, previousTop == nil))
+								and (handoff or focusing(use) or claims(ctx.selection.get(), previousTop == nil))
 							then
 								handoff = false
-								if claimedElsewhere(guiService.SelectedObject) then
+								if claimedElsewhere(ctx.selection.get()) then
 									root:SetAttribute("FacetSelectionOwner", false)
 									previousTop = top
 									return
@@ -578,8 +578,8 @@ return function(
 								local back = recall()
 								local usable = back and back.Visible and back.Selectable and back.Interactable
 								local target = if usable then back else landing()
-								if target ~= nil or surfaces.within(guiService.SelectedObject, root) then
-									guiService.SelectedObject = target
+								if target ~= nil or surfaces.within(ctx.selection.get(), root) then
+									ctx.selection.set(target)
 								end
 								provisional:set(
 									if not usable and not resolved and target ~= contentEntry() then target else nil

@@ -280,7 +280,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				local values = use(items)
 				if active == nil then
 					for index, cell in cells do
-						if gui.SelectedObject ~= cell then
+						if ctx.selection.get() ~= cell then
 							continue
 						end
 						local at = {
@@ -299,7 +299,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 								end
 							end
 						end
-						gui.SelectedObject = next
+						ctx.selection.set(next)
 						break
 					end
 					carried = nil
@@ -311,9 +311,9 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 					return
 				end
 				for _, item in values do
-					if nodes[spec.key(item)] == activeSource and gui.SelectedObject == activeSource then
+					if nodes[spec.key(item)] == activeSource and ctx.selection.get() == activeSource then
 						local at = spec.placement(item)
-						gui.SelectedObject = cells[(at.row - 1) * spec.columns + at.column]
+						ctx.selection.set(cells[(at.row - 1) * spec.columns + at.column])
 					end
 				end
 			end)

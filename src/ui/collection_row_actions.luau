@@ -865,7 +865,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		runtime.connect(grip, "TouchLongPress", longPress)
 		local gui = ctx.config.guiService
 		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
+			then ctx.selection.observe()
 			else Compose.cell(nil :: GuiObject?)
 		local function scope(): Instance
 			return collectionRow() or root
@@ -975,21 +975,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return
 			end
 			if edge ~= nil then
-				local current = gui.SelectedObject
+				local current = ctx.selection.get()
 				if current and current:IsDescendantOf(scope()) then
 					previousSelection = current
 					local trayNode = root:FindFirstChild(edge)
 					if trayNode then
 						for _, child in trayNode:GetChildren() do
 							if child:IsA("GuiButton") and child.Selectable and child.Interactable then
-								gui.SelectedObject = child
+								ctx.selection.set(child)
 								break
 							end
 						end
 					end
 				end
 			elseif previousSelection and previousSelection.Parent then
-				gui.SelectedObject = previousSelection
+				ctx.selection.set(previousSelection)
 				previousSelection = nil
 			end
 		end)

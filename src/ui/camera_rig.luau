@@ -108,7 +108,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 				and ctx.read(spec.enabled) ~= false
 				and ctx.read(spec.blocked) ~= true
 				and not input:GetFocusedTextBox()
-				and not (gui and gui.SelectedObject)
+				and not (gui and ctx.selection.get())
 				and not arbiter.busy()
 				and drag.state:peek() == nil
 				and next(worldDrags) == nil
@@ -475,7 +475,7 @@ return function(ctx: Types.Context, UI: Controls.Controls)
 			local pose = state:peek()
 			return pose.focus, orbitOf(pose)
 		end
-		local selection = if ctx.config.guiService then ctx.observe.SelectedObject(ctx.config.guiService) else nil
+		local selection = if ctx.config.guiService then ctx.selection.observe() else nil
 		Compose.watch(function(use: Types.Use)
 			if
 				ctx.read(spec.enabled, use) == false

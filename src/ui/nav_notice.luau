@@ -327,8 +327,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				return
 			end
 			leaving:set(true)
-			if gui and surfaces.within(gui.SelectedObject, root) then
-				gui.SelectedObject = nil
+			if gui and surfaces.within(ctx.selection.get(), root) then
+				ctx.selection.set(nil)
 			end
 			present:set(false)
 			stopWaiting = frames.onFrame(function()

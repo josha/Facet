@@ -324,7 +324,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							then
 								local gui, input = ctx.config.guiService, ctx.config.userInputService
 								if gui and (input == nil or input.PreferredInput ~= E.PreferredInput.Touch) then
-									gui.SelectedObject = field
+									ctx.selection.set(field)
 								end
 								field:CaptureFocus()
 							end
@@ -350,12 +350,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							end
 							local gui = ctx.config.guiService
 							if wasEditing and not active and gui then
-								local selected = gui.SelectedObject
+								local selected = ctx.selection.get()
 								if selected and (selected == field or selected:IsDescendantOf(editor)) then
 									local target = rowHit() or hit
-									gui.SelectedObject = if target.Selectable and policy.selectionVisible(target)
-										then target
-										else nil
+									ctx.selection.set(
+										if target.Selectable and policy.selectionVisible(target) then target else nil
+									)
 								end
 							end
 							wasEditing = active
