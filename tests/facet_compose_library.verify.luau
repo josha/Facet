@@ -483,6 +483,9 @@ return function(verifyHarness: Verify.Harness)
 						return built
 					end).dispose)
 				end
+			end,
+		})
+
 		verifyHarness:case("forwards native TextInput edits and focus through Design events", {
 			id = "facet_compose_library::forwards native TextInput edits and focus through Design events",
 			run = function(test: Verify.Context)
