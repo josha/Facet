@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "3409c2f4209a3a62883de1dcd5e51f10b57eb152",
+  "commit": "bf08074aacc3d5eedd9e49c9b7012d29ade7f96c",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -131,7 +131,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "22d268045d68b871ea89b01b6289a339e29e940cc3657852633e0675d7cc98e4",
+    "SKILL.md": "0fe6a048a0e2613cc81f7c951cf5469763a6bc69ca33d073a04d68ea532d68a8",
     "references/design.md": "2cdfbaba501877422b06ea3b00a75293bd2022feffdd50ab65b88cf1192e85d0"
   }
 }
