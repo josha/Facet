@@ -2300,26 +2300,18 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		describe("Grid", function()
-			it("shapes the board from its width so aspect cells cannot collapse a hugging grid", {
-				id = "native_layout::Grid::shapes the board from its width so aspect cells cannot collapse a hugging grid",
+			it("sets the cell height from the measured cell width so aspect cells cannot collapse a hugging grid", {
+				id = "native_layout::Grid::sets the cell height from the measured cell width so aspect cells cannot collapse a hugging grid",
 				run = function()
 					local root, engine, stop = build(nil, function(UI, Host)
-						local cells = {}
-						for index = 1, 8 do
-							table.insert(cells, Host.Frame { Name = `Cell{index}` })
-						end
-						return UI.Grid "Board" { columns = 4, aspectRatio = 1, gap = 0, table.unpack(cells) }
+						return UI.Grid "Board" { columns = 4, aspectRatio = 1.5, Host.Frame { Name = "A" } }
 					end)
-					local E = engine.types.Enum
-					local ratio = child(root, "UIAspectRatioConstraint")
-					expect(ratio.AspectRatio):toBe(2)
-					expect(ratio.AspectType):toBe(E.AspectType.ScaleWithParentSize)
-					expect(ratio.DominantAxis):toBe(E.DominantAxis.Width)
-					expect(root.AutomaticSize):toBe(E.AutomaticSize.None)
 					local grid = child(root, "UIGridLayout")
 					expect(grid:FindFirstChildWhichIsA("UIAspectRatioConstraint")):toBe(nil)
+					engine.environment.poke(grid, "AbsoluteCellSize", engine.types.Vector2.new(90, 44))
 					expect(grid.CellSize.X.Scale):toBe(0.25)
-					expect(grid.CellSize.Y.Scale):toBe(0.5)
+					expect(grid.CellSize.Y.Scale):toBe(0)
+					expect(grid.CellSize.Y.Offset):toBe(60)
 					stop()
 				end,
 			})
