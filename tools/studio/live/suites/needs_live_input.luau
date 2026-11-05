@@ -7,6 +7,7 @@ type RowAction = typeof(require("@repo/tools/typecheck/aliases").RowAction)
 type Built = (() -> Instance) | { screen: () -> Instance }
 type Child = typeof(require("@repo/tools/typecheck/aliases").Child)
 type IdReadOnlyValue = typeof(require("@repo/tools/typecheck/aliases").IdReadOnlyValue)
+type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 type Rect = { x: number, y: number, w: number, h: number, r: number, b: number }
 type Mount = ((FacetControls, RobloxHost, ComposeModule) -> Instance, { frames: number }?) -> Instance
 type RunContext = {
@@ -85,8 +86,12 @@ add("list-keyboard-and-dpad", {}, function(t)
 			Size = UDim2.fromOffset(300, 200),
 			render = function(current: IdReadOnlyValue): GuiObject
 				return UI.Button {
-					Name = "Row" .. current:peek().id,
-					label = "Row " .. current:peek().id,
+					Name = function(use: Use): string
+						return "Row" .. use(current).id
+					end,
+					label = function(use: Use): string
+						return "Row " .. use(current).id
+					end,
 					Size = UDim2.fromScale(1, 1),
 				}
 			end,

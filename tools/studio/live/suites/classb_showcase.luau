@@ -218,10 +218,18 @@ end, {
 		table.clear(value.visited)
 		table.clear(value.paths)
 	end,
+	afterWrapRight = function(t, value)
+		local selected = GuiService.SelectedObject
+		local wrapped = t.find(value.stage, "WrapChecks")
+		t.check(
+			"Right reaches the next wrapped checkbox",
+			selected ~= nil and selected.Name == "fuel" and selected.Parent == wrapped
+		)
+	end,
 	afterWalk = function(t, value)
-		t.note("Down walk visits", table.clone(value.paths))
+		t.note("collection walk visits", table.clone(value.paths))
 		for _, fragment in { "CheckboxGroup/fuel", "WrapChecks/fuel", "WrapChips/", "RailChips/Row/" } do
-			t.check(`the Down walk reaches {fragment}`, reached(value.paths, fragment), fragment)
+			t.check(`the collection walk reaches {fragment}`, reached(value.paths, fragment), fragment)
 		end
 		t.note("Down walk stops at", selectedPath(value.stage))
 		local action = t.find(t.find(value.stage, "EmptyCollection"), "Action")

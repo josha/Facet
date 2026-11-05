@@ -1698,13 +1698,14 @@ return function(verifyHarness: Verify.Harness)
 					local grid = find(world.Discover, "Games")
 					world.engine.environment.poke(grid, "AbsoluteWindowSize", world.types.Vector2.new(850, 260))
 					grid.CanvasPosition = world.types.Vector2.new(0, 236)
-					local position = grid.CanvasPosition
-					local card = find(world.Discover, "Game_1")
+					local card = find(world.Discover, "Game_4")
 					local open = find(card, "Body")
 					local sourceParent = card.Parent
 					world.engine.environment.poke(card, "AbsolutePosition", world.types.Vector2.new(100, 190))
 					world.engine.environment.poke(card, "AbsoluteSize", world.types.Vector2.new(270, 224))
 					world.gui.SelectedObject = open
+					local position = grid.CanvasPosition
+					Verify.expect(position.Y > 0):toBe(true)
 					open.Activated:Fire()
 					local selected = world.model.selectedGame:peek()
 					local panel = find(world.target, "AlertPanel")

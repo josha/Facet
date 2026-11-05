@@ -411,6 +411,12 @@ return function(live: any, suite: string, options: Options): any
 		live.step("afterRight")
 		for _ = 1, 40 do
 			press(t, { "Down" })
+			local selected = GuiService.SelectedObject
+			if selected and selected.Name == "tires" and selected.Parent and selected.Parent.Name == "WrapChecks" then
+				press(t, { "Right" })
+				live.step("afterWrapRight")
+				press(t, { "Left" })
+			end
 		end
 		live.step("afterWalk")
 		for _ = 1, 40 do
