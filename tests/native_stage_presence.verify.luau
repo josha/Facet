@@ -73,6 +73,56 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("shows a remembered image at once when a recycled row shows it again", {
+			id = "native_stage_presence::collection media preparation::shows a remembered image at once when a recycled row shows it again",
+			run = function()
+				local asset = Compose.cell("rbxassetid://1")
+				local remount = Compose.cell(false)
+				local attributes: Types.Attributes = { FacetCollectionRow = true }
+				local w = overlay.new(function(UI, Host)
+					return Host.Frame "Cell" {
+						Attributes = attributes,
+						UI.Image "Picture" { image = asset },
+						Compose.show(function(use: Use): boolean
+							return use(remount)
+						end, function()
+							return UI.Image "Again" { image = "rbxassetid://1" }
+						end),
+					}
+				end, { motionLevel = "normal" })
+				local image = w.find("Picture")
+				w.engine.environment.poke(image, "IsLoaded", false)
+				w.size(image, 120, 80)
+				w.advance(0.05, 3)
+				Verify.expect(image.ImageTransparency):toBe(1)
+				w.engine.environment.poke(image, "IsLoaded", true)
+				w.advance(1 / 60)
+				Verify.expect(image.ImageTransparency > 0):toBe(true)
+				w.advance(0.5, 30)
+				Verify.expect(image.ImageTransparency):toBe(0)
+				w.engine.environment.poke(image, "IsLoaded", false)
+				asset:set("rbxassetid://2")
+				Verify.expect(image.ImageTransparency):toBe(1)
+				w.advance(0.05, 3)
+				asset:set("rbxassetid://1")
+				Verify.expect(image:GetAttribute("FacetMediaReady")):toBe(true)
+				Verify.expect(image.ImageTransparency):toBe(0)
+				remount:set(true)
+				local again = w.find("Again")
+				w.engine.environment.poke(again, "IsLoaded", false)
+				w.size(again, 120, 80)
+				Verify.expect(again:GetAttribute("FacetMediaReady")):toBe(true)
+				Verify.expect(again.ImageTransparency):toBe(0)
+				asset:set("rbxassetid://3")
+				w.advance(0.5, 30)
+				Verify.expect(image.ImageTransparency):toBe(1)
+				asset:set("rbxassetid://2")
+				asset:set("rbxassetid://3")
+				Verify.expect(image:GetAttribute("FacetMediaReady")):toBe(false)
+				Verify.expect(image.ImageTransparency):toBe(1)
+				w.stop()
+			end,
+		})
 	end)
 
 	local function scene(options: { lazy: boolean?, count: number? }?): any

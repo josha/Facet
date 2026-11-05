@@ -731,6 +731,126 @@ return function(verifyHarness: Verify.Harness)
 			expect(artwork:GetAttribute("FacetMediaReady")):toBe(true)
 			expect(artwork.ImageTransparency):toBe(0)
 		end)
+		it("remembers a preloaded collection image for each ContentProvider and forgets a failed one", function(_own, t)
+			local prepare = require("../src/ui/media_readiness")
+			local callable: unknown = prepare
+			assert(type(callable) == "function")
+			local environment = getfenv(callable)
+			local originalTask = environment.task
+			local pending: { thread } = {}
+			t:defer(function()
+				environment.task = originalTask
+			end)
+			environment.task = {
+				defer = function(callback: () -> ()): thread
+					local thread = coroutine.create(callback)
+					table.insert(pending, thread)
+					return thread
+				end,
+				cancel = function(thread: thread)
+					coroutine.close(thread)
+				end,
+			}
+			local native = engineLib.new()
+			local now = 0
+			native.clock = function()
+				return now
+			end
+			local runtime = Roblox.createRuntime(native)
+			local Host = Facet.host(runtime)
+			local statuses = native.types.Enum.AssetFetchStatus
+			local outcomes: { [string]: Enum.AssetFetchStatus } = {}
+			local stops: { () -> () } = {}
+			t:defer(function()
+				for _, stop in stops do
+					stop()
+				end
+				runtime:dispose()
+			end)
+			local function provider(): ContentProvider
+				local made = native.new("ContentProvider")
+				native.environment.fakeOn(made, "GetAssetFetchStatus", function(_self: unknown, _content: string)
+					return statuses.None
+				end)
+				native.environment.fakeOn(
+					made,
+					"PreloadAsync",
+					function(_self: unknown, instances: { ImageLabel }, callback: (string, Enum.AssetFetchStatus) -> ())
+						local content = instances[1].Image
+						callback(content, outcomes[content] or statuses.Success)
+					end
+				)
+				return made
+			end
+			local function show(source: ContentProvider, content: string): ImageLabel
+				local image: ImageLabel? = nil
+				local stop = runtime.mount(function()
+					local ctx = context(Compose, runtime, {
+						types = native.types,
+						motionLevel = "normal",
+						services = { ContentProvider = source },
+					})
+					local row = Host.Frame { Attributes = { FacetCollectionRow = true, FacetCollectionReady = true } }
+					local artwork = Host.ImageLabel { Image = content }
+					image = artwork
+					native.environment.poke(
+						FixtureRoblox.assertInstance(artwork),
+						"AbsoluteSize",
+						native.types.Vector2.new(28, 28)
+					)
+					native.environment.poke(FixtureRoblox.assertInstance(artwork), "IsLoaded", false)
+					prepare(ctx, artwork)
+					artwork.Parent = row
+					return row
+				end, native.new("ScreenGui"))
+				table.insert(stops, stop)
+				return assert(image)
+			end
+			local function flush()
+				for _, queued in pending do
+					if coroutine.status(queued) == "suspended" then
+						expect(coroutine.resume(queued)):toBe(true)
+					end
+				end
+			end
+			local function settle()
+				for _ = 1, 60 do
+					now += 1 / 60
+					native.heartbeat:Fire(1 / 60)
+					flush()
+				end
+			end
+			local first = provider()
+			local loaded = show(first, "rbxassetid://10")
+			expect(loaded:GetAttribute("FacetMediaReady")):toBe(false)
+			flush()
+			settle()
+			expect(loaded:GetAttribute("FacetMediaReady")):toBe(true)
+			expect(loaded.ImageTransparency):toBe(0)
+			local again = show(first, "rbxassetid://10")
+			expect(again:GetAttribute("FacetMediaReady")):toBe(true)
+			expect(again.ImageTransparency):toBe(0)
+			local elsewhere = show(provider(), "rbxassetid://10")
+			expect(elsewhere:GetAttribute("FacetMediaReady")):toBe(false)
+			expect(elsewhere.ImageTransparency):toBe(1)
+			outcomes["rbxassetid://13"] = statuses.Failure
+			local broken = show(first, "rbxassetid://13")
+			flush()
+			settle()
+			expect(broken:GetAttribute("FacetMediaReady")):toBe(false)
+			local brokenAgain = show(first, "rbxassetid://13")
+			expect(brokenAgain:GetAttribute("FacetMediaReady")):toBe(false)
+			expect(brokenAgain.ImageTransparency):toBe(1)
+			outcomes["rbxassetid://10"] = statuses.TimedOut
+			local stale = show(first, "rbxassetid://10")
+			expect(stale:GetAttribute("FacetMediaReady")):toBe(true)
+			flush()
+			expect(stale:GetAttribute("FacetMediaReady")):toBe(false)
+			local forgotten = show(first, "rbxassetid://10")
+			expect(forgotten:GetAttribute("FacetMediaReady")):toBe(false)
+			flush()
+			expect(forgotten:GetAttribute("FacetMediaReady")):toBe(false)
+		end)
 		it("keeps a newly materialized stage on its current styled colour throughout media reveal", {
 			id = "native_themes_media::native themes and media::keeps a newly materialized stage on its current styled colour throughout media reveal",
 			run = function()
@@ -2147,6 +2267,79 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+
+		it("shows a remembered AsyncImage source at once when it mounts again", function(_own, t)
+			local loader: unknown = require("../src/ui/media_async_image")
+			assert(type(loader) == "function")
+			local environment = getfenv(loader)
+			local originalTask = environment.task
+			local pending: { thread } = {}
+			t:defer(function()
+				environment.task = originalTask
+			end)
+			environment.task = {
+				defer = function(callback: () -> ()): thread
+					local thread = coroutine.create(callback)
+					table.insert(pending, thread)
+					return thread
+				end,
+				cancel = function(thread: thread)
+					coroutine.close(thread)
+				end,
+			}
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Roblox.createRuntime(engine)
+			t:defer(function()
+				runtime:dispose()
+			end)
+			local statuses = engine.types.Enum.AssetFetchStatus
+			local outcome = statuses.Success
+			local provider = engine.new("ContentProvider")
+			engine.environment.fakeOn(provider, "GetAssetFetchStatus", function(_self: unknown, _content: string)
+				return statuses.None
+			end)
+			engine.environment.fakeOn(
+				provider,
+				"PreloadAsync",
+				function(_self: unknown, instances: { ImageLabel }, callback: (string, Enum.AssetFetchStatus) -> ())
+					callback(instances[1].Image, outcome)
+				end
+			)
+			local UI =
+				media(context(Compose, runtime, { types = engine.types, services = { ContentProvider = provider } }))
+			local function flush()
+				for _, queued in pending do
+					if coroutine.status(queued) == "suspended" then
+						expect((coroutine.resume(queued))):toBe(true)
+					end
+				end
+			end
+			local function show(): (() -> (), ImageLabel)
+				local stop, mounted = runtime.mount(function()
+					return UI.AsyncImage { source = "rbxassetid://10" }
+				end, engine.new("Folder"))
+				local root = (mounted :: unknown) :: Frame
+				local found = root:FindFirstChild("Image")
+				assert(found and found:IsA("ImageLabel"))
+				return stop, found
+			end
+			local stopFirst, first = show()
+			expect(first.Visible):toBe(false)
+			flush()
+			expect(first.Visible):toBe(true)
+			stopFirst()
+			local stopSecond, second = show()
+			expect(second.Visible):toBe(true)
+			outcome = statuses.Failure
+			flush()
+			expect(second.Visible):toBe(false)
+			stopSecond()
+			local stopThird, third = show()
+			expect(third.Visible):toBe(false)
+			flush()
+			expect(third.Visible):toBe(false)
+			stopThird()
+		end)
 
 		it("restyles simultaneous semantic progress fills and trails while preserving default paint and text", {
 			id = "native_themes_media::semantic-progress-theme-swap",
