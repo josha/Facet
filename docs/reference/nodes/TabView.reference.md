@@ -11,6 +11,10 @@ the result can contain `UI.Path` controls in a `UI.ZStack`. Selected paths use
 the active palette's `onAccent` colour. Keep `label` for the accessible name.
 Badges, selection, activation and cleanup remain owned by TabView.
 
+In a Design, literal `TabView.tabs` emits a local table typed as `{ Facet.Tab }`.
+Table columns and Sheet detents use `Facet.TableColumn` and `Facet.SheetDetent`
+in the same way. These tables provide contextual inference without casts.
+
 Open:
 
 - [TabView.indicator](TabView.indicator.md)

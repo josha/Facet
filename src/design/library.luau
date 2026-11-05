@@ -251,19 +251,20 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		if field.perRow ~= nil then
 			result.perRow = field.perRow
 		end
-		local luauType = if field.format == "padding"
+		local luauType: string? = if field.format == "padding"
 			then "Facet.Sides"
 			elseif key == "options" and OPTION_LISTS[name] then "{ Facet.PickerOption<string> }"
 			elseif key == "columns" and name == "Table" then "{ Facet.TableColumn<$Item, $Key> }"
 			elseif key == "rowActions" then "Facet.RowActionsOptions?"
 			elseif name == "Sheet" and key == "detents" then "{ Facet.SheetDetent }"
+			elseif name == "TabView" and key == "tabs" then "{ Facet.Tab }"
 			elseif key == "actions" then "{ Facet." .. (if name == "Dialog"
 				then "DialogAction"
 				elseif name == "Alert" then "AlertAction"
 				else "OverlayAction") .. " }"
 			elseif name == "RowActions" and (key == "leading" or key == "trailing") then "{ Facet.RowAction }"
 			else nil
-		if luauType then
+		if luauType ~= nil then
 			result.luauType = luauType
 		end
 		fields[key] = result

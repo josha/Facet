@@ -1933,6 +1933,24 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("round trips strict Table Sheet and TabView consumers without casts", function()
+			local fs = require("@std/fs")
+			local code = fs.readFileToString("tests/types/design_consumers.luau")
+			local library = offline()
+			library.prelude = { 'local Facet = require("../../src")' }
+			local value = Design.parse(code, library)
+			Verify.expect(Design.emit(value, library)):toBe(code)
+			for _, shape in { "{ Facet.TableColumn<RowsItem, string> }", "{ Facet.SheetDetent }", "{ Facet.Tab }" } do
+				Verify.expect(string.find(code, `: {shape} =`, 1, true) ~= nil):toBe(true)
+			end
+			Verify.expect(string.find(code, "::", 1, true)):toBeNil()
+			local tabs = Design.document.find(value.root, "n6")
+			assert(tabs)
+			Verify.expect(tabs.kind):toBe("TabView")
+			Verify.expect(#tabs.children):toBe(2)
+			Verify.expect(tabs.props.selection.state):toBe("selection")
+		end)
+
 		verifyHarness:case("represents fill and constrained Text with native editable children", {
 			id = "facet_compose_library::represents fill and constrained Text with native editable children",
 			run = function()
