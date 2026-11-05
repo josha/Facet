@@ -6457,6 +6457,50 @@ return function(verifyHarness: Verify.Harness)
 			t:expect(fadeKit.of(fadeKit.layer(find(world.screen, "TwoBody")))):toBe(0)
 		end)
 
+		it("reveals the tab view while collection rows outside their scroll window stay unprepared", function(_own, t)
+			local world = setup(function(UI: FacetControls, Host: RobloxHost)
+				return UI.TabView {
+					selection = Compose.cell("one"),
+					placement = "none",
+					tabs = {
+						{
+							id = "one",
+							content = function()
+								return Host.ScrollingFrame "Feed" {
+									Host.CanvasGroup "SpareRow" {
+										Attributes = {
+											FacetCollectionRow = true,
+											FacetCollectionReady = false,
+										} :: Shared.Attributes,
+										GroupTransparency = 1,
+									},
+								}
+							end,
+						},
+					},
+				}
+			end, { preRender = true })
+			t:defer(world.stop)
+			local Vector2 = world.engine.types.Vector2
+			for _ = 1, 60 do
+				for _, node in world.screen:GetDescendants() do
+					if node:IsA("GuiObject") then
+						world.engine.environment.poke(node, "AbsoluteSize", Vector2.new(400, 240))
+						world.engine.environment.poke(
+							node,
+							"AbsolutePosition",
+							if node.Name == "SpareRow" then Vector2.new(0, 900) else Vector2.new(0, 0)
+						)
+					end
+					if node:IsA("ScrollingFrame") then
+						world.engine.environment.poke(node, "AbsoluteWindowSize", Vector2.new(400, 240))
+					end
+				end
+				world.engine.heartbeat:Fire(1 / 60)
+			end
+			t:expect(fadeKit.of(find(world.screen, "TabView"))):toBe(0)
+		end)
+
 		it("crossfades tab pages without blocking the incoming page and shows the first page at once", {
 			id = "native_navigation::native navigation controls::crossfades tab pages without blocking the incoming page and shows the first page at once",
 			run = function()

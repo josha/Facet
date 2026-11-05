@@ -6,6 +6,22 @@ local textMeasure = require("./text_measure")
 
 local TEXT: { [string]: true } = { TextLabel = true, TextButton = true, TextBox = true }
 
+local function inWindow(row: GuiObject): boolean
+	local at: Instance? = row.Parent
+	while at and not at:IsA("ScrollingFrame") do
+		at = at.Parent
+	end
+	if not at or not at:IsA("ScrollingFrame") then
+		return true
+	end
+	local position, size = row.AbsolutePosition, row.AbsoluteSize
+	local origin, window = at.AbsolutePosition, at.AbsoluteWindowSize
+	return position.X < origin.X + window.X
+		and position.X + size.X > origin.X
+		and position.Y < origin.Y + window.Y
+		and position.Y + size.Y > origin.Y
+end
+
 return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnlyValue<boolean>
 	local fontsReady = fontReadiness(ctx, roots)
 	local snapshot = ""
@@ -34,6 +50,7 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 					and child:GetAttribute("FacetCollectionRow") == true
 					and child.AbsoluteSize.X > 0
 					and child.AbsoluteSize.Y > 0
+					and inWindow(child)
 				then
 					measured = measured
 						and child:GetAttribute("FacetCollectionReady") ~= false
