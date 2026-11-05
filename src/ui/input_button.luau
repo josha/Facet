@@ -873,7 +873,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if spec.compactLabel then
 			assert(not rich, "Facet.Button: compactLabel requires a text button")
-			local size = ctx.observeNative.AbsoluteSize(node)
+			local size = ctx.observe.AbsoluteSize(node)
 			local measure: TextLabel
 			runtime.mount(function()
 				measure = ctx.text({
@@ -887,33 +887,19 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return measure
 			end, node)
 			local unit = ctx.layoutUnit(node)
-			local bounds = ctx.observeNative.TextBounds(measure)
+			local bounds = ctx.observe.TextBounds(measure)
 			local automatic = ctx.observe.AutomaticSize(node)
 			local parent = ctx.observe.Parent(node)
 			local available = Compose.cell(0)
-			local stopParent: (() -> ())? = nil
-			local observation = assert(runtime.host.observation)
 			Compose.watch(function(use: ComposeTypes.Use)
-				if stopParent then
-					stopParent()
-					stopParent = nil
-				end
 				local holder = use(parent)
 				if holder and (holder:IsA("GuiObject") or holder:IsA("ScreenGui")) then
-					local function refresh()
-						local box = observation.readProperty(holder, "AbsoluteSize")
-						assert(typeof(box) == "Vector2")
-						available:set(box.X)
-					end
-					stopParent = observation.observeProperty(holder, "AbsoluteSize", refresh)
-					refresh()
+					local box = ctx.observe.AbsoluteSize(holder)
+					Compose.watch(function(inner: ComposeTypes.Use)
+						available:set(inner(box).X)
+					end)
 				else
 					available:set(0)
-				end
-			end)
-			Compose.cleanup(function()
-				if stopParent then
-					stopParent()
 				end
 			end)
 			runtime.decorate(node, {

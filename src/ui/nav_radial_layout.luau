@@ -60,8 +60,8 @@ return function<V>(ctx: Types.Context, menu: MenuTypes.Menu<V>, root: Frame): Ar
 	local launcher = if anchor == nil then root:FindFirstChild("Launcher") else nil
 	local focal = anchor or launcher
 	local nativeAnchor = focal ~= nil and typeOf(focal) == "Instance"
-	local anchorPosition = if nativeAnchor then ctx.observeNative.AbsolutePosition(focal :: GuiObject) else nil
-	local anchorSize = if nativeAnchor then ctx.observeNative.AbsoluteSize(focal :: GuiObject) else nil
+	local anchorPosition = if nativeAnchor then ctx.observe.AbsolutePosition(focal :: GuiObject) else nil
+	local anchorSize = if nativeAnchor then ctx.observe.AbsoluteSize(focal :: GuiObject) else nil
 	local shelves: { { position: ComposeTypes.ReadOnlyValue<Vector2>, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
 	local shelf = if nativeAnchor and not corner then (focal :: Instance).Parent else nil
 	while shelf and shelf ~= layer and shelf:IsA("GuiObject") do

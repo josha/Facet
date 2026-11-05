@@ -105,6 +105,10 @@ export type StudioOptions = {
 	capture: ((name: string, frame: StudioFrame) -> { string })?,
 }
 export type StudioKit = {
+	read name: string,
+	read edit: (parent: unknown, name: string, link: Design.LinkStore?) -> Design.OpenDesign,
+}
+export type StudioEditorKit = {
 	name: string,
 	edit: (parent: unknown, name: string, link: Design.LinkStore?) -> StudioEditor,
 }

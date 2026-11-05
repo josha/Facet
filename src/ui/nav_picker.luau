@@ -263,7 +263,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Visible = false,
 			})
 			measure:AddTag("facet-type-control")
-			local labelBounds = ctx.observeNative.TextBounds(measure)
+			local labelBounds = ctx.observe.TextBounds(measure)
 			local stripSpills = Compose.cell(false)
 
 			local resolved = Compose.formula(function(use: ComposeTypes.Use): Nav.PickerStyle
@@ -394,7 +394,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			})
 			props[#props + 1] = measure
 			local container = Host.Frame(props)
-			local measured = ctx.observeNative.AbsoluteSize(container)
+			local measured = ctx.observe.AbsoluteSize(container)
 			Compose.watch(function(use: ComposeTypes.Use)
 				local available = use(measured).X
 				if available > 0 then
