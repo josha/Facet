@@ -987,11 +987,13 @@ return function(
 			TextYAlignment = Enum.TextYAlignment.Center,
 			TextColor3 = function(use: ComposeTypes.Use): Color3
 				local color = use(ink)
-				return if typeof(color) == "Color3" then color else types.Color3.new(1, 1, 1)
+				assert(typeof(color) == "Color3")
+				return color
 			end,
 			TextTransparency = function(use: ComposeTypes.Use): number
 				local amount = use(fade)
-				return if type(amount) == "number" then amount else 0
+				assert(type(amount) == "number")
+				return amount
 			end,
 			Text = if changing
 				then function(use: ComposeTypes.Use): string

@@ -182,7 +182,7 @@ return function(verifyHarness: Verify.Harness)
 				local stop, mounted = world.runtime.mount(function()
 					return themes.createStyleSheet(world.runtime, nil, { types = world.engine.types })
 				end, world.engine.new("Folder"))
-				local sheet = assert(mounted)
+				local sheet = (assert(mounted) :: unknown) :: StyleSheet
 				local button = world.find("Buy")
 				local icon = world.find("LeadingIcon", button)
 				local glyph = glyphOf(icon)
