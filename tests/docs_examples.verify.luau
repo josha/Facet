@@ -196,6 +196,37 @@ end
 			t:expect(selected:peek().record):toBe(true)
 		end
 	end)
+	harness:case("HUD recipe omits resources unless the current task requests them", function(t)
+		local loader = Loader.new()
+		local Facet = (loader.require("src") :: unknown) :: FacetModule
+		local engines = (loader.require("tests/lib/native_engine.luau") :: unknown) :: EngineLibrary
+		local engine = engines.new()
+		local createRuntime = (Facet.Roblox.createRuntime :: unknown) :: (unknown) -> Runtime
+		local runtime = createRuntime(engine)
+		t:defer(function()
+			runtime:dispose()
+		end)
+		local app = Facet.app({ runtime = runtime, types = engine.types, parent = engine.new("Folder") })
+		t:defer(app.dispose)
+		local body = assert(Index.find(Index.load("."), "Tasks.hud")).body
+		local code = assert(string.match(body, "```luau\n(.-)\n```"))
+		code = string.gsub(code, "local Facet = require%([^\n]+%)\n", "")
+		local build = Lute.chunk.load(code .. "\n" .. [[
+return function(app, show)
+  local state = Facet.Compose.cell("Ready")
+  return hud(app, state, state, if show then state else nil, "Use", command, function() end)
+end
+]], { name = "minimal-hud", environment = { Facet = Facet, command = engine.new("InputAction") } })() :: (unknown, boolean) -> Frame
+		for _, show in { false, true } do
+			local stop, screen = app.mount(function()
+				return build(app, show)
+			end)
+			t:expect(screen:FindFirstChild("Resource", true) ~= nil):toBe(show)
+			t:expect(screen:FindFirstChild("Objective", true) ~= nil):toBe(true)
+			t:expect(screen:FindFirstChild("Command", true) ~= nil):toBe(true)
+			stop()
+		end
+	end)
 	harness:case("appearance recipe shrinks the subject and scrolls the palette in short room", function(t)
 		local loader = Loader.new()
 		local Facet = (loader.require("src") :: unknown) :: FacetModule

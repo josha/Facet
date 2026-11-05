@@ -16,6 +16,22 @@ return function(verifyHarness: Verify.Harness)
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
+	verifyHarness:case("diagonal HUD regions compact before they collide in short landscape", function(t)
+		local resolver = require("../src/ui/composition_resolve")
+		local regions: { resolver.Declared } = {
+			{ zone = "topLeft", rank = 3, mayDrop = true, sizes = { { x = 400, y = 160 }, { x = 160, y = 48 } } },
+			{ zone = "bottomRight", rank = 1, mayDrop = false, sizes = { { x = 400, y = 160 } } },
+		}
+		local forms, _, _, overflow = resolver.resolve(740, 280, 8, regions)
+		t:expect(forms[1]):toBe(2)
+		t:expect(forms[2]):toBe(1)
+		t:expect(#overflow):toBe(0)
+		forms = resolver.resolve(1200, 800, 8, regions)
+		t:expect(forms[1]):toBe(1)
+		regions[1].sizes = { { x = 400, y = 160 } }
+		forms = resolver.resolve(740, 280, 8, regions)
+		t:expect(forms[1]):toBe(0)
+	end)
 
 	verifyHarness:case("collection row values wrap within narrow rows and release room after edits", function(t)
 		local roots: { Roblox.Instance } = {}

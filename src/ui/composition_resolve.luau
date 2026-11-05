@@ -263,6 +263,41 @@ local function resolve(
 		end
 		clearSides(stack.top, 9, corner.top + gap + (zoneH[9] or 0))
 		clearSides(stack.bottom, 11, corner.bottom + gap + (zoneH[11] or 0))
+		local boxes: { { key: number, x: number, y: number, w: number, h: number } } = {}
+		for column = 1, 3 do
+			for row = 1, 3 do
+				local key = column * 4 + row
+				local w, h = zoneW[key] or 0, zoneH[key] or 0
+				if w <= 0 or h <= 0 then
+					continue
+				end
+				local x = if column == 1 then 0 elseif column == 3 then width - w else (width - w) / 2
+				local y = if row == 1 then 0 elseif row == 3 then height - h else (height - h) / 2
+				if column == 2 and row ~= 2 then
+					local edge: Edge = if row == 1 then "top" else "bottom"
+					if if edge == "top" then stack.top else stack.bottom then
+						y += (if row == 1 then 1 else -1) * (corner[edge] + gap)
+					else
+						local _, direction, side = between(row, edge)
+						x += direction * (side + gap) / 2
+					end
+				end
+				for _, box in boxes do
+					if
+						box.key % 4 ~= row
+						and math.floor(box.key / 4) ~= column
+						and x < box.x + box.w + gap
+						and x + w + gap > box.x
+						and y < box.y + box.h + gap
+						and y + h + gap > box.y
+					then
+						fail(key)
+						fail(box.key)
+					end
+				end
+				table.insert(boxes, { key = key, x = x, y = y, w = w, h = h })
+			end
+		end
 		local chosen: number? = nil
 		for index, region in regions do
 			local form = forms[index]
