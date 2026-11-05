@@ -563,6 +563,7 @@ type ToastSpec
 type ToggleCellProps
 type ToggleProps
 type ToggleRequestProps
+type TouchReservation
 type Transition
 type TransitionContext
 type TravelProps

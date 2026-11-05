@@ -947,7 +947,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end)
 	end
 	function kit.touchClearance(frame: GuiObject, clearance: ComposeTypes.Value<number>)
-		local input = config.services.UserInputService
+		local input = config.userInputService
 		if input == nil then
 			return
 		end
@@ -979,12 +979,17 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						locate(node)
 					end
 				end)
-				local touchGui = player:FindFirstChild("TouchGui")
-				if touchGui == nil or touchGui == excluded or not touchGui:IsA("ScreenGui") then
+				local candidate = player:FindFirstChild("TouchGui")
+				local touchGui = if candidate
+						and candidate ~= excluded
+						and candidate:IsA("ScreenGui")
+					then candidate
+					else nil
+				if touchGui == nil and config.touchReservations == nil then
 					return
 				end
 				local controls: { GuiObject } = {}
-				for _, node in touchGui:GetDescendants() do
+				for _, node in if touchGui then touchGui:GetDescendants() else {} do
 					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
 						continue
 					end
@@ -1003,7 +1008,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					end
 				end
 				local touch = ctx.observe.TouchEnabled(input)
-				local enabled = ctx.observe.Enabled(touchGui)
+				local enabled = if touchGui then ctx.observe.Enabled(touchGui) else nil
 				local controlsEnabled = if config.guiService
 					then runtime.observe(config.guiService, "TouchControlsEnabled")
 					else nil
@@ -1011,21 +1016,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				local unit = ctx.layoutUnit(frame)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local active = use(touch)
+					local nativeActive = active
+						and enabled ~= nil
 						and use(enabled)
 						and (controlsEnabled == nil or use(controlsEnabled) ~= false)
 					local at, box, scale = use(position), use(size), use(unit)
 					local bottom = 0
-					for _, control in controls do
-						local start = use(ctx.observe.AbsolutePosition(control))
-						local bounds = use(ctx.observe.AbsoluteSize(control))
-						local shown = true
-						local node: Instance? = control
-						while node and node ~= touchGui do
-							if node:IsA("GuiObject") and not use(ctx.observe.Visible(node)) then
-								shown = false
-							end
-							node = node.Parent
-						end
+					local function reserve(start: Vector2, bounds: Vector2, shown: boolean)
 						if
 							active
 							and shown
@@ -1037,6 +1034,40 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							and start.Y + bounds.Y > at.Y
 						then
 							bottom = math.max(bottom, math.min(box.Y, at.Y + box.Y - start.Y) / scale)
+						end
+					end
+					for _, control in controls do
+						local start = use(ctx.observe.AbsolutePosition(control))
+						local bounds = use(ctx.observe.AbsoluteSize(control))
+						local shown = true
+						local node: Instance? = control
+						while node and node ~= touchGui do
+							if node:IsA("GuiObject") and not use(ctx.observe.Visible(node)) then
+								shown = false
+							end
+							node = node.Parent
+						end
+						reserve(start, bounds, shown and nativeActive)
+					end
+					for _, declaration in read(config.touchReservations, use) or {} do
+						local area = read<<(Rect | GuiObject)?>>(declaration, use)
+						if typeof(area) == "Rect" then
+							reserve(area.Min, area.Max - area.Min, true)
+						elseif area then
+							local start = use(ctx.observe.AbsolutePosition(area))
+							local bounds = use(ctx.observe.AbsoluteSize(area))
+							local shown, screen = true, false
+							local node: Instance? = area
+							while node and node ~= player do
+								if node:IsA("GuiObject") and not use(ctx.observe.Visible(node)) then
+									shown = false
+								elseif node:IsA("ScreenGui") then
+									screen = true
+									shown = use(ctx.observe.Enabled(node)) and shown
+								end
+								node = use(ctx.observe.Parent(node))
+							end
+							reserve(start, bounds, shown and screen and node == player)
 						end
 					end
 					clearance:set(bottom)

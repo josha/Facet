@@ -159,6 +159,7 @@ export type Services = {
 }
 export type MotionLevel = "normal" | "limited" | "none"
 export type HapticKind = "selection" | "impact" | "success" | "warning" | "error"
+export type TouchReservation = Input<(Rect | GuiObject)?>
 export type Config = {
 	types: RobloxTypes?,
 	services: Services?,
@@ -167,6 +168,7 @@ export type Config = {
 	inputParent: Instance?,
 	overlayParent: Instance?,
 	compositionScope: Instance?,
+	touchReservations: Input<{ TouchReservation }>?,
 	controlSize: Input<ControlSize?>?,
 	theme: Input<Theme.ReadOnlyThemePackage>?,
 	icons: Input<{ [string]: Theme.IconEntry }>?,

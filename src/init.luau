@@ -289,6 +289,7 @@ export type Component = createApp.Component
 export type AnchoredOptions = createApp.AnchoredOptions
 export type ToastOptions = createApp.ToastOptions
 export type ControlOptions = ControlTypes.Config
+export type TouchReservation = SharedTypes.TouchReservation
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ReadOnlyThemePackage = ThemeTypes.ReadOnlyThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition

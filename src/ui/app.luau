@@ -17,6 +17,7 @@ export type AppOptions = {
 	userInputService: UserInputService?,
 	inputParent: Instance?,
 	overlayParent: Instance?,
+	touchReservations: Types.Input<{ Types.TouchReservation }>?,
 	controlSize: Types.Input<Types.ControlSize?>?,
 	theme: Types.Input<ThemeTypes.ReadOnlyThemePackage>?,
 	icons: Types.Input<{ [string]: ThemeTypes.IconEntry }>?,
