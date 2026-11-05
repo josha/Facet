@@ -54,17 +54,17 @@ For example, assume `registry` supplies `Emblem` and `Bulletin` components with
 a string `label` input, and `parent` is the host's existing editor container:
 
 ```luau
-local samples: { Facet.DesignStudioSample } = {
-    { design = "Emblem", name = "Ready", props = { label = "Ready" } },
-    { design = "Bulletin", name = "Empty", props = { label = "No entries" } },
-}
-local kit = Facet.composeDesign({ registry = registry, samples = samples })
-local editor = kit.edit(parent, "Emblem")
-local result = editor.execute({ action = "Preview", name = "Sample", choice = "Bulletin/Empty" })
-assert(result.ok, result.problem)
-local selected = editor.execute({ action = "Read" })
-assert(selected.design == "Bulletin" and selected.previews.Sample == "Bulletin/Empty")
-editor.execute({ action = "Close" })
+local function openSample(registry: { [string]: Facet.DesignRegistered }, parent: Instance)
+    local samples: { Facet.DesignStudioSample } = {
+        { design = "Emblem", name = "Ready", props = { label = "Ready" } },
+        { design = "Bulletin", name = "Empty", props = { label = "No entries" } },
+    }
+    local kit = Facet.composeDesign({ registry = registry, samples = samples })
+    local editor = kit.edit(parent, "Emblem")
+    local result = editor.execute({ action = "Preview", name = "Sample", choice = "Bulletin/Empty" })
+    assert(result.ok, result.problem)
+    return editor
+end
 ```
 
 Without options, `Facet.composeDesign()` opens the base Facet library with a
