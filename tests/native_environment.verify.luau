@@ -227,7 +227,7 @@ return function(verifyHarness: Verify.Harness)
 				w.gui.GetGuiInset = function()
 					return Roblox.Vector2.new(0, 36), Roblox.Vector2.new(0, 0)
 				end
-				local full, safe = Roblox.Rect.new(0, -36, 412, 879), Roblox.Rect.new(0, 0, 412, 831)
+				local full: Rect, safe: Rect = Roblox.Rect.new(0, -36, 412, 879), Roblox.Rect.new(0, 0, 412, 831)
 				w.gui.GetInsetArea = function(_, inset: Enum.ScreenInsets): Rect
 					return if inset == E.ScreenInsets.None then full else safe
 				end
