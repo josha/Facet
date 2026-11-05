@@ -49,6 +49,7 @@ export type Shot = {
 export type Context = {
 	session: Lute.StudioSession,
 	probe: string,
+	probeRoot: string,
 	outputs: string,
 	captures: string,
 	scratch: string,
@@ -191,7 +192,19 @@ local function create(context: Context, device: Devices.Device): QA
 			request[key] = value
 		end
 		request.command = command
-		local code = ("return require(%s).call(%q)"):format(context.probe, Lute.encode(request))
+		local code = ([[
+local root = %s
+if SecurityCapabilities ~= nil and root:GetAttribute("FacetAssistantSandbox") ~= true then
+	local capabilities = SecurityCapabilities.fromCurrent():Remove(Enum.SecurityCapability.Unassigned)
+	for _, node in root:GetDescendants() do
+		if node:IsA("ModuleScript") then
+			node.Capabilities = capabilities
+			node.Sandboxed = true
+		end
+	end
+	root:SetAttribute("FacetAssistantSandbox", true)
+end
+return require(%s).call(%q)]]):format(context.probeRoot, context.probe, Lute.encode(request))
 		local reply = execute("Client", code)
 		if reply.ok ~= true then
 			error(("probe %s failed: %s"):format(command, tostring(reply.error)), 0)
