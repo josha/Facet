@@ -6,11 +6,26 @@ local textMeasure = require("./text_measure")
 
 local TEXT: { [string]: true } = { TextLabel = true, TextButton = true, TextBox = true }
 
+local function inWindow(row: GuiObject): boolean
+	local at: Instance? = row.Parent
+	while at and not at:IsA("ScrollingFrame") do
+		at = at.Parent
+	end
+	if not at or not at:IsA("ScrollingFrame") then
+		return true
+	end
+	local position, size = row.AbsolutePosition, row.AbsoluteSize
+	local origin, window = at.AbsolutePosition, at.AbsoluteWindowSize
+	return position.X < origin.X + window.X
+		and position.X + size.X > origin.X
+		and position.Y < origin.Y + window.Y
+		and position.Y + size.Y > origin.Y
+end
+
 return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnlyValue<boolean>
 	local fontsReady = fontReadiness(ctx, roots)
 	local snapshot = ""
 	local limit = math.ceil(math.max(1, ctx.metric("motion.restLimit")) * 60)
-	local laidOut = false
 	local waiting = 0
 	local function prepared(): boolean
 		local parts: { string } = {}
@@ -34,6 +49,7 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 					and child:GetAttribute("FacetCollectionRow") == true
 					and child.AbsoluteSize.X > 0
 					and child.AbsoluteSize.Y > 0
+					and inWindow(child)
 				then
 					measured = measured
 						and child:GetAttribute("FacetCollectionReady") ~= false
@@ -55,7 +71,6 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 			visit(root, root.Visible)
 		end
 		snapshot = table.concat(parts, ";")
-		laidOut = laidOut or attached
 		local settling = false
 		for _, root in roots do
 			local at: Instance? = root.Parent
@@ -73,9 +88,6 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 				local first = not graced and ctx.metric("motion.frameLimit") > 0
 				graced = true
 				return not first
-			end
-			if laidOut then
-				return false
 			end
 			waiting += 1
 			return waiting >= limit

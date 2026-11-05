@@ -686,7 +686,6 @@ local controls: { [string]: Types.ControlSpec } = {
 		defaults = {
 			count = 5,
 			glyphs = { empty = "☆", filled = "★" },
-			images = { empty = "rbxassetid://73716910467356", filled = "rbxassetid://108245103349446" },
 			segment = "bar",
 			value = 3,
 		},

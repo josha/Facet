@@ -713,6 +713,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
+		local cellWidth = if spec.aspectRatio ~= nil then Compose.cell(0) else nil
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
 			assert(
@@ -738,7 +739,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
-				local height = read<<number?>>(spec.cellHeight, use)
+				local height = if cellWidth
+					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
+					else read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
 					-math.ceil(gap * (count - 1) / count),
@@ -760,13 +763,6 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					else E.HorizontalAlignment.Left
 			end
 		end
-		if spec.aspectRatio ~= nil then
-			layout[1] = Host.UIAspectRatioConstraint {
-				AspectRatio = spec.aspectRatio,
-				AspectType = E.AspectType.ScaleWithParentSize,
-				DominantAxis = E.DominantAxis.Width,
-			}
-		end
 		local native: Engine.FrameNativeProps = {
 			BorderSizePixel = 0,
 			Size = size,
@@ -778,6 +774,19 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			),
 			properties
 		)
+		if cellWidth then
+			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
+			local function measure()
+				local measured, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
+				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
+				cellWidth:set(measured.X / unit)
+			end
+			measure()
+			local resized = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
+			Compose.cleanup(function()
+				resized:Disconnect()
+			end)
+		end
 		if cells then
 			local function count()
 				local total = 0
