@@ -433,6 +433,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 											Text = function(use: ComposeTypes.Use)
 												return tostring(use(column).label or use(column).id)
 											end,
+											AutomaticSize = E.AutomaticSize.XY,
 										}),
 										if column:peek().detailRender
 											then (assert(column:peek().detailRender))(current, placement, key)

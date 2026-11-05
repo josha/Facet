@@ -214,6 +214,7 @@ return function(
 							Name = "Trailing",
 							LayoutOrder = 90,
 							Text = chosenText,
+							AutomaticSize = E.AutomaticSize.XY,
 						}),
 						"secondary"
 					),

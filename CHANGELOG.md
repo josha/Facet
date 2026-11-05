@@ -1,5 +1,21 @@
 # Current package
 
+Text size comes from a type role. The base `facet-text` rule no longer sets
+`TextSize`; each Facet text node carries one `facet-type-<role>` tag, `body`
+by default. A Badge label and a ShortcutHint key use `caption`, and the text of
+a Chip with leading, trailing or remove content uses `control`. A pixel
+`textSize` on Text, Toggle or Picker sets the size with no role tag, so a size
+of 14 (the engine default) is no longer replaced by the body size. A pixel
+`textSize` together with `textRole` on Text is an error.
+
+Text fills the width that its parent gives and grows only in height. It still
+hugs its words in a horizontal stack, in a parent that hugs its width and at an
+explicit position. `AutomaticSize = Enum.AutomaticSize.XY` is the opt-in to hug
+everywhere. Collection rows keep the cell's cross-axis size and grow only on
+the main axis; `contentOverflow = "grow"` is the opt-in for growth on both
+axes. Card titles and captions show at most two lines and end with an
+ellipsis, so a long title in a narrow grid cell keeps the card's size.
+
 ScrollView and stack containers accept `maxHeight` beside `maxWidth` through
 one native size constraint. `ScrollView { height = "hug", maxHeight = limit }`
 grows with short content and caps the window for long content. Compose Design

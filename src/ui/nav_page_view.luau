@@ -339,6 +339,7 @@ return function(
 							use
 						)
 					end,
+					AutomaticSize = E.AutomaticSize.XY,
 				})
 			)
 		end

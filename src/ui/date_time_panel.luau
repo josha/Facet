@@ -104,7 +104,10 @@ return function(
 				keys = { { "LB" }, { "RB" } },
 				controlSize = "compact",
 			}
-			local words_ = ctx.styled(ctx.text({ Name = "Words", Text = "Change month" }), "type-caption")
+			local words_ = ctx.textRole(
+				ctx.text({ Name = "Words", Text = "Change month", AutomaticSize = E.AutomaticSize.XY }),
+				"caption"
+			)
 			return ctx.row({ UI.ShortcutHint(keys), words_ }, { Name = "PageHint", LayoutOrder = hintOrder })
 		end)
 		table.insert(children, hint)

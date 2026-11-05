@@ -98,7 +98,7 @@ export type CollectionOptions<V, K> = {
 	arrival: Types.Input<"none" | "rise">?,
 	onActivate: Activate<V, K>?,
 	onReachEnd: (() -> ())?,
-	contentOverflow: Types.Input<"visible" | "clip">?,
+	contentOverflow: Types.Input<"visible" | "clip" | "grow">?,
 }
 export type Keyed<V, K> = { key: ((item: V, index: number) -> K) | string }
 export type Identity = { key: nil? }

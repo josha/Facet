@@ -743,14 +743,42 @@ return function(
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
-	local textDefaults: Shared.TextLabelNativeProps = {
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Text = "",
-		Size = types.UDim2.fromOffset(0, 0),
-		AutomaticSize = Enum.AutomaticSize.XY,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}
+	local function textDefaultsFor(size: UDim2): Shared.TextLabelNativeProps
+		return {
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Text = "",
+			Size = size,
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextXAlignment = Enum.TextXAlignment.Left,
+		}
+	end
+	local textDefaults = textDefaultsFor(types.UDim2.fromScale(1, 0))
+	local huggingDefaults = textDefaultsFor(types.UDim2.fromOffset(0, 0))
+	local ROLE_PREFIX = "facet-type-"
+	local function applyRole(node: Instance, value: Shared.TextRole?)
+		local name = value or "body"
+		assert(table.find(themes.TYPE_ROLES, name) ~= nil, `Facet text: unknown type role {name}`)
+		local wanted = ROLE_PREFIX .. name
+		for _, tag in node:GetTags() do
+			if tag ~= wanted and string.sub(tag, 1, #ROLE_PREFIX) == ROLE_PREFIX then
+				node:RemoveTag(tag)
+			end
+		end
+		if not node:HasTag(wanted) then
+			node:AddTag(wanted)
+		end
+	end
+	function ctx.textRole<N>(node: N & Instance, role: Shared.Input<Shared.TextRole>?): N & Instance
+		if Compose.isValue(role) or type(role) == "function" then
+			Compose.watch(function(use: ComposeTypes.Use)
+				applyRole(node, ctx.read<<Shared.TextRole?>>(role, use))
+			end)
+		else
+			applyRole(node, role :: Shared.TextRole?)
+		end
+		return node
+	end
 	local layout = layoutKit.attach(ctx)
 	function ctx.textLayout(label: TextLabel | TextButton, stable: boolean?, watchPadding: boolean?, lazy: boolean?)
 		attachLayout(ctx, label, stable, watchPadding, lazy)
@@ -803,10 +831,24 @@ return function(
 			return use(bounds) / use(unit)
 		end)
 	end
-	function ctx.text(properties: Shared.TextLabelNativeProps?, stable: boolean?): TextLabel
-		local native = ctx.props<<Shared.TextLabelNativeProps>>(properties or {}, NATIVE_KEYS, textDefaults)
+	function ctx.text(
+		properties: Shared.TextLabelNativeProps?,
+		stable: boolean?,
+		role: Shared.Input<Shared.TextRole>?
+	): TextLabel
+		local given: Shared.TextLabelNativeProps = properties or {}
+		assert(
+			role == nil or given.TextSize == nil,
+			"Facet text: pick the size with a type role or with a pixel TextSize, not both"
+		)
+		local automatic = given.AutomaticSize
+		local defaults = if automatic == nil or automatic == Enum.AutomaticSize.Y then textDefaults else huggingDefaults
+		local native = ctx.props<<Shared.TextLabelNativeProps>>(given, NATIVE_KEYS, defaults)
 		local bound = Compose.isValue(native.Text) or type(native.Text) == "function"
 		local label = ctx.styled(Host.TextLabel(native), "Text")
+		if given.TextSize == nil then
+			ctx.textRole(label, role)
+		end
 
 		if label.AutomaticSize == Enum.AutomaticSize.None then
 			local attach = Compose.bindOwner(function()
@@ -828,6 +870,20 @@ return function(
 		end
 
 		return label
+	end
+	function ctx.clampLines(label: TextLabel, lines: number)
+		local styledSize = ctx.observeStyled.TextSize(label)
+		local styledLine = ctx.observeStyled.LineHeight(label)
+		runtime.mount(function()
+			return Host.UISizeConstraint {
+				Name = "LineClamp",
+				MaxSize = function(use: ComposeTypes.Use): Vector2
+					local inset = label:FindFirstChildWhichIsA("UIPadding")
+					local vertical = if inset then inset.PaddingTop.Offset + inset.PaddingBottom.Offset else 0
+					return types.Vector2.new(math.huge, math.ceil(lines * use(styledSize) * use(styledLine)) + vertical)
+				end,
+			}
+		end, label)
 	end
 	function ctx.row(children: Shared.ChildList, properties: Shared.FrameNativeProps?): Frame
 		return layout.stack(children, properties, { gap = 8 }, false)

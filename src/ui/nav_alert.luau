@@ -179,7 +179,7 @@ return function(
 								Size = D2.new(1, 0, 0, 0),
 								AutomaticSize = E.AutomaticSize.Y,
 							})
-							heading:AddTag("facet-type-heading")
+							ctx.textRole(heading, "heading")
 							return heading
 						end)
 					)

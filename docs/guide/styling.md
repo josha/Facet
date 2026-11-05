@@ -38,7 +38,16 @@ Controls publish semantic tags and attributes. Default colors, fonts and
 decoration belong in native rules.
 
 Explicit native Instance properties take precedence over stylesheet values.
-This is intentional. Do not use them for default theme paint.
+This is intentional. Do not use them for default theme paint. The engine
+treats a property at its class default as unset, so a stylesheet value still
+applies to it. For example, `TextSize = 14` on a text label is the engine
+default and loses to a rule that sets `TextSize`.
+
+Text size comes from one source. Each Facet text node carries one type role
+tag, `facet-type-<role>`, and that rule sets its size, font and line height.
+The base `facet-text` rule sets colour and font, not size. A control picks a
+role for each text node. Only text with no role, such as a measured label,
+takes a pixel size.
 
 Screen content can use the same rules. Add the tag, and do not set the painted
 property. `facet-panel` paints a rounded panel surface with content padding of at least

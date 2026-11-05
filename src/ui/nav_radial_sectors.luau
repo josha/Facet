@@ -432,7 +432,7 @@ return function<V>(
 								Interactable = false,
 								ZIndex = 107,
 							})
-							words:AddTag("facet-type-caption")
+							ctx.textRole(words, "caption")
 							local plate = ctx.styled(
 								Host.Frame {
 									Name = "ItemCaption",

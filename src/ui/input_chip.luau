@@ -132,7 +132,14 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			if spec.leading then
 				table.insert(contents, spec.leading)
 			end
-			table.insert(contents, ctx.text({ Name = "Title", Text = spec.label or "" }))
+			table.insert(
+				contents,
+				ctx.text(
+					{ Name = "Title", Text = spec.label or "", AutomaticSize = E.AutomaticSize.XY },
+					nil,
+					"control"
+				)
+			)
 			if spec.trailing then
 				table.insert(contents, spec.trailing)
 			end
@@ -145,7 +152,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						Visible = function(use: ComposeTypes.Use)
 							return editing(use)
 						end,
-					})
+						AutomaticSize = E.AutomaticSize.XY,
+					}, nil, "control")
 				)
 			end
 			local row = ctx.row(contents, {

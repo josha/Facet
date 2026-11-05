@@ -926,14 +926,14 @@ return function(verifyHarness: Verify.Harness)
 				local stop, sheet: any = runtime.mount(function()
 					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
 				end, engine.new("Folder"))
-				local base = style(sheet, ".facet-text").TextSize :: number
+				local base = style(sheet, ".facet-type-body").TextSize :: number
 				preference:set("Largest")
-				expect(style(sheet, ".facet-text").TextSize):toBe(base + 6)
+				expect(style(sheet, ".facet-type-body").TextSize):toBe(base + 6)
 				expect(style(sheet, ".facet-type-control").TextSize):toBe(
 					themes.neutralPackage().metrics.typography.control.size + 6
 				)
 				preference:set("Medium")
-				expect(style(sheet, ".facet-text").TextSize):toBe(base)
+				expect(style(sheet, ".facet-type-body").TextSize):toBe(base)
 				stop()
 				runtime:dispose()
 			end,

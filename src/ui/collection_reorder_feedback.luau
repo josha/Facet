@@ -73,6 +73,7 @@ return function<V, K>(
 			Position = D2.fromScale(1, 0),
 			Visible = #move.keys > 1,
 			Size = D2.fromOffset(0, 0),
+			AutomaticSize = ctx.types.Enum.AutomaticSize.XY,
 			Text = labelText,
 		}
 		local label = ctx.styled(if #move.keys > 1 then ctx.text(labelProps) else Host.TextLabel(labelProps), "badge")

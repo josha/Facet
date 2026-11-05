@@ -4,8 +4,11 @@
 
 Layout-options option values and behavior.
 
-These options belong to containers. Text and Button size to their content.
-For a leaf's width, set `align = "stretch"` on its parent VStack. For height,
+These options belong to containers. Button sizes to its content. Text fills
+the width of a parent with a defined width and grows in height; in a hugging
+container or a horizontal stack it hugs its text. See
+[Text.textRole](Text.textRole.md). For a leaf's width, set `align = "stretch"`
+on its parent VStack. For height,
 use that option on its parent HStack. Put `UI.fill()` inside a Button or a
 fixed leaf to share the parent's main axis. For explicit width, use native
 `Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y`.

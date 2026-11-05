@@ -282,11 +282,10 @@ return function(
 						local barSize = ctx.observeNative.AbsoluteSize(navigationBar)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local large = adaptive.sizeClass(use(barSize).X) ~= "compact"
-							title:RemoveTag(if large then "facet-type-heading" else "facet-type-title")
-							title:AddTag(if large then "facet-type-title" else "facet-type-heading")
+							ctx.textRole(title, if large then "title" else "heading")
 						end)
 					else
-						title:AddTag("facet-type-heading")
+						ctx.textRole(title, "heading")
 					end
 					if prepareTitle then
 						local fontsReady = fontReadiness(ctx, { title })
@@ -338,6 +337,7 @@ return function(
 								Name = "DestinationError",
 								Text = "This page could not be displayed.",
 								TextWrapped = true,
+								AutomaticSize = E.AutomaticSize.XY,
 							})
 						end),
 					}

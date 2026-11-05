@@ -521,10 +521,12 @@ return function<V, K>(
 					groupProperties.GroupTransparency = 1
 				end
 				groupProperties.Attributes = { FacetCollectionRow = true, FacetCollectionReady = false }
-				groupProperties.AutomaticSize = if tree ~= nil or read(spec.contentOverflow) == "clip"
+				local overflow = read(spec.contentOverflow)
+				groupProperties.AutomaticSize = if tree ~= nil or overflow == "clip"
 					then E.AutomaticSize.None
-					elseif carded then (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
-					else E.AutomaticSize.XY
+					elseif overflow == "grow" and not carded then E.AutomaticSize.XY
+					elseif horizontal then E.AutomaticSize.X
+					else E.AutomaticSize.Y
 				content = if tree then ctx.fade(groupProperties) else Host.CanvasGroup(groupProperties)
 				local logical = surface or content
 				policy.drop(ctx, spec, current, keyCell:peek(), logical, kind == "grid" or horizontal, selectionHit)

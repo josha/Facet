@@ -142,7 +142,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			return (ctx.metric("space.xs", use))
 		end
 		local function measure(name: string, text: Types.Input<string>): TextLabel
-			local label = ctx.text({ Name = name, Text = text, Visible = false, TextWrapped = false })
+			local label = ctx.text({
+				Name = name,
+				Text = text,
+				Visible = false,
+				TextWrapped = false,
+				AutomaticSize = E.AutomaticSize.XY,
+			})
 			label:AddTag("facet-button")
 			return label
 		end
@@ -355,7 +361,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 						button,
 					})
 				elseif entry.kind == "gap" then
-					local mark = ctx.text({ Name = entry.key, Text = "…", LayoutOrder = index })
+					local mark = ctx.text({
+						Name = entry.key,
+						Text = "…",
+						LayoutOrder = index,
+						AutomaticSize = E.AutomaticSize.XY,
+					})
 					mark:AddTag("facet-secondary")
 					return mark
 				elseif entry.kind == "label" then

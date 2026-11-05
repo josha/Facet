@@ -348,7 +348,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				if spec.title ~= nil then
 					table.insert(
 						header,
-						ctx.styled(
+						ctx.textRole(
 							ctx.text({
 								Name = "Title",
 								LayoutOrder = 1,
@@ -360,7 +360,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								AutomaticSize = E.AutomaticSize.Y,
 								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 							}),
-							"type-heading"
+							"heading"
 						)
 					)
 				end

@@ -147,7 +147,7 @@ return function(
 			end,
 			ctx.padding(12, 0),
 		}
-		ctx.styled(box, "text")
+		ctx.textRole(ctx.styled(box, "text"), "body")
 		entry = box
 		Compose.cleanup(function()
 			if entry == box then

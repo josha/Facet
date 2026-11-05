@@ -254,7 +254,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								end,
 								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 							})
-							heading:AddTag("facet-type-heading")
+							ctx.textRole(heading, "heading")
 							table.insert(header, heading)
 						end
 						if closeButton then

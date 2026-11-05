@@ -167,6 +167,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			Attributes = {
 				FacetLabel = summaryText,
 			},
+			AutomaticSize = E.AutomaticSize.XY,
 		})
 		summary:AddTag("facet-secondary")
 		return Host.Frame(ctx.props(spec, {

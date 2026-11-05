@@ -615,14 +615,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					if section ~= nil and style ~= "segmented" then
 						runtime.decorate(button, { LayoutOrder = 2 })
 						return ctx.column({
-							ctx.styled(
+							ctx.textRole(
 								ctx.text({
 									Name = "SectionTitle",
 									Text = function(use: ComposeTypes.Use)
 										return readText(section, use) or ""
 									end,
 								}),
-								"type-caption"
+								"caption"
 							),
 							button,
 						}, {

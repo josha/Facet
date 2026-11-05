@@ -377,7 +377,7 @@ return function(
 			local dayIndex = (options.weekStart - 1 + c) % 7 + 1
 			table.insert(
 				names,
-				ctx.styled(
+				ctx.textRole(
 					ctx.text({
 						Name = `W{c + 1}`,
 						Text = options.weekdays[dayIndex],
@@ -385,7 +385,7 @@ return function(
 						AutomaticSize = E.AutomaticSize.None,
 						TextXAlignment = E.TextXAlignment.Center,
 					}),
-					"type-caption"
+					"caption"
 				)
 			)
 		end
@@ -407,7 +407,7 @@ return function(
 			Size = D2.fromOffset(7 * CELL, 6 * CELL),
 			table.unpack(days),
 		}
-		local title = ctx.styled(
+		local title = ctx.textRole(
 			ctx.text({
 				Name = "Title",
 				Text = function(use: Use)
@@ -417,8 +417,9 @@ return function(
 				Visible = function(use: Use)
 					return use(state.dual)
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			}),
-			"type-label"
+			"label"
 		)
 		local parts: { Shared.Child } = { title, weekdayRow, grid }
 		return ctx.column(parts, { Name = `Pane{k}` })

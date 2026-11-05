@@ -186,7 +186,7 @@ return function(
 					return use(source).color
 				end),
 				Compose.show(labeled, function(): TextLabel
-					return ctx.styled(
+					return ctx.textRole(
 						ctx.text({
 							Name = "Label",
 							Text = function(use: Use): string
@@ -202,7 +202,7 @@ return function(
 							TextWrapped = true,
 							TextTruncate = E.TextTruncate.AtEnd,
 						}),
-						"type-caption"
+						"caption"
 					)
 				end),
 				Compose.show(function(use: Use): boolean
@@ -326,6 +326,7 @@ return function(
 						Text = function(use: Use)
 							return state.brickName(use(held)) or "No engine colour matches"
 						end,
+						AutomaticSize = E.AutomaticSize.XY,
 					}),
 				}, { Name = "NameField", ctx.padding(SPACE, 6) }),
 				"field"

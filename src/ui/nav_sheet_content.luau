@@ -141,7 +141,7 @@ return function(
 			if spec.header == nil then
 				table.insert(
 					header,
-					ctx.styled(
+					ctx.textRole(
 						ctx.text({
 							Name = "Title",
 							LayoutOrder = 1,
@@ -156,7 +156,7 @@ return function(
 							AutomaticSize = E.AutomaticSize.Y,
 							Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 						}),
-						"type-heading"
+						"heading"
 					)
 				)
 			elseif spec.header ~= false then
