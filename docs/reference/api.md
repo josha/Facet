@@ -5,6 +5,10 @@ recipe or control node. With a shell, run `lute run tools/facet docs` to read th
 map, or `lute run tools/facet docs --search TEXT` to find a name. This page
 summarizes entry points and types that several nodes share.
 
+`Facet.Compose.cubicBezier(x1, y1, x2, y2)` returns an easing function for
+Compose motion. All control points must be finite. The x coordinates must be
+in `[0, 1]`; the y coordinates can produce overshoot.
+
 Theme readers accept `Facet.ReadOnlyThemePackage`, the shallow readonly view of
 `Facet.ThemePackage`. Theme authoring keeps the mutable package type. A frozen
 package does not need a copy before a control reads it.

@@ -22,6 +22,7 @@ Compose : table
   Compose.createSharedResource : function
   Compose.createSlot : function
   Compose.createSpringState : function
+  Compose.cubicBezier : function
   Compose.currentOwner : function
   Compose.custodyOf : function
   Compose.easing : table(frozen)
