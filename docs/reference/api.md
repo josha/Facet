@@ -92,6 +92,14 @@ Compose owners. It returns the results of `body()`. A nested provider replaces
 the controls for the same runtime within its scope. Controls for other runtimes
 stay available. The provider uses the Compose module that made `UI`.
 
+An editor host can set `Facet.controls(runtime, { compositionScope = stage })`
+for each device stage. `compositionScope` is an optional Instance identity for
+Composition region registration, separate from the LayerCollector. Compositions
+in different scopes do not produce duplicate-zone warnings. Compositions in the
+same scope still warn when they place regions in the same zone of one screen.
+Without a scope, the screen checks keep their normal behavior. This option does
+not change layout or the overlay parent.
+
 `Facet.app` provides `app.UI` to mounted components and presented content.
 For a direct Compose mount, call the provider inside the mount:
 

@@ -1480,6 +1480,63 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("separates cached preview scopes while warning about duplicate zones within one scope", function()
+			local env = (getfenv(require("../src/ui/composition"))) :: { [string]: unknown }
+			local warnings: { string } = {}
+			env.warn = function(message: string)
+				table.insert(warnings, message)
+			end
+			local ok, failure = pcall(function()
+				local engine, runtime, _, gui = make()
+				local layer = engine.new("ScreenGui")
+				local stages: { Frame } = {}
+				local stops: { () -> () } = {}
+				local function preview(stage: Frame, name: string): () -> ()
+					local UI = Facet.controls(runtime, {
+						types = engine.types,
+						guiService = gui,
+						compositionScope = stage,
+					})
+					local root: Frame
+					local stop = runtime.mount(function()
+						local Host = Facet.host(runtime)
+						root = UI.Composition(name) {
+							padding = 0,
+							topbar = false,
+							UI.Region { zone = "topLeft", rank = 1, Host.Frame "Full" {} },
+						}
+						return root
+					end, stage)
+					sized(engine, root:FindFirstChild("Full", true), 120, 44)
+					sized(engine, root:FindFirstChild("Zones"), 844, 390)
+					return stop
+				end
+				for index = 1, 3 do
+					local stage = engine.new("Frame")
+					stage.Parent = layer
+					stages[index] = stage
+					stops[index] = preview(stage, "Composition")
+				end
+				engine.heartbeat:Fire(2.5)
+				expect(#warnings):toBe(0)
+				local stopDuplicate = preview(stages[1], "Duplicate")
+				engine.heartbeat:Fire(2.5)
+				expect(#warnings):toBe(1)
+				expect(string.find(warnings[1], "'Duplicate' and 'Composition'", 1, true) ~= nil):toBe(true)
+				stopDuplicate()
+				stops[1]()
+				preview(stages[1], "Replacement")
+				engine.heartbeat:Fire(2.5)
+				expect(#warnings):toBe(1)
+				runtime:dispose()
+				layer:Destroy()
+			end)
+			env.warn = nil
+			if not ok then
+				error(failure, 0)
+			end
+		end)
+
 		it("warns once when two Compositions on one screen place regions in the same zone", {
 			id = "native_composition::Composition::warns once when two Compositions on one screen place regions in the same zone",
 			run = function()

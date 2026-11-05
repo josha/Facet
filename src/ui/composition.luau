@@ -1370,7 +1370,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					end
 				end
 			end
-			local changed = reservations.setZones(layer, root, held) or layer.Parent ~= claimedParent
+			local changed = reservations.setZones(layer, root, held, ctx.config.compositionScope)
+				or layer.Parent ~= claimedParent
 			claimedParent = layer.Parent
 			if changed and not checking and #reservations.contests(layer, root) > 0 then
 				checking = true
