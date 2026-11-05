@@ -17,6 +17,71 @@ return function(verifyHarness: Verify.Harness)
 	local engineLib = require("./lib/native_engine")
 	local Compose: ComposeModule = Facet.Compose
 
+	verifyHarness:case("collection row values wrap within narrow rows and release room after edits", function(t)
+		local roots: { Roblox.Instance } = {}
+		local viewport = { X = 390, Y = 844 }
+		local engine, bridge = engineLib.new({
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return viewport
+				end,
+			},
+		})
+		t:defer(function()
+			bridge.close()
+		end)
+		local runtime = Facet.Roblox.createRuntime(engine)
+		t:defer(function()
+			runtime:dispose()
+		end)
+		local Host = runtime.constructors
+		local UI = Facet.controls(runtime, { types = engine.types })
+		local player: PlayerGui = engine.new("PlayerGui")
+		table.insert(roots, Roblox.assertInstance(player))
+		local value = "123456789012345678901234567890123456789012345678901234567890"
+		local row: TextButton? = nil
+		runtime.mount(function()
+			return Host.ScreenGui {
+				UI.VStack {
+					width = "fill",
+					padding = "m",
+					UI.Button "Record" {
+						row = { title = "Record", description = "Details", value = value },
+						onActivate = function() end,
+						ref = function(node)
+							row = node
+						end,
+					},
+				},
+			}
+		end, player)
+		for _, width in { 390, 240, 844 } do
+			viewport.X = width
+			for _, text in { "123456789012345678901234567890123456789012345678901234567890", "42" } do
+				local button = assert(row)
+				local trailing = assert(button:FindFirstChild("Value", true))
+				assert(trailing:IsA("TextLabel"))
+				trailing.Text = text
+				for _ = 1, 8 do
+					assert(bridge.layout).step()
+				end
+				local title = assert(button:FindFirstChild("Title", true))
+				assert(title:IsA("TextLabel"))
+				t:expect(trailing.Text):toBe(text)
+				t:expect(
+					trailing.AbsolutePosition.X + trailing.AbsoluteSize.X
+						<= button.AbsolutePosition.X + button.AbsoluteSize.X
+				):toBe(true)
+				t:expect(title.AbsoluteSize.X > 0):toBe(true)
+				t:expect(title.AbsolutePosition.X + title.AbsoluteSize.X <= trailing.AbsolutePosition.X):toBe(true)
+				t:expect(trailing.AbsoluteSize.Y <= button.AbsoluteSize.Y):toBe(true)
+			end
+		end
+	end)
+
 	for _, kind in { "Composition", "Screen" } do
 		it(`keeps {kind} actions above native touch controls through rotation and visibility changes`, function()
 			local roots: { Roblox.Instance } = {}

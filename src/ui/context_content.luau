@@ -866,6 +866,20 @@ return function(
 			Position = types.UDim2.fromScale(0, if parts.described then 0 else 0.5),
 		})
 		assert(content:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = Enum.VerticalAlignment.Center
+		for _, child in parts.trailing or {} do
+			if typeof(child) == "Instance" and child:IsA("TextLabel") then
+				child.TextWrapped = true
+				child.TextTruncate = Enum.TextTruncate.None
+				local room = ctx.layoutSize(content)
+				runtime.mount(function()
+					return Host.UISizeConstraint "TrailingBounds" {
+						MaxSize = function(use: ComposeTypes.Use): Vector2
+							return types.Vector2.new(math.max(0, use(room).X / 2), math.huge)
+						end,
+					}
+				end, child)
+			end
+		end
 		local rung: Shared.Input<Shared.ControlSize?>? = parts.controlSize
 		local function height(use: ComposeTypes.Use?): UDim2
 			return types.UDim2.new(1, 0, 0, ctx.controlSize(rung, "height", use))

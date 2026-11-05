@@ -21,7 +21,9 @@ Button.underline option values and behavior.
   is centered in it (a native `UIAspectRatioConstraint`, `FitWithinMaxSize`).
 - `subtitle` and `row = { title, description, value, icon }`. A row button
   fills its width. It shows `icon` on the leading edge, the title and the
-  description, and `value` as secondary text on the trailing edge. When the
+  description, and `value` as secondary text on the trailing edge. The value
+  wraps within half the content width, so long values leave room for the title.
+  The default row grows in height. When the
   button has `onActivate` and no `trailingIcon`, it also shows a disclosure
   chevron. `value` and `icon` are static strings. `hint` shows as a second
   line of text below the label. See [Settings rows](Settings-rows.md).
