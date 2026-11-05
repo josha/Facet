@@ -211,12 +211,12 @@ local function run(
 			end)
 		end)
 	end
-	check:expect(complete.passed == 1):toBeTrueWith(if complete.passed == 1 then id else Verify.format(complete))
 	for _, artifact in complete.results[1].artifacts do
 		if artifact.content then
 			check:attach(artifact.name, assert(artifact.mediaType), artifact.content)
 		end
 	end
+	check:expect(complete.passed == 1):toBeTrueWith(if complete.passed == 1 then id else Verify.format(complete))
 end
 
 local function catalog(check: Verify.Context): Catalog

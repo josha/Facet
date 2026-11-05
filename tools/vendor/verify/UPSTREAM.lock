@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "0aaf23c363538a91c0c7af8776405a2a9c4724f9",
+  "commit": "eb285f0b546c8ddbd2d22e7784df0bdeb49bb95b",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "17586ba71f52ebf6136982f4d621f4bdf5981b15771d8118bc68e1931d6f07d1",
@@ -196,7 +196,7 @@
     "src/roblox/ui-selection-scroll.luau": "7d50e3370e6f566b993a0bd727c40b8dfc225f29bb02a290272082ebbf4f6759",
     "src/roblox/ui-style-selector.luau": "488e5a6c4d6c3a57b01af1afb710e73a1301678193e82df6474c0cd7414f47e4",
     "src/roblox/ui-style-transition.luau": "29cbfd6e5519e244094a30b049f736bf91cc79cc44492d080011d82e4cddf997",
-    "src/roblox/ui-style.luau": "54dcc734b9dd00be565ad72296aa9b0b789c4247de13d2e180bbbdf790902ec1",
+    "src/roblox/ui-style.luau": "ffd6fcac8631ac6eeaa36ff6b6374d4343522f79dcec7986ad915316be42c401",
     "src/roblox/ui-values.luau": "d39bcb2a35a4275e78dbc70f5a206ea1a00e0b19feb98070357a0146aa77774a",
     "src/roblox/value.luau": "9067e38bf80ba69776289f7ed6dc6dd9754f61db7ec138a4ff1620b4ce695f27",
     "tools/agent-eval.luau": "31a4f5152818e509624c2defaf77cf56dea3d3774749b940876420edbcd1174e",
