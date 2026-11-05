@@ -6,6 +6,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")
 local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
+local memo = require("./media_memo")
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
 	local Host, Compose = ctx.Host, ctx.Compose
@@ -114,11 +115,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					elseif ticket == generation then
 						reject(teardown)
 					end
+				elseif memo.probe(ctx, source) then
+					resolve(source)
 				elseif ctx.config.services and ctx.config.services.ContentProvider and task then
 					local contentProvider = ctx.config.services.ContentProvider
+					if memo.knows(ctx, source) then
+						resolve(source)
+					end
 					local thread = task.defer(function()
 						local succeeded, reason = pcall(function()
 							contentProvider:PreloadAsync({ image }, function(_, fetchStatus)
+								if ticket == generation then
+									memo.settle(ctx, source, fetchStatus)
+								end
 								if fetchStatus == E.AssetFetchStatus.Success then
 									resolve(source)
 								else
