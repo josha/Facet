@@ -740,7 +740,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
 				local height = if cellWidth
-					then math.floor(use(cellWidth) / read<<number>>(spec.aspectRatio, use))
+					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
 					else read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
@@ -776,9 +776,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		)
 		if cellWidth then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			local measured, unit = ctx.observe.AbsoluteCellSize(grid), ctx.layoutUnit(node)
+			local measured, unit = Compose.cell(grid.AbsoluteCellSize.X), ctx.layoutUnit(node)
+			local resized = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(function()
+				measured:set(grid.AbsoluteCellSize.X)
+			end)
+			Compose.cleanup(function()
+				resized:Disconnect()
+			end)
 			Compose.watch(function(use: ComposeTypes.Use)
-				cellWidth:set((use(measured) :: Vector2).X / use(unit))
+				cellWidth:set(use(measured) / use(unit))
 			end)
 		end
 		if cells then
