@@ -32,6 +32,7 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 	local readKey = ctx.read<<Enum.KeyCode?>>
 	local readText = ctx.read<<string?>>
 	local D2, E = ctx.types.UDim2, ctx.types.Enum
+	local distant = ctx.tenFoot()
 	return function(frameName: string, controlSize: Shared.Input<Shared.ControlSize?>?, parts: Parts): Frame
 		local input = ctx.config.services.UserInputService
 		local nativeImage = Compose.formula(function(use: ComposeTypes.Use): Content | string | nil
@@ -66,6 +67,9 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 							BackgroundTransparency = 1,
 							Size = function(use: ComposeTypes.Use)
 								local size = ctx.controlSize(controlSize, "iconSize", use)
+								if distant(use) then
+									size = math.max(size, ctx.metric("typography.control.size", use))
+								end
 								return D2.fromOffset(size, size)
 							end,
 						}
@@ -75,7 +79,7 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 								assert(typeof(asset) == "Content")
 								return asset
 							end
-							return Host.ImageLabel(native)
+							return ctx.styled(Host.ImageLabel(native), "shortcut-glyph")
 						end
 						native.Image = function(use: ComposeTypes.Use): string
 							local asset = use(nativeImage)

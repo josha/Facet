@@ -1787,6 +1787,48 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps compact controller glyphs as readable as console control text", {
+			id = "native_inputs::ten-foot-controller-glyph",
+			run = function()
+				local distance = Compose.cell("ten-foot" :: "near" | "ten-foot")
+				local binding: InputBinding? = nil
+				local node, stop, engine, _, ctx = world(function(UI, engine)
+					local action: InputAction = engine.new("InputAction")
+					local nativeBinding: InputBinding = engine.new("InputBinding")
+					binding = nativeBinding
+					nativeBinding.KeyCode = engine.types.Enum.KeyCode.ButtonX
+					engine.environment.poke(VerifyRoblox.assertInstance(action), "PreferredBinding", nativeBinding)
+					return UI.ShortcutHint { action = action, controlSize = "compact" }
+				end, function(engine)
+					local input: UserInputService = engine.new("UserInputService")
+					engine.environment.fakeOn(input, "GetImageForKeyCode", function()
+						return "rbxasset://textures/ui/Controls/XboxController/ButtonX@2x.png"
+					end)
+					return {
+						services = { UserInputService = input },
+						environment = {
+							preferredInput = "Gamepad",
+							viewingDistance = distance,
+						},
+					}
+				end)
+				local glyph = find(node, "Glyph")
+				expect(glyph.Size.X.Offset >= ctx.metric("typography.control.size")):toBe(true)
+				expect(ctx.metric("typography.caption.size") >= 24):toBe(true)
+				expect(ctx.metric("typography.body.size") >= 28):toBe(true)
+				expect(find(node, "Key")):toBe(nil)
+				assert(binding).DisplayImage = (
+					VerifyRoblox.datatypes.Content.fromUri("rbxassetid://123") :: unknown
+				) :: Content
+				glyph = find(node, "Glyph")
+				expect(glyph:HasTag("facet-shortcut-glyph")):toBe(true)
+				expect(glyph.Size.X.Offset >= ctx.metric("typography.control.size")):toBe(true)
+				distance:set("near")
+				expect(glyph.Size.X.Offset):toBe(ctx.controlSize("compact", "iconSize"))
+				stop()
+			end,
+		})
+
 		it("inks a platform glyph with the cap text color, so a white console glyph reads on a light cap", {
 			id = "native_inputs::native input controls::inks a platform glyph with the cap text color, so a white console glyph reads on a light cap",
 			run = function()
