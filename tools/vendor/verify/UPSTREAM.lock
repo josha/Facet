@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "706683abaf2f6d1d085ae041a5ceeab00c52bcf6",
+  "commit": "0aaf23c363538a91c0c7af8776405a2a9c4724f9",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "17586ba71f52ebf6136982f4d621f4bdf5981b15771d8118bc68e1931d6f07d1",
@@ -156,7 +156,7 @@
     "src/roblox/haptic-fakes.luau": "a447f07e793c24fae25cd0a10ef870baa06a0f5821706eced4cf510d468f9d04",
     "src/roblox/http-json.luau": "cfc660c9ed41fa1fbcca778ae33b5e6c608ed47f842014b2e5c588f3eaf8d04c",
     "src/roblox/init.luau": "fe248f031042d94d162618ea154d0696280a381cafdd8ee7174a0ff410586149",
-    "src/roblox/input-action-fakes.luau": "4ac8a1a1391e122fc8e224bef962acec06459da06e32026bdc0dc5a09e6fa5de",
+    "src/roblox/input-action-fakes.luau": "53dbcb27399000d977442cf481852856dd8ea46ba77819d5c89968ebae897750",
     "src/roblox/input-gamepad.luau": "2ec26feac914e376703cfd4aab227d0366a0dfcc90b1a466ca96f4f665fa9887",
     "src/roblox/input-host.luau": "8b7a181d4255740f626afd8c65f9a2da6b23a6dea745d5ef23234d803f9ca2d9",
     "src/roblox/input-pointer.luau": "9d0023d314e384990d00f10ff0f7c697edb5adfa8691455a76e9f297d275053d",
