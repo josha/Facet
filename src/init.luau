@@ -320,6 +320,12 @@ export type DesignContext = FacetDesign.Context
 export type DesignControlSpec = FacetDesign.ControlSpec
 export type DesignSeed = FacetDesign.Seed
 export type DesignStudioKit = FacetDesign.StudioKit
+export type DesignStudioOptions = FacetDesign.StudioOptions
+export type DesignStudioEditor = FacetDesign.StudioEditor
+export type DesignStudioSample = FacetDesign.StudioSample
+export type DesignStudioStage = FacetDesign.StudioStage
+export type DesignStudioFrame = FacetDesign.StudioFrame
+export type DesignStudioResult = FacetDesign.StudioResult
 export type DesignMotion = FacetDesign.Motion
 export type DesignLibrary = ComposeDesign.Library
 export type DesignDocument = ComposeDesign.Document
@@ -353,7 +359,7 @@ export type Facet = {
 	Compose: ComposeModule,
 	Roblox: ComposeRobloxModule,
 	design: () -> DesignKit,
-	composeDesign: () -> DesignStudioKit,
+	composeDesign: (DesignStudioOptions?) -> DesignStudioKit,
 	tag: <T>(instance: T, tags: StyleTags) -> T,
 	controls: (Runtime, ControlOptions?) -> Controls,
 	host: (Runtime) -> Host,
@@ -456,65 +462,77 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		return kit
 	end
 	local surface: Facet
-	local function composeDesign(): DesignStudioKit
+	local function composeDesign(options: DesignStudioOptions?): DesignStudioKit
 		local DesignEditor = require("@self/vendor/compose/design-editor")
-		return DesignEditor.kit("Facet", function(): DesignEditor.Workspace
+		local studio = require("@self/design/studio")
+		return studio(function(): DesignEditor.Workspace
 			local runtime = roblox.createRuntime()
-			local Host = surface.host(runtime)
-			local theme = themes.neutralPackage()
-			local palette = core.cell("Light")
-			local textSize = core.cell("Medium")
-			local UI = controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
-			local kit = design()
-			local library = kit.library({
-				UI = UI,
-				motion = kit.motion(UI),
-				host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
-					return runtime.constructors[className](props, name)
-				end,
-				provide = function(content: unknown): unknown
-					local sheet = themes.createStyleSheet(runtime, theme, { theme = palette })
-					local styles: Compose.Child = sheet
-					local linkProps: SharedTypes.StyleLinkNativeProps = { StyleSheet = core.static(sheet) }
-					local link: Compose.Child = Host.StyleLink(linkProps)
-					local design: Compose.Child? = if typeof(content) == "Instance" then content else nil
-					local themeProps: SharedTypes.FrameNativeProps = {
-						Name = "FacetTheme",
-						Size = UDim2.fromScale(1, 1),
-						BackgroundTransparency = 1,
-						styles,
-						link,
-						design,
-					}
-					return Host.Frame(themeProps)
-				end,
-			})
-			return {
-				runtime = runtime,
-				environment = roblox.designEnvironment(),
-				library = library,
-				root = "Screen",
-				previews = {
-					{
-						name = "Theme",
-						choices = { "Light", "Dark" },
-						select = function(choice: string)
-							palette:set(choice)
-						end,
+			local ok, result = pcall(function(): DesignEditor.Workspace
+				local Host = runtime.constructors
+				local theme = themes.neutralPackage()
+				local palette = core.cell("Light")
+				local textSize = core.cell("Medium")
+				local UI = controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
+				local kit = design()
+				local library = kit.library({
+					UI = UI,
+					designs = if options then options.registry else nil,
+					motion = kit.motion(UI),
+					host = function(className: string, name: string, props: { [unknown]: unknown }): unknown
+						return runtime.constructors[className](props, name)
+					end,
+					provide = function(content: unknown): unknown
+						local sheet = themes.createStyleSheet(runtime, theme, { theme = palette })
+						local styles: Compose.Child = sheet
+						local linkProps: SharedTypes.StyleLinkNativeProps = { StyleSheet = core.static(sheet) }
+						local link: Compose.Child = Host.StyleLink(linkProps)
+						local design: Compose.Child? = if typeof(content) == "Instance" then content else nil
+						local themeProps: SharedTypes.FrameNativeProps = {
+							Name = "FacetTheme",
+							Size = UDim2.fromScale(1, 1),
+							BackgroundTransparency = 1,
+							styles,
+							link,
+							design,
+						}
+						return Host.Frame(themeProps)
+					end,
+				})
+				return {
+					runtime = runtime,
+					environment = roblox.designEnvironment(),
+					library = library,
+					root = "Screen",
+					devices = if options then options.stages else nil,
+					previews = {
+						{
+							name = "Theme",
+							choices = if options and options.themes then options.themes else { "Light", "Dark" },
+							select = function(choice: string)
+								palette:set(choice)
+							end,
+						},
+						{
+							name = "Text size",
+							choices = if options and options.textSizes
+								then options.textSizes
+								else { "Medium", "Large", "Larger", "Largest" },
+							select = function(choice: string)
+								textSize:set(choice)
+							end,
+						},
 					},
-					{
-						name = "Text size",
-						choices = { "Medium", "Large", "Larger", "Largest" },
-						select = function(choice: string)
-							textSize:set(choice)
-						end,
-					},
-				},
-				dispose = function()
-					runtime:dispose()
-				end,
-			}
-		end)
+					dispose = function()
+						runtime:dispose()
+					end,
+				}
+			end)
+			if not ok then
+				runtime:dispose()
+				error(result, 0)
+			end
+			return result
+		end, options)
 	end
 	surface = freeze({
 		VERSION = VERSION,

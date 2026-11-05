@@ -75,6 +75,27 @@ export type Tokens = {
 	require: string,
 }
 
-export type StudioKit = Design.Kit
+export type StudioEditor = typeof(require("../vendor/compose/design-editor").create(
+	nil :: never,
+	nil :: never,
+	nil :: never,
+	nil :: never
+))
+export type StudioStage = typeof(require("../vendor/compose/design-editor/devices").get(""))
+export type StudioFrame = typeof(((nil :: unknown) :: StudioEditor).canvas.current())
+export type StudioResult = typeof(((nil :: unknown) :: StudioEditor).execute({ action = "Read" }))
+export type StudioSample = { design: string, name: string, props: { [string]: Literal } }
+export type StudioOptions = {
+	registry: { [string]: RegisteredDesign },
+	samples: { StudioSample },
+	stages: { StudioStage }?,
+	themes: { string }?,
+	textSizes: { string }?,
+	capture: ((name: string, frame: StudioFrame) -> { string })?,
+}
+export type StudioKit = {
+	name: string,
+	edit: (parent: unknown, name: string, link: Design.LinkStore?) -> StudioEditor,
+}
 
 return {}

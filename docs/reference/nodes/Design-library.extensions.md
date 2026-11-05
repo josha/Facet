@@ -78,9 +78,8 @@ value before passing it to the component's typed props. The example above
 accepts literal labels and plain value inputs. A component with readable props
 must also pass the resolved readable value to its component.
 
-Use this same library for `Design.emit`, `Design.parse`, `Design.render` and
-`DesignEditor.create` or the library in a `DesignEditor.kit` workspace.
-The editor lists the added category and kinds, edits their fields and calls
-their builders on the stage. `Facet.composeDesign()` supplies the base Facet
-library; a game editor kit supplies its extended library. A document must use
-that library to parse its custom source calls.
+Use this library for `Design.emit`, `Design.parse`, `Design.render` and the editor.
+`Facet.composeDesign({ registry, samples })`
+opens registered Designs with Facet's device, theme and text-size previews and
+returns the Compose editor handle. See [host Design workspace](Design-workspace.md).
+A document must use that library to parse its custom source calls.

@@ -357,7 +357,13 @@ type DesignResolved
 type DesignSeed
 type DesignSequence
 type DesignState
+type DesignStudioEditor
+type DesignStudioFrame
 type DesignStudioKit
+type DesignStudioOptions
+type DesignStudioResult
+type DesignStudioSample
+type DesignStudioStage
 type DesignValue
 type DialogAction
 type DialogDismissReason

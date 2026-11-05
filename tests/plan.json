@@ -113,6 +113,7 @@
         "local-luau"
       ]
     },
+    { "id": "compose_design_host", "locator": "tests/compose_design_host.verify.luau", "requires": ["local-luau"] },
     {
       "id": "facet_home",
       "locator": "tests/facet_home.verify.luau",
