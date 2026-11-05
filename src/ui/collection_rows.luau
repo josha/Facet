@@ -856,6 +856,9 @@ return function<V, K>(
 		end)
 		return node
 	end
+	local function share(room: number, columns: number): number
+		return if columns > 1 then math.floor(room / columns) else room / columns
+	end
 	local function itemSize(use: ComposeTypes.Use): number
 		local size = read(spec.itemSize or 40, use)
 		assert(type(size) == "number", "Facet collection requires a numeric itemSize")
@@ -921,7 +924,10 @@ return function<V, K>(
 						itemSize = if view.cardsMode then (view.cardLayout(use)) else itemSize(use),
 						gap = if tree then 0 else gap,
 						crossGap = crossGap,
-						crossSize = math.max(0, (use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1)) / columns),
+						crossSize = math.max(
+							0,
+							share(use(cross) - 2 * crossEdge(use) - crossGap * (columns - 1), columns)
+						),
 					}
 				end,
 				render = rows.render,
