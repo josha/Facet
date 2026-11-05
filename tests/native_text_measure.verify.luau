@@ -190,7 +190,10 @@ return function(harness: Verify.Harness)
 			local label: TextLabel? = nil
 			local function mount()
 				return runtime.mount(function()
-					label = ctx.text({ Text = "1000", TextSize = 16 }, true)
+					label = ctx.text(
+						{ Text = "1000", TextSize = 16, AutomaticSize = engine.types.Enum.AutomaticSize.XY },
+						true
+					)
 					return label
 				end, engine.new("ScreenGui"))
 			end
@@ -256,7 +259,7 @@ return function(harness: Verify.Harness)
 		)
 		local label: TextLabel? = nil
 		local stop = runtime.mount(function()
-			label = ctx.text { Text = "Coins 100", TextSize = 16 }
+			label = ctx.text { Text = "Coins 100", TextSize = 16, AutomaticSize = engine.types.Enum.AutomaticSize.XY }
 			return label
 		end, engine.new("ScreenGui"))
 		engine.heartbeat:Fire(1 / 60)
@@ -487,7 +490,7 @@ return function(harness: Verify.Harness)
 		)
 		local label: TextLabel? = nil
 		local stop = runtime.mount(function()
-			local node = ctx.text { Text = "Saved", TextSize = 16 }
+			local node = ctx.text { Text = "Saved", TextSize = 16, AutomaticSize = engine.types.Enum.AutomaticSize.XY }
 			label = node
 			return node
 		end, engine.new("ScreenGui"))

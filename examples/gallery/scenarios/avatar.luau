@@ -59,6 +59,7 @@ return {
 				UI.Text { text = "Player identity", textRole = "title" },
 				UI.Text {
 					text = "Pictures fall back to initials. Presence keeps its meaning when the mark is hidden.",
+					wrap = true,
 				},
 				Host.Frame "Faces" {
 					BackgroundTransparency = 1,

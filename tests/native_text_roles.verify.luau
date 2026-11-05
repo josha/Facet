@@ -264,11 +264,9 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local short = w.find("Card1"):FindFirstChild("Title", true) :: TextLabel
 				local long = w.find("Card2"):FindFirstChild("Title", true) :: TextLabel
-				expect(short.AbsoluteSize.Y > 0):toBe(true)
-				expect(long.AbsoluteSize.X > 0):toBe(true)
-				expect(long.AbsoluteSize.X <= 160):toBe(true)
-				expect(long.AbsoluteSize.Y > short.AbsoluteSize.Y):toBe(true)
-				expect(long.AbsoluteSize.Y <= 2 * short.AbsoluteSize.Y):toBe(true)
+				local s, l = short.AbsoluteSize, long.AbsoluteSize
+				local fits = s.Y > 0 and l.X > 0 and l.X <= 160 and l.Y > s.Y and l.Y <= 2 * s.Y
+				expect(if fits then "fits" else `short {s.X}x{s.Y}, long {l.X}x{l.Y}`):toBe("fits")
 				expect(long.TextTruncate):toBe(E.TextTruncate.AtEnd)
 				w.stop()
 			end,

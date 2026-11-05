@@ -45,6 +45,7 @@ return {
 				UI.Text { text = "Background transparency", TextSize = 24 },
 				UI.Text {
 					text = "Change Background transparency in the Roblox menu under Settings. Facet scales translucent theme surfaces and modal backdrops by your setting. An authored group fade stays independent.",
+					wrap = true,
 				},
 				UI.Text "Reading" {
 					text = function(use: Use)

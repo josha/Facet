@@ -102,7 +102,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 64),
 					BackgroundColor3 = colors[1],
 					GroupTransparency = fade,
-					UI.Text { text = "Compose owns the tween; CanvasGroup owns the compositing." },
+					UI.Text { text = "Compose owns the tween; CanvasGroup owns the compositing.", wrap = true },
 				},
 			}
 		end
