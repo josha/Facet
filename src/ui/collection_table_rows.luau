@@ -297,7 +297,12 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 						local right: UDim = padding:GetStyled("PaddingRight")
 						inset = left.Offset + right.Offset
 					end
-					setPrimaryMeasure(use(key), assert(undisclosed), math.ceil(use(natural).X / use(unitScale)), inset)
+					setPrimaryMeasure(
+						key:peek(),
+						assert(undisclosed),
+						math.ceil(use(natural).X / use(unitScale)),
+						inset
+					)
 				end)
 			end
 			if not render then
@@ -484,7 +489,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		if editor then
 			row = editor.wrap(row, current, key:peek(), true)
 		end
-		local painted = ctx.styled(if editor then row else disclosing, "TableRow")
+		local painted = ctx.styled<<GuiObject>>(if editor then row else disclosing, "TableRow")
 		runtime.decorate(painted, {
 			Position = function(use: ComposeTypes.Use)
 				return D2.fromOffset(use(scrolledX), 0)

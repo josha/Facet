@@ -11090,10 +11090,21 @@ return function(verifyHarness: Verify.Harness)
 					local header = w.node:FindFirstChild("Header"):FindFirstChild("name")
 					local widest = header.Size.X.Offset
 					body.CanvasPosition = w.engine.types.Vector2.new(0, 40)
-					expect(items:FindFirstChild("wide") == nil):toBe(true)
+					expect(items:FindFirstChild("wide")):toBeNil()
 					expect(header.Size.X.Offset):toBe(widest)
 					rows:set({ short })
-					expect(header.Size.X.Offset < widest):toBe(true)
+					expect(header.Size.X.Offset):toBeLessThan(widest)
+					local recycled = assert(items:FindFirstChild("short"))
+					local label = cellRow(recycled):FindFirstChild("name"):FindFirstChild("Undisclosed", true)
+					expect(label.Text):toBe("Short")
+					w.engine.environment.poke(
+						VerifyRoblox.assertInstance(label),
+						"TextBounds",
+						w.engine.types.Vector2.new(100, 16)
+					)
+					expect(header.Size.X.Offset):toBeLessThan(widest)
+					rows:set({ wide, short })
+					expect(header.Size.X.Offset):toBe(widest)
 					w.stop()
 				end,
 			})
