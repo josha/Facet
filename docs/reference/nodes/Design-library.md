@@ -21,12 +21,10 @@ local view = kit.Design.render(document, library, { inputs = { title = "Shop" } 
 local source = kit.Design.emit(document, library, { name = "Shop" })
 ```
 
-- `kit.Design` is the Compose Design module: `document`, `history`,
-  `session`, `render`, `link`, `extend`, `emit` and `parse`.
-- `kit.controls` maps each control name to its fields, defaults,
-  category and child mode.
-- `kit.seeds(kind)` returns the child nodes that a new node of that
-  kind starts with.
+- `kit.Design` is the Compose Design module.
+- `kit.controls` maps each control to its fields, defaults, category and
+  child mode.
+- `kit.seeds(kind)` returns the child nodes a new node of that kind starts with.
 
 Child modes:
 
@@ -85,9 +83,5 @@ Whole views:
 The game keeps its state and server validation. Give state to a design as
 contract inputs. Receive events as contract outputs.
 
-See [Text sizes](Text.textRole.md), [NavBar slots](NavBar.reference.md)
-and [live tags](../api.md).
-
-
-Use [consumer kinds and theme tables](Design-library.extensions.md) for
-`context.extension`, `Path.points` tokens and `RadialMenu.skin` tokens.
+See [Text sizes](Text.textRole.md), [NavBar slots](NavBar.reference.md),
+[live tags](../api.md) and [consumer kinds and theme tables](Design-library.extensions.md).
