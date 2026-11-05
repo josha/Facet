@@ -31,6 +31,8 @@ local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local storage = game:GetService("ReplicatedStorage")
+local loadStandardIcons: (ModuleScript) -> typeof(require("@repo/examples/standard_icons")) = require
+local StandardIcons = loadStandardIcons(storage:WaitForChild("FacetStandardIcons") :: ModuleScript)
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
 local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
@@ -112,7 +114,9 @@ local function encode(value: any): any
 end
 
 local function themeModules(Facet: any): { { name: string, package: any } }
-	local list = { { name = "Neutral", package = assert(Facet.themes.define(Facet.themes.neutralPackage())) } }
+	local list = {
+		{ name = "Neutral", package = assert(Facet.themes.define(StandardIcons.apply(Facet.themes.neutralPackage()))) },
+	}
 	local folder = storage:FindFirstChild("FacetThemes")
 	local found: { ThemeEntry } = {}
 	if folder then
@@ -127,7 +131,7 @@ local function themeModules(Facet: any): { { name: string, package: any } }
 				then
 					local built, package = pcall(definition.build, Facet.themes)
 					if built and package then
-						table.insert(found, { name = module.Name, package = package })
+						table.insert(found, { name = module.Name, package = StandardIcons.apply(package) })
 					end
 				end
 			end
@@ -470,6 +474,9 @@ local function newCase(Facet: any, themes: { any }, record: { [string]: any }, c
 				end
 			)
 			packages.Neutral = env.theme:peek()
+			for name, package in packages do
+				packages[name] = StandardIcons.apply(package)
+			end
 			context = {
 				Facet = Facet,
 				Compose = Compose,

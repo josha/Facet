@@ -4,6 +4,7 @@ local Types = require("./types")
 local Engine = require("./engine_types")
 local Media = require("./media_types")
 local Theme = require("./theme_types")
+local standardIcons = require("./icons")
 local ComposeTypes = require("../vendor/compose/core")
 local bindThemes = require("./themes")
 local help = require("./help")
@@ -396,7 +397,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				package = { icons = overrides, assets = package.assets }
 			end
 			local known = themes.resolveIcon(package, icon)
-			assert(known ~= nil, `Facet UI.Label: unknown icon '{icon}'.`)
+			assert(known ~= nil or standardIcons.registered(icon), `Facet UI.Label: unknown icon '{icon}'.`)
 		end
 		local children: { ComposeTypes.Child } = {}
 		if effective ~= "titleOnly" then

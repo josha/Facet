@@ -487,8 +487,9 @@ return function(verifyHarness: Verify.Harness)
 		it("keeps the checkbox image asset through activation and theme changes", {
 			id = "native_inputs::native input controls::keeps the checkbox image asset through activation and theme changes",
 			run = function()
+				local StandardIcons = require("../examples/standard_icons")
 				local value = Compose.cell(false)
-				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local theme = Compose.cell(StandardIcons.apply(Facet.themes.neutralPackage()))
 				local node, stop = world(function(UI: FacetControls)
 					local props: InputProps.ToggleCellProps =
 						{ label = "Club", presentation = "checkbox" :: "checkbox", value = value }
@@ -508,7 +509,7 @@ return function(verifyHarness: Verify.Harness)
 						require("../examples/themes/scifi_hud"),
 					}
 				do
-					local package = themeModule.build(Facet.themes)
+					local package = StandardIcons.apply(themeModule.build(Facet.themes))
 					theme:set(package)
 					expect(mark.Image):toBe(Facet.themes.resolveIcon(theme:peek(), "checkmark"))
 					expect(mark.Image ~= ""):toBe(true)

@@ -176,6 +176,10 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 
 The report lists the covered entries and the missing entries.
 
+Facet ships the standard icon names without image content. Map each name that
+the game uses to image content in the theme package `icons`. A standard name
+without art shows an empty image. An unknown name causes an error.
+
 Icons resolve through `themes.resolveIcon`. Supply real image or vector image
 assets. Do not use arbitrary text glyphs as interface icons. An image
 declaration does not prove ownership or successful loading. Keep the asset

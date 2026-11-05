@@ -15,6 +15,7 @@ local UPLOAD_SECONDS = 120
 local ICON_DIRECTORY = "assets/icons"
 local MANIFEST = ICON_DIRECTORY .. "/upload-manifest.json"
 local REGISTRY = "src/ui/icons.luau"
+local STANDARD_CONTENT = "examples/standard_icons.luau"
 local THEME_ROOT = "assets/themes"
 local DEFAULT_CREATOR = "1364639953"
 local DESCRIPTION =
@@ -25,7 +26,7 @@ local USAGE = [[usage: lute run tools/facet icons upload [--dry-run] [--force] [
 
 Upload icon PNGs as Roblox Image assets through Open Cloud. Poll each
 operation until it is done. Then write the content ids into the upload
-manifest and the Luau registry.
+manifest and the Luau content table.
 
 The command reads the API key only from the ROBLOX_API_KEY environment
 variable. ROBLOX_CREATOR_USER_ID sets the creator user id.
@@ -82,14 +83,15 @@ local function writeRegistry(assets: Object, names: { [string]: string }, regist
 		local assetName: string = names[iconName]
 		local contentId = Json.stringField(assets[assetName], "contentId")
 		if contentId ~= nil and contentId ~= "" then
-			local anchorText = if field == "contentId"
-				then ('assetName = "%s"'):format(assetName)
+			local entryKey = if string.match(iconName, "^[%a_][%w_]*$") then iconName else ('["%s"]'):format(iconName)
+			local anchorText = if field == "standard"
+				then ("\n\t%s = "):format(entryKey)
 				else ("\n\t%s = "):format(assetName)
 			local anchor = string.find(source, anchorText, 1, true)
 			if anchor == nil then
-				error(("%s has no entry for %s"):format(registry, assetName), 0)
+				error(("%s has no entry for %s"):format(registry, iconName), 0)
 			end
-			local key = field .. " = "
+			local key = if field == "standard" then anchorText else field .. " = "
 			local start = string.find(source, key, anchor, true)
 			if start == nil then
 				error(("%s has no %s after %s"):format(registry, field, assetName), 0)
@@ -212,7 +214,7 @@ local function upload(invocation: Cli.Invocation): number
 		field = "content"
 		names = themeNames(iconDirectory)
 	else
-		iconDirectory, manifestPath, registry, field = ICON_DIRECTORY, MANIFEST, REGISTRY, "contentId"
+		iconDirectory, manifestPath, registry, field = ICON_DIRECTORY, MANIFEST, STANDARD_CONTENT, "standard"
 		names = registryNames()
 	end
 
