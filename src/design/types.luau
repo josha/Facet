@@ -4,6 +4,8 @@ local Core = require("../vendor/compose/core")
 local Design = require("../vendor/compose/design/types")
 local Library = require("../vendor/compose/design/library")
 local Engine = require("../ui/engine_types")
+local ControlTypes = require("../ui/control_types")
+local ThemeTypes = require("../ui/theme_types")
 
 export type Literal = Design.Literal
 export type Extension = Library.Extension
@@ -84,11 +86,19 @@ export type StudioEditor = typeof(require("../vendor/compose/design-editor").cre
 export type StudioStage = typeof(require("../vendor/compose/design-editor/devices").get(""))
 export type StudioFrame = typeof(((nil :: unknown) :: StudioEditor).canvas.current())
 export type StudioResult = typeof(((nil :: unknown) :: StudioEditor).execute({ action = "Read" }))
-export type StudioSample = { design: string, name: string, props: { [string]: Literal } }
+export type StudioSampleBindings = (UI: ControlTypes.Controls, stage: StudioStage) -> { [string]: Design.Resolved }
+export type StudioSample = {
+	design: string,
+	name: string,
+	props: { [string]: Literal },
+	bindings: StudioSampleBindings?,
+}
 export type StudioOptions = {
 	registry: { [string]: RegisteredDesign },
 	samples: { StudioSample },
 	stages: { StudioStage }?,
+	resolution: { X: number, Y: number }?,
+	theme: ThemeTypes.ReadOnlyThemePackage?,
 	themes: { string }?,
 	textSizes: { string }?,
 	capture: ((name: string, frame: StudioFrame) -> { string })?,

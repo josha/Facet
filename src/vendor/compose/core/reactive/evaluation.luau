@@ -113,21 +113,22 @@ export type Cache = { thread: thread?, frame: Evaluation?, active: number, order
 
 local cache: Cache = { thread = nil, frame = nil, active = 0, order = 0 }
 
-local function contextOn(running: thread): Node?
+local function contextOn(running: thread): (Node?, number, thread?)
 	if cache.active == 0 then
-		return nil
+		return nil, 0, nil
 	end
 	if running == cache.thread then
 		local cached = cache.frame
 		if cached ~= nil and cached.order > 0 then
-			return cached.consumer
+			return cached.consumer, cached.order, running
 		end
 	end
 	local own = evaluations[running]
 	if own ~= nil and own.order > 0 then
-		return own.consumer
+		return own.consumer, own.order, running
 	end
 	local inherited: Evaluation? = nil
+	local resumer: thread? = nil
 	for thread, evaluation in evaluations do
 		if
 			evaluation.order > 0
@@ -135,13 +136,18 @@ local function contextOn(running: thread): Node?
 			and (inherited == nil or evaluation.order > inherited.order)
 		then
 			inherited = evaluation
+			resumer = thread
 		end
 	end
-	return if inherited ~= nil then inherited.consumer else nil
+	if inherited ~= nil then
+		return inherited.consumer, inherited.order, resumer
+	end
+	return nil, 0, nil
 end
 
 local function context(): Node?
-	return contextOn(coroutine.running())
+	local consumer = contextOn(coroutine.running())
+	return consumer
 end
 
 local function frame(): Evaluation

@@ -49,6 +49,7 @@ export type Field = {
 	datatype: string?,
 	also: { string }?,
 	luauType: string?,
+	reference: ("readable" | "native")?,
 	label: string?,
 	advanced: boolean?,
 	requires: { [string]: { Literal } }?,

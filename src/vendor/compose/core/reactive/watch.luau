@@ -198,7 +198,6 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?, sc
 		reads = nil,
 		inherited = scope,
 		child = nil,
-		base = nil,
 	}
 	Nodes.classify(node, class)
 	if statsOn.enabled then

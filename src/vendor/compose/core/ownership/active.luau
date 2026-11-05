@@ -10,55 +10,29 @@ type Dispose = Types.Dispose
 
 local owners: { Owner.Owner } = {}
 local threads: { thread } = {}
-local stacked: { [thread]: number? } = {}
-
-local function unstack(thread: thread)
-	local remaining = (stacked[thread] or 1) - 1
-	stacked[thread] = if remaining > 0 then remaining else nil
-end
-
-local function depth(): number
-	if #threads == 0 then
-		return 0
-	end
-	local running = coroutine.running()
-	local own = stacked[running] or 0
-	if own == #threads then
-		return own
-	end
-	local count = 0
-	for _, thread in threads do
-		if thread == running or coroutine.status(thread) == "normal" then
-			count += 1
-		end
-	end
-	return count
-end
+local evaluations: { number } = {}
 
 local function findOn(create: boolean, running: thread): Owner.Owner?
-	local context = Evaluation.contextOn(running)
+	local context, evaluation, evaluating = Evaluation.contextOn(running)
+	local record = if context ~= nil then Owner.runScopeOf(context) else nil
 	local last = #threads
 	if threads[last] == running then
-		if context == nil then
-			return owners[last]
-		end
-		local record = Owner.runScopeOf(context)
-		if record == nil then
-			return owners[last]
-		end
-		local own = stacked[running] or 0
-		if own == last and own > (record.base or 0) then
+		if record == nil or evaluating ~= running or evaluations[last] == evaluation then
 			return owners[last]
 		end
 	end
 	local explicit: Owner.Owner? = nil
 	local inherited: Owner.Owner? = nil
+	local scoped: Owner.Owner? = nil
 	local seen: { [thread]: boolean }? = nil
 	local ambiguous = false
+	local scopeAmbiguous = false
 	for index = #threads, 1, -1 do
 		local thread = threads[index]
 		if thread == running then
-			explicit = owners[index]
+			if record == nil or evaluating ~= running or evaluations[index] == evaluation then
+				explicit = owners[index]
+			end
 			break
 		else
 			local status = coroutine.status(thread)
@@ -66,23 +40,30 @@ local function findOn(create: boolean, running: thread): Owner.Owner?
 				local visited = seen or {}
 				seen = visited
 				visited[thread] = true
+				if record ~= nil and evaluations[index] == evaluation then
+					if scoped == nil then
+						scoped = owners[index]
+					elseif scoped ~= owners[index] then
+						scopeAmbiguous = true
+					end
+				end
 				if inherited == nil then
 					inherited = owners[index]
 				elseif inherited ~= owners[index] then
 					ambiguous = true
 				end
 			elseif status == "dead" then
-				unstack(thread)
 				table.remove(threads, index)
 				table.remove(owners, index)
+				table.remove(evaluations, index)
 			end
 		end
 	end
-	if context ~= nil then
-		local record = Owner.runScopeOf(context)
-		if record ~= nil and depth() <= (record.base or 0) then
-			return if create then Owner.scopeOwner(record) else record.child or record.inherited
+	if record ~= nil and explicit == nil then
+		if not scopeAmbiguous then
+			return scoped or (if create then Owner.scopeOwner(record) else record.child or record.inherited)
 		end
+		ambiguous = true
 	end
 	if explicit == nil and ambiguous then
 		return Diagnostics.raise("owner/no-active-owner", "resumer owners are ambiguous", {
@@ -116,8 +97,7 @@ local function resolve(): (Owner.Owner?, boolean)
 			if context == nil or context.inherited == nil then
 				return owners[last], true
 			end
-			local own = stacked[running] or 0
-			if own == last and own > ((context).base or 0) then
+			if evaluations[last] == frame.order then
 				return owners[last], true
 			end
 		end
@@ -132,7 +112,8 @@ local function push(owner: Owner.Owner): thread
 	local index = #threads + 1
 	threads[index] = running
 	owners[index] = owner
-	stacked[running] = (stacked[running] or 0) + 1
+	local _, evaluation = Evaluation.contextOn(running)
+	evaluations[index] = evaluation
 	return running
 end
 
@@ -141,14 +122,14 @@ local function pop(owner: Owner.Owner, running: thread)
 	if threads[last] == running and owners[last] == owner then
 		threads[last] = nil
 		owners[last] = nil
-		unstack(running)
+		evaluations[last] = nil
 		return
 	end
 	for index = last, 1, -1 do
 		if threads[index] == running and owners[index] == owner then
-			unstack(running)
 			table.remove(threads, index)
 			table.remove(owners, index)
+			table.remove(evaluations, index)
 			return
 		end
 	end
@@ -192,20 +173,18 @@ local function runWith<A...>(owner: Owner.Owner, body: (A...) -> (), ...: A...)
 	end
 end
 
-Owner.installActivationDepth(depth)
 Owner.installCurrentOwner(current)
 
 local function resetForTests()
 	table.clear(threads)
 	table.clear(owners)
-	table.clear(stacked)
+	table.clear(evaluations)
 end
 
 return {
 	current = current,
 	nearest = nearest,
 	resolve = resolve,
-	depth = depth,
 	withOwner = withOwner,
 	bind = bind,
 	runWith = runWith,

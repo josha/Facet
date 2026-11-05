@@ -5,6 +5,7 @@ local Math = require "./math"
 
 local Compose = require "../core"
 local Design = require "../design"
+local RenderPreview = require "./render-preview"
 
 local MAX_DISTANCE = 5000
 
@@ -41,6 +42,7 @@ export type Scene = {
 }
 
 export type Options = {
+	renderPreview: RenderPreview.RenderPreview?,
 	target: Target?,
 	library: Design.Library?,
 	fieldOfView: number?,
@@ -364,13 +366,17 @@ return function(ui: UI.UI)
 				end
 				table.clear(nodes)
 				stopDesign = runtime.mount(function(): Compose.Node
-					return ui.node(Design.render(value, library, {
+					local preview, bindings = value, options.bindings
+					if options.renderPreview then
+						preview, bindings = options.renderPreview(value, library, use)
+					end
+					return ui.node(Design.render(preview, library, {
 						use = use,
 						exclude = function(node: Design.Node): boolean
 							return node.hidden == true
 						end,
 						inputs = options.inputs,
-						bindings = options.bindings,
+						bindings = bindings,
 						outputs = options.outputs,
 						slots = options.slots,
 						players = function(made: { [string]: Design.Player })

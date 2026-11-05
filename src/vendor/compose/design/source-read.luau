@@ -565,6 +565,18 @@ function source.parse(code: string, library: Library): Types.Document
 			take "state"
 			take "."
 			return { state = name() }, nil
+		elseif peek() == "assert" then
+			take "assert"
+			take "("
+			take "refs"
+			take "."
+			local target = name()
+			take ":"
+			take "peek"
+			take "("
+			take ")"
+			referenceMessage()
+			return { node = target }, nil
 		elseif peek() == "refs" then
 			take "refs"
 			take "."

@@ -383,6 +383,7 @@ type DesignStudioKit
 type DesignStudioOptions
 type DesignStudioResult
 type DesignStudioSample
+type DesignStudioSampleBindings
 type DesignStudioStage
 type DesignValue
 type DialogAction

@@ -9,9 +9,11 @@ Compose Design workspace. Supply the `Facet.DesignRegistered` entries that
 | Field | Contract |
 | --- | --- |
 | `registry` | Map from Design name to `Facet.DesignRegistered`. |
-| `samples` | Ordered list of `Facet.DesignStudioSample`: `{ design, name, props }`. `props` maps contract fields to Design literals. Each registered Design needs at least one sample. |
+| `samples` | Ordered list of `Facet.DesignStudioSample`: `{ design, name, props, bindings? }`. `props` maps contract fields to Design literals. Each registered Design needs at least one sample. |
 | `stages` | Optional ordered list of `Facet.DesignStudioStage` device profiles. The default is Compose's device list. Profiles include size, insets, input mode and text scale. |
-| `themes` | Optional ordered list of `"Light"` and `"Dark"`. The default is both, in that order. |
+| `resolution` | Optional `{ X, Y }` with finite positive pixel dimensions. It opens one canvas at that logical resolution. Supply `resolution` or `stages`. |
+| `theme` | Optional `Facet.ReadOnlyThemePackage`, such as a package from `Facet.themes.define`. It supplies the base metrics, rules and named palette variants. The default is Facet Neutral. |
+| `themes` | Optional ordered list of palette names from `theme.style.themes`. With a host package, the default is all its palettes in package order. Without a package, the default is `"Light"`, then `"Dark"`. |
 | `textSizes` | Optional ordered list of `"Medium"`, `"Large"`, `"Larger"` and `"Largest"`. The default is all four, in that order. |
 | `capture` | Optional `(name, frame: Facet.DesignStudioFrame) -> { string }` callback. The host saves the frame and returns its file paths. |
 
@@ -19,6 +21,29 @@ Lists must be nonempty. Stage ids and preview choices must be unique.
 Sample choices use `design/name`; the combined name must be unique.
 Sample props must match the registered contract. Omitted props use the
 contract's preview defaults. Samples belong to the host, outside Design source.
+
+`bindings(UI, stage)` has type `Facet.DesignStudioSampleBindings`. It returns a
+map of input names to `Facet.DesignResolved` values. It runs under each preview's
+Compose owner and receives the workspace controls and the selected device profile.
+Use `{ slot = function() return UI.Text { text = "Details" } end }` for a slot,
+`{ readable = source }` for a readable literal, or `{ value = cell }` to keep a
+writable cell's identity. Bindings override `props` for the same input. Build fresh
+slot content per call. Compose releases owned resources when the sample changes
+or the editor closes. Keep borrowed host state outside the factory.
+
+For example, a sample for a Design with required `content` and cell `label` inputs
+can use this factory:
+
+```luau
+bindings = function(UI, stage)
+    return {
+        label = { value = Facet.Compose.cell("Ready") },
+        content = { slot = function()
+            return UI.Text { text = stage.name }
+        end },
+    }
+end,
+```
 
 Call `kit.edit(parent, designName)` with the existing host container and a
 registered Design name. It opens that Design's first sample. The workspace
@@ -45,6 +70,12 @@ and `problem`. `design`, `device` and `previews` report the current selections.
 host's paths in `files`. Without a capture callback, Capture reports a problem.
 `canvas.current()` returns the selected frame; `canvas.frames()` returns the
 frames built so far.
+
+Sample selection changes the rendered preview only. It does not write the source
+link or add an undo step. `design` and `session.document` identify the authored
+Design opened by `edit`; `previews.Sample` identifies the rendered sample, which
+can be from another registered Design. Explicit edit commands change the authored
+document. To edit another Design, open it with `kit.edit(parent, designName, link)`.
 
 Close, its visible control, and `dispose()` release the editor and its runtime
 once. After the Close command, Read reports `closed = true` and later edit

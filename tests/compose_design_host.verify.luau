@@ -134,6 +134,173 @@ return function(harness: Verify.Harness)
 	end
 
 	harness:suite("host Compose Design workspace", function()
+		harness:case("previews required slots and cell inputs across host themes without writing source", {
+			id = "compose_design_host::owned host bindings and source preservation",
+			run = function(test: Verify.Context)
+				local host = workspace(test)
+				host.engine.environment.fake("TextService.GetTextBoundsAsync", function(): unknown
+					return host.engine.types.Vector2.new(200, 36)
+				end)
+				local Compose = host.surface.Compose
+				local Design = host.surface.design().Design
+				local built, released = 0, 0
+				local cells: { Facet.Value<string> } = {}
+				local readables: { Facet.Value<Facet.DesignLiteral?> } = {}
+				local registry: { [string]: Facet.DesignRegistered } = {
+					PreviewPanel = {
+						contract = {
+							inputs = {
+								{ id = "content", kind = "value", type = "slot", required = true },
+								{ id = "label", kind = "cell", type = "string", required = true, preview = "Default" },
+								{ id = "hint", kind = "readable", type = "string", required = true, preview = "Hint" },
+							},
+							outputs = {},
+						},
+						call = "Components.PreviewPanel",
+						prelude = { "local Components = require(game.ReplicatedStorage.Components)" },
+						build = function(controls: unknown, props: { [string]: unknown }, name: string): unknown
+							local UI = controls :: Facet.Controls
+							local content = props.content :: () -> Instance
+							local label = props.label :: Facet.Value<string>
+							local hint = props.hint :: Facet.ReadOnlyValue<string>
+							label:set(label:peek() .. " cell")
+							return UI.VStack(name) {
+								UI.Text "Label" { text = label, Size = host.engine.types.UDim2.fromOffset(200, 36) },
+								UI.Text "Hint" { text = hint, Size = host.engine.types.UDim2.fromOffset(200, 36) },
+								content(),
+							}
+						end,
+					},
+				}
+				local samples: { Facet.DesignStudioSample } = {}
+				for _, state in { "Ready", "Busy", "Empty", "Failed" } do
+					table.insert(samples, {
+						design = "PreviewPanel",
+						name = state,
+						props = {},
+						bindings = function(
+							UI: Facet.Controls,
+							stage: Facet.DesignStudioStage
+						): { [string]: Facet.DesignResolved }
+							built += 1
+							Compose.cleanup(function()
+								released += 1
+							end)
+							local label = Compose.cell(state)
+							table.insert(cells, label)
+							local hint = Compose.cell<<Facet.DesignLiteral?>>(state .. " hint")
+							table.insert(readables, hint)
+							return {
+								label = { value = label },
+								hint = { readable = hint },
+								content = {
+									slot = function(): unknown
+										return UI.Text "Slot" { text = state .. "/" .. stage.id }
+									end,
+								},
+							}
+						end,
+					})
+				end
+				local neutral = host.surface.themes.neutralPackage()
+				local definition = table.clone(neutral)
+				definition.style = table.clone(neutral.style)
+				definition.style.themes = table.clone(neutral.style.themes)
+				for index, palette in neutral.style.themes do
+					local variant = table.clone(palette)
+					variant.name = if index == 1 then "Base" else "Bright"
+					definition.style.themes[index] = variant
+				end
+				definition.style.defaultTheme = "Base"
+				definition.identity = {
+					id = "host-preview",
+					displayName = "Host preview",
+					version = "1",
+					schemaVersion = neutral.schema,
+				}
+				local theme, report = host.surface.themes.define(definition)
+				Verify.expect(report.ok):toBe(true)
+				local package = assert(theme)
+				local options: Facet.DesignStudioOptions = {
+					registry = registry,
+					samples = samples,
+					theme = package,
+					stages = Editor.devices.all,
+				}
+				local source = ""
+				local writes = 0
+				local editor = host.surface.composeDesign(options).edit(host.parent, "PreviewPanel", {
+					read = function(): string
+						return source
+					end,
+					write = function(expected: string, generated: string): boolean
+						Verify.expect(expected):toBe(source)
+						source = generated
+						writes += 1
+						return true
+					end,
+					watch = function(): () -> ()
+						return function() end
+					end,
+				})
+				test:defer(editor.dispose)
+				local original = source
+				Verify.expect(writes):toBe(1)
+				local read = editor.execute({ action = "Read" })
+				Verify.expect(#read.previewChoices.Theme):toBe(2)
+				for _, palette in package.style.themes do
+					Verify.expect(editor.execute({ action = "Preview", name = "Theme", choice = palette.name }).ok)
+						:toBe(true)
+					for _, device in read.devices do
+						Verify.expect(editor.execute({ action = "Device", id = device }).ok):toBe(true)
+						for _, sample in samples do
+							local result = editor.execute({
+								action = "Preview",
+								name = "Sample",
+								choice = sample.design .. "/" .. sample.name,
+							})
+							Verify.expect(result.ok):toBe(true)
+							local root = VerifyRoblox.assertInstance(assert(editor.canvas.current().stage).nodes.n1)
+							Verify.expect(assert(root:FindFirstChild("Label")).Text):toBe(sample.name .. " cell")
+							Verify.expect(assert(root:FindFirstChild("Hint")).Text):toBe(sample.name .. " hint")
+							Verify.expect(assert(root:FindFirstChild("Slot")).Text):toBe(sample.name .. "/" .. device)
+							local sheet = assert(
+								VerifyRoblox.assertInstance(editor.canvas.current().root)
+									:FindFirstChildWhichIsA("StyleSheet", true)
+							)
+							local color = palette.colors.content
+							Verify.expect(sheet:GetAttribute("FacetColor_content"))
+								:toBe(host.engine.types.Color3.new(color.r, color.g, color.b))
+							Verify.expect(source):toBe(original)
+							Verify.expect(writes):toBe(1)
+							Verify.expect(editor.session.canUndo:peek()):toBe(false)
+						end
+					end
+				end
+				cells[#cells]:set("Live update")
+				readables[#readables]:set("Live hint")
+				local root = VerifyRoblox.assertInstance(assert(editor.canvas.current().stage).nodes.n1)
+				Verify.expect(assert(root:FindFirstChild("Label")).Text):toBe("Live update")
+				Verify.expect(assert(root:FindFirstChild("Hint")).Text):toBe("Live hint")
+				Verify.expect(source):toBe(original)
+				Verify.expect(editor.execute({ action = "Rename", name = "AuthoredPanel" }).ok):toBe(true)
+				Verify.expect(writes):toBe(2)
+				Verify.expect(Design.parse(source, editor.session.library).root.name):toBe("AuthoredPanel")
+				editor.dispose()
+				Verify.expect(released):toBe(built)
+				local custom = workspace(test)
+				local framed = custom.surface
+					.composeDesign({
+						registry = custom.options.registry,
+						samples = custom.options.samples,
+						resolution = { X = 960, Y = 540 },
+					})
+					.edit(custom.parent, "Emblem")
+				test:defer(framed.dispose)
+				Verify.expect(framed.canvas.current().device.size):toEqual({ X = 960, Y = 540 })
+			end,
+		})
+
 		harness:case("opens two registered Designs and eight sample states through editor commands and controls", {
 			id = "compose_design_host::registry samples and previews",
 			run = function(test: Verify.Context)
@@ -162,7 +329,7 @@ return function(harness: Verify.Harness)
 					local choice = sample.design .. "/" .. sample.name
 					local result = editor.execute({ action = "Preview", name = "Sample", choice = choice })
 					Verify.expect(result.ok):toBe(true)
-					Verify.expect(result.design):toBe(sample.design)
+					Verify.expect(result.design):toBe("Emblem")
 					Verify.expect(result.previews.Sample):toBe(choice)
 					Verify.expect(label(editor)):toBe(sample.props.label)
 				end
@@ -304,6 +471,13 @@ return function(harness: Verify.Harness)
 				}
 				options.stages = {}
 				Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)
+				options.stages = nil
+				options.resolution = { X = -1, Y = 540 }
+				Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)
+				options.resolution = { X = 960, Y = 540 }
+				options.stages = { Editor.devices.get("monitor") }
+				Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)
+				options.resolution = nil
 				options.stages = nil
 				options.themes = { "Missing" }
 				Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)

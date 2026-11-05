@@ -161,7 +161,6 @@ export type NodeData<T> = {
 	cutoff: ((Node) -> ())?,
 	inherited: Owner?,
 	child: Owner?,
-	base: number?,
 }
 
 export type InspectOptions = {

@@ -295,6 +295,9 @@ local function listItemName(input: Types.Input): string
 end
 
 local function base(library: Library, input: Types.Input): string
+	if input.type == "slot" then
+		return `() -> {input.luauType or library.returnType}`
+	end
 	if input.options then
 		local choices: { string } = {}
 		for _, option in input.options do
@@ -756,16 +759,25 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		table.insert(if late then lateHoisted else hoisted, prefix .. layout(current, 1, #prefix + 3))
 		return name
 	end
-	local function expression(property: Value, depth: number, used: number): string
+	local function expression(property: Value, depth: number, used: number, field: Types.Field?): string
 		local role = property.motion
 		if role ~= nil then
 			local motion = assert(library.motion, `{library.name} has no motion roles`)
 			local still = table.clone(property)
 			still.motion = nil
-			return `{motion.call}({expression(still, depth, used)}, {literal(role)})`
+			return `{motion.call}({expression(still, depth, used, field)}, {literal(role)})`
 		end
 		local target = property.node
 		if target ~= nil then
+			if field and field.reference == "native" then
+				local captured = `assert(refs.{target}:peek(), "Node reference is not captured")`
+				if used + #captured <= WIDTH then
+					return captured
+				end
+				return `assert(\n{tabs(depth + 1)}refs.{target}:peek(),\n{tabs(depth + 1)}"Node reference is not captured"\n{tabs(
+					depth
+				)})`
+			end
 			return returning("use", `assert(use(refs.{target}), "Node reference is not captured")`, depth)
 		end
 		local stateId = property.state
@@ -967,7 +979,7 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			elseif current ~= nil and type(current) == "table" and luauType and not carriesRow(current) then
 				written = hoist(node, key, luauType, current)
 			else
-				written = expression(property, depth + 1, (depth + 1) * 4 + #key + 4)
+				written = expression(property, depth + 1, (depth + 1) * 4 + #key + 4, field)
 			end
 			if itemName ~= nil and field ~= nil and field.type == "string" then
 				local enclosing = scopes[#scopes]

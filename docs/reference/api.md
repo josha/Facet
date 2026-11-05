@@ -48,6 +48,12 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 
 `Facet.composeDesign(options?)` returns the `Facet.DesignStudioKit` that the Compose Design Studio plugin opens. It loads the design editor on first use and gives the plugin the Facet controls, the theme StyleSheet around the staged design, the Compose device profiles, and Theme and Text size previews. Pass `Facet.DesignStudioOptions` with `registry`, `samples`, and optional `stages`, `themes`, `textSizes` and `capture` to open host Designs in that workspace. `kit.edit(parent, name, link?)` returns the Compose editor as `Facet.DesignStudioEditor`, with `execute`, `canvas`, `session`, `nested` and `dispose`. Commands and visible controls share selections and structured readback. See [host Design workspace](nodes/Design-workspace.md).
 
+`Facet.DesignStudioSampleBindings` types a sample's `bindings(UI, stage)` factory.
+It returns resolved slots, readables and cells under the preview owner. Set
+`DesignStudioOptions.theme` to a host theme package and `themes` to its palette
+names. Set `resolution = { X, Y }` for one canvas instead of device `stages`.
+Sample selection changes preview state and preserves authored source.
+
 `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.
 See [Design library](nodes/Design-library.md).
 

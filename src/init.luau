@@ -326,6 +326,7 @@ export type DesignStudioKit = FacetDesign.StudioKit
 export type DesignStudioOptions = FacetDesign.StudioOptions
 export type DesignStudioEditor = FacetDesign.StudioEditor
 export type DesignStudioSample = FacetDesign.StudioSample
+export type DesignStudioSampleBindings = FacetDesign.StudioSampleBindings
 export type DesignStudioStage = FacetDesign.StudioStage
 export type DesignStudioFrame = FacetDesign.StudioFrame
 export type DesignStudioResult = FacetDesign.StudioResult
@@ -382,7 +383,7 @@ export type Facet = {
 
 local VERSION = "0.12.0"
 local INPUT_PRIORITY = table.freeze({ belowControls = 25, aboveFacet = 12000 })
-local COMPOSE_COMMIT = "bf08074aacc3d5eedd9e49c9b7012d29ade7f96c"
+local COMPOSE_COMMIT = "057c6df6e0f81b0881776b23e60d5a0309250cf9"
 local USED = {
 	"boundary",
 	"cell",
@@ -468,12 +469,22 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 	local function composeDesign(options: DesignStudioOptions?): DesignStudioKit
 		local DesignEditor = require("@self/vendor/compose/design-editor")
 		local studio = require("@self/design/studio")
-		return studio(function(): DesignEditor.Workspace
+		return studio(function(): studio.Workspace
 			local runtime = roblox.createRuntime()
-			local ok, result = pcall(function(): DesignEditor.Workspace
+			local ok, result = pcall(function(): studio.Workspace
 				local Host = runtime.constructors
-				local theme = themes.neutralPackage()
-				local palette = core.cell("Light")
+				local theme = if options and options.theme then options.theme else themes.neutralPackage()
+				local themeChoices: { string } = {}
+				if options and options.themes then
+					themeChoices = options.themes
+				elseif options and options.theme then
+					for _, palette in theme.style.themes do
+						table.insert(themeChoices, palette.name)
+					end
+				else
+					themeChoices = { "Light", "Dark" }
+				end
+				local palette = core.cell(themeChoices[1] or theme.style.defaultTheme)
 				local textSize = core.cell("Medium")
 				local UI = controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
 				local kit = design()
@@ -502,15 +513,19 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 					end,
 				})
 				return {
+					UI = UI,
 					runtime = runtime,
 					environment = roblox.designEnvironment(),
 					library = library,
 					root = "Screen",
-					devices = if options then options.stages else nil,
+					devices = if options and options.resolution
+						then { DesignEditor.devices.custom("Canvas", options.resolution) }
+						elseif options then options.stages
+						else nil,
 					previews = {
 						{
 							name = "Theme",
-							choices = if options and options.themes then options.themes else { "Light", "Dark" },
+							choices = themeChoices,
 							select = function(choice: string)
 								palette:set(choice)
 							end,

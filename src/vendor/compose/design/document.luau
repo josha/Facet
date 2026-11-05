@@ -131,7 +131,6 @@ local function checkContract(contract: Types.Contract)
 				`Input {input.id} preview must be an option`
 			)
 		end
-		assert(input.type ~= "slot" or input.luauType == nil, `Slot input {input.id} uses the library return type`)
 		local preview = input.preview
 		assert(preview == nil or plain(preview, 0), `Preview for {input.id} must be plain data`)
 		assert(input.type ~= "slot" or input.kind == "value", `Slot input {input.id} must be a value`)
@@ -263,6 +262,7 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 	local source = property.nodeFrom
 	if source ~= nil then
 		assert(field.type == "node", `{key} cannot reference a node`)
+		assert(field.reference ~= "native", `{key} needs a direct node reference for native emission`)
 		local declared = inputOf(value, source)
 		local held = stateOf(value, source)
 		local typed = if declared then declared.type elseif held then held.type else nil

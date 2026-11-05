@@ -3,8 +3,12 @@
 local Design = require("../vendor/compose/design")
 local Editor = require("../vendor/compose/design-editor")
 local Types = require("./types")
+local Compose = require("../vendor/compose/core")
+local ControlTypes = require("../ui/control_types")
 
-return function(open: () -> Editor.Workspace, options: Types.StudioOptions?): Types.StudioKit
+export type Workspace = Editor.Workspace & { UI: ControlTypes.Controls }
+
+return function(open: () -> Workspace, options: Types.StudioOptions?): Types.StudioKit
 	local samples: { [string]: Types.StudioSample } = {}
 	local choices: { string } = {}
 	for _, sample in if options then options.samples else {} do
@@ -16,8 +20,22 @@ return function(open: () -> Editor.Workspace, options: Types.StudioOptions?): Ty
 		table.insert(choices, choice)
 	end
 	if options then
-		for _, theme in options.themes or { "Light", "Dark" } do
-			assert(theme == "Light" or theme == "Dark", "Unknown workspace theme: " .. theme)
+		local themes: { [string]: boolean } = if options.theme then {} else { Light = true, Dark = true }
+		if options.theme then
+			for _, palette in options.theme.style.themes do
+				assert(palette.name ~= "" and not themes[palette.name], "Theme names must be nonempty and unique")
+				themes[palette.name] = true
+			end
+			assert(next(themes), "Workspace requires at least one theme")
+		end
+		for _, theme in options.themes or {} do
+			assert(themes[theme], "Unknown workspace theme: " .. theme)
+		end
+		if options.resolution then
+			assert(not options.stages, "Use resolution or stages")
+			for _, size in { options.resolution.X, options.resolution.Y } do
+				assert(size > 0 and size < math.huge, "Resolution must be finite and positive")
+			end
 		end
 		for _, textSize in options.textSizes or { "Medium", "Large", "Larger", "Largest" } do
 			assert(
@@ -57,7 +75,6 @@ return function(open: () -> Editor.Workspace, options: Types.StudioOptions?): Ty
 				assert(initialChoice, "Unknown workspace Design: " .. name)
 			end
 			local workspace = open()
-			local editor: Types.StudioEditor? = nil
 			local disposeEditor: (() -> ())? = nil
 			local released = false
 			local function release()
@@ -81,16 +98,25 @@ return function(open: () -> Editor.Workspace, options: Types.StudioOptions?): Ty
 				local function document(choice: string): Design.Document
 					local sample = samples[choice]
 					local value = Design.document.new(sample.design, workspace.library, sample.design)
+					value.contract = assert(options).registry[sample.design].contract
+					for _, input in value.contract.inputs do
+						value.root.props[input.id] = { input = input.id }
+					end
+					return Design.document.validate(value, workspace.library)
+				end
+				local function validate(choice: string)
+					local sample = samples[choice]
+					local value = document(choice)
 					for field, literal in sample.props do
 						value.root.props[field] = { literal = literal }
 					end
-					return Design.document.validate(value, workspace.library)
+					Design.document.validate(value, workspace.library)
 				end
 				local initial = if initialChoice
 					then document(initialChoice)
 					else Design.document.new(name, workspace.library, workspace.root)
 				for _, choice in choices do
-					document(choice)
+					validate(choice)
 				end
 				if link then
 					local source = link.read()
@@ -99,20 +125,47 @@ return function(open: () -> Editor.Workspace, options: Types.StudioOptions?): Ty
 					end
 				end
 				local previews = table.clone(workspace.previews or {})
+				local selected = Compose.cell(initialChoice or "")
 				if initialChoice then
 					table.insert(previews, {
 						name = "Sample",
 						choices = choices,
 						initial = initialChoice,
 						select = function(choice: string)
-							if editor then
-								local changed = editor.execute({ action = "Replace", document = document(choice) })
-								assert(changed.ok, changed.problem)
-							end
+							selected:set(choice)
 						end,
 					})
 				end
 				return Editor.create(workspace.library, initial, parent, {
+					frame = function(device: Editor.Device): Editor.FrameContext
+						return {
+							renderPreview = if initialChoice
+								then function(
+									value: Design.Document,
+									_library: Design.Library,
+									use: Compose.Use
+								): (Design.Document, { [string]: Design.Resolved })
+									local choice = use(selected)
+									local sample = samples[choice]
+									local preview = if sample.design == value.root.kind then value else document(choice)
+									local bindings: { [string]: Design.Resolved } = {}
+									for field, literal in sample.props do
+										bindings[field] = { literal = literal }
+									end
+									if sample.bindings then
+										for field, binding in sample.bindings(workspace.UI, device) do
+											assert(
+												Design.document.input(preview, field),
+												"Unknown sample binding: " .. field
+											)
+											bindings[field] = binding
+										end
+									end
+									return preview, bindings
+								end
+								else nil,
+						}
+					end,
 					runtime = workspace.runtime,
 					environment = workspace.environment,
 					devices = workspace.devices or Editor.devices.all,
@@ -126,7 +179,6 @@ return function(open: () -> Editor.Workspace, options: Types.StudioOptions?): Ty
 				release()
 				error(result, 0)
 			end
-			editor = result
 			disposeEditor = result.dispose
 			result.dispose = release
 			return result

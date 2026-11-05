@@ -13,6 +13,7 @@ local Canvas = require "@self/canvas"
 local Prompt = require "@self/prompt"
 local ThemePanel = require "@self/theme-panel"
 local Stage3D = require "@self/stage3d"
+local RenderPreview = require "@self/render-preview"
 
 export type Environment = Environment.Environment
 export type Values = Environment.Values
@@ -31,12 +32,14 @@ export type ThemeValue = ThemePanel.Value
 export type ThemeField = ThemePanel.Field
 export type ThemeStore = ThemePanel.Store
 export type Preview = Editor.Preview
+export type RenderPreview = RenderPreview.RenderPreview
 export type Sequences = Roblox3DLibrary.Sequences
 export type SceneTarget = Stage3D.Target
 export type CameraPreset = Stage3D.Preset
 export type CameraState = Stage3D.CameraState
 export type Options = Editor.Options & { environment: Environment.Environment }
 export type Workspace = {
+	renderPreview: RenderPreview.RenderPreview?,
 	identity: { commit: string, path: string }?,
 	scene: Stage3D.Target?,
 	runtime: Compose.Runtime,
@@ -167,6 +170,7 @@ local function kit(name: string, open: () -> Workspace): Kit
 				end
 			end
 			local options: Options = {
+				renderPreview = workspace.renderPreview,
 				runtime = workspace.runtime,
 				environment = workspace.environment,
 				scene = workspace.scene,
