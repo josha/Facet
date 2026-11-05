@@ -12,6 +12,12 @@ content and then scrolls, use `ScrollView { height = "hug", maxHeight = limit }`
 The Design library preserves both limits, including input and token bindings.
 See [ScrollView](nodes/ScrollView.reference.md).
 
+`Dialog.bodyHeight` offers a finite logical height or `"fill"` to a navigable
+body. `Dialog.presentation = "inset"` keeps the panel inset on short screens.
+`Facet.DialogBodyHeight` and `Facet.DialogPresentation` type these options.
+See [Dialog sizing](nodes/Dialog.sizing.md) for resolution scaling and the
+canonical Design sample.
+
 `Facet.Compose.cubicBezier(x1, y1, x2, y2)` returns an easing function for
 Compose motion. All control points must be finite. The x coordinates must be
 in `[0, 1]`; the y coordinates can produce overshoot.

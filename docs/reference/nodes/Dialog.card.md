@@ -11,6 +11,9 @@ UI.Dialog "Dialog" { title = "Continue?", isPresented = open, onPresentedChange 
 
 Key options: `isPresented`, `title`, `content`, `actions`.
 
+For a navigable form, set `bodyHeight` and `presentation = "inset"`. Put long
+content in a ScrollView inside the page. See [bounded sizing](Dialog.sizing.md).
+
 Actions propose closing after their callback unless `keepOpen = true`.
 The caller accepts or refuses presentation changes. Keep asynchronous
 confirmation open until the game accepts the request.

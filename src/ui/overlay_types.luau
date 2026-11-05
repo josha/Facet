@@ -41,6 +41,8 @@ export type DialogAction = {
 }
 export type ActionLayout = "automatic" | "row" | "stacked"
 export type WidthPreset = "automatic" | "narrow" | "wide"
+export type DialogPresentation = "automatic" | "inset"
+export type DialogBodyHeight = number | "fill"
 export type Edge = "top" | "bottom" | "leading" | "trailing"
 export type Align = "start" | "center" | "end"
 
@@ -57,6 +59,8 @@ export type DialogOptions = {
 	actionLayout: Input<ActionLayout?>?,
 	closeButton: boolean?,
 	width: Input<WidthPreset?>?,
+	presentation: Input<DialogPresentation>?,
+	bodyHeight: Input<DialogBodyHeight>?,
 	contentSelectable: boolean?,
 }
 

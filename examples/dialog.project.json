@@ -1,0 +1,20 @@
+{
+  "name": "Facet-Dialog",
+  "emitLegacyScripts": true,
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$properties": { "UseNewLuauTypeSolver": "Enabled", "PlayerScriptsUseInputActionSystem": "Enabled" }
+    },
+    "ReplicatedStorage": {
+      "Facet": { "$path": "../src" },
+      "FacetDialogDesign": { "$path": "blocks/navigable_dialog_design.luau" },
+      "FacetDialogSample": { "$path": "blocks/navigable_dialog.luau" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "DialogSample": { "$path": "dialog_sample.client.luau" }
+      }
+    }
+  }
+}

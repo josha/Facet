@@ -144,6 +144,7 @@ export type CalloutSpec = NavigationProps.CalloutSpecInput
 export type Tab = NavigationTypes.Tab
 export type TabViewSpec = NavigationProps.TabViewSpecInput
 export type NavigationEntry<P = unknown> = NavigationTypes.NavigationEntry<P>
+export type NavigationPath<P = unknown> = { NavigationTypes.NavigationEntry<P> }
 export type NavigationDestination<P = unknown> = NavigationTypes.NavigationDestination<P>
 export type NavigationStackSpec<P = unknown> = NavigationProps.NavigationStackSpec<P>
 export type PageViewSpec = NavigationProps.PageViewSpecInput
@@ -226,6 +227,8 @@ export type ToastAction = OverlayTypes.ToastAction
 export type PopoverSource = OverlayTypes.PopoverSource
 export type OverlayRect = OverlayTypes.Rect
 export type DialogDismissReason = OverlayTypes.DialogDismissReason
+export type DialogPresentation = OverlayTypes.DialogPresentation
+export type DialogBodyHeight = OverlayTypes.DialogBodyHeight
 export type PopoverDismissReason = OverlayTypes.PopoverDismissReason
 export type ToastDismissReason = OverlayTypes.ToastDismissReason
 export type NoticeSeverity = OverlayTypes.NoticeSeverity

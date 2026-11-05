@@ -3,6 +3,7 @@
   "id": "facet-live",
   "policy": { "caseIdStyle": "bare", "batchCount": 1 },
   "units": [
+    { "id": "dialog_bounds", "locator": "tools/studio/live/suites/dialog_bounds.luau" },
     { "id": "outline_measurements", "locator": "tools/studio/live/suites/outline_measurements.luau" },
     { "id": "ascent", "locator": "tools/studio/live/suites/ascent.luau" },
     { "id": "classb_collections", "locator": "tools/studio/live/suites/classb_collections.luau" },

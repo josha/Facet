@@ -9,6 +9,7 @@ local freeze = require("./freeze")
 local OverlayProps = require("./overlay_props")
 local keyboardInset = require("./keyboard_inset")
 local visualTarget = require("./visual_target")
+local adaptive = require("./adaptive")
 
 local KEYS = {
 	"isPresented",
@@ -22,6 +23,8 @@ local KEYS = {
 	"actionLayout",
 	"closeButton",
 	"width",
+	"presentation",
+	"bodyHeight",
 	"contentSelectable",
 }
 
@@ -59,6 +62,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			)
 		end
 		parts.checkPreset(ctx, where, "width", spec.width, parts.WIDTH_PRESETS)
+		parts.checkPreset(ctx, where, "presentation", spec.presentation, { "automatic", "inset" })
+		local function requestedHeight(use: ComposeTypes.Use?): Overlay.DialogBodyHeight?
+			local value = ctx.read<<Overlay.DialogBodyHeight?>>(spec.bodyHeight, use)
+			assert(
+				spec.bodyHeight == nil
+					or value == "fill"
+					or (type(value) == "number" and value == value and value >= 0 and value < math.huge),
+				"Facet UI.Dialog: bodyHeight must be fill or a finite nonnegative logical height"
+			)
+			return value
+		end
+		requestedHeight(nil)
 		parts.checkPreset(ctx, where, "actionLayout", spec.actionLayout, parts.ACTION_LAYOUTS)
 		if spec.contentSelectable ~= nil and type(spec.contentSelectable) ~= "boolean" then
 			error(`Facet {where}: contentSelectable must be true or false`, 0)
@@ -175,6 +190,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					cached = Compose.withOwner(buildOwner, function(): Presentation
 						local unit = ctx.layoutUnit(layer)
 						local extent = ctx.layoutSize(layer, unit)
+						local metricScale = if spec.bodyHeight ~= nil
+							then UI.environment(layer).metricScale
+							else Compose.cell(1)
+						local function inset(use: ComposeTypes.Use): boolean
+							local policy = ctx.read<<Overlay.DialogPresentation?>>(spec.presentation, use)
+								or "automatic"
+							assert(policy == "automatic" or policy == "inset", "Facet UI.Dialog: invalid presentation")
+							return policy == "inset"
+						end
 						local keyboardPixels = keyboardInset.reader(ctx, input)
 						local function keyboard(use: ComposeTypes.Use): number
 							return keyboardPixels(use) / use(unit)
@@ -183,10 +207,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							return ctx.metric("space.m", use)
 						end
 						local function widthPx(use: ComposeTypes.Use): number
-							return math.max(
-								0,
-								math.min(parts.width(ctx, spec.width, use), use(extent).X - 2 * margin(use))
-							)
+							local preset = ctx.read<<Overlay.WidthPreset?>>(spec.width, use) or "automatic"
+							if
+								spec.bodyHeight ~= nil
+								and preset == "automatic"
+								and adaptive.sizeClass(use(extent).X / use(metricScale)) == "wide"
+							then
+								preset = "wide"
+							end
+							return math.max(0, math.min(parts.width(ctx, preset, use), use(extent).X - 2 * margin(use)))
 						end
 						local covering = Compose.cell(false)
 						local function available(use: ComposeTypes.Use): number
@@ -196,6 +225,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
 						end
 						local function roomPx(use: ComposeTypes.Use): number
+							if inset(use) then
+								return math.max(0, available(use) - padded(use) - 2 * margin(use))
+							end
 							local minimum =
 								math.min(ctx.metric("targetSizes.minimum", use), math.max(0, available(use) - 32))
 							local chrome = if use(covering) then padded(use) else 4 * margin(use)
@@ -253,19 +285,37 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						local body: ScrollingFrame? = nil
 						local bodyContent: Frame? = nil
 						if spec.content then
-							local scroller, flow = parts.scroller(
-								ctx,
-								{
-									Name = "Body",
+							local scroller: ScrollingFrame
+							local flow: Frame
+							if spec.bodyHeight ~= nil then
+								flow = Host.Frame "Content" {
+									BackgroundTransparency = 1,
+									Size = D2.fromScale(1, 1),
+									spec.content(),
+								}
+								scroller = Host.ScrollingFrame "Body" {
 									BackgroundTransparency = 1,
 									BorderSizePixel = 0,
-									ScrollBarThickness = 4,
-									ScrollingDirection = E.ScrollingDirection.Y,
+									CanvasSize = D2.fromOffset(0, 0),
+									ScrollBarThickness = 0,
 									Selectable = false,
-								},
-								{ Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }, spec.content() },
-								{ name = "Content" }
-							)
+									flow,
+								}
+							else
+								scroller, flow = parts.scroller(
+									ctx,
+									{
+										Name = "Body",
+										BackgroundTransparency = 1,
+										BorderSizePixel = 0,
+										ScrollBarThickness = 4,
+										ScrollingDirection = E.ScrollingDirection.Y,
+										Selectable = false,
+									},
+									{ Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }, spec.content() },
+									{ name = "Content" }
+								)
+							end
 							bodyContent = flow
 							body = scroller
 							table.insert(regions, assert(body))
@@ -299,18 +349,49 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							table.insert(regions, assert(group).frame)
 						end
 						local naturalSize: ComposeTypes.ReadOnlyValue<Vector2> = if bodyContent
+								and spec.bodyHeight == nil
 							then ctx.layoutSize(bodyContent, unit)
 							else Compose.cell(V2.zero)
-						local room = parts.room(ctx, regions, body, function(use: ComposeTypes.Use): number
-							return use(naturalSize).Y
-						end, function(use: ComposeTypes.Use)
-							return roomPx(use)
-						end, covering, unit)
+						local room = parts.room(
+							ctx,
+							regions,
+							body,
+							function(use: ComposeTypes.Use): number
+								local height = requestedHeight(use)
+								if height ~= nil then
+									return if height == "fill" then roomPx(use) else height * use(metricScale)
+								end
+								return use(naturalSize).Y
+							end,
+							function(use: ComposeTypes.Use)
+								return roomPx(use)
+							end,
+							Compose.formula(function(use: ComposeTypes.Use): boolean
+								return use(covering) or requestedHeight(use) == "fill"
+							end),
+							unit
+						)
+						if body and spec.bodyHeight ~= nil then
+							runtime.decorate(body, {
+								CanvasSize = function(use: ComposeTypes.Use)
+									return D2.fromOffset(0, use(room.bodyHeight))
+								end,
+							})
+						end
 						Compose.watch(function(use: ComposeTypes.Use)
-							local need = use(room.pinned) + use(naturalSize).Y + padded(use)
+							if inset(use) then
+								covering:set(false)
+								return
+							end
+							local height = requestedHeight(use)
+							local natural = if height == "fill"
+								then 0
+								elseif height ~= nil then height * use(metricScale)
+								else use(naturalSize).Y
+							local need = use(room.pinned) + natural + padded(use)
 							covering:set(need + 2 * ctx.metric("space.xl", use) > available(use))
 						end)
-						if body and spec.contentSelectable ~= false then
+						if body and spec.bodyHeight == nil and spec.contentSelectable ~= false then
 							local scroller = body
 							runtime.decorate(scroller, { Selectable = room.overflowing })
 							scroller:SetAttribute("FacetSelectionOwner", true)

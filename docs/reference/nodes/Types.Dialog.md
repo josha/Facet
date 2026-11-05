@@ -1,5 +1,12 @@
 # Types.Dialog
 
+`Facet.DialogPresentation` is `"automatic" | "inset"`.
+`Facet.DialogBodyHeight` is `number | "fill"`. Both Dialog options accept
+readable values. See [Dialog sizing](Dialog.sizing.md).
+`Facet.NavigationPath<P>` is an array of `Facet.NavigationEntry<P>` values.
+Its default payload type is `unknown`. Use the named path type for a Design
+record input that supplies a NavigationStack path cell.
+
 Facet uses the current Luau type solver. In Studio, set Workspace's
 `UseNewLuauTypeSolver` property to `Enabled`. Type action arrays and generic
 control specs on locals when their item or binding type is ambiguous.

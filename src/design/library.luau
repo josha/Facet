@@ -225,11 +225,12 @@ local function fieldsOf(name: string, spec: Types.ControlSpec): { [string]: Desi
 		}
 	end
 	for key, field in spec.fields do
+		local runtime = typed[key]
 		local also: { string }? = if field.format == "padding"
 			then { "number", "table" }
 			elseif field.format == "spacing" then { "number" }
+			elseif runtime and runtime.also then table.clone(runtime.also)
 			else nil
-		local runtime = typed[key]
 		local kind = if runtime ~= nil then LITERAL_KINDS[runtime.type] else nil
 		local own = LITERAL_KINDS[field.type]
 		if kind ~= nil and kind ~= own and (also == nil or table.find(also, kind) == nil) then

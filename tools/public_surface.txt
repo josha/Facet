@@ -386,7 +386,9 @@ type DesignStudioSample
 type DesignStudioStage
 type DesignValue
 type DialogAction
+type DialogBodyHeight
 type DialogDismissReason
+type DialogPresentation
 type DialogSpec
 type DiegeticScreenProps
 type DisclosureGroupSpec
@@ -441,6 +443,7 @@ type MultiplePickerSpec
 type NavBarSpec
 type NavigationDestination
 type NavigationEntry
+type NavigationPath
 type NavigationSplitViewProps
 type NavigationStackSpec
 type NoticeSeverity

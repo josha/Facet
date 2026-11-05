@@ -502,6 +502,8 @@ local controls: { [string]: Types.ControlSpec } = {
 			actions = { type = "value", label = "Actions", order = 13, format = "json" },
 			contentSelectable = { type = "boolean", label = "Selectable content", order = 14 },
 			hero = { type = "value", label = "Hero image", order = 15, format = "json" },
+			presentation = { type = "choice", label = "Presentation", order = 16, options = { "automatic", "inset" } },
+			bodyHeight = { type = "choice", label = "Body height", order = 17, options = { "fill" } },
 		}),
 	},
 	DisclosureGroup = {
