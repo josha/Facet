@@ -99,7 +99,8 @@ return function(
 		local size = ctx.observe.AbsoluteWindowSize(pages)
 		local canvasSize = ctx.observe.AbsoluteCanvasSize(pages)
 		local function pageOffset(index: number, box: Vector2, canvas: Vector2): number
-			return math.clamp((index - 1) * box.X, 0, math.max(0, canvas.X - box.X))
+			local offset = D2.fromOffset((index - 1) * width:peek(), 0).X.Offset * unit:peek()
+			return math.clamp(offset, 0, math.max(0, canvas.X - box.X))
 		end
 		local function nearestPage(at: number, box: Vector2): number
 			return math.clamp(math.floor(at / box.X + 0.5) + 1, 1, #spec.pages)
@@ -176,24 +177,25 @@ return function(
 				end
 			end)
 		end)
-		local wasAvailable, lastWidth = false, 0
+		local wasAvailable, lastWidth, lastScale = false, 0, 0
 		Compose.watch(function(use: ComposeTypes.Use)
 			local box = use(size)
 			local id = use(spec.selection)
 			assert(byId[id], "PageView.selection must name a declared page")
 			local scale = use(unit)
 			if box.X > 0 then
-				width:set(box.X / math.max(scale, 0.001))
+				width:set(D2.fromOffset(box.X / math.max(scale, 0.001), 0).X.Offset)
 			end
 			if box.X <= 0 or not use(parent) or not use(available) then
 				wasAvailable = false
 				initialized:set(false)
 				return
 			end
-			local resized = lastWidth ~= box.X
+			local resized = lastWidth ~= box.X or lastScale ~= scale
 			local canvas = use(canvasSize)
-			local expected = D2.fromOffset(box.X / math.max(scale, 0.001) * #spec.pages, 0).X.Offset * scale
-			if math.abs(canvas.X - expected) > 0.5 then
+			local expected = width:peek() * #spec.pages * scale
+			local tolerance = #spec.pages * scale + 0.5
+			if math.abs(canvas.X - expected) > tolerance then
 				initialized:set(false)
 				return
 			end
@@ -213,7 +215,7 @@ return function(
 			then
 				target = nil
 			end
-			wasAvailable, lastWidth = true, box.X
+			wasAvailable, lastWidth, lastScale = true, box.X, scale
 		end)
 		local position = ctx.observe.CanvasPosition(pages)
 		Compose.watch(function(use: ComposeTypes.Use)
