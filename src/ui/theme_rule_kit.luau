@@ -147,18 +147,28 @@ return function(
 		elseif string.sub(selector, -11) == "::UIPadding" then
 			add(selector .. ", " .. string.sub(selector, 1, -12) .. " > UIPadding", properties)
 		else
-			add(selector, properties)
 			local color, fade = properties.ImageColor3, properties.ImageTransparency
+			local glyphs: { string } = {}
 			if color ~= nil or fade ~= nil then
-				local glyphs: { string } = {}
 				for _, part in string.split(selector, ", ") do
 					if not string.find(part, "::", 1, true) then
 						table.insert(glyphs, part .. " > .facet-icon-glyph")
 					end
 				end
-				if #glyphs > 0 then
-					add(table.concat(glyphs, ", "), { TextColor3 = color, TextTransparency = fade })
-				end
+			end
+			if #glyphs == 0 then
+				add(selector, properties)
+			elseif
+				not authored
+				and (properties.TextColor3 == nil or properties.TextColor3 == color)
+				and (properties.TextTransparency == nil or properties.TextTransparency == fade)
+			then
+				local painted = table.clone(properties)
+				painted.TextColor3, painted.TextTransparency = color, fade
+				add(selector .. ", " .. table.concat(glyphs, ", "), painted)
+			else
+				add(selector, properties)
+				add(table.concat(glyphs, ", "), { TextColor3 = color, TextTransparency = fade })
 			end
 		end
 	end

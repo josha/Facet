@@ -17,9 +17,10 @@ return function(verifyHarness: Verify.Harness)
 	local COIN: ThemeTypes.IconGlyph = { font = { family = "rbxassetid://9001" }, codepoint = 0xE001 }
 	local STAR: ThemeTypes.IconGlyph = { font = { family = "rbxassetid://9001" }, codepoint = 0xE002 }
 	local LIT: ThemeTypes.IconGlyph = { font = { family = "rbxassetid://9001" }, codepoint = 0xE003 }
+	local STATES: ThemeTypes.IconEntry = { default = STAR, hover = LIT, selected = "rbxassetid://5" }
 	local ICONS: { [string]: ThemeTypes.IconEntry } = {
 		["game:coin"] = COIN,
-		["game:star"] = { default = STAR, hover = LIT, selected = "rbxassetid://5" },
+		["game:star"] = STATES,
 	}
 
 	local function glyphOf(icon: Instance): TextLabel
@@ -39,13 +40,14 @@ return function(verifyHarness: Verify.Harness)
 				expect(themes.resolveIcon(registry, "game:star", "hover") == LIT):toBe(true)
 				expect(themes.resolveIcon(registry, "game:star", "pressed") == STAR):toBe(true)
 				expect(themes.resolveIcon(registry, "game:star", "selected")):toBe("rbxassetid://5")
-				local package, report = themes.define({ identity = { id = "glyph-icons" }, icons = ICONS })
+				local definition: ThemeTypes.ThemeDefinition = { identity = { id = "glyph-icons" }, icons = ICONS }
+				local package, report = themes.define(definition)
 				expect(report.ok):toBe(true)
 				expect(package ~= nil and themes.resolveIcon(package, "game:coin") ~= nil):toBe(true)
-				local broken: { [string]: ThemeTypes.IconEntry } = {
-					["game:bad"] = { font = { family = "rbxassetid://9001" }, codepoint = 1.5 },
-				}
-				local rejected, problems = themes.define({ identity = { id = "glyph-icons-bad" }, icons = broken })
+				local bad: ThemeTypes.IconGlyph = { font = { family = "rbxassetid://9001" }, codepoint = 1.5 }
+				local broken: { [string]: ThemeTypes.IconEntry } = { ["game:bad"] = bad }
+				local invalid: ThemeTypes.ThemeDefinition = { identity = { id = "glyph-icons-bad" }, icons = broken }
+				local rejected, problems = themes.define(invalid)
 				expect(rejected == nil):toBe(true)
 				expect(problems.errors[1] and problems.errors[1].field):toBe("icons.game:bad.codepoint")
 			end,
@@ -77,8 +79,9 @@ return function(verifyHarness: Verify.Harness)
 				expect(glyph.AutoLocalize):toBe(false)
 				expect(glyph:HasTag("facet-icon-glyph")):toBe(true)
 				local box = assert(scaled)
+				local scaledGlyph = glyphOf(box)
 				engine.environment.poke(box, "AbsoluteSize", engine.types.Vector2.new(40, 24))
-				expect(glyphOf(box).TextSize):toBe(24)
+				expect(scaledGlyph.TextSize):toBe(24)
 				stop()
 				runtime:dispose()
 			end,

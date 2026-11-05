@@ -1005,6 +1005,29 @@ return function(
 		}
 		return ctx.styled(Host.TextLabel(native), "icon-glyph")
 	end
+	local function armGlyph(
+		icon: ImageLabel,
+		resolved: (ComposeTypes.Use?) -> Theme.ResolvedIcon?,
+		transparency: Shared.Input<number>?
+	)
+		local last: Theme.IconGlyph? = nil
+		local function current(use: ComposeTypes.Use?): Theme.IconGlyph
+			local found = resolved(use)
+			if type(found) == "table" then
+				last = found
+			end
+			return assert(last)
+		end
+		runtime.mountFragment(function()
+			return {
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					return type(resolved(use)) == "table"
+				end, function()
+					return glyphLabel(icon, current, true, transparency)
+				end),
+			}
+		end, icon)
+	end
 	function ctx.icon(
 		name: Shared.Input<Theme.ResolvedIcon?>,
 		properties: Shared.ImageLabelNativeProps?,
@@ -1028,24 +1051,25 @@ return function(
 		local function resolved(use: ComposeTypes.Use?): Theme.ResolvedIcon?
 			return resolve(use, ctx.read<<Theme.SkinState?>>(state, use))
 		end
-		local armed, wanted = false, false
-		local arm: (() -> ())? = nil
+		local changing = live(name) or live(config.theme) or live(config.icons) or live(state)
+		local owner = if changing then Compose.currentOwner() else nil
+		local icon: ImageLabel? = nil
+		local armed = false
+		local transparency = if properties then properties.ImageTransparency else nil
 		local function image(use: ComposeTypes.Use?): string
-			local icon = resolved(use)
-			if type(icon) == "string" then
-				return icon
+			local found = resolved(use)
+			if type(found) == "string" then
+				return found
 			end
-			if icon ~= nil and not armed then
+			if found ~= nil and not armed and icon and owner then
 				armed = true
-				if arm then
-					arm()
-				else
-					wanted = true
-				end
+				local node = icon
+				Compose.withOwner(owner, function()
+					armGlyph(node, resolved, transparency)
+				end)
 			end
 			return ""
 		end
-		local changing = live(name) or live(config.theme) or live(config.icons) or live(state)
 		local initial = if changing then nil else resolved()
 		local native: Shared.ImageLabelProps = {
 			Image = if changing then image else (if type(initial) == "string" then initial else ""),
@@ -1068,42 +1092,19 @@ return function(
 		elseif resample() ~= Enum.ResamplerMode.Default then
 			native.ResampleMode = resample()
 		end
-		local icon = ctx.styled(Host.ImageLabel(ctx.props(properties or {}, NATIVE_KEYS, native)), "Icon")
-		local transparency = if properties then properties.ImageTransparency else nil
+		local made = ctx.styled(Host.ImageLabel(ctx.props(properties or {}, NATIVE_KEYS, native)), "Icon")
+		icon = made
 		if type(initial) == "table" then
 			local glyph = initial
 			runtime.mount(function()
-				return glyphLabel(icon, function()
+				return glyphLabel(made, function()
 					return glyph
 				end, false, transparency)
-			end, icon)
-		elseif changing then
-			local last: Theme.IconGlyph? = nil
-			local function current(use: ComposeTypes.Use?): Theme.IconGlyph?
-				local found = resolved(use)
-				if type(found) == "table" then
-					last = found
-				end
-				return last
-			end
-			local mountGlyph = Compose.bindOwner(function()
-				runtime.mountFragment(function()
-					return {
-						Compose.show(function(use: ComposeTypes.Use): boolean
-							return type(resolved(use)) == "table"
-						end, function()
-							return glyphLabel(icon, function(use: ComposeTypes.Use?): Theme.IconGlyph
-								return assert(current(use))
-							end, true, transparency)
-						end),
-					}
-				end, icon)
-			end)
-			arm = mountGlyph
-			if wanted then
-				mountGlyph()
-			end
+			end, made)
+		elseif changing and type(resolved()) == "table" then
+			armed = true
+			armGlyph(made, resolved, transparency)
 		end
-		return icon
+		return made
 	end
 end

@@ -161,14 +161,14 @@ export type AssetVariants = {
 export type AssetSource = AssetLink | AssetVariants
 export type SkinState = "default" | "hover" | "pressed" | "selected" | "disabled"
 export type IconAsset = Asset & { asset: string? }
-export type IconGlyph = { font: Font | FontSpec, codepoint: number, tintRole: string? }
+export type IconGlyph = { read font: Font | FontSpec, read codepoint: number, read tintRole: string? }
 export type IconSource = string | IconAsset | IconGlyph
 export type IconEntry = IconSource | {
-	default: IconSource,
-	hover: IconSource?,
-	pressed: IconSource?,
-	selected: IconSource?,
-	disabled: IconSource?,
+	read default: IconSource,
+	read hover: IconSource?,
+	read pressed: IconSource?,
+	read selected: IconSource?,
+	read disabled: IconSource?,
 }
 export type ResolvedIcon = string | IconGlyph
 export type IconRegistry = { read icons: { [string]: IconEntry }?, read assets: { [string]: Asset }? }
