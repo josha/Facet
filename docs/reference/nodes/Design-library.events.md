@@ -1,5 +1,17 @@
 ### Design event fields
 
+Button exposes `MouseEnter`, `MouseLeave` and `SelectionGained` as event fields.
+Bind them to named contract outputs to show related content on pointer hover
+or controller focus. These events do not activate the Button. `MouseEnter`
+and `MouseLeave` pass the pointer's x and y screen coordinates to outputs with
+`args = { "number", "number" }`. Use an output with no arguments when the
+action does not need the coordinates. `SelectionGained` supports an output
+with no arguments.
+
+Sheet exposes `initialFocus` as a string field. Set it to the name of the
+action that must receive controller focus when the Sheet opens. The runtime
+uses a control name for this field, so use a string literal or a string input.
+
 Toggle and Picker expose `onChange` as an event field. Bind it to a named
 contract output with the value type of that control. Parse, emit and render
 keep the input and output bindings.

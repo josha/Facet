@@ -228,6 +228,9 @@ local controls: { [string]: Types.ControlSpec } = {
 			help = { type = "value", label = "Help", order = 24, format = "json" },
 			cooldown = { type = "value", label = "Cooldown", order = 35, format = "json" },
 			charges = { type = "number", label = "Charges", order = 36 },
+			MouseEnter = { type = "event", label = "Pointer entered", order = 37 },
+			MouseLeave = { type = "event", label = "Pointer left", order = 38 },
+			SelectionGained = { type = "event", label = "Focus gained", order = 39 },
 			row = { type = "value", label = "Row content", order = 25, format = "json" },
 			controlSize = {
 				type = "choice",
@@ -1284,6 +1287,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			},
 			hero = { type = "value", label = "Hero image", order = 20, format = "json" },
 			actions = { type = "value", label = "Actions", order = 21, format = "json" },
+			initialFocus = { type = "string", label = "Initial focus name", order = 22 },
 		}),
 	},
 	ShortcutHint = {

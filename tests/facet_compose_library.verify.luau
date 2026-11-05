@@ -9,6 +9,7 @@ return function(verifyHarness: Verify.Harness)
 	local Kit = Facet.design()
 	local Design = Kit.Design
 	local engines = require("./lib/native_engine")
+	local overlay = require("./lib/overlay_world")
 
 	type Context = { UI: Facet.Controls, types: typeof(engines.new().types), runtime: Facet.Runtime }
 	type Engine = typeof(engines.new())
@@ -128,7 +129,10 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
-	local function live(ctx: Context, motion: Facet.DesignMotion?): Facet.DesignLibrary
+	local function live(
+		ctx: { UI: Facet.Controls, types: typeof(engines.new().types) },
+		motion: Facet.DesignMotion?
+	): Facet.DesignLibrary
 		return Kit.library({
 			UI = ctx.UI,
 			types = ctx.types,
@@ -482,6 +486,130 @@ return function(verifyHarness: Verify.Harness)
 						Verify.expect(calls):toBe(if form == "slot" then 1 else 0)
 						return built
 					end).dispose)
+				end
+			end,
+		})
+
+		verifyHarness:case("round trips Button hover and selection actions without activation", {
+			id = "facet_compose_library::round trips Button hover and selection actions without activation",
+			run = function(test: Verify.Context)
+				local exercise: (() -> ())? = nil
+				test:defer(mount(function(ctx: Context, engine: Engine): unknown
+					local library = live(ctx)
+					local value =
+						Design.document.setContract(Design.document.new("Preview", library, "Button"), library, {
+							inputs = {},
+							outputs = {
+								{ id = "onEnter", args = { "number", "number" } },
+								{ id = "onLeave", args = { "number", "number" } },
+								{ id = "onFocus" },
+								{ id = "onActivate" },
+							},
+						})
+					local events: { [string]: string } = {
+						MouseEnter = "onEnter",
+						MouseLeave = "onLeave",
+						SelectionGained = "onFocus",
+					}
+					for event, output in events do
+						value = Design.document.change(value, library, "n1", event, { output = output })
+					end
+					value = Design.document.change(value, library, "n1", "onActivate", { output = "onActivate" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					for event, output in events do
+						Verify.expect(Kit.controls.Button.fields[event].type):toBe("event")
+						Verify.expect(library.kinds.Button.fields[event].type):toBe("event")
+						Verify.expect(parsed.root.props[event].output):toBe(output)
+					end
+					local entered, left, focused, activated = 0, 0, 0, 0
+					local built = Design.render(parsed, library, {
+						outputs = {
+							onEnter = function(args: { Facet.DesignLiteral })
+								entered += 1
+								Verify.expect(args):toEqual({ 24, 36 })
+							end,
+							onLeave = function(args: { Facet.DesignLiteral })
+								left += 1
+								Verify.expect(args):toEqual({ 140, 90 })
+							end,
+							onFocus = function(args: { Facet.DesignLiteral })
+								focused += 1
+								Verify.expect(args):toEqual({})
+							end,
+							onActivate = function()
+								activated += 1
+							end,
+						},
+					})
+					assert(typeof(built) == "Instance" and built:IsA("TextButton"))
+					exercise = function()
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "MouseEnter", 24, 36)
+						Verify.expect(entered):toBe(1)
+						Verify.expect(left):toBe(0)
+						Verify.expect(focused):toBe(0)
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "MouseLeave", 140, 90)
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "SelectionGained")
+						ctx.runtime:settle()
+						Verify.expect(entered):toBe(1)
+						Verify.expect(left):toBe(1)
+						Verify.expect(focused):toBe(1)
+						Verify.expect(activated):toBe(0)
+						engine.environment.fire(VerifyRoblox.assertInstance(built), "Activated")
+						Verify.expect(activated):toBe(1)
+					end
+					return built
+				end).dispose)
+				assert(exercise)()
+			end,
+		})
+
+		verifyHarness:case("round trips Sheet initialFocus and selects the named action on opening", {
+			id = "facet_compose_library::round trips Sheet initialFocus and selects the named action on opening",
+			run = function(test: Verify.Context)
+				local shown = Facet.Compose.cell(false)
+				local world = overlay.new(function(UI, _Host, engine)
+					local library = live({ UI = UI, types = engine.types })
+					local value =
+						Design.document.setContract(Design.document.new("Actions", library, "Sheet"), library, {
+							inputs = { { id = "shown", kind = "cell", type = "boolean", required = true } },
+							outputs = {},
+						})
+					value = Design.document.change(value, library, "n1", "isPresented", { input = "shown" })
+					value = Design.document.change(value, library, "n1", "placement", { literal = "center" })
+					value = Design.document.change(value, library, "n1", "closeButton", { literal = true })
+					local body: string
+					value, body = Design.document.insert(value, library, "n1", "VStack")
+					for _, name in { "First", "Chosen" } do
+						local action: string
+						value, action = Design.document.insert(value, library, body, "Button")
+						value = Design.document.rename(value, library, action, name)
+					end
+					value = Design.document.change(value, library, "n1", "initialFocus", { literal = "Chosen" })
+					local source = Design.emit(value, library)
+					local parsed = Design.parse(source, library)
+					Verify.expect(Design.emit(parsed, library)):toBe(source)
+					Verify.expect(Kit.controls.Sheet.fields.initialFocus.type):toBe("string")
+					Verify.expect(library.kinds.Sheet.fields.initialFocus.type):toBe("string")
+					Verify.expect(parsed.root.props.initialFocus.literal):toBe("Chosen")
+					local built = Design.render(parsed, library, { bindings = { shown = { readable = shown } } })
+					assert(typeof(built) == "Instance")
+					return built
+				end, { motionLevel = "none" })
+				test:defer(world.stop)
+				world.engine.environment.poke(world.input, "PreferredInput", world.Enum.PreferredInput.Gamepad)
+				Verify.expect(world.gui.SelectedObject):toBe(nil)
+				for _ = 1, 2 do
+					shown:set(true)
+					world.advance(1 / 60, 3)
+					local chosen = world.find("Chosen")
+					Verify.expect(chosen ~= nil):toBe(true)
+					Verify.expect(if world.gui.SelectedObject then world.gui.SelectedObject.Name else "nil")
+						:toBe("Chosen")
+					Verify.expect(world.gui.SelectedObject == chosen):toBe(true)
+					shown:set(false)
+					world.advance(1 / 60, 3)
 				end
 			end,
 		})
