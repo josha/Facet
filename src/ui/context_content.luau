@@ -561,7 +561,7 @@ local function attachMeasuredLayout(
 		local initial: Parts = {}
 		local parts = Compose.cell(initial)
 		local unit: (() -> ComposeTypes.ReadOnlyValue<number>)? = nil
-		local ownFloor = Compose.bindOwner(function(body: () -> ()): { dispose: () -> () }
+		local ownFloor = Compose.bindOwner(function(body: (ComposeTypes.Owner) -> ()): ComposeTypes.RootScope
 			return Compose.createRootOwner(body, runtime.reactor)
 		end)
 		local function release()

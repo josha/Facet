@@ -20,7 +20,7 @@ return function(harness: Verify.Harness)
 		local ctx = context(Facet.Compose, runtime, { types = engine.types, services = { TextService = service } })
 		local label: TextLabel? = nil
 		local stop = runtime.mount(function()
-			local Host = runtime.constructors
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
 			local node = Host.TextLabel {
 				Text = "Owned 100",
 				TextSize = 16,
