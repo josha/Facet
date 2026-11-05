@@ -140,6 +140,92 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end
 
+	local function anchoredCallout(library: Facet.DesignLibrary): Facet.DesignDocument
+		local value = Design.document.new("AnchoredHelp", library, "VStack")
+		local trigger, callout
+		value, trigger = Design.document.insert(value, library, "n1", "Button")
+		value = Design.document.rename(value, library, trigger, "AuthoredTrigger")
+		value = Design.document.change(value, library, trigger, "label", { literal = "Learn more" })
+		value, callout = Design.document.insert(value, library, "n1", "Callout")
+		return Design.document.change(value, library, callout, "anchor", { node = trigger })
+	end
+
+	verifyHarness:case("round trips captured optional Callout references", function()
+		local library = offline()
+		local code = Design.emit(anchoredCallout(library), library)
+		Verify.expect(string.find(code, "Facet.Value<GuiObject?>", 1, true) ~= nil):toBe(true)
+		Verify.expect(string.find(code, "Facet.Compose.cell<<GuiObject?>>(nil)", 1, true) ~= nil):toBe(true)
+		local parsed = Design.parse(code, library)
+		Verify.expect(parsed.root.children[2].props.anchor.node):toBe(parsed.root.children[1].id)
+		Verify.expect(Design.emit(parsed, library)):toBe(code)
+	end)
+
+	verifyHarness:case("keeps the authored Callout anchor in live rendering", function(test: Verify.Context)
+		local received: Instance? = nil
+		local trigger: unknown = nil
+		test:defer(mount(function(ctx: Context): unknown
+			local controls = setmetatable({
+				Callout = function(props: Facet.CalloutSpec, name: string?): Frame
+					received = props.anchor
+					return ctx.UI.Callout(props, name)
+				end,
+			}, { __index = ctx.UI })
+			local library = Kit.library({ UI = controls, types = ctx.types })
+			return Design.render(anchoredCallout(library), library, {
+				decorate = function(node: Facet.DesignNode, made: unknown)
+					if node.name == "AuthoredTrigger" then
+						trigger = made
+					elseif node.kind == "Callout" then
+						local root = VerifyRoblox.assertInstance(made)
+						Verify.expect(root.Name):toBe("Callout")
+					end
+				end,
+			})
+		end).dispose)
+		Verify.expect(received ~= nil):toBe(true)
+		Verify.expect(received):toBe(trigger)
+	end)
+
+	verifyHarness:case("keeps the authored Callout anchor at every editor device stage", function(test: Verify.Context)
+		local DesignEditor = require("../src/vendor/compose/design-editor")
+		local editor: DesignEditor.Editor? = nil
+		local runtime: Facet.Runtime? = nil
+		local anchors: { unknown } = {}
+		test:defer(mount(function(ctx: Context, engine: Engine): unknown
+			runtime = ctx.runtime
+			local controls = setmetatable({
+				Callout = function(props: Facet.CalloutSpec, name: string?): Frame
+					table.insert(anchors, props.anchor)
+					return ctx.UI.Callout(props, name)
+				end,
+			}, { __index = ctx.UI })
+			local library = Kit.library({ UI = controls, types = ctx.types })
+			local host = ctx.UI.VStack "Editor" { width = "fill" }
+			editor = DesignEditor.create(library, anchoredCallout(library), host, {
+				runtime = ctx.runtime,
+				environment = designEnvironment(ctx, engine),
+				devices = DesignEditor.devices.all,
+			})
+			return host
+		end).dispose)
+		local opened = assert(editor)
+		test:defer(opened.dispose)
+		for _, device in DesignEditor.devices.all do
+			Verify.expect(opened.execute({ action = "Device", id = device.id }).ok):toBe(true)
+			assert(runtime):settle()
+			Verify.expect(opened.session.problem:peek()):toBeNil()
+			local frame = opened.canvas.current()
+			Verify.expect(frame.device.id):toBe(device.id)
+			local stage = assert(frame.stage)
+			local trigger = VerifyRoblox.assertInstance(stage.nodes.n2)
+			Verify.expect(trigger.Name):toBe("AuthoredTrigger")
+			Verify.expect(table.find(anchors, trigger) ~= nil):toBe(true)
+			local callout = VerifyRoblox.assertInstance(stage.nodes.n3)
+			Verify.expect(callout.Name):toBe("Callout")
+			Verify.expect(VerifyRoblox.assertInstance(stage.nodes.n1):FindFirstChild("CalloutAnchor", true)):toBeNil()
+		end
+	end)
+
 	for _, mode in { "Sheet", "Dialog", "Toast", "ActionToast" } do
 		verifyHarness:case(`resolves the presented {mode} surface inside its preview stage`, function()
 			local presented = Facet.Compose.cell(true)
@@ -1620,6 +1706,12 @@ return function(verifyHarness: Verify.Harness)
 				local edited = 0
 				for _, name in names() do
 					opened.session.replace(Design.document.new("Every", library, "VStack"))
+					local anchor: string? = nil
+					if name == "Callout" then
+						opened.session.select("n1")
+						Verify.expect(opened.session.insert("Button")):toBe(true)
+						anchor = opened.session.selected:peek()
+					end
 					opened.session.select("n1")
 					if not opened.session.insert(name) then
 						table.insert(failures, `{name}: insert`)
@@ -1641,6 +1733,9 @@ return function(verifyHarness: Verify.Harness)
 					for _, key in keys do
 						local defaults = kind.defaults
 						local value = sample(kind.fields[key], if defaults then defaults[key] else nil)
+						if value ~= nil and value.node ~= nil and anchor ~= nil then
+							value.node = anchor
+						end
 						local field = kind.fields[key]
 						local steps = 0
 						local pending: { [string]: Facet.DesignValue } = {}

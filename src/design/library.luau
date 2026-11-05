@@ -764,18 +764,25 @@ local function create(context: Context): Design.Library
 				end
 				local anchorKey = spec.anchor
 				if anchorKey ~= nil then
-					local presented = states.isPresented
-					local trigger = UI.Button({
-						label = values.anchorLabel or spec.defaults.anchorLabel or "Open",
-						onActivate = function()
-							if presented ~= nil then
-								presented:set(true)
-							end
-						end,
-					}, name .. "Anchor")
-					values[anchorKey] = trigger
+					local label = values.anchorLabel or spec.defaults.anchorLabel or "Open"
 					values.anchorLabel = nil
-					return UI.VStack({ gap = "s", trigger, UI[name](values, nodeName) }, nodeName .. "Host")
+					local resolved = props[anchorKey]
+					if resolved ~= nil and resolved.node ~= nil then
+						values[anchorKey] = Compose.sample(resolved.node :: Compose.ReadOnlyValue<unknown>)
+					end
+					if values[anchorKey] == nil then
+						local presented = states.isPresented
+						local trigger = UI.Button({
+							label = label,
+							onActivate = function()
+								if presented ~= nil then
+									presented:set(true)
+								end
+							end,
+						}, name .. "Anchor")
+						values[anchorKey] = trigger
+						return UI.VStack({ gap = "s", trigger, UI[name](values, nodeName) }, nodeName .. "Host")
+					end
 				end
 				return UI[name](values, nodeName)
 			end,
