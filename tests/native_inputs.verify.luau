@@ -163,7 +163,7 @@ return function(verifyHarness: Verify.Harness)
 				return UI.Button {
 					name = "Page one",
 					target = "inline",
-					Size = engine.types.UDim2.fromOffset(24, 44),
+					Size = engine.types.UDim2.fromOffset(24, 28),
 					AutomaticSize = engine.types.Enum.AutomaticSize.None,
 				}
 			end, function(engine)
@@ -172,14 +172,18 @@ return function(verifyHarness: Verify.Harness)
 				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
 				return { services = { UserInputService = input } }
 			end)
-			local floor = node:FindFirstChild("TargetFloor")
-			expect(floor.MinSize.X):toBe(24)
-			expect(floor.MinSize.Y):toBe(44)
-			engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
+			engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(24, 28))
 			expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+			local hit = find(node, "HitTarget")
+			expect(find(hit, "Top").Size.X.Offset):toBe(0)
+			expect(find(hit, "Top").Size.Y.Offset):toBe(8)
+			expect(find(hit, "Leading").Visible):toBe(false)
+			expect(find(hit, "Trailing").Visible):toBe(false)
+			engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
+			expect(find(node, "HitTarget")):toBe(nil)
 			engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
-			expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
-			expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+			expect(find(node, "HitTarget")):toBe(nil)
+			expect(node:FindFirstChild("TargetFloor")):toBe(nil)
 			stop()
 		end)
 		it("a new press releases consumption left by an earlier control", function()
@@ -227,6 +231,92 @@ return function(verifyHarness: Verify.Harness)
 				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
 				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
 				expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(44)
+				stop()
+			end,
+		})
+		it("keeps an icon-only Button at its plate size and floors only its touch hit target", {
+			id = "native_inputs::native input controls::keeps an icon-only Button at its plate size and floors only its touch hit target",
+			run = function()
+				local input: UserInputService
+				local label = Compose.cell("")
+				local calls = 0
+				local node, stop, engine = world(function(UI: FacetControls)
+					return UI.Button {
+						label = label,
+						name = "Close",
+						icon = "close",
+						controlSize = "compact",
+						onActivate = function()
+							calls += 1
+						end,
+					}
+				end, function(engine)
+					input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
+					return { services = { UserInputService = input } }
+				end)
+				local service = VerifyRoblox.assertInstance(input)
+				local P = engine.types.Enum.PreferredInput
+				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(32, 36))
+				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				local hit = find(node, "HitTarget")
+				expect(hit ~= nil):toBe(true)
+				local top, leading = find(hit, "Top"), find(hit, "Leading")
+				expect(top.Size.X.Scale):toBe(1)
+				expect(top.Size.X.Offset):toBe(12)
+				expect(top.Size.Y.Offset):toBe(4)
+				expect(leading.Size.X.Offset):toBe(6)
+				expect(leading.Size.Y.Scale):toBe(1)
+				expect(top.Visible and leading.Visible):toBe(true)
+				expect(leading.Selectable):toBe(false)
+				leading.Activated:Fire()
+				expect(calls):toBe(1)
+				label:set("Close panel")
+				expect(find(node, "HitTarget")):toBe(nil)
+				expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+				label:set("")
+				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				expect(find(node, "HitTarget") ~= nil):toBe(true)
+				engine.environment.poke(service, "MouseEnabled", true)
+				engine.environment.poke(service, "PreferredInput", P.KeyboardAndMouse)
+				expect(find(node, "HitTarget")):toBe(nil)
+				label:set("Close panel")
+				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				engine.environment.poke(service, "PreferredInput", P.Touch)
+				expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+				label:set("")
+				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+				expect(find(node, "HitTarget") ~= nil):toBe(true)
+				stop()
+			end,
+		})
+		it("does not floor the plate of a sized Button while its label is empty", {
+			id = "native_inputs::native input controls::does not floor the plate of a sized Button while its label is empty",
+			run = function()
+				local label = Compose.cell("")
+				local node, stop = world(function(UI: FacetControls, engine)
+					return UI.Button {
+						label = label,
+						name = "Close",
+						icon = "close",
+						controlSize = "compact",
+						Size = engine.types.UDim2.fromOffset(32, 0),
+					}
+				end, function(engine)
+					local input = (engine.new("UserInputService") :: unknown) :: UserInputService
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
+					engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
+					return { services = { UserInputService = input } }
+				end)
+				local constraint = node:FindFirstChild("UISizeConstraint")
+				expect(constraint.MinSize.X):toBe(32)
+				expect(constraint.MinSize.Y):toBe(0)
+				label:set("Close")
+				expect(constraint.MinSize.Y):toBe(44)
+				label:set("")
+				expect(constraint.MinSize.X):toBe(32)
+				expect(constraint.MinSize.Y):toBe(0)
 				stop()
 			end,
 		})

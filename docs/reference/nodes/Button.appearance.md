@@ -26,11 +26,11 @@ Button.appearance option values and behavior.
 - `controlSize`: `xsmall`, `compact`, `regular` or `large`. `xsmall` is one
   step below `compact` unless the theme package declares
   `metrics.controlSizes.xsmall`. With the neutral values it is 28 pixels high,
-  with a `paddingX` of 4 and an `iconSize` of 12. The native button is its hit
-  area. When the device has touch or a gamepad, a `TargetFloor`
-  `UISizeConstraint` keeps a button with a smaller step at least
-  `targetSizes.minimum` (44 pixels in the neutral package) on both axes, so a
-  player can still tap it. On a mouse-only device an `xsmall` button stays a
+  with a `paddingX` of 4 and an `iconSize` of 12. On touch, a Button with a
+  smaller step keeps a target of `targetSizes.minimum` (44 pixels in the
+  neutral package). A Button with text grows its plate. A Button with no text
+  keeps its plate and gets a larger hit target. See
+  [touch targets](Button.target.md). With a mouse an `xsmall` button stays a
   28 pixel target. Use `xsmall` for dense pointer rows. A named step adds the `facet-size-<step>` tag. The theme
   StyleSheet then sets the left and right padding to
   `controlSizes.<step>.paddingX`. Without `controlSize`, the button has no
@@ -38,16 +38,8 @@ Button.appearance option values and behavior.
   carve (`chrome.control.contentInsets`) is added to that padding on each
   side, so the label and a Menu or Picker disclosure icon sit inside the
   frame. A framed TextInput adds the `field` carve the same way.
-- `target`: `hit` (the default), `thumb` or `inline`. On touch, a `thumb` Button has a
-  `TargetFloor` of `UI.environment().thumbTarget` on both axes, with any
-  `controlSize`. Use it for primary game actions that the player presses with
-  a thumb while playing, such as Jump, Drift or Fire.
-  With another input, it keeps the usual floor.
-  Use `inline` for adjacent choices within a compact horizontal control, such as
-  page indicators. It keeps the usual minimum height and uses
-  `metrics.targetSizes.inline` as the minimum width (24 pixels by default).
-  Keep the targets separate. This option does not enlarge or overlap hit areas.
-  The inline width must be at least 24 and no larger than `targetSizes.minimum`.
+- `target`: `hit` (the default), `thumb` or `inline`. See
+  [touch targets](Button.target.md).
 - `textSize`: a type role (`caption`, `label`, `body`, `heading`, `title`,
   `control`, `strong` or `numeral`) or a number of pixels, or a readable of
   one. A role adds the `facet-type-<role>` tag to the label, and a number sets
