@@ -3,6 +3,7 @@ local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
+local standardIcons = require("./icons")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 local NATIVE_KEYS = table.freeze({ "ref" })
@@ -965,6 +966,9 @@ return function(
 			local asset = if type(requested) == "string" and string.match(requested, "^rbx")
 				then requested
 				else themes.resolveIcon(package, requested, ctx.read<<Theme.SkinState?>>(state, use))
+			if asset == nil and standardIcons.registered(requested) then
+				return ""
+			end
 			assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
 			return asset
 		end

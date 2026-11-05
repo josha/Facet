@@ -22,6 +22,9 @@
       "Facet": {
         "$path": "../../src"
       },
+      "FacetStandardIcons": {
+        "$path": "../standard_icons.luau"
+      },
       "VirtualMonitors": {
         "$className": "Folder",
         "screens": {

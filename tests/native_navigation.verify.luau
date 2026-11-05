@@ -33,6 +33,7 @@ return function(verifyHarness: Verify.Harness)
 	local Roblox = require("../src/vendor/compose/roblox")
 	local controls = require("../src/ui")
 	local Facet = require("../src")
+	local StandardIcons = require("../examples/standard_icons")
 	local engines = require("./lib/native_engine")
 	local LIFT = 16 * math.sqrt(2) / 2
 	local function noop() end
@@ -1874,7 +1875,7 @@ return function(verifyHarness: Verify.Harness)
 								return Host.Frame "Details" { LayoutOrder = -10 }
 							end,
 						}
-					end)
+					end, { theme = StandardIcons.apply(Facet.themes.neutralPackage()) })
 					local header = find(world.screen, "Header")
 					expect(built):toBe(0)
 					local function checkOrder()
@@ -5418,7 +5419,7 @@ return function(verifyHarness: Verify.Harness)
 		it("keeps panel art outside native layout and exposes alert artwork", {
 			id = "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork",
 			run = function()
-				local package = require("../src/ui/themes")(Compose).neutralPackage()
+				local package = StandardIcons.apply(require("../src/ui/themes")(Compose).neutralPackage())
 				assert(package.assets).panel = { content = "rbxassetid://42" }
 				assert(package.chrome).panel = {
 					kind = "layered" :: "layered",
