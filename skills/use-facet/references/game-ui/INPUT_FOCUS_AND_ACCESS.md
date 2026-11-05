@@ -167,6 +167,13 @@ recovery. Shortcuts supplement that route.
 
 Touch needs adequate target size, spacing and clearance from held thumbs and
 native movement controls. Test the active hit area, not only the drawn icon.
+On touch, a Facet Button with no text keeps its plate size, and an invisible
+hit target around it meets `targetSizes.minimum`. An empty `label` counts as
+no text. That hit target can cover nearby content, so give small icon Buttons
+a gap of at least the minimum target minus the plate size. When an action is
+the main input during play, make the plate itself large with `controlSize`,
+`Size` or `target = "thumb"`. In pointer-only UI, such as a Studio plugin,
+no touch floor applies.
 Required information cannot depend on hover. Keep the active text field,
 validation and completion or cancellation route reachable with the on-screen
 keyboard open. Use native text editing and IME; keyboard dismissal must not

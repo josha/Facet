@@ -163,7 +163,7 @@ return function(verifyHarness: Verify.Harness)
 				return UI.Button {
 					name = "Page one",
 					target = "inline",
-					Size = engine.types.UDim2.fromOffset(24, 44),
+					Size = engine.types.UDim2.fromOffset(24, 28),
 					AutomaticSize = engine.types.Enum.AutomaticSize.None,
 				}
 			end, function(engine)
@@ -172,14 +172,18 @@ return function(verifyHarness: Verify.Harness)
 				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
 				return { services = { UserInputService = input } }
 			end)
-			local floor = node:FindFirstChild("TargetFloor")
-			expect(floor.MinSize.X):toBe(24)
-			expect(floor.MinSize.Y):toBe(44)
-			engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
+			engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(24, 28))
 			expect(node:FindFirstChild("TargetFloor")):toBe(nil)
+			local hit = find(node, "HitTarget")
+			expect(find(hit, "Top").Size.X.Offset):toBe(0)
+			expect(find(hit, "Top").Size.Y.Offset):toBe(8)
+			expect(find(hit, "Leading").Visible):toBe(false)
+			expect(find(hit, "Trailing").Visible):toBe(false)
+			engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
+			expect(find(node, "HitTarget")):toBe(nil)
 			engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
-			expect(node:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
-			expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+			expect(find(node, "HitTarget")):toBe(nil)
+			expect(node:FindFirstChild("TargetFloor")):toBe(nil)
 			stop()
 		end)
 		it("a new press releases consumption left by an earlier control", function()

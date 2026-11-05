@@ -453,8 +453,9 @@ return function(verifyHarness: Verify.Harness)
 			for _, id in { "one", "two" } do
 				local button = find(dots, id)
 				expect(button.Size.X.Offset):toBe(24)
-				expect(button:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
-				expect(button:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+				world.engine.environment.poke(button, "AbsoluteSize", world.engine.types.Vector2.new(24, 44))
+				expect(button:FindFirstChild("TargetFloor")):toBe(nil)
+				expect(find(button, "HitTarget")):toBe(nil)
 			end
 			find(dots, "two").Activated:Fire()
 			expect(chosen:peek()):toBe("two")
