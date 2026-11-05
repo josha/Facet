@@ -31,7 +31,7 @@ local function bar(
 	if not readable or typeof(value) ~= "Vector2" then
 		return nil
 	end
-	local observed, source = pcall(ctx.runtime.observe, node, property)
+	local observed, source = pcall(ctx.runtime.observe, node, property, nil)
 	return if observed then source else nil
 end
 
@@ -58,7 +58,10 @@ local function zoneRevision(ctx: Shared.Context, gui: GuiService?): ComposeTypes
 end
 
 local function insets(ctx: Shared.Context, gui: GuiService?, sources: Bars, use: ComposeTypes.Use): Env.SafeInsets
-	local top, left, bottom, right = 0, 0, 0, 0
+	local top: number = 0
+	local left: number = 0
+	local bottom: number = 0
+	local right: number = 0
 	if gui then
 		local service = gui
 		local E = ctx.types.Enum
@@ -66,15 +69,19 @@ local function insets(ctx: Shared.Context, gui: GuiService?, sources: Bars, use:
 			return service:GetInsetArea(E.ScreenInsets.None), service:GetInsetArea(E.ScreenInsets.CoreUISafeInsets)
 		end)
 		if measured and typeof(full) == "Rect" and typeof(safe) == "Rect" then
-			top, left = extent(safe.Min.Y - full.Min.Y), extent(safe.Min.X - full.Min.X)
-			bottom, right = extent(full.Max.Y - safe.Max.Y), extent(full.Max.X - safe.Max.X)
+			top = extent(safe.Min.Y - full.Min.Y)
+			left = extent(safe.Min.X - full.Min.X)
+			bottom = extent(full.Max.Y - safe.Max.Y)
+			right = extent(full.Max.X - safe.Max.X)
 		else
 			local inset, topLeft, bottomRight = pcall(function(): (Vector2, Vector2)
 				return service:GetGuiInset()
 			end)
 			if inset and typeof(topLeft) == "Vector2" and typeof(bottomRight) == "Vector2" then
-				top, left, bottom, right =
-					extent(topLeft.Y), extent(topLeft.X), extent(bottomRight.Y), extent(bottomRight.X)
+				top = extent(topLeft.Y)
+				left = extent(topLeft.X)
+				bottom = extent(bottomRight.Y)
+				right = extent(bottomRight.X)
 			end
 		end
 		local zone = (service :: unknown) :: SafeZone
@@ -83,20 +90,21 @@ local function insets(ctx: Shared.Context, gui: GuiService?, sources: Bars, use:
 		end)
 		if zoned and type(offsets) == "table" then
 			local named = offsets :: { [string]: unknown }
-			top, left = math.max(top, extent(named.top)), math.max(left, extent(named.left))
-			bottom, right = math.max(bottom, extent(named.bottom)), math.max(right, extent(named.right))
+			top = math.max(top, extent(named.top))
+			left = math.max(left, extent(named.left))
+			bottom = math.max(bottom, extent(named.bottom))
+			right = math.max(right, extent(named.right))
 		end
 	end
-	local function measure(source: ComposeTypes.ReadOnlyValue<unknown>?): Vector2?
+	local function measure(source: ComposeTypes.ReadOnlyValue<unknown>?): Vector2
 		local value = if source then use(source) else nil
-		return if typeof(value) == "Vector2" then value else nil
+		return if typeof(value) == "Vector2" then value else ctx.types.Vector2.zero
 	end
-	local status, home, navigation, side =
-		measure(sources.status), measure(sources.bottom), measure(sources.navigation), measure(sources.right)
-	top = math.max(top, if status then extent(status.Y) else 0)
-	bottom = math.max(bottom, if home then extent(home.Y) else 0, if navigation then extent(navigation.Y) else 0)
-	right = math.max(right, if side then extent(side.X) else 0)
-	return freeze({ top = top, left = left, bottom = bottom, right = right })
+	top = math.max(top, extent(measure(sources.status).Y))
+	bottom = math.max(bottom, extent(measure(sources.bottom).Y), extent(measure(sources.navigation).Y))
+	right = math.max(right, extent(measure(sources.right).X))
+	local result: Env.SafeInsets = { top = top, left = left, bottom = bottom, right = right }
+	return freeze(result)
 end
 
 return table.freeze({ bars = bars, zoneRevision = zoneRevision, insets = insets })

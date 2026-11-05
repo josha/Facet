@@ -102,5 +102,6 @@ return function(
 		return watch(service)
 	end
 
-	return table.freeze({ get = get, set = set, changed = changed, observe = observe })
+	local seam: Shared.HostSelection = { get = get, set = set, changed = changed, observe = observe }
+	return seam
 end

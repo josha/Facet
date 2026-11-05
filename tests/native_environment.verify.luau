@@ -229,7 +229,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local full: Rect, safe: Rect = Roblox.Rect.new(0, -36, 412, 879), Roblox.Rect.new(0, 0, 412, 831)
 				w.gui.GetInsetArea = function(_, inset: Enum.ScreenInsets): Rect
-					return if inset == E.ScreenInsets.None then full else safe
+					return (if inset == E.ScreenInsets.None then full else safe) :: Rect
 				end
 				local screen = w.engine.new("ScreenGui")
 				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(412, 915))
