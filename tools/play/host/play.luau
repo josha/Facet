@@ -328,6 +328,7 @@ local function open(options: HostOptions): Host
 		local context: QA.Context = {
 			session = session(),
 			probe = Lute.place.moduleExpression(PROBE, ROOT_NAME),
+			probeRoot = ('game:GetService("ReplicatedStorage"):WaitForChild(%q)'):format(ROOT_NAME),
 			outputs = options.outputs,
 			captures = options.captures,
 			scratch = options.outputs .. "/raw-captures",
