@@ -561,6 +561,9 @@ local function attachMeasuredLayout(
 		local initial: Parts = {}
 		local parts = Compose.cell(initial)
 		local unit: (() -> ComposeTypes.ReadOnlyValue<number>)? = nil
+		local ownFloor = Compose.bindOwner(function(body: (ComposeTypes.Owner) -> ()): ComposeTypes.RootScope
+			return Compose.createRootOwner(body, runtime.reactor)
+		end)
 		local function release()
 			local measuring, current = inner, scope
 			inner, scope = nil, nil
@@ -601,19 +604,19 @@ local function attachMeasuredLayout(
 			end
 			if scope == nil then
 				parts:set(if next == "free" then { free = true } else {})
-				scope = Compose.createRootOwner(function()
+				scope = ownFloor(function()
 					buildFloor(parts, function(probe: () -> ComposeTypes.ReadOnlyValue<number>)
 						unit = probe
 					end)
-				end, runtime.reactor)
+				end)
 			end
 			if next == "wrapped" then
-				inner = Compose.createRootOwner(function()
+				inner = ownFloor(function()
 					local height = Compose.cell(0)
 					buildWrapped(height, assert(unit))
 					parts:set({ height = height })
 					floorApply()
-				end, runtime.reactor)
+				end)
 			elseif not parts:peek().free then
 				parts:set({ free = true })
 				floorApply()

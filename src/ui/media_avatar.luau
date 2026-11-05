@@ -130,6 +130,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		runtime.mount(function()
 			return ctx.text({
 				Name = "Initials",
+				AutomaticSize = E.AutomaticSize.None,
 				Visible = function(use: ComposeTypes.Use)
 					return not use(pictured) and read<<string?>>(spec.icon, use) == nil
 				end,

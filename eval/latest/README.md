@@ -4,74 +4,74 @@ Two authors built the same Roblox kart racing game from one brief: one with
 Facet (`facet`), one with no UI library (`plain`). Both were Claude Opus 5.5
 at medium effort, with Studio MCP as their only tool, and ran at the same
 time. The runner stopped each author at 30 minutes and saved the place it had
-built. The Facet author kit was built from commit `82f5f4f`, which its
-`kit.json` names. This folder holds both saved games and
+built. The Facet author kit was built from commit `8488b68`, which vendors
+Compose `bf08074`. The runner and Studio driver were Verify `5d2b41e` on
+Studio 0.746. The player scripts ran on Facet's Play host with the Studio
+0.746 capability fix from `963edd8`, merged to main as
+`1d5a4ab`. This folder holds both saved games and
 [the evidence](evidence.zip): every screenshot, the blind judgments, the
 player scripts, the sanitized author results, the comparison report and the
 unreached states.
 
-**Plain wins the design comparison on desktop, tablet and console; Facet wins
-on a portrait phone; the landscape phone splits.** Facet used 1.43 times
-Plain's tokens, so the cost check fails. The comparison passes 2 of 18 checks.
-
-These results belong to kit `82f5f4f` with Compose `85f5c18` and Verify
-`f6681cd`, run on 2026-11-04. They do not measure later Facet commits. The
-previous run (2026-10-29, `aa60e18`) had Facet winning four of five devices at
-1.02 times Plain's tokens. In this run Facet's own cost fell from 15.9M to
-12.0M tokens and Plain's fell from 15.6M to 8.35M.
+**Facet wins the design comparison on all five devices, in both presentation
+orders.** Facet used 1.55 times Plain's tokens, so the cost check fails. The
+comparison passes 3 of 18 checks.
 
 ## Design judgment
 
 The Sol 6.1 judge compared the two games' screenshots for each device in both
 presentation orders, against the principles of the
 [game UI design guide](../../skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md).
-Each device was judged on the states both games reached on it, so a state one
-game reached by chance does not count for it alone.
+Each device was judged on the states both games reached on it: tutorial,
+hub, shop, garage, livery and race.
 
-| Device | Result across both orders | What decided it |
-| --- | --- | --- |
-| Desktop | Plain wins | Plain's garage keeps a kart preview, statistics and actions together; its livery shows the kart with the swatches. Facet's garage pushes detail below the screen and its livery has no preview. Facet keeps the race view clearer. |
-| Phone portrait | Facet wins | Facet groups primary actions at the bottom and leaves the world clear; Plain's upper area holds competing badges and navigation. |
-| Phone landscape | Split (tie) | Each order preferred a different game. |
-| Tablet | Plain wins | Plain shows kart previews and labeled color swatches. |
-| Console | Plain wins | The same garage and livery difference as desktop. |
+| Device | Result across both orders | Confidence | What decided it |
+| --- | --- | --- | --- |
+| Desktop | Facet wins | 0.95, 0.97 | Facet has working garage, livery, shop and tutorial screens. Its garage keeps kart preview, statistics, selection and test drive together, and its shop shows price and affordability. Plain's buttons for those screens leave the hub on screen. |
+| Phone portrait | Facet wins | 0.95, 0.96 | The same task screens, with a calmer hub. Plain keeps the road clearer during the race. |
+| Phone landscape | Facet wins | 0.86, 0.90 | Facet's shop shows price, effect and affordability. Its garage and livery previews fill the panel and push the controls below the screen. Plain has clearer race statistics and labeled touch controls. |
+| Tablet | Facet wins | 0.95, 0.96 | Facet's compact menu avoids Plain's clipped navigation and its overlap with the jump control. Plain's race HUD groups readings better. |
+| Console | Facet wins | 0.94, 0.95 | Facet's task screens and exits. Plain's race HUD is cleaner and leaves out the wallet. |
 
-Before judging, the evaluator played both games on desktop. Its own reading
-matched the judge's reasons: Facet led on the hub and the race view, Plain on
-the garage and livery, and the shop was even.
+Before reading the judgments, the evaluator reviewed every screenshot on all
+devices. Its reading matched the judge's reasons. Facet's lead comes mostly
+from coverage: it built every preparation screen and Plain built none. On the race,
+the one screen both games built, most presentations preferred Plain's HUD.
+Facet's own weak points are dim kart previews, garage prices that overlap the
+row edges, panels clipped on phones, and a race HUD that keeps the wallet on
+screen.
 
 ## Reachability
 
-The player scripts opened each state with real input on each device:
-tutorial, hub, shop, garage, livery, race and results. An idle player does not
-finish a classic three-lap race, so results appear only where the track vote
-chose a knockout track (Plain, desktop). Other gaps:
-
-- Facet, landscape phone: the jump button covers Shop, so Shop never opens.
-- Facet, tablet: the Race button does not activate with touch.
-- Facet, portrait phone: the race did not start.
-- Plain, console: the Studio session was lost during the race step.
-
-[`unreachable-states.txt`](evidence.zip) lists every unreached state.
+The player scripts opened each state with real input on each device. Plain's
+Shop, Garage and Loadout buttons exist but open nothing, so those captures show
+the hub. Results were left out of judging: only Plain on the tablet showed a
+results screen, after a knockout. An idle player does not finish a classic
+three-lap race. [`unreachable-states.txt`](evidence.zip) lists every
+unreached state.
 
 ## Cost
 
 | | Plain | Facet |
 | --- | ---: | ---: |
-| Total tokens | 8.35M | 11.97M |
-| Model calls | 55 | 71 |
-| Play starts and stops | 14 | 9 |
-| Screenshots | 9 | 10 |
+| Total tokens | 6.63M | 10.25M |
+| Model turns | 56 | 66 |
+| Tool calls | 75 | 95 |
+| Play starts and stops | 11 | 17 |
+| Screenshots | 5 | 7 |
 
-Facet read about 44K characters of documentation through the FacetDocs search
-helper, against about 180K in earlier pairs.
+Facet read about 90K characters of documentation in 15 calls. Most searches
+returned 6K to 15K characters, because each call batched three or four
+queries.
 
 ## Comparison checks
 
-`facetbench compare` passes pair identity and turn latency. Completion,
-behavior and runtime fail for both arms under the current protocol, because
-neither author finished early and the player scripts check reachability, not
-every acceptance row. Cost fails at 1.43 times Plain's tokens. Visual
-coverage and preference fail on the results gaps and the device verdicts.
+`facetbench compare` passes pair identity, turn latency and visual
+preference. Completion and behavior fail for both arms under the current
+protocol, because neither author finished early and the player scripts check
+reachability, not every acceptance row. Cost fails at 1.55 times Plain's
+tokens. Runtime fails on the heap-return measurement on every device, and on
+phone landscape the measurement was missing. Visual coverage fails on the
+results gap.
 
 Both saved games passed the unchanged-submission check after evaluation.

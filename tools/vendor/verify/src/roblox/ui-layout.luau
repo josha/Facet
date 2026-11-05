@@ -70,15 +70,24 @@ local function attach(environment: Environment.Environment, options: Options): C
 		end
 		if object:IsA "GuiObject" then
 			number(object, "Rotation", 0)
+			local parent = object.Parent
+			if
+				enum(object, "SizeConstraint", "RelativeXY") ~= "RelativeXY"
+				and parent ~= nil
+				and parent:IsA "GuiObject"
+				and enum(parent, "AutomaticSize", "None") ~= "None"
+			then
+				local authored = Values.dimensions(read(object, "Size"))
+				if authored.X.Scale ~= 0 or authored.Y.Scale ~= 0 then
+					unsupported(object, "SizeConstraint under automatic size")
+				end
+			end
 			if enum(object, "AutomaticSize", "None") ~= "None" then
 				if isText(object) then
 					if options.measureBounds == nil then
 						unsupported(object, "AutomaticSize text measurement")
 					end
 				end
-			end
-			if enum(object, "SizeConstraint", "RelativeXY") ~= "RelativeXY" then
-				unsupported(object, "SizeConstraint")
 			end
 		end
 		if object:IsA "StyleLink" and options.read == nil then
@@ -112,6 +121,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 		local top = dimension(Values.dimension(paddingValue(object, "PaddingTop")), rectangle.height, rectangle.scale)
 		local bottom =
 			dimension(Values.dimension(paddingValue(object, "PaddingBottom")), rectangle.height, rectangle.scale)
+		local automatic = enum(object, "AutomaticSize", "None")
 		local scrolling = object:IsA "ScrollingFrame"
 		return {
 			x = rectangle.x + left,
@@ -119,18 +129,14 @@ local function attach(environment: Environment.Environment, options: Options): C
 			width = math.max(0, rectangle.width - left - right),
 			height = math.max(0, rectangle.height - top - bottom),
 			scale = rectangle.scale,
-			flexWidth = if scrolling then rectangle.width else nil,
-			flexHeight = if scrolling then rectangle.height else nil,
+			flexWidth = if scrolling and (automatic == "X" or automatic == "XY") then rectangle.width else nil,
+			flexHeight = if scrolling and (automatic == "Y" or automatic == "XY") then rectangle.height else nil,
 		}
 	end
 	local function scaledBounds(object: Instance, rectangle: Rectangle): TextMeasurement
 		local measure = assert(options.measureBounds)
-		if enum(object, "AutomaticSize", "None") ~= "None" then
-			unsupported(object, "TextScaled with AutomaticSize")
-		end
-		if rectangle.scale ~= 1 then
-			unsupported(object, "TextScaled under a UIScale")
-		end
+		local automatic = enum(object, "AutomaticSize", "None")
+		local autoX, autoY = automatic == "X" or automatic == "XY", automatic == "Y" or automatic == "XY"
 		local content = inset(object, rectangle)
 		local smallest, largest = 1, 100
 		local limit = object:FindFirstChildWhichIsA "UITextSizeConstraint"
@@ -143,24 +149,31 @@ local function attach(environment: Environment.Environment, options: Options): C
 		for points = largest, smallest, -1 do
 			local fitted, measured = pcall(function(): Vector
 				for word in text:gmatch "[^ \n]+" do
-					local bounds = Values.vector(measure { Text = word, Font = font, Size = points, Width = 0 })
-					if bounds.X > content.width then
+					local bounds =
+						Values.vector(measure { Text = word, Font = font, Size = points, Width = 0, Gui = true })
+					if not autoX and bounds.X > content.width then
 						return { X = bounds.X, Y = math.huge }
 					end
 				end
-				return Values.vector(measure { Text = text, Font = font, Size = points, Width = content.width })
+				return Values.vector(measure {
+					Text = text,
+					Font = font,
+					Size = points,
+					Width = if autoX then 0 else content.width,
+					Gui = true,
+				})
 			end)
 			if fitted and measured.Y < math.huge then
-				local strut = Values.vector(measure { Text = "", Font = font, Size = points, Width = 0 }).Y
+				local strut = Values.vector(measure { Text = "", Font = font, Size = points, Width = 0, Gui = true }).Y
 				local lines = math.round(measured.Y / strut)
 				local height = if options.measureLineHeight
 					then options.measureLineHeight(
-						{ Text = text, Font = font, Size = points, Width = content.width },
+						{ Text = text, Font = font, Size = points, Width = content.width, Gui = true },
 						lines,
 						spacing
 					)
 					else Float.f32(strut + Float.f32(spacing * strut) * (lines - 1))
-				if measured.X <= content.width and height <= content.height then
+				if (autoX or measured.X <= content.width) and (autoY or height <= content.height) then
 					return { X = measured.X, Y = height, intrinsicX = measured.X, intrinsicY = height, fits = true }
 				end
 			end
@@ -202,6 +215,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 			Size = rendered,
 			Width = if wrapped then content.width else 0,
 			RichText = read(object, "RichText") == true,
+			Gui = true,
 		}
 		local intrinsicX = content.width
 		if intrinsic and autoX then
@@ -210,8 +224,9 @@ local function attach(environment: Environment.Environment, options: Options): C
 			intrinsicX = math.min(math.max(content.width, unwrapped.X), maximumX)
 			parameters.Width = if wrapped then intrinsicX else 0
 		end
-		local strut =
-			Values.vector(options.measureBounds { Text = "", Font = parameters.Font, Size = rendered, Width = 0 })
+		local strut = Values.vector(
+			options.measureBounds { Text = "", Font = parameters.Font, Size = rendered, Width = 0, Gui = true }
+		)
 		local truncation = enum(object, "TextTruncate", "None")
 		local fitted, attempt =
 			pcall(options.measureBounds, parameters, if not wrapped and not intrinsic then content.width else nil)
@@ -231,6 +246,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 					Size = parameters.Size,
 					Width = content.width,
 					RichText = parameters.RichText,
+					Gui = true,
 				}, truncation, 1, true)
 				else nil
 			if shown == nil then
@@ -277,6 +293,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 					Size = parameters.Size,
 					Width = content.width,
 					RichText = parameters.RichText,
+					Gui = true,
 				}, truncation, visible, wrapped)
 				else nil
 			if shown == nil then
@@ -295,7 +312,7 @@ local function attach(environment: Environment.Environment, options: Options): C
 	end
 	local bases: { [Instance]: { width: number, height: number } } = {}
 	setmetatable(bases, { __mode = "k" })
-	type BasisWrite = { object: Instance, value: { width: number, height: number } }
+	type BasisWrite = { object: Instance, value: { width: number, height: number }? }
 	type Measurement = {
 		width: number,
 		height: number,
@@ -322,14 +339,21 @@ local function attach(environment: Environment.Environment, options: Options): C
 		return size(object, parent, width)
 	end
 	size = function(object: Instance, parent: Rectangle, widthOverride: number?): Rectangle
+		bases[object] = nil
+		if measurements then
+			table.insert(basisWrites, { object = object })
+		end
 		local authored = Values.dimensions(read(object, "Size"))
 		local scale = parent.scale
 		local modifier = object:FindFirstChildWhichIsA "UIScale"
 		if modifier then
 			scale *= number(modifier, "Scale", 1)
 		end
-		local width = dimension(authored.X, parent.width, parent.scale)
-		local height = dimension(authored.Y, parent.height, parent.scale)
+		local sizeConstraint = enum(object, "SizeConstraint", "RelativeXY")
+		local width =
+			dimension(authored.X, if sizeConstraint == "RelativeYY" then parent.height else parent.width, parent.scale)
+		local height =
+			dimension(authored.Y, if sizeConstraint == "RelativeXX" then parent.width else parent.height, parent.scale)
 		local constraint = object:FindFirstChildWhichIsA "UISizeConstraint"
 		if constraint then
 			local minimum = Values.vector(read(constraint, "MinSize"))

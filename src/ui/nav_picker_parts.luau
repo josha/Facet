@@ -81,6 +81,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 					ctx.runtime.mount(function()
 						probe = Host.TextLabel "WidestWord" {
 							Size = D2.fromOffset(0, 0),
+							AutomaticSize = E.AutomaticSize.XY,
 							BackgroundTransparency = 1,
 							TextTransparency = 1,
 							Interactable = false,

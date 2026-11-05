@@ -10,6 +10,54 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("deferred text floors keep their owner across nested callback threads", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service: TextService = engine.new("TextService")
+		engine.environment.fake("TextService.GetTextBoundsAsync", function(_self: unknown, params: GetTextBoundsParams)
+			return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+		end)
+		local ctx = context(Facet.Compose, runtime, { types = engine.types, services = { TextService = service } })
+		local label: TextLabel? = nil
+		local stop = runtime.mount(function()
+			local Host = (runtime.constructors :: unknown) :: RobloxHost
+			local node = Host.TextLabel {
+				Text = "Owned 100",
+				TextSize = 16,
+				TextWrapped = true,
+				AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+			}
+			label = node
+			ctx.textLayout(node, nil, nil, true)
+			return node
+		end, engine.new("ScreenGui"))
+		t:defer(function()
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
+		local node = assert(label)
+		node.TextWrapped = false
+		t:expect(node:FindFirstChild("TextBoundsFloor")):toBeNil()
+		local outer = coroutine.create(function()
+			Facet.Compose.withRootOwner(function()
+				local inner = coroutine.create(function()
+					Facet.Compose.withRootOwner(function()
+						local callback = coroutine.create(function()
+							node.Text = "Owned 102"
+						end)
+						assert(coroutine.resume(callback))
+					end, runtime.reactor)
+				end)
+				assert(coroutine.resume(inner))
+			end, runtime.reactor)
+		end)
+		assert(coroutine.resume(outer))
+		local floor = assert(node:FindFirstChild("TextBoundsFloor"))
+		assert(floor:IsA("UISizeConstraint"))
+		t:expect(floor.MinSize.X):toBe(144)
+		t:expect(engine.environment.errors):toEqual({})
+	end)
 	harness:case("badges defer static measurement and retain yielding equal-length widths and padding", function(t)
 		local engine = engineLib.new()
 		local environment: { [string]: unknown } = assert(getmetatable(getfenv(0))).__index
@@ -292,7 +340,7 @@ return function(harness: Verify.Harness)
 		for _, label in labels do
 			label.Text = "Coins 101"
 		end
-		t:expect(writes):toBe(0)
+		t:expect(writes == 0):toBeTrueWith(`equal-length replacements made {writes} floor writes`)
 		connection:Disconnect()
 		stop()
 		runtime:dispose()
