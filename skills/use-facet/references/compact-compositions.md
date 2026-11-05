@@ -67,7 +67,14 @@ A pinned action is useful while its terms and readable content still fit. With
 large text or the keyboard, permit an accessible scrolling task surface rather
 than overlap or a fixed footer that traps controls.
 
-NavigationSplitView can preserve panes while presenting one compact step;
+NavigationSplitView can preserve panes while presenting one compact step.
+For list and detail tasks, start with the bounded
+[collection/detail recipe](../../../docs/reference/nodes/Tasks.collection-detail.md)
+and its [layout conditions](../../../docs/reference/nodes/Collection-layout.md).
+Put long facts and the action in the detail ScrollView. A fill preview in a
+hugging page does not prevent facts below it from leaving the viewport.
+Keep search and Filters on one row when permanent filters crowd out records.
+
 TabView owns peer selection and adaptive navigation. AdaptiveStack changes a
 relationship's axis; it does not decide which facts matter. ViewThatFits needs
 bounded, measurable complete candidates; a fill-width candidate always fits.
