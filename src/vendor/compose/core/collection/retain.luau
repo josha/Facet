@@ -25,6 +25,7 @@ export type Selection<V, S, K> = {
 export type Options<V, S, K> = {
 	primitive: string,
 	source: Types.Body<{ V }>,
+	key: (V, number) -> K,
 	select: (use: Types.Use, list: { V }) -> Selection<V, S, K>,
 	render: Render<V, S, K>?,
 	recycle: Recycle<V, S, K>?,
@@ -109,9 +110,25 @@ local function retainSlots<V, S, K>(
 	local present: { [K]: true } = {}
 	local free: { number } = {}
 	local issued = 0
+	local indexed: { V }? = nil
+	local sourceKeys: { [K]: true } = {}
+	local function contains(list: { V }, key: K): boolean
+		if list ~= indexed then
+			table.clear(sourceKeys)
+			for index, value in list do
+				sourceKeys[options.key(value, index)] = true
+			end
+			indexed = list
+		end
+		return sourceKeys[key] == true
+	end
 
 	local function slice(use: Types.Use): { V }
 		local list = source(use)
+		if indexed ~= list then
+			indexed = nil
+			table.clear(sourceKeys)
+		end
 		local selection = selectItems(use, list)
 		local values, keys, itemStates = selection.values, selection.keys, selection.states
 		local count = #values
@@ -164,8 +181,14 @@ local function retainSlots<V, S, K>(
 			end
 		end
 
-		for index = reused + count + 1, #free do
+		local retained = 0
+		for index = reused + 1, #free do
 			local slot = free[index]
+			local keyCell = keyCells[slot]
+			if retained < count and keyCell ~= nil and contains(list, keyCell:peek()) then
+				retained += 1
+				continue
+			end
 			local row = rows[slot]
 			rows[slot] = nil
 			idle[slot] = nil

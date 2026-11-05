@@ -483,6 +483,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	return retain {
 		primitive = "OrderedCollection",
 		source = source,
+		key = keyOf,
 		select = select,
 		render = render,
 		recycle = recycle,

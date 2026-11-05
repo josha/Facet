@@ -69,6 +69,7 @@ local function layerStack<V, K>(options: Options<V, K>): Children.Directive
 	return retain {
 		primitive = "LayerStack",
 		source = source,
+		key = keyOf,
 		select = select,
 		render = render,
 		equals = sameState,
