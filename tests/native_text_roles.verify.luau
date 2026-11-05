@@ -8,6 +8,7 @@ return function(verifyHarness: Verify.Harness)
 	local describe, it, expect = test.describe, test.it, test.expect
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local FixtureCollectionProps = require("../src/ui/collection_props")
+	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")
 	local types = engines.types
@@ -104,8 +105,10 @@ return function(verifyHarness: Verify.Harness)
 			columns = 2,
 			itemSize = 120,
 			mode = "all",
-			contentOverflow = (overflow :: unknown) :: ("visible" | "clip")?,
-			render = render,
+			contentOverflow = overflow,
+			render = function(current: FixtureComposeTypes.ReadOnlyValue<number>): GuiObject
+				return render(current:peek())
+			end,
 		}
 		return Host.Frame "Page" {
 			Size = D2.fromOffset(320, 600),
