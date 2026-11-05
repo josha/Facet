@@ -225,7 +225,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
 						end
 						local function roomPx(use: ComposeTypes.Use): number
-							if inset(use) then
+							if inset(use) or (spec.bodyHeight ~= nil and not use(covering)) then
 								return math.max(0, available(use) - padded(use) - 2 * margin(use))
 							end
 							local minimum =

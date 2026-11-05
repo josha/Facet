@@ -187,6 +187,29 @@ return function(harness: Verify.Harness)
 		end,
 	})
 
+	harness:case("bounded automatic presentation reserves the theme panel insets", {
+		id = "dialog-bounds-automatic-theme-insets",
+		run = function(t: Verify.Context)
+			local package = Facet.themes.neutralPackage()
+			package.chrome = { panel = { kind = "native", contentInsets = { top = 24, bottom = 40 } } }
+			local w = world.new(function(UI)
+				return UI.Dialog {
+					isPresented = Compose.cell(true),
+					closeButton = false,
+					title = "Preferences",
+					bodyHeight = "fill",
+					content = function()
+						return UI.ScrollView { height = "fill", width = "fill" }
+					end,
+				}
+			end, { theme = package, motionLevel = "none" }, { size = Vector2.new(844, 390) })
+			t:defer(w.stop)
+			w.size(w.find("Header"), 300, 44)
+			t:expect(w.find("Body").Size.Y.Offset):toBe(242)
+			t:expect(w.find("Panel").AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+		end,
+	})
+
 	harness:case("the canonical Design preserves Back dismissal focus and host ownership", {
 		id = "dialog-bounds-navigation-focus-dismissal",
 		run = function(t: Verify.Context)
