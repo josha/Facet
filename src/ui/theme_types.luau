@@ -161,13 +161,16 @@ export type AssetVariants = {
 export type AssetSource = AssetLink | AssetVariants
 export type SkinState = "default" | "hover" | "pressed" | "selected" | "disabled"
 export type IconAsset = Asset & { asset: string? }
-export type IconEntry = string | IconAsset | {
-	default: string | IconAsset,
-	hover: string | IconAsset?,
-	pressed: string | IconAsset?,
-	selected: string | IconAsset?,
-	disabled: string | IconAsset?,
+export type IconGlyph = { read font: Font | FontSpec, read codepoint: number, read tintRole: string? }
+export type IconSource = string | IconAsset | IconGlyph
+export type IconEntry = IconSource | {
+	read default: IconSource,
+	read hover: IconSource?,
+	read pressed: IconSource?,
+	read selected: IconSource?,
+	read disabled: IconSource?,
 }
+export type ResolvedIcon = string | IconGlyph
 export type IconRegistry = { read icons: { [string]: IconEntry }?, read assets: { [string]: Asset }? }
 export type FillDirection = "ltr" | "rtl" | "ttb" | "btt"
 type SkinKind =
@@ -367,7 +370,7 @@ export type Themes = {
 	forResolution: (package: ReadOnlyThemePackage, width: number, height: number) -> ReadOnlyThemePackage,
 	define: (definition: ThemeDefinition | ThemePackage) -> (ThemePackage?, ThemeReport),
 	checkCoverage: (package: ThemePackage, needs: { CoverageNeed }) -> CoverageReport,
-	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> string?,
+	resolveIcon: (package: IconRegistry, name: string, state: SkinState?) -> ResolvedIcon?,
 	createStyleSheet: (
 		runtime: ComposeTypes.Runtime,
 		packageOrReadable: Engine.Input<ReadOnlyThemePackage>?,

@@ -9,6 +9,9 @@ package. Give the new theme package:
 - semantic foreground and background pairs.
 
 Keep real icon coverage and the asset provenance.
+An icon can be image art or a glyph from an icon font. For a font glyph, give
+`{ font, codepoint }` in `icons`. See [icons](../guide/themes.md#coverage-and-icons).
+Check each glyph at the small and large icon sizes.
 
 ```luau
 local definition = themes.neutralPackage()

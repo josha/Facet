@@ -2,7 +2,11 @@
 local icons = require("./icons")
 local ThemeTypes = require("./theme_types")
 
-local function resolveIcon(package: ThemeTypes.IconRegistry, name: string, state: ThemeTypes.SkinState?): string?
+local function resolveIcon(
+	package: ThemeTypes.IconRegistry,
+	name: string,
+	state: ThemeTypes.SkinState?
+): ThemeTypes.ResolvedIcon?
 	local assets: { [string]: ThemeTypes.Asset } = package.assets or {}
 	local entry: unknown = (package.icons or {})[name] or icons.BUILTIN[name] or icons.ART[name]
 	local regular = string.match(name, "^(.+)%.fill$")
@@ -10,7 +14,7 @@ local function resolveIcon(package: ThemeTypes.IconRegistry, name: string, state
 		return resolveIcon(package, regular, state)
 	end
 	if type(entry) == "table" and ((entry :: unknown) :: { default: unknown }).default ~= nil then
-		local variants = (entry :: unknown) :: { [string]: string | ThemeTypes.IconAsset }
+		local variants = (entry :: unknown) :: { [string]: ThemeTypes.IconSource }
 		entry = variants[state or "default"] or variants.default
 	end
 	if type(entry) == "string" then
@@ -18,6 +22,9 @@ local function resolveIcon(package: ThemeTypes.IconRegistry, name: string, state
 	end
 	if type(entry) ~= "table" then
 		return nil
+	end
+	if ((entry :: unknown) :: { codepoint: unknown }).codepoint ~= nil then
+		return (entry :: unknown) :: ThemeTypes.IconGlyph
 	end
 	local icon = entry :: ThemeTypes.IconAsset
 	local asset: ThemeTypes.Asset? = if icon.asset then assets[icon.asset] else icon

@@ -58,10 +58,14 @@ hairline, `facet-divider-strong` next to it paints a heavier rule, and
 `facet-icon-neutral`, `facet-icon-info`, `facet-icon-success`,
 `facet-icon-warning`, `facet-icon-error` and `facet-icon-accent` paint an image
 in the status color.
+A font glyph icon takes the styled `ImageColor3` and `ImageTransparency` of
+its icon as its `TextColor3` and `TextTransparency`. Paint the icon, not the
+glyph.
 
 Theme inputs can be Compose readables. The native rules and the control metrics
 respond to the same selected definition. Image skins use real image assets and
-native children. Icons are images, not substitute text glyphs.
+native children. An icon is image art or a glyph from an icon font, not
+substitute text.
 
 ## Theme transitions
 

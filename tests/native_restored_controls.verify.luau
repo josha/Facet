@@ -481,7 +481,8 @@ return function(verifyHarness: Verify.Harness)
 
 		local StandardIcons = require("../examples/standard_icons")
 		local function glyph(name: string): string?
-			return themes.resolveIcon(StandardIcons.apply(themes.neutralPackage()), name)
+			local icon = themes.resolveIcon(StandardIcons.apply(themes.neutralPackage()), name)
+			return if type(icon) == "string" then icon else nil
 		end
 
 		local function paintedIcon(row: any): string?
