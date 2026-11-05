@@ -28,8 +28,8 @@ state map can mix image and glyph entries.
 
 A glyph icon is the `facet-icon` ImageLabel with an empty `Image` and a
 `Glyph` TextLabel (`facet-icon-glyph`). Its `TextSize` is the short side of the
-icon box; `TextScaled` is off. Each `ImageColor3` or `ImageTransparency` rule
-also paints `> .facet-icon-glyph`.
+icon box; `TextScaled` is off. Its `TextColor3` and `TextTransparency` follow
+the styled `ImageColor3` and `ImageTransparency` of the icon.
 
 ## Recipes
 

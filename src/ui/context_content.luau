@@ -7,6 +7,7 @@ local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 local support = require("./theme_support")
 local NATIVE_KEYS = table.freeze({ "ref" })
+local STYLED: ComposeTypes.ObserveOptions = { styled = true }
 
 type Geometry = { apply: () -> (), frame: number }
 
@@ -967,11 +968,12 @@ return function(
 	local function glyphLabel(
 		icon: ImageLabel,
 		glyph: (ComposeTypes.Use?) -> Theme.IconGlyph,
-		changing: boolean,
-		transparency: Shared.Input<number>?
+		changing: boolean
 	): TextLabel
 		local box = runtime.observe(icon, "Size")
 		local measured = ctx.layoutSize(icon)
+		local ink = runtime.observe(icon, "ImageColor3", STYLED)
+		local fade = runtime.observe(icon, "ImageTransparency", STYLED)
 		local native: Shared.TextLabelProps = {
 			Name = "Glyph",
 			BackgroundTransparency = 1,
@@ -982,7 +984,14 @@ return function(
 			TextWrapped = false,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextYAlignment = Enum.TextYAlignment.Center,
-			TextTransparency = transparency,
+			TextColor3 = function(use: ComposeTypes.Use): Color3
+				local color = use(ink)
+				return if typeof(color) == "Color3" then color else types.Color3.new(1, 1, 1)
+			end,
+			TextTransparency = function(use: ComposeTypes.Use): number
+				local amount = use(fade)
+				return if type(amount) == "number" then amount else 0
+			end,
 			Text = if changing
 				then function(use: ComposeTypes.Use): string
 					return glyphText(glyph(use))
@@ -1005,11 +1014,7 @@ return function(
 		}
 		return ctx.styled(Host.TextLabel(native), "icon-glyph")
 	end
-	local function armGlyph(
-		icon: ImageLabel,
-		resolved: (ComposeTypes.Use?) -> Theme.ResolvedIcon?,
-		transparency: Shared.Input<number>?
-	)
+	local function armGlyph(icon: ImageLabel, resolved: (ComposeTypes.Use?) -> Theme.ResolvedIcon?)
 		local last: Theme.IconGlyph? = nil
 		local function current(use: ComposeTypes.Use?): Theme.IconGlyph
 			local found = resolved(use)
@@ -1023,7 +1028,7 @@ return function(
 				Compose.show(function(use: ComposeTypes.Use): boolean
 					return type(resolved(use)) == "table"
 				end, function()
-					return glyphLabel(icon, current, true, transparency)
+					return glyphLabel(icon, current, true)
 				end),
 			}
 		end, icon)
@@ -1055,7 +1060,6 @@ return function(
 		local owner = if changing then Compose.currentOwner() else nil
 		local icon: ImageLabel? = nil
 		local armed = false
-		local transparency = if properties then properties.ImageTransparency else nil
 		local function image(use: ComposeTypes.Use?): string
 			local found = resolved(use)
 			if type(found) == "string" then
@@ -1065,7 +1069,7 @@ return function(
 				armed = true
 				local node = icon
 				Compose.withOwner(owner, function()
-					armGlyph(node, resolved, transparency)
+					armGlyph(node, resolved)
 				end)
 			end
 			return ""
@@ -1099,11 +1103,11 @@ return function(
 			runtime.mount(function()
 				return glyphLabel(made, function()
 					return glyph
-				end, false, transparency)
+				end, false)
 			end, made)
 		elseif changing and type(resolved()) == "table" then
 			armed = true
-			armGlyph(made, resolved, transparency)
+			armGlyph(made, resolved)
 		end
 		return made
 	end

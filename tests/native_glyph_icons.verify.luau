@@ -5,6 +5,7 @@ return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local Facet = require("../src")
+	local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 	local ThemeTypes = require("../src/ui/theme_types")
 	local context = require("../src/ui/context")
 	local engineLib = require("./lib/native_engine")
@@ -80,7 +81,11 @@ return function(verifyHarness: Verify.Harness)
 				expect(glyph:HasTag("facet-icon-glyph")):toBe(true)
 				local box = assert(scaled)
 				local scaledGlyph = glyphOf(box)
-				engine.environment.poke(box, "AbsoluteSize", engine.types.Vector2.new(40, 24))
+				engine.environment.poke(
+					(box :: unknown) :: VerifyRoblox.Instance,
+					"AbsoluteSize",
+					engine.types.Vector2.new(40, 24)
+				)
 				expect(scaledGlyph.TextSize):toBe(24)
 				stop()
 				runtime:dispose()
@@ -144,30 +149,35 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("tints a glyph with the theme color of an image icon in each state", {
-			id = "native_glyph_icons::font glyph icons::tints a glyph with the theme color of an image icon in each state",
+		verifyHarness:case("tints a glyph with the theme paint of its icon in each state", {
+			id = "native_glyph_icons::font glyph icons::tints a glyph with the theme paint of its icon in each state",
 			run = function()
 				local world = worlds.new(function(UI: Facet.Controls, Host: RobloxHost): Facet.Child
 					return Host.Frame {
 						UI.Button "Buy" { label = "Buy", icon = "game:coin" },
 					}
 				end, { icons = ICONS })
-				local stop, sheet = world.runtime.mount(function()
+				local stop, mounted = world.runtime.mount(function()
 					return themes.createStyleSheet(world.runtime, nil, { types = world.engine.types })
 				end, world.engine.new("Folder"))
+				local sheet = assert(mounted)
 				local button = world.find("Buy")
 				local icon = world.find("LeadingIcon", button)
 				local glyph = glyphOf(icon)
+				local function paint(property: string): unknown
+					local value: unknown = styleRules.resolve(sheet, icon, property)
+					if type(value) == "string" and string.sub(value, 1, 1) == "$" then
+						return sheet:GetAttribute(string.sub(value, 2))
+					end
+					return value
+				end
 				local function check(label: string)
-					local ink = styleRules.resolve(sheet, icon, "ImageColor3")
-					local fade = styleRules.resolve(sheet, icon, "ImageTransparency")
-					expect(`{label} color {tostring(ink ~= nil)}`):toBe(`{label} color true`)
-					expect(`{label} {tostring(styleRules.resolve(sheet, glyph, "TextColor3"))}`):toBe(
-						`{label} {tostring(ink)}`
-					)
-					expect(`{label} {tostring(styleRules.resolve(sheet, glyph, "TextTransparency"))}`):toBe(
-						`{label} {tostring(fade)}`
-					)
+					local ink, fade = paint("ImageColor3"), paint("ImageTransparency")
+					expect(`{label} ink {typeof(ink)}`):toBe(`{label} ink Color3`)
+					icon.ImageColor3 = ink
+					icon.ImageTransparency = if type(fade) == "number" then fade else 0
+					expect(`{label} {tostring(glyph.TextColor3)}`):toBe(`{label} {tostring(ink)}`)
+					expect(`{label} {glyph.TextTransparency}`):toBe(`{label} {icon.ImageTransparency}`)
 				end
 				check("resting")
 				for _, tag in

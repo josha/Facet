@@ -481,13 +481,8 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			local glyph = (value :: unknown) :: { codepoint: unknown, font: unknown }
 			local point = glyph.codepoint
 			if type(point) ~= "number" or point % 1 ~= 0 or point < 0 or point > 0x10FFFF then
-				table.insert(
-					errors,
-					{
-						field = path .. ".codepoint",
-						message = "A glyph codepoint must be an integer from 0 to 0x10FFFF",
-					}
-				)
+				local message = "A glyph codepoint must be an integer from 0 to 0x10FFFF"
+				table.insert(errors, { field = path .. ".codepoint", message = message })
 			end
 			if typeof(glyph.font) ~= "Font" and type(glyph.font) ~= "table" then
 				table.insert(errors, { field = path .. ".font", message = "A glyph needs a Font or a font spec" })
