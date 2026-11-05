@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local Engine = require("./engine_types")
@@ -172,8 +173,8 @@ return function(
 	local preferredTextSize = ((runtime :: unknown) :: { [string]: unknown }).FacetTextPreference
 	local nativeTextSize: Engine.Input<unknown>? = nil
 	if preferredTextSize ~= nil then
-		local globals = getfenv(0)
-		local gui = globals.game and globals.game:GetService("GuiService")
+		local game = dataModel()
+		local gui = game and game:GetService("GuiService")
 		if gui then
 			local source = Compose.cell(gui.PreferredTextSize)
 			nativeTextSize = source
@@ -241,8 +242,8 @@ return function(
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
-		local globals = getfenv(0)
-		local gui = globals.game and globals.game:GetService("GuiService")
+		local game = dataModel()
+		local gui = game and game:GetService("GuiService")
 		if gui then
 			local source = Compose.cell(gui.PreferredTransparency)
 			preferredTransparency = source
@@ -256,8 +257,8 @@ return function(
 	end
 	local hover: Engine.Input<boolean>? = nil
 	do
-		local globals = getfenv(0)
-		local input = globals.game and globals.game:GetService("UserInputService")
+		local game = dataModel()
+		local input = game and game:GetService("UserInputService")
 		if input then
 			local held = input.PreferredInput
 			local stopNudges: (() -> ())? = nil
@@ -292,9 +293,9 @@ return function(
 	end
 	local distant: Engine.Input<boolean>? = settings.tenFoot
 	if distant == nil then
-		local globals = getfenv(0)
-		local gui = globals.game and globals.game:GetService("GuiService")
-		local input = globals.game and globals.game:GetService("UserInputService")
+		local game = dataModel()
+		local gui = game and game:GetService("GuiService")
+		local input = game and game:GetService("UserInputService")
 		if gui and input then
 			local interface = false
 			pcall(function()
@@ -407,8 +408,8 @@ return function(
 	end
 	local tagService: CollectionService? = settings.collectionService
 	if tagService == nil then
-		local globals = getfenv(0)
-		tagService = globals.game and globals.game:GetService("CollectionService")
+		local game = dataModel()
+		tagService = game and game:GetService("CollectionService")
 	end
 	local present: { [string]: boolean } = {}
 	local awaited: { [string]: RBXScriptConnection } = {}
@@ -708,9 +709,9 @@ return function(
 			end
 			local provider: ContentProvider? = settings.contentProvider
 			if provider == nil and #content > 0 then
-				local dataModel: DataModel? = getfenv(0).game
-				if dataModel then
-					provider = dataModel:GetService("ContentProvider")
+				local game: DataModel? = dataModel()
+				if game then
+					provider = game:GetService("ContentProvider")
 				end
 			end
 			if provider and #content > 0 then

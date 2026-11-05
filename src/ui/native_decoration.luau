@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Engine = require("./engine_types")
 type Insets = { [string]: UDim }
@@ -17,9 +18,7 @@ return function(
 	local settings: { inset: boolean?, immediate: boolean? } = options or {}
 	local Host = (runtime.constructors :: unknown) :: Engine.Host
 	local D2 = types.UDim2
-	local frame: ComposeTypes.ObserveOptions? = if not settings.immediate and getfenv(0).game
-		then { frame = true }
-		else nil
+	local frame: ComposeTypes.ObserveOptions? = if not settings.immediate and dataModel() then { frame = true } else nil
 	local poll: ComposeTypes.ObserveOptions? = if frame then { frame = true, poll = true } else nil
 	if target:FindFirstChildWhichIsA("UIPadding") == nil then
 		runtime.mount(function()

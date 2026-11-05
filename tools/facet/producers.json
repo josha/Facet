@@ -1,5 +1,6 @@
 {
   "producers": [
+    {"id": "environments", "tier": "fast", "run": "lute run tools/facet check environments", "why": "production code outside vendor preserves safe environments"},
     {"id": "docs-samples", "tier": "fast", "run": "lute run tools/facet check docs-samples", "why": "every recipe and control card Luau sample type-checks with the consumer verifier settings"},
     {"id": "text-encoding", "tier": "fast", "run": "lute run tools/facet check text-encoding", "why": "tracked text files are UTF-8 encoded once"},
     {"id": "docs-nodes", "tier": "fast", "run": "lute run tools/facet check docs-nodes", "why": "documentation nodes fit byte budgets and every node is reachable from the map"},

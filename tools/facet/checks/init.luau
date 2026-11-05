@@ -9,6 +9,7 @@ local rules: { Rule.Rule } = {
 	require("@self/facetbench"),
 	require("@self/architecture"),
 	require("@self/type_policy"),
+	require("@self/environments"),
 	require("@self/vendor"),
 	require("@self/comments"),
 	require("@self/screen_key_bindings"),

@@ -1,4 +1,5 @@
 --!strict
+local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local preferredInput = require("./preferred_input")
@@ -93,7 +94,7 @@ export type Observation = {
 
 return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Services): Observation
 	local Compose, runtime, Enum = ctx.Compose, ctx.runtime, ctx.types.Enum
-	local framed = services.RunService ~= nil and getfenv ~= nil and getfenv(0).game ~= nil
+	local framed = services.RunService ~= nil and dataModel() ~= nil
 	local sharedObservations: { [Instance]: { [string]: ComposeTypes.AcquireSharedResource<ComposeTypes.Value<unknown>> } } =
 		{}
 	local preview: Shared.EnvironmentPreview = config.environment or {}
