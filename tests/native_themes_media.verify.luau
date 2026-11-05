@@ -1277,7 +1277,11 @@ return function(verifyHarness: Verify.Harness)
 					return Facet.host(runtime).Frame({ avatar, group })
 				end, engine.new("Folder"))
 				local avatar, group = assert(avatar), assert(group)
-				expect((avatar:FindFirstChild("Initials") :: any).Text):toBe("ÉN")
+				local initials = assert(avatar:FindFirstChild("Initials"))
+				assert(initials:IsA("TextLabel"))
+				expect(initials.Text):toBe("ÉN")
+				expect(initials.TextScaled):toBe(true)
+				expect(initials.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.None)
 				expect(avatar.Size.X.Offset):toBe(36)
 				expect(
 					((avatar:FindFirstChild("Initials") :: any):FindFirstChildWhichIsA("UITextSizeConstraint") :: any).MaxTextSize
