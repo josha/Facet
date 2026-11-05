@@ -264,9 +264,13 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local short = w.find("Card1"):FindFirstChild("Title", true) :: TextLabel
 				local long = w.find("Card2"):FindFirstChild("Title", true) :: TextLabel
+				local clamp = long:FindFirstChild("LineClamp") :: UISizeConstraint?
+				expect(clamp ~= nil and short:FindFirstChild("LineClamp") ~= nil):toBe(true)
 				local s, l = short.AbsoluteSize, long.AbsoluteSize
-				local fits = s.Y > 0 and l.X > 0 and l.X <= 160 and l.Y > s.Y and l.Y <= 2 * s.Y
-				expect(if fits then "fits" else `short {s.X}x{s.Y}, long {l.X}x{l.Y}`):toBe("fits")
+				local bound = if clamp then clamp.MaxSize.Y else 0
+				local fits = s.Y > 0 and l.X > 0 and l.X <= 160 and l.Y <= bound and bound < 4 * s.Y
+				expect(if fits then "fits" else `short {s.X}x{s.Y}, long {l.X}x{l.Y}, clamp {bound}`):toBe("fits")
+				expect(long.TextWrapped):toBe(true)
 				expect(long.TextTruncate):toBe(E.TextTruncate.AtEnd)
 				w.stop()
 			end,
