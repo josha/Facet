@@ -1,4 +1,5 @@
 --!strict
+local AssistantSandbox = require("../lib/assistant_sandbox")
 local Cli = require("../lib/cli")
 local fs = require("@std/fs")
 local Json = require("../lib/json")
@@ -198,6 +199,8 @@ local function run(invocation: Cli.Invocation): number
 		local code = table.concat({
 			table.concat(sharedValues, "\n"),
 			"local storage = game:GetService('ReplicatedStorage')",
+			"local _ = storage:WaitForChild('FacetLive')",
+			AssistantSandbox.prelude("storage:GetChildren()"),
 			"local live = require(storage:WaitForChild('FacetLive'))",
 			if #caseIds > 0
 				then "assert(live.caseSelection == true, 'the live place needs a rebuild before --case can select cases')"
