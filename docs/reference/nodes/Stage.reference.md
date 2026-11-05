@@ -24,7 +24,9 @@ Use consistent framing across comparable thumbnails; use a different camera
 when inspection needs detail. Keep camera and scene changes in the same
 Compose owner. No separate render loop is needed for a static preview.
 
-The light comes from the camera side, a little from above, so the faces
+`Ambient` and `LightColor` default to white in every theme. Override them for
+deliberate scene lighting; keep them neutral when comparing colors.
+The light comes from the active camera side, a little from above, so the faces
 the camera sees are lit from any camera position. Set `LightDirection` to
 light the subject another way.
 

@@ -1513,6 +1513,37 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("uses neutral preview light across palettes and follows the active camera", {
+			id = "native_themes_media::neutral-stage-light",
+			run = function()
+				local engine, runtime = setup()
+				local T = engine.types
+				local package = Compose.cell(themes.neutralPackage())
+				local UI = Facet.controls(runtime, { types = T, theme = package })
+				local borrowed: Camera = engine.new("Camera")
+				local active = Compose.cell(borrowed)
+				local stop, result = runtime.mount(function()
+					return UI.Stage { CurrentCamera = active }
+				end, engine.new("Folder"))
+				local stage = result :: ViewportFrame
+				for _, palette in themes.neutralPackage().style.themes do
+					local nextPackage = themes.neutralPackage()
+					nextPackage.style.defaultTheme = palette.name
+					package:set(nextPackage)
+					expect(stage.Ambient):toBe(T.Color3.new(1, 1, 1))
+					expect(stage.LightColor):toBe(T.Color3.new(1, 1, 1))
+					borrowed.CFrame = T.CFrame.lookAt(T.Vector3.new(6, 3, 0), T.Vector3.zero)
+					expect(stage.LightDirection):toBe((borrowed.CFrame.LookVector + T.Vector3.new(0, -0.6, 0)).Unit)
+				end
+				local nextCamera: Camera = engine.new("Camera")
+				nextCamera.CFrame = T.CFrame.lookAt(T.Vector3.new(-6, 2, 0), T.Vector3.zero)
+				active:set(nextCamera)
+				expect(stage.LightDirection):toBe((nextCamera.CFrame.LookVector + T.Vector3.new(0, -0.6, 0)).Unit)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("preserves external cameras and forwards native viewport lighting", {
 			id = "native_themes_media::native themes and media::preserves external cameras and forwards native viewport lighting",
 			run = function()
