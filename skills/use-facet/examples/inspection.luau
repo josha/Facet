@@ -205,7 +205,7 @@ return {
 						maxWidth = 520,
 						height = "fill",
 						padding = "s",
-						UI.VirtualList "Relics" (list),
+						UI.VirtualList "Relics"(list),
 					},
 				}
 			end,
@@ -258,7 +258,7 @@ return {
 							UI.ZStack "Subject" {
 								width = "fill",
 								height = function(use: Facet.Use): number
-									return math.max(144, math.min(230, use(room.viewportHeight) * 0.36))
+									return math.min(230, use(room.viewportHeight) * 0.36)
 								end,
 								subject(),
 							},
@@ -270,7 +270,7 @@ return {
 			end,
 			UI.fill(),
 		}
-		UI.NavigationSplitView "RelicPanes" (panes)
+		UI.NavigationSplitView "RelicPanes"(panes)
 		local close: GuiObject = UI.Button {
 			label = "Close",
 			appearance = "utility",

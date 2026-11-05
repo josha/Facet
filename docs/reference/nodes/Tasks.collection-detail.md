@@ -1,7 +1,6 @@
 # Tasks.collection-detail
 
-Bound both axes; scroll within the selected detail.
-The sample assumes a small subject. [3D preview](Stage.card.md).
+Bound both axes.
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
@@ -13,34 +12,31 @@ local function browse(app: Facet.App, items: { Item }, selected: Facet.Value<{ [
   local column = C.cell("sidebar" :: "sidebar" | "detail")
   local chosen = C.formula(function(use: Facet.Use): Item
     for _, item in items do if use(selected)[item.id] then return item end end
-    error("No item")
-  end)
+    error("No item") end)
   local spec: Facet.KeyedCollectionSpec<Item, string> = {
-    from = items, key = "id", selection = selected, minColumnWidth = 160,
-    itemSize = 190, measure = true, Size = UDim2.fromScale(1, 1),
+    from = items, key = "id", selection = selected,
+    itemSize = 190, measure = true,
     onActivate = function() column:set("detail") end,
-    render = function(row)
-      return UI.Card {
-        title = function(use) return use(row).name end,
-        artwork = function() return art(row) end,
-      }
-    end,
+    render = function(row) return UI.Card { title = function(use) return use(row).name end,
+      artwork = function() return art(row) end } end,
   }
   return UI.NavigationSplitView {
     preferredCompactColumn = column, resizable = false, detailLabel = false, compactBack = back,
-    sidebar = function() return UI.VirtualGrid(spec) end,
-    detail = function()
-      return UI.ScrollView "SelectedDetail" {
-        width = "fill", height = "fill", gap = "s", padding = "s",
+    sidebar = function() return UI.VirtualGrid(spec) end, detail = function()
+      local detail = UI.ZStack { width = "fill", height = "fill" }
+      local room = UI.environment(detail)
+      UI.ScrollView "SelectedDetail" {
+        Parent = C.static(detail), width = "fill", height = "fill", gap = "s", padding = "s",
         UI.Text { textRole = "heading", wrap = true, text = function(use) return use(chosen).name end },
-        UI.ZStack { width = "fill", height = 160, art(chosen) },
+        UI.ZStack "Preview" { width = "fill",
+        height = function(use: Facet.Use) return math.min(160, use(room.viewportHeight) * 0.3) end,
+          art(chosen) },
         UI.Text { wrap = true, text = function(use) return use(chosen).terms end },
         UI.Button { label = action, appearance = "emphasis", onActivate = function() commit(chosen:peek()) end },
-      }
-    end,
-    UI.fill(),
+      } return detail
+    end, UI.fill(),
   }
 end
 ```
 
-[Purchase](Tasks.purchase.md). [Short layouts](Collection-layout.md).
+[Buy](Tasks.purchase.md). [Layout](Collection-layout.md).

@@ -21,6 +21,8 @@ put many filters in another step that shares the query model.
 
 The recipe assumes a small preview and short terms. For a short container,
 put the preview beside the facts and action when both remain readable.
+When stacking them, cap the preview by a share of the bounded detail height.
+Let the whole detail scroll when long terms or large text need more room.
 [Tasks.inspect](Tasks.inspect.md) shows the native fill allocation for this
 relationship. Measure the bounded detail with `UI.environment(detail)` after
 navigation and safe padding. Use both height and width when selecting a form.
