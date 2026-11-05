@@ -19,11 +19,6 @@ type Construct = (props: Record, name: string?) -> unknown
 
 export type Context = Types.Context
 
-local LEVEL_IMAGES: Record = {
-	filled = "rbxassetid://108245103349446",
-	empty = "rbxassetid://73716910467356",
-}
-
 local TEMPLATE_KINDS: { [string]: true } = { VirtualList = true, VirtualGrid = true, Outline = true }
 
 local PAGED_KINDS: { [string]: string } = { TabView = "tabs", PageView = "pages" }
@@ -623,7 +618,10 @@ local function create(context: Context): Design.Library
 					values.lines = nil
 				end
 				if name == "LevelPicker" then
-					values.images = if values.segment == "image" then values.images or copy(LEVEL_IMAGES) else nil
+					if values.segment == "image" and values.images == nil then
+						values.segment = "glyph"
+					end
+					values.images = if values.segment == "image" then values.images else nil
 					if values.segment ~= "glyph" then
 						values.glyphs = nil
 					end

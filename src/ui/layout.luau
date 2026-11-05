@@ -713,7 +713,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
-		local cellWidth = if spec.aspectRatio ~= nil then Compose.cell(0) else nil
+		local cellSize = if spec.aspectRatio ~= nil then Compose.cell(Vector2.zero) else nil
+		local cellHeight = 0
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
 			assert(
@@ -739,9 +740,13 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
-				local height = if cellWidth
-					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
-					else read<<number?>>(spec.cellHeight, use)
+				local height = read<<number?>>(spec.cellHeight, use)
+				if cellSize then
+					local measured = use(cellSize)
+					local unit = if measured.Y > 0 and cellHeight > 0 then measured.Y / cellHeight else 1
+					cellHeight = math.floor(measured.X / unit / assert(read<<number?>>(spec.aspectRatio, use)))
+					height = cellHeight
+				end
 				return D2.new(
 					1 / count,
 					-math.ceil(gap * (count - 1) / count),
@@ -774,17 +779,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			),
 			properties
 		)
-		if cellWidth then
+		if cellSize then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			local measured, unit = Compose.cell(grid.AbsoluteCellSize.X), ctx.layoutUnit(node)
+			cellSize:set(grid.AbsoluteCellSize)
 			local resized = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(function()
-				measured:set(grid.AbsoluteCellSize.X)
+				cellSize:set(grid.AbsoluteCellSize)
 			end)
 			Compose.cleanup(function()
 				resized:Disconnect()
-			end)
-			Compose.watch(function(use: ComposeTypes.Use)
-				cellWidth:set(use(measured) / use(unit))
 			end)
 		end
 		if cells then
