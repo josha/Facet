@@ -712,7 +712,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local size, automatic = kit.extent(spec, "fill", "hug")
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
-		local cells = if flow == "column" then Compose.cell(0) else nil
+		local square = spec.aspectRatio ~= nil and flow == "row"
+		local cells = if flow == "column" or square then Compose.cell(0) else nil
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
 			assert(
@@ -726,7 +727,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			FillDirection = if flow == "column" then E.FillDirection.Vertical else E.FillDirection.Horizontal,
 			FillDirectionMaxCells = function(use: ComposeTypes.Use): number
 				local count = columns(use)
-				if cells then
+				if cells and flow == "column" then
 					return math.max(1, math.ceil(use(cells) / count))
 				end
 				return count
@@ -738,6 +739,16 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
+				if square and cells then
+					local rows = math.max(1, math.ceil(use(cells) / count))
+					local rowGap = if spec.rowGap == nil then gap else kit.spacing(spec.rowGap, use)
+					return D2.new(
+						1 / count,
+						-math.ceil(gap * (count - 1) / count),
+						1 / rows,
+						-math.ceil(rowGap * (rows - 1) / rows)
+					)
+				end
 				local height = read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
@@ -760,7 +771,18 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					else E.HorizontalAlignment.Left
 			end
 		end
-		if spec.aspectRatio ~= nil then
+		local shape: { ComposeTypes.Child } = {}
+		if square and cells then
+			shape[1] = Host.UIAspectRatioConstraint {
+				AspectRatio = function(use: ComposeTypes.Use): number
+					local count = columns(use)
+					local rows = math.max(1, math.ceil(use(cells) / count))
+					return count / rows * read<<number>>(spec.aspectRatio, use)
+				end,
+				AspectType = E.AspectType.ScaleWithParentSize,
+				DominantAxis = E.DominantAxis.Width,
+			}
+		elseif spec.aspectRatio ~= nil then
 			layout[1] = Host.UIAspectRatioConstraint {
 				AspectRatio = spec.aspectRatio,
 				AspectType = E.AspectType.ScaleWithParentSize,
@@ -769,12 +791,20 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 		local native: Engine.FrameNativeProps = {
 			BorderSizePixel = 0,
-			Size = size,
-			AutomaticSize = automatic,
+			Size = if square then function(use: ComposeTypes.Use): UDim2
+				local extent = read<<UDim2>>(size, use)
+				return D2.new(extent.X.Scale, extent.X.Offset, 1, 0)
+			end else size,
+			AutomaticSize = if square then E.AutomaticSize.None else automatic,
 		}
 		local node = kit.plain(
 			Host.Frame(
-				kit.assemble(native, properties, { Host.UIGridLayout(layout), kit.insets(spec.padding) }, children)
+				kit.assemble(
+					native,
+					properties,
+					{ Host.UIGridLayout(layout), kit.insets(spec.padding), table.unpack(shape) },
+					children
+				)
 			),
 			properties
 		)
