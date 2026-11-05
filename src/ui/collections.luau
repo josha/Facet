@@ -272,6 +272,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 			end, root)
 		end
 		local size = ctx.observeNative.AbsoluteWindowSize(root)
+		local outer = ctx.observeNative.AbsoluteSize(root)
+		local measuredOuter, reservingBar = V2.zero, false
 		local position = observe.CanvasPosition(root)
 		local mountParent = observe.Parent(root)
 		local ancestryVersion = Compose.cell(0)
@@ -307,7 +309,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 			end
 			local offset = math.max(0, (if horizontal then at.X else at.Y) - mainEdge(use))
 			local extent = math.max(0, (if horizontal then dimensions.X else dimensions.Y) - 2 * mainEdge(use))
-			cross:set(if horizontal then dimensions.Y else dimensions.X)
+			local whole = use(outer)
+			if whole ~= measuredOuter then
+				measuredOuter, reservingBar = whole, false
+			end
+			local windowCross = if horizontal then dimensions.Y else dimensions.X
+			local wholeCross = (if horizontal then whole.Y else whole.X) / (if scale > 0 then scale else 1)
+			if whole.X > 0 and whole.Y > 0 and math.abs(wholeCross - windowCross - root.ScrollBarThickness) < 0.5 then
+				reservingBar = true
+			end
+			cross:set(if reservingBar then wholeCross - root.ScrollBarThickness else windowCross)
 			local previous = viewport:peek()
 			if previous.offset ~= offset or previous.size ~= extent then
 				viewport:set({ offset = offset, size = extent, offsetRevision = previous.offsetRevision })
