@@ -76,9 +76,8 @@ large text or the keyboard, permit an accessible scrolling task surface rather
 than overlap or a fixed footer that traps controls.
 
 NavigationSplitView can preserve panes while presenting one compact step.
-For list and detail tasks, start with the bounded
-[collection/detail recipe](../../../docs/reference/nodes/Tasks.collection-detail.md)
-and its [layout conditions](../../../docs/reference/nodes/Collection-layout.md).
+For list and detail tasks, read `Tasks.collection-detail` and `Collection-layout`
+with the docs command or FacetDocs search. These routes work in exported skills.
 Put long facts and the action in the detail ScrollView. A fill preview in a
 hugging page does not prevent facts below it from leaving the viewport.
 Keep search and Filters on one row when permanent filters crowd out records.

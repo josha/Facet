@@ -38,7 +38,7 @@ returns only the matching sections.
 | Build a Studio plugin or use an existing runtime | [Runtime details](references/runtime-details.md) and the `Mounting` reference; preserve the host's UI and input conventions |
 | Browse records, products or equipment | [Collection](examples/collection.luau) and [patterns](references/patterns.md); supply the application's records and subject treatment |
 | Inspect a selected object | [Inspection](examples/inspection.luau); allocate subject space from the details the user needs to see |
-| Preview a 3D object or choose its color | [Preview and color](../../docs/reference/nodes/Tasks.appearance.md); bind scene, facts and labeled swatches to one draft |
+| Preview a 3D object or choose its color | Read node `Tasks.appearance`; bind scene, facts and labeled swatches to one draft |
 | Style controls or use image-based surfaces | [Game themes](references/game-themes.md); example themes are optional |
 | Show stats, records, prices or progress | [Information display](references/information-display.md); choose density and emphasis from the decision |
 | Act during play, then open brief help | [Exploration](examples/exploration.luau) |
