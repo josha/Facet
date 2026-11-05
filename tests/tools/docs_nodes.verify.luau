@@ -47,7 +47,8 @@ return function(harness: Verify.Harness)
 				end,
 			} },
 			name = "studio-docs-search",
-		})() :: (string, number?) -> string
+		})() :: (string | { string }, number?) -> string
+		local read = ((search :: unknown) :: { read: (string) -> string }).read
 		for _, budget in { 1, 2, 3, 4, 8, 64, 256, 2048, 4000 } do
 			for _, query in { "budget", "no-such-document", "Map" } do
 				local result = search(query, budget)
@@ -57,6 +58,20 @@ return function(harness: Verify.Harness)
 		end
 		for _, name in { "Tasks.collection-detail", "Tasks.appearance", "Tasks.safe-layout" } do
 			t:expect(search(name)):toBe(assert(Index.find(nodes, name)).body)
+			t:expect(read(name .. ".md")):toBe(assert(Index.find(nodes, name)).body)
+		end
+		local batch = search({ "Sheet detents", "Stage camera", "Button row", "NavigationSplitView" })
+		t:expect(#batch <= 4000):toBe(true)
+		t:expect(utf8.len(batch) ~= nil):toBe(true)
+		t:expect(string.find(batch, "search.read(path)", 1, true) ~= nil):toBe(true)
+		t:expect(#search("budget", 100000) <= 4000):toBe(true)
+		local hits = search("Sheet detents")
+		t:expect(#hits < 1600):toBe(true)
+		t:expect(string.find(hits, "Sheet", 1, true) ~= nil):toBe(true)
+		for _, budget in { 1, 2, 3, 4, 8, 64, 256 } do
+			local result = search({ "budget", "Map", "Sheet detents", "Stage camera" }, budget)
+			t:expect(#result <= budget):toBe(true)
+			t:expect(utf8.len(result) ~= nil):toBe(true)
 		end
 		local first = search("Map")
 		t:expect(#Lute.encode({ result = first }) <= 2048):toBe(true)

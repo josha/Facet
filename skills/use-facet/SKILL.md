@@ -30,7 +30,10 @@ needed; an example does not cover every option or integration. Everything you
 read stays in context for the rest of the session. Look up a control's contract
 when you are about to use it rather than every route up front. In Studio,
 `loadstring(ServerStorage.FacetDocs["search.luau"].Value)()("Sheet detents")`
-returns only the matching sections.
+returns short matching sources. Keep the callable as `search` for later calls.
+Batch related queries as `search({ "Sheet detents", "Stage camera" })` for a
+shared 4000-byte result cap. Hits identify sources; use `search.read(path)` for
+the complete contract. Separate calls have separate caps.
 
 | Task | Read and adapt |
 | --- | --- |
