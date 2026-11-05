@@ -85,3 +85,19 @@ index or anchor algorithm.
 Facet keeps an algorithm only when the platform has no equivalent. Examples are
 radial choices, value validation and adaptive presentation. Native selection
 and input contexts apply these policies. There is no general Facet focus graph.
+
+## Host seams
+
+Facet reads and writes the native selection only through `ctx.selection` in
+`src/ui/host_selection.luau`. `get` returns `GuiService.SelectedCoreObject`
+when it holds an object, else `GuiService.SelectedObject`. `set` writes
+`SelectedCoreObject` for a target under `CoreGui`, and `SelectedObject` for
+other targets. `changed` and `observe` follow both properties. A script that
+cannot read or write `SelectedCoreObject` (a game script or a plugin) uses
+`SelectedObject` for all targets. The `selection-seam` check rejects a direct
+use of either property in `src`.
+
+`environment.safeInsets` is the one value for code that needs the safe area
+as numbers. Its sources are `GuiService:GetInsetArea`, and for a core script
+the bar sizes and the safe zone offsets. Layout uses the native
+`ScreenGui.ScreenInsets` instead.

@@ -241,7 +241,7 @@ return function<V, K>(
 	local rowKeys: { [Instance]: K } = setmetatable({}, { __mode = "k" })
 	local gui = ctx.config.guiService
 	local focus: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
-		then ctx.observe.SelectedObject(gui)
+		then ctx.selection.observe()
 		else Compose.cell<<GuiObject?>>(nil)
 	local function disarm()
 		gesture.touchKey, gesture.touchOrigin = nil, nil
@@ -272,7 +272,7 @@ return function<V, K>(
 			arbiter.cancelOwner(gesture.gestureOwner)
 			gesture.gestureOwner = nil
 		end
-		local move, selected = moving:peek(), gui and gui.SelectedObject
+		local move, selected = moving:peek(), gui and ctx.selection.get()
 		local restore = move ~= nil and move.keyboard and selected == gesture.keyboardTarget
 		gesture.captured = nil
 		gesture.pressTransfer = nil
@@ -284,7 +284,7 @@ return function<V, K>(
 			gesture.releaseScrollers = nil
 		end
 		if restore and move and gui then
-			gui.SelectedObject = nil
+			ctx.selection.set(nil)
 			local index = assert(controls.indexOfKey)(move.key)
 			if index then
 				local body = bodyOf()
@@ -305,7 +305,7 @@ return function<V, K>(
 			local row = rowNodes[move.key]
 			local handle = row and row:FindFirstChild("Move")
 			if handle and handle:IsA("GuiObject") and handle.Visible then
-				gui.SelectedObject = handle
+				ctx.selection.set(handle)
 			end
 		end
 	end
@@ -584,7 +584,7 @@ return function<V, K>(
 				and gesture.keyboardTarget.Visible
 				and ctx.config.guiService
 			then
-				ctx.config.guiService.SelectedObject = gesture.keyboardTarget
+				ctx.selection.set(gesture.keyboardTarget)
 			end
 		end
 	end

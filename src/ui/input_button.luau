@@ -721,7 +721,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			selectionWired = true
 			Compose.withOwner(owner, function()
 				if guiService then
-					local selected = ctx.observe.SelectedObject(guiService)
+					local selected = ctx.selection.observe()
 					selectedForKeyboard = function(use: ComposeTypes.Use): boolean
 						return use(selected) == node
 					end

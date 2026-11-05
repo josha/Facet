@@ -1,5 +1,16 @@
 # Current package
 
+`environment.safeInsets` measures each side from the full screen to the core
+UI safe area with `GuiService:GetInsetArea`. On Android, the bottom value now
+includes the navigation bar; before, it was always 0. A core script also gets
+the status bar, bottom bar, side bar and safe zone sizes. The value follows
+orientation changes.
+
+Controls under `CoreGui` move gamepad and keyboard focus through
+`GuiService.SelectedCoreObject` when the script can write it. All selection
+reads and writes go through one host seam, `ctx.selection`. The
+`selection-seam` check rejects a direct `SelectedObject` use in `src`.
+
 ScrollView and stack containers accept `maxHeight` beside `maxWidth` through
 one native size constraint. `ScrollView { height = "hug", maxHeight = limit }`
 grows with short content and caps the window for long content. Compose Design

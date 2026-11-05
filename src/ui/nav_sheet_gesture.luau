@@ -637,7 +637,7 @@ return function(
 		}
 
 		if gui and gui.GetPropertyChangedSignal and preferred then
-			local selection = ctx.observe.SelectedObject(gui)
+			local selection = ctx.selection.observe()
 			local pad = preferred
 			runtime.decorate(assert(grabber:FindFirstChildWhichIsA("UIDragDetector")), {
 				Enabled = function(use: ComposeTypes.Use): boolean

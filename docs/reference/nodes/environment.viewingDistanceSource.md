@@ -26,7 +26,7 @@ environment.viewingDistanceSource option values and behavior.
 
 | Field | Source and value |
 |---|---|
-| `safeInsets` | `{ top, left, bottom, right }` from `GuiService:GetGuiInset()`. It updates when the viewport or `GuiService.TopbarInset` changes. |
+| `safeInsets` | `{ top, left, bottom, right }` in pixels from the full screen to the core UI safe area: the difference of `GuiService:GetInsetArea` for `ScreenInsets.None` and `CoreUISafeInsets` (status bar, notch, home indicator, navigation bar). Without `GetInsetArea` it is `GetGuiInset()`. A core script also gets the largest of `UserInputService.StatusBarSize`, `BottomBarSize`, `NavBarSize`, `RightBarSize` and `GuiService:GetSafeZoneOffsets()` per side. It follows the screen size, orientation, `TopbarInset` and these sources. `ScreenInsets` already keeps a ScreenGui in this area; use the numbers for a `ScreenInsets = None` screen. |
 | `topbarInset` | A `Rect` from `GuiService.TopbarInset` in engine pixels. It updates when that property changes and keeps its screen coordinates with a custom environment source. It is an empty `Rect` when GuiService or the property is unavailable. The component owns the observation. It gives the free band, not the menu button bounds. See [HUD-actions](HUD-actions.md). |
 | `topbarControlDiameter` | A derived diameter in physical pixels: round the top-bar band height times `0.75`, or times `0.5` when `GuiService:IsTenFootInterface()` reports native console UI. Thus bands of 58 and 87 pixels both give 44. It is 0 for an empty band. It follows the band and viewport. This uses native console UI, not the environment's inferred viewing distance. See [HUD-actions](HUD-actions.md). |
 

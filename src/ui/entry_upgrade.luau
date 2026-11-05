@@ -15,7 +15,7 @@ return function(ctx: Types.Context, options: Options)
 	local Compose = ctx.Compose
 	local gui, held = options.gui, options.held
 	local descendants = Compose.cell(0)
-	local selection = ctx.observe.SelectedObject(gui)
+	local selection = ctx.selection.observe()
 	ctx.runtime.connect(options.panel, "DescendantAdded", function()
 		descendants:set(descendants:peek() + 1)
 	end)
@@ -26,7 +26,7 @@ return function(ctx: Types.Context, options: Options)
 		if current == nil then
 			return
 		end
-		if gui.SelectedObject ~= current then
+		if ctx.selection.get() ~= current then
 			held:set(nil)
 			return
 		end
@@ -38,8 +38,8 @@ return function(ctx: Types.Context, options: Options)
 			local size = use(ctx.observe.AbsoluteSize(better))
 			local parent = use(ctx.observe.Parent(better))
 			if parent and size.X > 0 and size.Y > 0 and options.displayed(better) then
-				gui.SelectedObject = better
-				if gui.SelectedObject == better then
+				ctx.selection.set(better)
+				if ctx.selection.get() == better then
 					held:set(nil)
 				end
 			end

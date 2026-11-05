@@ -161,7 +161,7 @@ return function<V>(
 		end
 		local key = candidate:peek()
 		if gui and key and buttons[key] then
-			gui.SelectedObject = buttons[key]
+			ctx.selection.set(buttons[key])
 		end
 	end
 	runtime.connect(panel, "InputBegan", function(input: InputObject)
@@ -234,11 +234,11 @@ return function<V>(
 		end
 	end)
 	session.returnSelection = function(change: () -> (), key: string?)
-		local held = gui ~= nil and surfaces.within(gui.SelectedObject, panel)
+		local held = gui ~= nil and surfaces.within(ctx.selection.get(), panel)
 		change()
 		local button = buttons[key or (if held then focus.first() else nil) or ""]
 		if held and gui and button and button.Parent then
-			gui.SelectedObject = button
+			ctx.selection.set(button)
 		end
 	end
 	Compose.cleanup(function()
@@ -362,7 +362,7 @@ return function<V>(
 					candidate:set(key)
 					naming:set(true)
 					if gui and key and buttons[key] then
-						gui.SelectedObject = buttons[key]
+						ctx.selection.set(buttons[key])
 					end
 					return
 				end
@@ -370,7 +370,7 @@ return function<V>(
 				if centre then
 					candidate:set(nil)
 					if gui then
-						gui.SelectedObject = hub.centerNode
+						ctx.selection.set(hub.centerNode)
 					end
 					return
 				end
@@ -380,7 +380,7 @@ return function<V>(
 				candidate:set(key)
 				naming:set(true)
 				if gui and buttons[key] then
-					gui.SelectedObject = buttons[key]
+					ctx.selection.set(buttons[key])
 				end
 			end, { priority = 2200, capture = true, group = "Radial" })
 		end

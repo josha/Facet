@@ -9,6 +9,7 @@ local freeze = require("./freeze")
 local support = require("./theme_support")
 local gameplayHold = require("./gameplay_hold")
 local displayScale = require("./theme_distance")
+local safeArea = require("./safe_area")
 
 local ANCHOR_KEYS: { [string]: boolean } = {
 	target = true,
@@ -108,7 +109,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local themeRadius = ctx.observeStyled.CornerRadius(corner)
 		local gui = config.guiService
 		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
+			then ctx.selection.observe()
 			else Compose.cell(nil)
 		local reshaped = Compose.cell(0)
 		local function partOf(target: Instance?): GuiObject?
@@ -577,20 +578,14 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			end
 			return math.round(use(topbarInset).Height * (if nativeTenFoot then 0.5 else 0.75))
 		end)
+		local bars = safeArea.bars(ctx, input)
+		local zoneRevision = safeArea.zoneRevision(ctx, gui)
 		local safeInsets = derived(function(use: ComposeTypes.Use): Env.SafeInsets
+			use(screenSize)
 			use(viewportSize)
 			use(topbar)
-			local insets: Env.SafeInsets = { top = 0, left = 0, bottom = 0, right = 0 }
-			if gui then
-				local service: GuiService = gui
-				local ok, topLeft, bottomRight = pcall(function()
-					return service:GetGuiInset()
-				end)
-				if ok and typeof(topLeft) == "Vector2" and typeof(bottomRight) == "Vector2" then
-					insets = { top = topLeft.Y, left = topLeft.X, bottom = bottomRight.Y, right = bottomRight.X }
-				end
-			end
-			return freeze(insets)
+			use(zoneRevision)
+			return safeArea.insets(ctx, gui, bars, use)
 		end)
 		local overscan = derived(function(use: ComposeTypes.Use): Env.SafeInsets
 			local authored =
@@ -835,7 +830,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 			ordered(group, list)
 			return list[1]
 		end
-		local selected = ctx.observe.SelectedObject(gui)
+		local selected = ctx.selection.observe()
 		local last: GuiObject? = nil
 		local inside = false
 		Compose.watch(function(use: ComposeTypes.Use)
@@ -852,7 +847,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end
 				inside = true
 				if target and target ~= current then
-					gui.SelectedObject = target
+					ctx.selection.set(target)
 					return
 				end
 			end
@@ -870,7 +865,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				if layer or at == nil then
 					return
 				end
-				layer, before = at, gui.SelectedObject
+				layer, before = at, ctx.selection.get()
 				local navigating = before ~= nil
 					or (input ~= nil and input.PreferredInput == ctx.types.Enum.PreferredInput.Gamepad)
 				if not navigating or not appear then
@@ -879,7 +874,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				local target = if type(appear) == "string" then named(appear) else first()
 				local placed = pcall(function()
 					if target then
-						gui.SelectedObject = target
+						ctx.selection.set(target)
 					elseif appear == true then
 						gui:Select(group)
 					end
@@ -896,7 +891,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					returned = true
 					local target = before
 					if target and target:FindFirstAncestorWhichIsA("LayerCollector") then
-						gui.SelectedObject = target
+						ctx.selection.set(target)
 					elseif target and layer then
 						gui:Select(layer)
 					end
@@ -916,7 +911,7 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 					held = within
 				end)
 				Compose.cleanup(function()
-					local current = gui.SelectedObject
+					local current = ctx.selection.get()
 					if returned or before == nil or (current ~= nil and not current:IsDescendantOf(group)) then
 						return
 					end

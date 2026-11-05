@@ -80,11 +80,9 @@ return function<V, K>(shared: State.Reorder<V, K>, root: Frame, body: ScrollingF
 				local move = moving:peek()
 				local row = move and rowNodes[move.key]
 				local hit = row and row.Parent and row.Parent:FindFirstChild("RowHit")
-				gui.SelectedObject = if choosingDestination:peek()
-						and hit
-						and hit:IsA("GuiObject")
-					then hit
-					else gesture.keyboardTarget
+				ctx.selection.set(
+					if choosingDestination:peek() and hit and hit:IsA("GuiObject") then hit else gesture.keyboardTarget
+				)
 			end
 			local session = drag.state:peek()
 			if session then

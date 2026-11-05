@@ -223,9 +223,8 @@ return function<V, K>(
 		local node = findSelectable(assert(nodeOf(key)), view.focusedPath, 1)
 		if node and policy.selectionVisible(node) then
 			restoring = true
-			local activeGui = gui
 			pcall(function()
-				activeGui.SelectedObject = node
+				ctx.selection.set(node)
 			end)
 			restoring = false
 		end
@@ -271,7 +270,7 @@ return function<V, K>(
 		restoreFocus(focusScope.current:peek())
 	end)
 	local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-		then observe.SelectedObject(gui)
+		then ctx.selection.observe()
 		else Compose.cell<<GuiObject?>>(nil)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local field = use(selected)
@@ -391,7 +390,7 @@ return function<V, K>(
 			end
 		end
 		if target and policy.selectionVisible(target) then
-			gui.SelectedObject = target
+			ctx.selection.set(target)
 		end
 	end)
 	local function eligible(use: ComposeTypes.Use): boolean
