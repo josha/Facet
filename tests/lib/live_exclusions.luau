@@ -1,5 +1,8 @@
 --!strict
 local EXCLUSIONS: { [string]: { string } } = {
+	["native ScrollingFrame canvas and window geometry require Studio"] = {
+		"dialog_bounds/canonical-navigable-dialog-keeps-insets-and-logical-density",
+	},
 	["interactive behavior mismatch requiring native comparison"] = {
 		"classb_keyboard/form-controls-reach-by-arrows",
 		"classb_keyboard/slider-between-controls-by-arrows",
