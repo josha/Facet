@@ -727,6 +727,41 @@ return function<V, K>(
 			end
 			local paintedSize = if measurementUnit then observe.AbsoluteSize(measurementUnit) else nil
 			local factor = if lift then observe.Scale(lift) else nil
+			local plate = if kind == "grid"
+					and not horizontal
+					and spec.measure == true
+					and tree == nil
+				then measuredNode:FindFirstChild("Body")
+				else nil
+			local plateLayout = if plate and measuredNode:GetAttribute("FacetBody") ~= nil
+				then plate:FindFirstChildWhichIsA("UIListLayout")
+				else nil
+			local plateStretch: ((ComposeTypes.Use) -> number)? = nil
+			if plate and plateLayout and plate:IsA("GuiObject") then
+				local plateSize, plateContent = observe.AbsoluteSize(plate), observe.AbsoluteContentSize(plateLayout)
+				local tileSize, slotSize = observe.AbsoluteSize(measuredNode), observe.AbsoluteSize(node)
+				local inset = plate:FindFirstChildWhichIsA("UIPadding")
+				local function stretch(use: ComposeTypes.Use): number
+					local unit = use(view.unitSize).X
+					local padding = if inset then (inset.PaddingTop.Offset + inset.PaddingBottom.Offset) * unit else 0
+					return math.max(0, use(plateSize).Y - use(plateContent).Y - padding)
+				end
+				plateStretch = stretch
+				local floor = Host.UISizeConstraint { Name = "RowFloor" }
+				floor.Parent = plate
+				Compose.watch(function(use: ComposeTypes.Use)
+					local unit = use(view.unitSize).X
+					if unit <= 0 then
+						return
+					end
+					local others = use(tileSize).Y - use(plateSize).Y
+					local room = math.floor((use(slotSize).Y - others) / unit)
+					local minimum = V2.new(0, math.max(0, room))
+					if floor.MinSize ~= minimum then
+						floor.MinSize = minimum
+					end
+				end)
+			end
 			local function measure(use: ComposeTypes.Use, box: Vector2?)
 				use(keyCell)
 				if spec.measure == nil and tree == nil then
@@ -744,7 +779,8 @@ return function<V, K>(
 				local painted = if paintedSize then use(paintedSize).X else 0
 				local scale = math.max(if painted > 0 then painted else liftScale * ancestors, 0.001)
 				local dimensions = box or use(assert(size))
-				local extent = (if horizontal then dimensions.X else dimensions.Y) / scale
+				local stretched = if plateStretch and not horizontal then plateStretch(use) else 0
+				local extent = ((if horizontal then dimensions.X else dimensions.Y) - stretched) / scale
 					+ (if editor and not horizontal then use(editor.header) else 0)
 					+ (if actionHeight and not horizontal then use(actionHeight) else 0)
 				extent = math.round(extent)
