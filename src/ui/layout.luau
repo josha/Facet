@@ -713,8 +713,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
-		local cellSize = if spec.aspectRatio ~= nil then Compose.cell(V2.zero) else nil
-		local cellHeight = 0
+		local cellWidth = if spec.aspectRatio ~= nil then Compose.cell(0) else nil
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
 			assert(
@@ -740,13 +739,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
-				local height = read<<number?>>(spec.cellHeight, use)
-				if cellSize then
-					local measured = use(cellSize)
-					local unit = if measured.Y > 0 and cellHeight > 0 then measured.Y / cellHeight else 1
-					cellHeight = math.floor(measured.X / unit / assert(read<<number?>>(spec.aspectRatio, use)))
-					height = cellHeight
-				end
+				local height = if cellWidth
+					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
+					else read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
 					-math.ceil(gap * (count - 1) / count),
@@ -779,12 +774,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			),
 			properties
 		)
-		if cellSize then
+		if cellWidth then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			cellSize:set(grid.AbsoluteCellSize)
-			local resized = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(function()
-				cellSize:set(grid.AbsoluteCellSize)
-			end)
+			local function measure()
+				local measured, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
+				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
+				cellWidth:set(measured.X / unit)
+			end
+			measure()
+			local resized = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
 			Compose.cleanup(function()
 				resized:Disconnect()
 			end)

@@ -2308,7 +2308,11 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					local grid = child(root, "UIGridLayout")
 					expect(grid:FindFirstChildWhichIsA("UIAspectRatioConstraint")):toBe(nil)
-					engine.environment.poke(grid, "AbsoluteCellSize", engine.types.Vector2.new(90, 44))
+					engine.environment.poke(
+						grid,
+						"AbsoluteCellSize",
+						engine.types.Vector2.new(90, grid.CellSize.Y.Offset)
+					)
 					expect(grid.CellSize.X.Scale):toBe(0.25)
 					expect(grid.CellSize.Y.Scale):toBe(0)
 					expect(grid.CellSize.Y.Offset):toBe(60)
