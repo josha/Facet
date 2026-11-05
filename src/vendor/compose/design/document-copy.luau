@@ -185,6 +185,7 @@ local function copyDocument(value: Document): Document
 		library = value.library,
 		nextId = value.nextId,
 		contract = copyContract(value.contract),
+		typeImports = if value.typeImports then table.clone(value.typeImports) else nil,
 		state = copyState(value.state),
 		sequences = copySequences(value.sequences),
 		root = copyNode(value.root),

@@ -14,6 +14,11 @@ not overwrite the module. Keep every edit inside the shapes below.
 
 1. The `--!strict` line and the library prelude, for example
    `local Facet = require(game:GetService("ReplicatedStorage").Facet)`.
+   Additional static `local Name = require(...)` declarations can import public
+   prop types used by contract `luauType` annotations. The editor retains them.
+   Use string module paths or named paths with literal string indexing;
+   `game:GetService("Service")` can start a path. Prepare computed paths outside
+   the Design.
 2. Exported types: one `export type <List>Item` for each list input with
    fields, and `export type Props`. The editor writes these from the contract.
    Do not edit them by hand. Change the contract in the header.

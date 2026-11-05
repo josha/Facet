@@ -369,6 +369,9 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			table.insert(lines, line)
 		end
 	end
+	for _, declaration in Read.typeImports(table.concat(value.typeImports or {}, "\n"), table.concat(lines, "\n")) or {} do
+		table.insert(lines, declaration)
+	end
 	local localControls = options ~= nil and options.localControls == true
 	if controls ~= nil and not localControls then
 		table.insert(lines, controls)

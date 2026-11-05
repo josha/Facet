@@ -203,6 +203,7 @@ export type Document = {
 	library: string,
 	nextId: number,
 	contract: Contract,
+	typeImports: { string }?,
 	state: { State }?,
 	sequences: { Sequence }?,
 	root: Node,
