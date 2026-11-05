@@ -415,7 +415,7 @@ function source.parse(code: string, library: Library): Types.Document
 		if item then
 			for _, alternative in alternatives do
 				assert(
-					(root.nameInput ~= nil or alternative.name == root.name)
+					(root.nameInput ~= nil or root.nameField ~= nil or alternative.name == root.name)
 						and alternative.nameInput == root.nameInput
 						and alternative.nameField == root.nameField,
 					"Row variants keep one direct root name"
@@ -672,6 +672,59 @@ function source.parse(code: string, library: Library): Types.Document
 				take "end"
 				local qualifier = string.match(row, "^row_([%w]+)$")
 				return { item = if qualifier then qualifier .. "." .. field else field }, nil
+			elseif string.match(peek(), "^event%d+$") or (peek() == ")" and peek(1) == "if") then
+				local parameters: { [string]: number } = {}
+				local count = 0
+				while peek() ~= ")" do
+					count += 1
+					local parameter = name()
+					assert(parameter == `event{count}`, "Action parameters use ordered event positions")
+					parameters[parameter] = count
+					take ":"
+					local depth = 0
+					repeat
+						local text = take().text
+						if text == "(" or text == "{" or text == "[" or text == "<" then
+							depth += 1
+						elseif text == ")" or text == "}" or text == "]" or text == ">" then
+							depth -= 1
+						end
+					until depth == 0 and (peek() == "," or peek() == ")")
+					if peek() == "," then
+						take ","
+					end
+				end
+				take ")"
+				take "if"
+				take "props"
+				take "."
+				local id = name()
+				take "then"
+				take "props"
+				take "."
+				take(id)
+				take "("
+				local arguments: { Types.ActionArgument } = {}
+				while peek() ~= ")" do
+					if peek() == "current" then
+						take "current"
+						take ":"
+						take "peek"
+						take "("
+						take ")"
+						take "."
+						table.insert(arguments, { item = name() })
+					else
+						table.insert(arguments, { event = assert(parameters[name()], "Unknown action event argument") })
+					end
+					if peek() == "," then
+						take ","
+					end
+				end
+				take ")"
+				take "end"
+				take "end"
+				return { output = id, arguments = arguments }, nil
 			elseif peek() == "current" or peek() == ")" then
 				if peek() == "current" then
 					take "current"
@@ -898,12 +951,22 @@ function source.parse(code: string, library: Library): Types.Document
 		local kindName = assert(calls[call], `{call} is not a {library.name} kind`)
 		local kind = library.kinds[kindName]
 		local templated = kind.children == "template"
+		if kind.design then
+			take "("
+			take(library.parameter)
+			take ","
+			take "{"
+			take(kind.design.nameInput)
+			take "="
+		end
 		local nodeName = take()
 		local nameField: string? = nil
 		local nodeTitle: string
 		local nameInput: string? = nil
-		if nodeName.kind == "symbol" and nodeName.text == "(" and peek() == "props" then
-			take "props"
+		if (nodeName.text == "(" and peek() == "props") or (kind.design and nodeName.text == "props") then
+			if nodeName.text == "(" then
+				take "props"
+			end
 			take "."
 			nameInput = name()
 			nodeTitle = kindName
@@ -913,9 +976,13 @@ function source.parse(code: string, library: Library): Types.Document
 				assert(fallback.kind == "string", "A named node falls back to text")
 				nodeTitle = unquote(fallback.text)
 			end
-			take ")"
-		elseif nodeName.kind == "symbol" and nodeName.text == "(" then
-			take "tostring"
+			if nodeName.text == "(" then
+				take ")"
+			end
+		elseif nodeName.text == "(" or (kind.design and nodeName.text == "tostring") then
+			if nodeName.text == "(" then
+				take "tostring"
+			end
 			take "("
 			take "current"
 			take ":"
@@ -925,7 +992,9 @@ function source.parse(code: string, library: Library): Types.Document
 			take "."
 			nameField = name()
 			take ")"
-			take ")"
+			if nodeName.text == "(" then
+				take ")"
+			end
 			nodeTitle = kindName
 		else
 			assert(nodeName.kind == "string", "Every node needs a name")
@@ -943,16 +1012,29 @@ function source.parse(code: string, library: Library): Types.Document
 		nextId += 1
 		local outerCells = pendingCells
 		pendingCells = {}
-		take "{"
+		take(if kind.design then "," else "{")
 		local from: string?, key: string? = nil, nil
 		local rowId: string? = nil
 		while peek() ~= "}" do
 			if tokens[at] and tokens[at].kind == "name" and peek(1) == "=" then
 				local prop = name()
 				take "="
-				local property, template = value()
 				local contentField = kind.fields[prop]
-				if template and contentField and contentField.type == "content" and prop ~= kind.slot then
+				local start = at
+				local lead = if tokens[at] and tokens[at].kind == "name" then dotted() else ""
+				at = start
+				local direct = contentField
+					and contentField.type == "value"
+					and not contentField.perRow
+					and (calls[lead] ~= nil or lead == "capture" or (library.tags and lead == library.tags.call))
+				local property: Value? = nil
+				local template: Node? = nil
+				if direct then
+					template = node()
+				else
+					property, template = value()
+				end
+				if template and contentField and (direct or contentField.type == "content") and prop ~= kind.slot then
 					local marker: Record = { ["$template"] = template.id }
 					result.props[prop] = { literal = marker }
 					table.insert(pendingCells, template)
@@ -1075,6 +1157,9 @@ function source.parse(code: string, library: Library): Types.Document
 			end
 		end
 		take "}"
+		if kind.design then
+			take ")"
+		end
 		local listed = #result.children
 		for _, cell in pendingCells do
 			table.insert(result.children, cell)

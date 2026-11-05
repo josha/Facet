@@ -13,6 +13,7 @@ export type Slot = Subject | Release
 
 export type Owner<R> = {
 	parent: Owner<R>?,
+	nodeToken: number?,
 	reactor: R?,
 	boundary: { report: (unknown) -> () }?,
 	head: Owner<R>?,

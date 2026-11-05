@@ -4,7 +4,6 @@
 local Diagnostics = require "../diagnostics"
 local Active = require "../ownership/active"
 local Host = require "../host"
-local Nodes = require "../ownership/nodes"
 local Owner = require "../ownership/owner"
 local Dynamic = require "../dynamic"
 
@@ -197,9 +196,6 @@ local function releaseNodes(mountPoint: MountPoint, nodes: { Node })
 	for index = #nodes, 1, -1 do
 		mountPoint.remove(nodes[index])
 	end
-	for _, node in nodes do
-		Nodes.forget(node)
-	end
 end
 
 local inserted = 0
@@ -353,7 +349,6 @@ end
 
 local function releaseNode(mountPoint: MountPoint, node: Node)
 	mountPoint.remove(node)
-	Nodes.forget(node)
 end
 
 return {

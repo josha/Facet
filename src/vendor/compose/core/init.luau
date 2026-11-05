@@ -3,6 +3,7 @@
 local sharedModule: typeof(require "@self/async/shared")? = nil
 local geometryModule: typeof(require "@self/geometry")? = nil
 local rootScopeModule: typeof(require "@self/ownership/root-scope")? = nil
+local cubicBezierModule: typeof(require "@self/animation/cubic-bezier")? = nil
 local springModule: typeof(require "@self/animation/spring")? = nil
 local poolModule: typeof(require "@self/pool")? = nil
 local keyedCacheModule: typeof(require "@self/keyed-cache")? = nil
@@ -43,7 +44,7 @@ local RuntimeModule = require "@self/runtime"
 local Types = require "@self/reactive/types"
 local cellModule = require "@self/reactive/cell"
 local nodes = require "@self/ownership/nodes"
-local formulaModule = require "@self/reactive/formula"
+local formulaModule: typeof(require "@self/reactive/formula")? = nil
 local reactorModule = require "@self/reactive/reactor"
 local watchModule = require "@self/reactive/watch"
 local Evaluation = require "@self/reactive/evaluation"
@@ -225,6 +226,12 @@ local function createRootOwner(body: (owner: OwnerModule.Owner) -> (), reactor: 
 	local loaded = rootScopeModule or require "@self/ownership/root-scope"
 	rootScopeModule = loaded
 	return loaded.createRootOwner(body, reactor)
+end
+
+local function cubicBezier(x1: number, y1: number, x2: number, y2: number): AnimationEasing.Easing
+	local loaded = cubicBezierModule or require "@self/animation/cubic-bezier"
+	cubicBezierModule = loaded
+	return loaded(x1, y1, x2, y2)
 end
 
 local function createSpringState(position: { number }, arity: number): CoreTypes.SpringState
@@ -430,7 +437,9 @@ local function inspectData(report: Types.InspectReport): Types.InspectData
 end
 
 local function formula<T>(body: Types.Body<T>, equals: Types.Equals<T>?): Types.Value<T>
-	local value = formulaModule(body, equals)
+	local loaded = formulaModule or require "@self/reactive/formula"
+	formulaModule = loaded
+	local value = loaded(body, equals)
 	local owner = Active.current()
 	if owner ~= nil then
 		Graph.detachers[Graph.nodeOf(value)] = OwnerModule.own(owner, function()
@@ -662,6 +671,7 @@ return {
 	geometry = geometry,
 
 	easing = AnimationEasing,
+	cubicBezier = cubicBezier,
 	numberCodec = AnimationCodec.number,
 	createSpringState = createSpringState,
 	stepSpring = stepSpring,

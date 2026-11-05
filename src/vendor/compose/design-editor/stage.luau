@@ -13,6 +13,7 @@ export type Stage = {
 	zoom: Compose.Value<number>,
 	fit: () -> (),
 	zoomTo: (scale: number, around: UI.Point?) -> (),
+	pan: (offset: UI.Point) -> (),
 	play: (sequence: string) -> (),
 	dispose: () -> (),
 }
@@ -27,7 +28,9 @@ export type Options = {
 	resolveToken: ((name: string) -> Design.Resolved)?,
 	inputs: { [string]: Design.Literal }?,
 	bindings: { [string]: Design.Resolved }?,
+	outputs: { [string]: (args: { Design.Literal }) -> () }?,
 	slots: { [string]: () -> unknown }?,
+	backdrop: (() -> unknown)?,
 }
 
 return function(ui: UI.UI)
@@ -584,6 +587,12 @@ return function(ui: UI.UI)
 		local started = false
 		local players: { [string]: Design.Player } = {}
 		local root = Compose.createRootOwner(function()
+			local backdrop = options.backdrop
+			if backdrop then
+				runtime.mount(function(): Compose.Node
+					return ui.node(backdrop())
+				end, surface)
+			end
 			Compose.watch(function(use: Compose.Use)
 				local value = use(session.document)
 				ui.set(title, "Text", value.name)
@@ -594,11 +603,13 @@ return function(ui: UI.UI)
 				stopDesign = runtime.mountFragment(function(): { Compose.Child }
 					local rendered, content = pcall(function(): unknown
 						return Design.render(value, library, {
+							use = use,
 							exclude = function(node: Design.Node): boolean
 								return node.hidden == true
 							end,
 							inputs = options.inputs,
 							bindings = options.bindings,
+							outputs = options.outputs,
 							slots = options.slots,
 							token = options.token,
 							resolveToken = options.resolveToken,
@@ -826,11 +837,19 @@ return function(ui: UI.UI)
 			zoom = zoom,
 			fit = fit,
 			zoomTo = zoomTo,
+			pan = function(offset: UI.Point)
+				assert(
+					offset.X == offset.X
+						and offset.Y == offset.Y
+						and math.abs(offset.X) < math.huge
+						and math.abs(offset.Y) < math.huge,
+					"Pan requires finite pixel offsets"
+				)
+				pan = Math.add(pan, offset)
+				apply()
+			end,
 			play = function(sequence: string)
-				local player = players[sequence]
-				if player then
-					player.play()
-				end
+				assert(players[sequence], "Unknown Design sequence").play()
 			end,
 			dispose = function()
 				for _, connection in surfaceInput do

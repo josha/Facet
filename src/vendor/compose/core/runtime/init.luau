@@ -91,6 +91,7 @@ export type Runtime = {
 	spring: (source: Types.Body<number>, options: SpringOptions?) -> Types.ReadOnlyValue<number>,
 
 	tween: (source: Types.Body<number>, options: TweenOptions?) -> Types.ReadOnlyValue<number>,
+	running: <T>(value: Types.ReadOnlyValue<T>) -> Types.ReadOnlyValue<boolean>,
 	timeline: (options: TimelineOptions?) -> Timeline,
 	ramp: (initial: number, options: RampOptions?) -> Ramp<number>,
 	scheduler: (owner: Owner.Owner?) -> Scheduler,
@@ -107,6 +108,21 @@ export type Runtime = {
 	pending: (self: Runtime) -> number,
 	dispose: (self: Runtime) -> (),
 }
+
+local function rollbackChildren(removeChild: (Node, Node) -> (), props: unknown, node: Node, token: number)
+	local entries = Dynamic.entries(props)
+	local failures: { unknown } = {}
+	for index = #entries, 1, -1 do
+		local child = entries[index]
+		if (type(child) == "table" or type(child) == "userdata") and Nodes.belongsTo(child, token) then
+			local ok, failure: unknown = pcall(removeChild, node, child)
+			if not ok then
+				table.insert(failures, failure)
+			end
+		end
+	end
+	Owner.raiseAll(failures)
+end
 
 local function createRuntime(host: Host.Host): Runtime
 	local reactor = Reactor.create()
@@ -206,9 +222,31 @@ local function createRuntime(host: Host.Host): Runtime
 			applying.key = nil
 			local list: Children.ChildList? = nil
 			local staticSlot = 0
+			local staticChildren: { Node }? = nil
+			local token = assert(owner.nodeToken)
 			for index = 1, childCount do
 				local child = entries[index]
 				if type(child) == "table" or type(child) == "userdata" then
+					if not Nodes.belongsTo(child, token) then
+						local attached = staticChildren
+						if attached == nil then
+							local children: { Node } = {}
+							attached = children
+							staticChildren = children
+							Nodes.protect(node)
+							Owner.adopt(owner, function()
+								local failures: { unknown } = {}
+								for at = #children, 1, -1 do
+									local ok, failure: unknown = pcall(supplied.render.removeChild, node, children[at])
+									if not ok then
+										table.insert(failures, failure)
+									end
+								end
+								Owner.raiseAll(failures)
+							end)
+						end
+						table.insert(assert(attached), child)
+					end
 					if list == nil then
 						supplied.render.insertChild(node, child, index)
 					else
@@ -218,6 +256,7 @@ local function createRuntime(host: Host.Host): Runtime
 						Children.insertStatic(list, staticSlot, child)
 					end
 				elseif type(child) == "function" and constructorKinds[child] == nil then
+					Nodes.protect(node)
 					local current: Children.ChildList = list or Children.createList(host, node, supplied)
 					if list == nil then
 						if index > 1 then
@@ -257,7 +296,6 @@ local function createRuntime(host: Host.Host): Runtime
 				end
 			end
 		end
-
 		local function build(label: string?, props: unknown): Node
 			if type(props) ~= "table" then
 				return Diagnostics.raise("props/not-a-table", ("create(%q) expects a props table"):format(kind), {
@@ -273,7 +311,9 @@ local function createRuntime(host: Host.Host): Runtime
 			local mark = owner.head
 			local heldMark = Owner.heldCount(owner)
 			local node = render.createNode(kind)
-			Nodes.markOwned(node)
+			local token = owner.nodeToken or Nodes.ownerToken()
+			owner.nodeToken = token
+			Nodes.markOwned(node, token)
 			Owner.holdSubject(owner, destroyOwnedNode, node)
 			if inspecting.active then
 				inspector().node(owner, node, "owned")
@@ -288,10 +328,15 @@ local function createRuntime(host: Host.Host): Runtime
 				Active.pop(owner, running)
 			end
 			if not ok then
+				local released, cleanup: unknown =
+					pcall(rollbackChildren, supplied.render.removeChild, props, node, token)
 				Owner.rollbackTo(owner, mark)
 				Owner.rollbackHeld(owner, heldMark)
 				local key = applying.key
 				applying.key = savedKey
+				if not released then
+					Owner.raiseAll { err, cleanup }
+				end
 				if key ~= nil then
 					error(("%s\n  while applying: %s.%s"):format(tostring(err), kind, tostring(key)), 0)
 				end
@@ -556,6 +601,10 @@ local function createRuntime(host: Host.Host): Runtime
 		return motionOf().tween(source, options)
 	end
 
+	local function running<T>(value: Types.ReadOnlyValue<T>): Types.ReadOnlyValue<boolean>
+		return motionOf().running(value)
+	end
+
 	local function watch(_self: Runtime, body: (use: Types.Use) -> (), label: string?): Types.Dispose
 		local active = Active.current()
 		local owner = active or rootOwner
@@ -588,6 +637,7 @@ local function createRuntime(host: Host.Host): Runtime
 		motion = typedMotion,
 		spring = spring,
 		tween = tween,
+		running = running,
 		timeline = timeline,
 		ramp = ramp,
 		scheduler = scheduler,

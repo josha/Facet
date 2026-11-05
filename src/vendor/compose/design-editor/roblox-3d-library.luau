@@ -373,6 +373,25 @@ local function kinds(): { [string]: Design.Kind }
 			emissionDirection = field("choice", "Emission", 10, FACES),
 			enabled = { type = "boolean", group = "Emission", order = 11, default = true },
 		}),
+		Beam = scalar("Effect", {
+			attachment0 = field("node", "Beam", 1),
+			attachment1 = field("node", "Beam", 2),
+			width0 = field("number", "Beam", 3),
+			width1 = field("number", "Beam", 4),
+			curveSize0 = field("number", "Beam", 5),
+			curveSize1 = field("number", "Beam", 6),
+			segments = field("number", "Beam", 7),
+			faceCamera = field("boolean", "Beam", 8),
+			color = field("value", "Appearance", 1),
+			transparency = field("value", "Appearance", 2),
+			lightEmission = field("number", "Appearance", 3),
+			lightInfluence = field("number", "Appearance", 4),
+			texture = field("string", "Appearance", 5),
+			textureLength = field("number", "Appearance", 6),
+			textureSpeed = field("number", "Appearance", 7),
+			textureMode = field("choice", "Appearance", 8, { "Stretch", "Wrap", "Static" }),
+			enabled = { type = "boolean", group = "Beam", order = 9, default = true },
+		}),
 		Fire = scalar("Effect", {
 			color = field("color", "Fire", 1),
 			secondaryColor = field("color", "Fire", 2),
@@ -449,6 +468,24 @@ local emitterBindings: Bindings = {
 	enabled = { property = "Enabled", convert = "boolean" },
 }
 
+local beamBindings: Bindings = {
+	width0 = { property = "Width0", convert = "nonNegative" },
+	width1 = { property = "Width1", convert = "nonNegative" },
+	curveSize0 = { property = "CurveSize0", convert = "number" },
+	curveSize1 = { property = "CurveSize1", convert = "number" },
+	segments = { property = "Segments", convert = "nonNegative" },
+	faceCamera = { property = "FaceCamera", convert = "boolean" },
+	color = { property = "Color", convert = "colorSequence" },
+	transparency = { property = "Transparency", convert = "numberSequence" },
+	lightEmission = { property = "LightEmission", convert = "unit" },
+	lightInfluence = { property = "LightInfluence", convert = "unit" },
+	texture = { property = "Texture", convert = "string" },
+	textureLength = { property = "TextureLength", convert = "tile" },
+	textureSpeed = { property = "TextureSpeed", convert = "number" },
+	textureMode = { property = "TextureMode", convert = "string", enum = "TextureMode" },
+	enabled = { property = "Enabled", convert = "boolean" },
+}
+
 local fireBindings: Bindings = {
 	color = { property = "Color", convert = "color" },
 	secondaryColor = { property = "SecondaryColor", convert = "color" },
@@ -499,6 +536,7 @@ local function schema(): Design.Library
 		returnType = "Instance",
 		readable = "Compose.ReadOnlyValue",
 		cell = "Compose.Cell",
+		newCell = "Compose.cell",
 		space = "3d",
 		categories = categories(),
 		kinds = definitions,
@@ -964,8 +1002,9 @@ local function create(
 			body(part, props, children)
 			return part
 		end,
-		Attachment = function(props: Props): unknown
+		Attachment = function(props: Props, children: { unknown }): unknown
 			local attachment = ui.new "Attachment"
+			attach(attachment, children)
 			place(props, function(frame: { number })
 				ui.set(attachment, "CFrame", ui.values.cframe(frame))
 			end)
@@ -975,6 +1014,24 @@ local function create(
 		SpotLight = plain("SpotLight", lightBindings),
 		SurfaceLight = plain("SurfaceLight", lightBindings),
 		ParticleEmitter = plain("ParticleEmitter", emitterBindings),
+		Beam = function(props: Props): unknown
+			local beam = ui.new "Beam"
+			bind(beam, props, beamBindings)
+			for _, key in { "attachment0", "attachment1" } do
+				local resolved = props[key]
+				local reference = if resolved then resolved.node else nil
+				if reference then
+					local property = if key == "attachment0" then "Attachment0" else "Attachment1"
+					local owner = assert(Compose.currentOwner())
+					ui.runtime.scheduler(owner).after(0, function()
+						Compose.withOwner(owner, function()
+							ui.runtime.decorate(beam, { [property] = reference })
+						end)
+					end)
+				end
+			end
+			return beam
+		end,
 		Fire = plain("Fire", fireBindings),
 		Smoke = plain("Smoke", smokeBindings),
 		Sparkles = plain("Sparkles", sparklesBindings),

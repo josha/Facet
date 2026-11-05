@@ -317,6 +317,7 @@ export type TweenOptions = {
 export type Motion<T> = {
 	spring: (source: Types.Body<T>, options: SpringOptions?) -> Types.ReadOnlyValue<T>,
 	tween: (source: Types.Body<T>, options: TweenOptions?) -> Types.ReadOnlyValue<T>,
+	running: <V>(value: Types.ReadOnlyValue<V>) -> Types.ReadOnlyValue<boolean>,
 	ramp: (initial: T, options: RampOptions?) -> Ramp<T>,
 }
 

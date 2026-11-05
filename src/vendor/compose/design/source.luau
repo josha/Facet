@@ -493,13 +493,19 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 	local rowNames: { [string]: boolean } =
 		{ props = true, state = true, refs = true, capture = true, rootContent = true }
 	rowNames[library.parameter] = true
+	for _, kind in library.kinds do
+		local prefix = string.match(kind.call, "^([%w_]+)")
+		if prefix then
+			rowNames[prefix] = true
+		end
+	end
 	local emitNode: (node: Node, depth: number) -> string
 	local emit: (node: Node, depth: number) -> string
 	local function tabs(depth: number): string
 		return string.rep("\t", depth)
 	end
-	local function callback(output: string, list: string, depth: number): string
-		return `function(...)\n{tabs(depth + 1)}if props.{output} then\n{tabs(depth + 2)}props.{output}({list})\n`
+	local function callback(output: string, list: string, depth: number, parameters: string?): string
+		return `function({parameters or "..."})\n{tabs(depth + 1)}if props.{output} then\n{tabs(depth + 2)}props.{output}({list})\n`
 			.. `{tabs(depth + 1)}end\n{tabs(depth)}end`
 	end
 	local function returning(params: string, body: string, depth: number, returnType: string?): string
@@ -795,6 +801,26 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		elseif item then
 			return returning("use", `use(current).{item}`, depth)
 		elseif output then
+			local arguments = property.arguments
+			if arguments then
+				local signature: { Types.InputType } = {}
+				for _, declared in value.contract.outputs do
+					if declared.id == output then
+						signature = assert(declared.args)
+					end
+				end
+				local parameters: { string } = {}
+				local reads: { string } = {}
+				for index, argument in arguments do
+					if argument.item then
+						table.insert(reads, `current:peek().{argument.item}`)
+					else
+						parameters[argument.event] = `event{argument.event}: {scalar(library, signature[index])}`
+						table.insert(reads, `event{argument.event}`)
+					end
+				end
+				return callback(output, table.concat(reads, ", "), depth, table.concat(parameters, ", "))
+			end
 			local args = property.args
 			local passed = property.fields
 			local packed: Record = {}
@@ -878,6 +904,16 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			opening = `{kind.call} {literal(node.name)} `
 		end
 		local body: { string } = {}
+		local imported = kind.design
+		if imported then
+			local input = if nameInput then Document.input(value, nameInput) else nil
+			local named = if nameField
+				then `tostring(current:peek().{nameField})`
+				elseif input then `props.{nameInput}` .. (if input.required then "" else ` or {literal(node.name)}`)
+				else literal(node.name)
+			opening = `{kind.call}({library.parameter}, `
+			table.insert(body, `{inner}{imported.nameInput} = {named},`)
+		end
 		local keys: { string } = {}
 		local boundTemplate = kind.children == "template" and node.bind ~= nil
 		local slot = if kind.children == "slot" then kind.slot else nil
@@ -909,7 +945,16 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 			local luauType: string? = if field then field.luauType else nil
 			local bound = node.bind
 			local itemName = property.item
-			if current ~= nil and field ~= nil and field.perRow and bound ~= nil then
+			if
+				type(current) == "table"
+				and field
+				and field.type == "value"
+				and not field.perRow
+				and type(current["$template"]) == "string"
+			then
+				local child = Document.find(node, current["$template"])
+				written = emit(assert(child), depth + 1)
+			elseif current ~= nil and field ~= nil and field.perRow and bound ~= nil then
 				local typed = itemType(node, bound.from)
 				local parameter = if typed
 					then `current: {library.rowReadable or library.readable}<{typed}>`
@@ -1025,7 +1070,13 @@ function source.emit(value: Types.Document, library: Library, options: EmitOptio
 		if #body == 0 then
 			return opening .. "{}"
 		end
-		return opening .. "{\n" .. table.concat(body, "\n") .. "\n" .. tabs(depth) .. "}"
+		return opening
+			.. "{\n"
+			.. table.concat(body, "\n")
+			.. "\n"
+			.. tabs(depth)
+			.. "}"
+			.. (if imported then ")" else "")
 	end
 	local propsName = propsType or "Props"
 	local signature = if controls ~= nil

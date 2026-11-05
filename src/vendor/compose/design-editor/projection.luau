@@ -5,11 +5,25 @@ local Design = require "../design"
 local Devices = require "./devices"
 local UI = require "./ui"
 
-return function(ui: UI.UI, library: Design.Library, device: Devices.Profile): Design.Library
+local function project(
+	ui: UI.UI,
+	library: Design.Library,
+	device: Devices.Profile,
+	seen: { [Design.Library]: Design.Library }
+): Design.Library
+	if seen[library] then
+		return seen[library]
+	end
 	local projected = table.clone(library)
+	seen[library] = projected
 	projected.kinds = {}
 	for name, kind in library.kinds do
 		local copy = table.clone(kind)
+		if kind.design then
+			local imported = table.clone(kind.design)
+			imported.library = project(ui, imported.library, device, seen)
+			copy.design = imported
+		end
 		copy.build = function(props: { [string]: Design.Resolved }, children: { unknown }, name: string): unknown
 			local source = kind.build(props, children, name)
 			if not ui.isA(source, "LayerCollector") then
@@ -77,4 +91,8 @@ return function(ui: UI.UI, library: Design.Library, device: Devices.Profile): De
 		projected.kinds[name] = copy
 	end
 	return projected
+end
+
+return function(ui: UI.UI, library: Design.Library, device: Devices.Profile): Design.Library
+	return project(ui, library, device, {})
 end

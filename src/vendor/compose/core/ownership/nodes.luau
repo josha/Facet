@@ -9,7 +9,11 @@ type Node = Host.Node
 
 export type Custody = "owned" | "adopted" | "borrowed"
 
-local custody: { [unknown]: Custody } = {}
+local custody: { [unknown]: Custody | number } = {}
+local issuedToken = 0
+local TOKEN_STRIDE = 4
+local BORROWED_TAG = 1
+local ADOPTED_TAG = 2
 
 Weak.keys(custody)
 
@@ -33,23 +37,60 @@ local function assertReference(node: Node, operation: string)
 	)
 end
 
-local function markOwned(node: Node)
+local function ownerToken(): number
+	issuedToken += TOKEN_STRIDE
+	return issuedToken
+end
+
+local function markOwned(node: Node, token: number)
 	assertReference(node, "createNode")
-	custody[node] = "owned"
+	custody[node] = token
+end
+
+local function belongsTo(node: Node, token: number): boolean
+	local known = custody[node]
+	return known == token or known == token + BORROWED_TAG or known == token + ADOPTED_TAG
+end
+
+local function protect(node: Node)
+	local known = custody[node]
+	if type(known) == "number" and known > 0 then
+		custody[node] = -known
+	end
+end
+
+local function changeCustody(node: Node, kind: Custody, tag: number)
+	local known = custody[node]
+	if type(known) == "number" then
+		local current = math.abs(known)
+		local token = current - current % TOKEN_STRIDE + tag
+		custody[node] = if known < 0 then -token else token
+	else
+		custody[node] = kind
+	end
 end
 
 local function markAdopted(node: Node)
 	assertReference(node, "adopt")
-	custody[node] = "adopted"
+	changeCustody(node, "adopted", ADOPTED_TAG)
 end
 
 local function markBorrowed(node: Node)
 	assertReference(node, "borrow")
-	custody[node] = "borrowed"
+	changeCustody(node, "borrowed", BORROWED_TAG)
 end
 
 local function custodyOf(node: Node): Custody
-	local known: Custody? = custody[node]
+	local known = custody[node]
+	if type(known) == "number" then
+		local tag = math.abs(known) % TOKEN_STRIDE
+		if tag == BORROWED_TAG then
+			return "borrowed"
+		elseif tag == ADOPTED_TAG then
+			return "adopted"
+		end
+		return "owned"
+	end
 	if known ~= nil then
 		return known
 	end
@@ -58,6 +99,9 @@ end
 
 local function isDestructible(node: unknown): boolean
 	local known = custody[node]
+	if type(known) == "number" then
+		return math.abs(known) % TOKEN_STRIDE ~= BORROWED_TAG
+	end
 	return known == "owned" or known == "adopted"
 end
 
@@ -190,6 +234,9 @@ return {
 	inspecting = inspecting,
 	tracked = tracked,
 	markOwned = markOwned,
+	ownerToken = ownerToken,
+	belongsTo = belongsTo,
+	protect = protect,
 	markAdopted = markAdopted,
 	markBorrowed = markBorrowed,
 	custodyOf = custodyOf,

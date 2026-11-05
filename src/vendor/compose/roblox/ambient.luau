@@ -1,5 +1,4 @@
 --!strict
---!nolint DeprecatedApi
 
 local Dynamic = require "../core/dynamic"
 local EngineTypes = require "./types"
@@ -21,26 +20,7 @@ type Signal<A... = ...unknown> = EngineTypes.Signal<A...>
 
 type Library<F> = { new: F }
 
-type Globals = {
-	Enum: { [string]: { [string]: unknown } },
-	Font: Library<(family: string, weight: unknown) -> unknown>,
-	RaycastParams: Library<() -> { FilterType: unknown, FilterDescendantsInstances: { unknown } }>,
-	Instance: Library<(className: string) -> Instance>?,
-	game: DataModel?,
-	typeof: (value: unknown) -> string,
-	Vector2: Library<(x: number, y: number) -> Vector2>?,
-	Vector3: Library<(x: number, y: number, z: number) -> Vector3>?,
-	Color3: Library<(r: number, g: number, b: number) -> Color3>?,
-	UDim: Library<(scale: number, offset: number) -> UDim>?,
-	UDim2: Library<(xScale: number, xOffset: number, yScale: number, yOffset: number) -> UDim2>?,
-	CFrame: Library<(...number) -> CFrame>?,
-	task: { cancel: ((thread: thread) -> ())? }?,
-	os: typeof(os),
-}
-
-local function environment(): Globals?
-	return if getfenv ~= nil then getfenv(0) else nil
-end
+type Scheduler = { cancel: ((thread: thread) -> ())? }
 
 local readMember = Dynamic.read
 local writeMember = Dynamic.write
@@ -90,16 +70,15 @@ local function frameSignal(signal: unknown): Signal<number>
 end
 
 local function service(name: string): unknown
-	local globals = assert(environment(), "Roblox is absent; inject the requested service")
-	return assert(globals.game, "Roblox is absent; inject the requested service"):GetService(name)
+	local dataModel: DataModel? = game
+	return assert(dataModel, "Roblox is absent; inject the requested service"):GetService(name)
 end
 
 local function ambient(): Engine
-	local globals = environment()
-	local instances = if globals then globals.Instance else nil
-	local dataModel = if globals then globals.game else nil
+	local instances: Library<(className: string) -> Instance>? = Instance
+	local dataModel: DataModel? = game
 
-	if globals == nil or instances == nil or dataModel == nil then
+	if instances == nil or dataModel == nil then
 		error(
 			"ComposeRoblox: the Roblox engine is not present. This adapter only runs inside Roblox; "
 				.. "pass an engine explicitly to ComposeRoblox.createHost(engine) to run it anywhere else.",
@@ -110,20 +89,20 @@ local function ambient(): Engine
 	local runService = dataModel:GetService "RunService"
 	local client = invoke(readMember, runService, "IsClient")
 	assert(type(client) == "boolean", "RunService.IsClient did not return a boolean")
-	local typeName = globals.typeof
-	local vector2 = globals.Vector2
-	local vector3 = globals.Vector3
-	local color3 = globals.Color3
-	local udim = globals.UDim
-	local udim2 = globals.UDim2
-	local cframe = globals.CFrame
+	local typeName = typeof
+	local vector2: Library<(x: number, y: number) -> Vector2>? = Vector2
+	local vector3: Library<(x: number, y: number, z: number) -> Vector3>? = Vector3
+	local color3: Library<(r: number, g: number, b: number) -> Color3>? = Color3
+	local udim: Library<(scale: number, offset: number) -> UDim>? = UDim
+	local udim2: Library<(xScale: number, xOffset: number, yScale: number, yOffset: number) -> UDim2>? = UDim2
+	local cframe: Library<(...number) -> CFrame>? = CFrame
 
 	return {
 		new = function(className: string): Instance
 			return instances.new(className)
 		end,
 		heartbeat = frameSignal(readMember(runService, if client then "PreRender" else "Heartbeat")),
-		clock = globals.os.clock,
+		clock = os.clock,
 		typeName = typeName,
 		destroy = function(object: unknown)
 			invoke(readMember, object, "Destroy")
@@ -165,10 +144,17 @@ local function ambient(): Engine
 end
 
 local function designEnvironment(read: (unknown, string) -> unknown)
-	local globals = assert(environment(), "Roblox is absent; inject a design environment")
-	local dataModel = assert(globals.game, "Roblox is absent; inject a design environment")
-	local vector2, vector3, color3, udim, udim2, cframe =
-		globals.Vector2, globals.Vector3, globals.Color3, globals.UDim, globals.UDim2, globals.CFrame
+	local model: DataModel? = game
+	local dataModel = assert(model, "Roblox is absent; inject a design environment")
+	local vector2: Library<(number, number) -> Vector2>? = Vector2
+	local vector3: Library<(number, number, number) -> Vector3>? = Vector3
+	local color3: Library<(number, number, number) -> Color3>? = Color3
+	local udim: Library<(number, number) -> UDim>? = UDim
+	local udim2: Library<(number, number, number, number) -> UDim2>? = UDim2
+	local cframe: Library<(...number) -> CFrame>? = CFrame
+	local font: Library<(string, unknown) -> unknown> = Font
+	local enums: { [string]: { [string]: unknown } } = Enum
+	local raycast: Library<() -> { FilterType: unknown, FilterDescendantsInstances: { unknown } }> = RaycastParams
 	return {
 		read = read,
 		descendants = descendants,
@@ -195,17 +181,17 @@ local function designEnvironment(read: (unknown, string) -> unknown)
 				return assert(color3).new(r, g, b)
 			end,
 			font = function(family: string, weight: string): unknown
-				return globals.Font.new(family, globals.Enum.FontWeight[weight])
+				return font.new(family, enums.FontWeight[weight])
 			end,
 			enum = function(name: string, item: string): unknown
-				return globals.Enum[name][item]
+				return enums[name][item]
 			end,
 			cframe = function(components: { number }): unknown
 				return assert(cframe).new(table.unpack(components))
 			end,
 			raycastParams = function(include: boolean, nodes: { unknown }): unknown
-				local params = globals.RaycastParams.new()
-				params.FilterType = globals.Enum.RaycastFilterType[if include then "Include" else "Exclude"]
+				local params = raycast.new()
+				params.FilterType = enums.RaycastFilterType[if include then "Include" else "Exclude"]
 				params.FilterDescendantsInstances = nodes
 				return params
 			end,
@@ -214,8 +200,7 @@ local function designEnvironment(read: (unknown, string) -> unknown)
 end
 
 local function cancelThread(thread: thread): boolean
-	local globals = environment()
-	local scheduler = if globals then globals.task else nil
+	local scheduler: Scheduler? = task
 	if scheduler == nil or type(scheduler.cancel) ~= "function" then
 		return false
 	end
