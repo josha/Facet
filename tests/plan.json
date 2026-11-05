@@ -70,6 +70,7 @@
 { "id": "play_mount", "locator": "tests/play_mount.verify.luau", "requires": ["lute"] },
     { "id": "tools/docs_nodes", "locator": "tests/tools/docs_nodes.verify.luau", "requires": ["lute"] },
     { "id": "docs_examples", "locator": "tests/docs_examples.verify.luau", "requires": ["lute"] },
+    { "id": "docs_recipes", "locator": "tests/docs_recipes.verify.luau", "requires": ["lute"] },
     { "id": "play_actions", "locator": "tests/play_actions.verify.luau", "requires": ["lute"] },
     { "id": "tools/play_capture", "locator": "tests/tools/play_capture.verify.luau", "requires": ["lute"] },
     { "id": "native_text_measure", "locator": "tests/native_text_measure.verify.luau", "requires": ["local-luau"] },

@@ -17,7 +17,6 @@ local ownSpec: { [string]: boolean } = {
 	["primitives/zstack-alignment"] = true,
 	["primitives/stack-distribution"] = true,
 	["primitives/fill-and-extents"] = true,
-	["primitives/scroll-view-capped-natural-height"] = true,
 }
 
 return function(harness: Verify.Harness)
@@ -173,7 +172,6 @@ return cases
 			"zstack-alignment",
 			"stack-distribution",
 			"fill-and-extents",
-			"scroll-view-capped-natural-height",
 		}
 	do
 		harness:case(`original live primitives/{id} on the Verify engine double`, function(check)
