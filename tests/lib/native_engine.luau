@@ -29,6 +29,7 @@ export type Options = {
 	getStyled: ((any, string) -> any)?,
 	styleOnlySignals: boolean?,
 	selectionNeedsPlayerGui: boolean?,
+	robloxScript: boolean?,
 	lenientProperties: boolean?,
 }
 
@@ -138,6 +139,27 @@ local classes: { [string]: VerifyRoblox.EnvironmentClass } = {
 	LayerCollector = { methods = hitMethods },
 	GuiService = { properties = guiProperties, methods = guiMethods },
 }
+local function noOffsets(): { [string]: number }
+	return { top = 0, left = 0, bottom = 0, right = 0 }
+end
+local function robloxScriptClasses(): { [string]: VerifyRoblox.EnvironmentClass }
+	local granted = table.clone(classes)
+	local gui = table.clone(guiProperties)
+	gui.SelectedCoreObject = false
+	local guiCalls = table.clone(guiMethods)
+	guiCalls.GetSafeZoneOffsets = noOffsets
+	granted.GuiService = { properties = gui, methods = guiCalls, events = { "SafeZoneOffsetsChanged" } }
+	granted.UserInputService = {
+		methods = inputMethods,
+		properties = {
+			StatusBarSize = Vector2.zero,
+			BottomBarSize = Vector2.zero,
+			NavBarSize = Vector2.zero,
+			RightBarSize = Vector2.zero,
+		},
+	}
+	return granted
+end
 local function defaultProperty(_className: string, key: string): unknown
 	return if key == "AbsoluteSize"
 			or key == "AbsolutePosition"
@@ -184,7 +206,7 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 		end
 	end
 	local bridge = Lute.fixture.bridge(snapshot, {
-		classes = classes,
+		classes = if settings.robloxScript then robloxScriptClasses() else classes,
 		defaultProperty = defaultProperty,
 		handlerErrors = "raise",
 		functionDoubles = true,

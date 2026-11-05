@@ -19,8 +19,8 @@ return function(verifyHarness: Verify.Harness)
 	local Compose: ComposeModule = Facet.Compose
 	local adaptive = Facet.adaptive
 
-	local function world(services: { [string]: any }?, options: { [string]: any }?)
-		local engine: any = engineLib.new()
+	local function world(services: { [string]: any }?, options: { [string]: any }?, engineOptions: engineLib.Options?)
+		local engine: any = engineLib.new(engineOptions)
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
 		local gui = engine.new("GuiService")
 		local input = engine.new("UserInputService")
@@ -219,6 +219,76 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("measures safe insets from the full screen to the core UI safe area on every side", {
+			id = "native_environment::environment: reactive facts from engine sources::measures safe insets from the full screen to the core UI safe area on every side",
+			run = function()
+				local w = world()
+				local E = w.Enum
+				w.gui.GetGuiInset = function()
+					return Roblox.Vector2.new(0, 36), Roblox.Vector2.new(0, 0)
+				end
+				local full, safe = Roblox.Rect.new(0, -36, 412, 879), Roblox.Rect.new(0, 0, 412, 831)
+				w.gui.GetInsetArea = function(_, inset: Enum.ScreenInsets): Rect
+					return if inset == E.ScreenInsets.None then full else safe
+				end
+				local screen = w.engine.new("ScreenGui")
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(412, 915))
+				local insets: () -> { top: number, left: number, bottom: number, right: number } = function()
+					return { top = -1, left = -1, bottom = -1, right = -1 }
+				end
+				local stop = owned(w.runtime, function()
+					local env = w.UI.environment(screen)
+					insets = function()
+						return env.safeInsets:peek()
+					end
+				end)
+				Verify.expect(insets()):toEqual({ top = 36, left = 0, bottom = 48, right = 0 })
+				full, safe = Roblox.Rect.new(-48, -36, 867, 376), Roblox.Rect.new(0, 0, 819, 376)
+				w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(915, 412))
+				Verify.expect(insets()):toEqual({ top = 36, left = 48, bottom = 0, right = 48 })
+				stop()
+				w.stop()
+			end,
+		})
+		verifyHarness:case(
+			"widens safe insets with the status, bottom and side bars and the safe zone a core script reads",
+			{
+				id = "native_environment::environment: reactive facts from engine sources::widens safe insets with the status, bottom and side bars and the safe zone a core script reads",
+				run = function()
+					local w = world(nil, nil, { robloxScript = true })
+					w.gui.GetGuiInset = function()
+						return Roblox.Vector2.new(0, 36), Roblox.Vector2.new(0, 0)
+					end
+					local zone = { top = 0, left = 0, bottom = 0, right = 0 }
+					w.gui.GetSafeZoneOffsets = function()
+						return zone
+					end
+					w.engine.environment.poke(w.input, "StatusBarSize", Roblox.Vector2.new(412, 40))
+					w.engine.environment.poke(w.input, "BottomBarSize", Roblox.Vector2.new(412, 24))
+					w.engine.environment.poke(w.input, "NavBarSize", Roblox.Vector2.new(412, 48))
+					local screen = w.engine.new("ScreenGui")
+					w.engine.environment.poke(screen, "AbsoluteSize", Roblox.Vector2.new(412, 915))
+					local insets: () -> { top: number, left: number, bottom: number, right: number } = function()
+						return { top = -1, left = -1, bottom = -1, right = -1 }
+					end
+					local stop = owned(w.runtime, function()
+						local env = w.UI.environment(screen)
+						insets = function()
+							return env.safeInsets:peek()
+						end
+					end)
+					Verify.expect(insets()):toEqual({ top = 40, left = 0, bottom = 48, right = 0 })
+					w.engine.environment.poke(w.input, "NavBarSize", Roblox.Vector2.new(0, 0))
+					w.engine.environment.poke(w.input, "RightBarSize", Roblox.Vector2.new(42, 412))
+					Verify.expect(insets()):toEqual({ top = 40, left = 0, bottom = 24, right = 42 })
+					zone = { top = 27, left = 48, bottom = 27, right = 48 }
+					w.engine.environment.fire(w.gui, "SafeZoneOffsetsChanged")
+					Verify.expect(insets()):toEqual({ top = 40, left = 48, bottom = 27, right = 48 })
+					stop()
+					w.stop()
+				end,
+			}
+		)
 		verifyHarness:case("shares one camera environment, also with a property function that reruns", {
 			id = "native_environment::environment: reactive facts from engine sources::shares one camera environment, also with a property function that reruns",
 			run = function()
@@ -725,6 +795,83 @@ return function(verifyHarness: Verify.Harness)
 					w.gui.SelectedObject = field
 					w.gui.SelectedObject = rows[3]
 					Verify.expect(w.gui.SelectedObject):toBe(rows[3])
+					w.stop()
+				end,
+			}
+		)
+	end)
+
+	verifyHarness:suite("host selection seam", function()
+		local function section(new: (string) -> unknown, parent: Instance): (Frame, { TextButton }, TextButton)
+			local screen = new("ScreenGui") :: ScreenGui
+			screen.Parent = parent
+			local function button(name: string, into: Instance): TextButton
+				local node = new("TextButton") :: TextButton
+				node.Name = name
+				node.Selectable = true
+				node.Parent = into
+				return node
+			end
+			local outline, detail = new("Frame") :: Frame, new("Frame") :: Frame
+			outline.Parent, detail.Parent = screen, screen
+			local rows = { button("Row1", outline), button("Row2", outline), button("Row3", outline) }
+			return outline, rows, button("Field", detail)
+		end
+		verifyHarness:case("moves gamepad focus through SelectedCoreObject for a section mounted under CoreGui", {
+			id = "native_environment::host selection seam::moves gamepad focus through SelectedCoreObject for a section mounted under CoreGui",
+			run = function()
+				local w = world(nil, nil, { robloxScript = true })
+				local outline, rows, field = section(w.engine.new, w.engine.new("CoreGui"))
+				local stop = owned(w.runtime, function()
+					w.UI.focusSection(outline)
+				end)
+				w.gui.SelectedCoreObject = rows[1]
+				w.gui.SelectedCoreObject = rows[3]
+				w.gui.SelectedCoreObject = field
+				w.gui.SelectedCoreObject = rows[1]
+				Verify.expect(w.gui.SelectedCoreObject):toBe(rows[3])
+				Verify.expect(w.gui.SelectedObject):toBe(nil)
+				stop()
+				w.stop()
+			end,
+		})
+		verifyHarness:case(
+			"keeps a PlayerGui section on SelectedObject when the script can also reach SelectedCoreObject",
+			{
+				id = "native_environment::host selection seam::keeps a PlayerGui section on SelectedObject when the script can also reach SelectedCoreObject",
+				run = function()
+					local w = world(nil, nil, { robloxScript = true })
+					local outline, rows, field = section(w.engine.new, w.engine.new("PlayerGui"))
+					local stop = owned(w.runtime, function()
+						w.UI.focusSection(outline)
+					end)
+					w.gui.SelectedObject = rows[1]
+					w.gui.SelectedObject = rows[3]
+					w.gui.SelectedObject = field
+					w.gui.SelectedObject = rows[1]
+					Verify.expect(w.gui.SelectedObject):toBe(rows[3])
+					Verify.expect(w.gui.SelectedCoreObject):toBe(nil)
+					stop()
+					w.stop()
+				end,
+			}
+		)
+		verifyHarness:case(
+			"falls back to SelectedObject under CoreGui when the script cannot reach SelectedCoreObject",
+			{
+				id = "native_environment::host selection seam::falls back to SelectedObject under CoreGui when the script cannot reach SelectedCoreObject",
+				run = function()
+					local w = world()
+					local outline, rows, field = section(w.engine.new, w.engine.new("CoreGui"))
+					local stop = owned(w.runtime, function()
+						w.UI.focusSection(outline)
+					end)
+					w.gui.SelectedObject = rows[1]
+					w.gui.SelectedObject = rows[3]
+					w.gui.SelectedObject = field
+					w.gui.SelectedObject = rows[1]
+					Verify.expect(w.gui.SelectedObject):toBe(rows[3])
+					stop()
 					w.stop()
 				end,
 			}
