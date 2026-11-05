@@ -93,13 +93,14 @@ export type StudioSample = {
 	props: { [string]: Literal },
 	bindings: StudioSampleBindings?,
 }
+export type StudioTheme = { name: string, theme: ThemeTypes.ReadOnlyThemePackage }
 export type StudioOptions = {
 	registry: { [string]: RegisteredDesign },
 	samples: { StudioSample },
 	stages: { StudioStage }?,
 	resolution: { X: number, Y: number }?,
 	theme: ThemeTypes.ReadOnlyThemePackage?,
-	themes: { string }?,
+	themes: { string | StudioTheme }?,
 	textSizes: { string }?,
 	capture: ((name: string, frame: StudioFrame) -> { string })?,
 }

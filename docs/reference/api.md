@@ -50,8 +50,10 @@ Set target `placement` to supply the same logical `DropInfo.placement` as Spatia
 
 `Facet.DesignStudioSampleBindings` types a sample's `bindings(UI, stage)` factory.
 It returns resolved slots, readables and cells under the preview owner. Set
-`DesignStudioOptions.theme` to a host theme package and `themes` to its palette
-names. Set `resolution = { X, Y }` for one canvas instead of device `stages`.
+`DesignStudioOptions.theme` to a host theme package. `themes` accepts its palette
+names or `Facet.DesignStudioTheme` entries: `{ name, theme }` for full packages.
+Theme selection preserves mounted instances and editor history.
+Set `resolution = { X, Y }` for one canvas instead of device `stages`.
 Sample selection changes preview state and preserves authored source.
 
 `Facet.DesignField` types one field of a design kind. `Facet.tag(instance, tags)` adds style tags to an instance and returns it; Compose Design emits it for a node's style tags. A game's own design tokens reach the library through `Facet.design().library({ ..., tokens = { path = "T.", require = 'local T = require(...)' } })`: colors, numbers, gaps, padding, widths and heights accept `{ token = "space.md" }`, and the source writes `T.space.md` with the require in its prelude.

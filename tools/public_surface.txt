@@ -385,6 +385,7 @@ type DesignStudioResult
 type DesignStudioSample
 type DesignStudioSampleBindings
 type DesignStudioStage
+type DesignStudioTheme
 type DesignValue
 type DialogAction
 type DialogBodyHeight

@@ -5,10 +5,49 @@ local Editor = require("../vendor/compose/design-editor")
 local Types = require("./types")
 local Compose = require("../vendor/compose/core")
 local ControlTypes = require("../ui/control_types")
+local ThemeTypes = require("../ui/theme_types")
 
 export type Workspace = Editor.Workspace & { UI: ControlTypes.Controls }
+export type WorkspaceTheme = { name: string, theme: ThemeTypes.ReadOnlyThemePackage, palette: string }
 
-return function(open: () -> Workspace, options: Types.StudioOptions?): Types.StudioKit
+return function(
+	open: ({ WorkspaceTheme }) -> Workspace,
+	options: Types.StudioOptions?,
+	defaultTheme: ThemeTypes.ReadOnlyThemePackage
+): Types.StudioKit
+	local base = if options and options.theme then options.theme else defaultTheme
+	local palettes: { [string]: boolean } = {}
+	for _, palette in base.style.themes do
+		assert(palette.name ~= "" and not palettes[palette.name], "Theme names must be nonempty and unique")
+		palettes[palette.name] = true
+	end
+	local requested: { string | Types.StudioTheme } = {}
+	if options and options.themes then
+		requested = options.themes
+	elseif options and options.theme then
+		for _, palette in base.style.themes do
+			table.insert(requested, palette.name)
+		end
+	else
+		requested = { "Light", "Dark" }
+	end
+	assert(#requested > 0, "Workspace requires at least one theme")
+	local workspaceThemes: { WorkspaceTheme } = {}
+	local names: { [string]: boolean } = {}
+	for _, choice in requested do
+		local name = if type(choice) == "string" then choice else choice.name
+		assert(name ~= "" and not names[name], "Theme names must be nonempty and unique")
+		names[name] = true
+		if type(choice) == "string" then
+			assert(palettes[choice], "Unknown workspace theme: " .. choice)
+			table.insert(workspaceThemes, { name = name, theme = base, palette = choice })
+		else
+			table.insert(
+				workspaceThemes,
+				{ name = name, theme = choice.theme, palette = choice.theme.style.defaultTheme }
+			)
+		end
+	end
 	local samples: { [string]: Types.StudioSample } = {}
 	local choices: { string } = {}
 	for _, sample in if options then options.samples else {} do
@@ -20,17 +59,6 @@ return function(open: () -> Workspace, options: Types.StudioOptions?): Types.Stu
 		table.insert(choices, choice)
 	end
 	if options then
-		local themes: { [string]: boolean } = if options.theme then {} else { Light = true, Dark = true }
-		if options.theme then
-			for _, palette in options.theme.style.themes do
-				assert(palette.name ~= "" and not themes[palette.name], "Theme names must be nonempty and unique")
-				themes[palette.name] = true
-			end
-			assert(next(themes), "Workspace requires at least one theme")
-		end
-		for _, theme in options.themes or {} do
-			assert(themes[theme], "Unknown workspace theme: " .. theme)
-		end
 		if options.resolution then
 			assert(not options.stages, "Use resolution or stages")
 			for _, size in { options.resolution.X, options.resolution.Y } do
@@ -74,7 +102,7 @@ return function(open: () -> Workspace, options: Types.StudioOptions?): Types.Stu
 				end
 				assert(initialChoice, "Unknown workspace Design: " .. name)
 			end
-			local workspace = open()
+			local workspace = open(workspaceThemes)
 			local disposeEditor: (() -> ())? = nil
 			local released = false
 			local function release()

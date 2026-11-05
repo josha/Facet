@@ -54,3 +54,42 @@ local function openSample(registry: { [string]: Facet.DesignRegistered }, parent
     return editor
 end
 ```
+
+To compare packages from one shared base, register each package in `themes`.
+This example takes the host's registry and samples in `options`:
+
+```luau
+local function openThemes(options: Facet.DesignStudioOptions, parent: Instance)
+    local base = Facet.themes.neutralPackage()
+    local blue, blueReport = Facet.themes.define({
+        base = base,
+        style = { themes = {
+            { name = "Dark", colors = { accent = { r = 0.3, g = 0.2, b = 0.3 } } },
+        } },
+    })
+    local purple, purpleReport = Facet.themes.define({
+        base = base,
+        style = { themes = {
+            { name = "Dark", colors = { accent = { r = 0.3, g = 0.2, b = 0.6 } } },
+        } },
+        metrics = { space = { m = 24 } },
+    })
+    assert(blueReport.ok and purpleReport.ok)
+    local kit = Facet.composeDesign({
+        registry = options.registry,
+        samples = options.samples,
+        themes = {
+            { name = "Blue", theme = assert(blue) },
+            { name = "Purple", theme = assert(purple) },
+        },
+    })
+    local editor = kit.edit(parent, "Emblem")
+    local result = editor.execute({ action = "Preview", name = "Theme", choice = "Purple" })
+    assert(result.ok, result.problem)
+    return editor
+end
+```
+
+Both entries supply their full tokens, assets, focus rules and metrics. Theme
+selection changes the live preview in place and keeps the editor session.
+String entries can share the list to select palettes from `theme`.

@@ -327,6 +327,7 @@ export type DesignStudioOptions = FacetDesign.StudioOptions
 export type DesignStudioEditor = FacetDesign.StudioEditor
 export type DesignStudioSample = FacetDesign.StudioSample
 export type DesignStudioSampleBindings = FacetDesign.StudioSampleBindings
+export type DesignStudioTheme = FacetDesign.StudioTheme
 export type DesignStudioStage = FacetDesign.StudioStage
 export type DesignStudioFrame = FacetDesign.StudioFrame
 export type DesignStudioResult = FacetDesign.StudioResult
@@ -469,22 +470,23 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 	local function composeDesign(options: DesignStudioOptions?): DesignStudioKit
 		local DesignEditor = require("@self/vendor/compose/design-editor")
 		local studio = require("@self/design/studio")
-		return studio(function(): studio.Workspace
+		return studio(function(workspaceThemes: { studio.WorkspaceTheme }): studio.Workspace
 			local runtime = roblox.createRuntime()
 			local ok, result = pcall(function(): studio.Workspace
 				local Host = runtime.constructors
-				local theme = if options and options.theme then options.theme else themes.neutralPackage()
 				local themeChoices: { string } = {}
-				if options and options.themes then
-					themeChoices = options.themes
-				elseif options and options.theme then
-					for _, palette in theme.style.themes do
-						table.insert(themeChoices, palette.name)
-					end
-				else
-					themeChoices = { "Light", "Dark" }
+				local byName: { [string]: studio.WorkspaceTheme } = {}
+				for _, choice in workspaceThemes do
+					table.insert(themeChoices, choice.name)
+					byName[choice.name] = choice
 				end
-				local palette = core.cell(themeChoices[1] or theme.style.defaultTheme)
+				local selectedTheme = core.cell(workspaceThemes[1])
+				local theme = core.formula(function(use: Use): ReadOnlyThemePackage
+					return use(selectedTheme).theme
+				end)
+				local palette = core.formula(function(use: Use): string
+					return use(selectedTheme).palette
+				end)
 				local textSize = core.cell("Medium")
 				local UI = controls(runtime, { theme = theme, environment = { preferredTextSize = textSize } })
 				local kit = design()
@@ -527,7 +529,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 							name = "Theme",
 							choices = themeChoices,
 							select = function(choice: string)
-								palette:set(choice)
+								selectedTheme:set(assert(byName[choice], "Unknown workspace theme: " .. choice))
 							end,
 						},
 						{
@@ -550,7 +552,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 				error(result, 0)
 			end
 			return result
-		end, options)
+		end, options, themes.neutralPackage())
 	end
 	surface = freeze({
 		VERSION = VERSION,

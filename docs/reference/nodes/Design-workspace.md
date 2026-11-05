@@ -12,19 +12,21 @@ Compose Design workspace. Supply the `Facet.DesignRegistered` entries that
 | `samples` | Ordered list of `Facet.DesignStudioSample`: `{ design, name, props, bindings? }`. `props` maps contract fields to Design literals. Each registered Design needs at least one sample. |
 | `stages` | Optional ordered list of `Facet.DesignStudioStage` device profiles. The default is Compose's device list. Profiles include size, insets, input mode and text scale. |
 | `resolution` | Optional `{ X, Y }` with finite positive pixel dimensions. It opens one canvas at that logical resolution. Supply `resolution` or `stages`. |
-| `theme` | Optional `Facet.ReadOnlyThemePackage`, such as a package from `Facet.themes.define`. It supplies the base metrics, rules and named palette variants. The default is Facet Neutral. |
-| `themes` | Optional ordered list of palette names from `theme.style.themes`. With a host package, the default is all its palettes in package order. Without a package, the default is `"Light"`, then `"Dark"`. |
+| `theme` | Optional base `Facet.ReadOnlyThemePackage`. The default is Facet Neutral. |
+| `themes` | Optional ordered list of base palette names or `Facet.DesignStudioTheme` entries: `{ name, theme }`. Entries register full packages and use their default palette. The default list is all base palettes, or `"Light"`, then `"Dark"` without a host package. |
 | `textSizes` | Optional ordered list of `"Medium"`, `"Large"`, `"Larger"` and `"Largest"`. The default is all four, in that order. |
 | `capture` | Optional `(name, frame: Facet.DesignStudioFrame) -> { string }` callback. The host saves the frame and returns its file paths. |
 
 Lists must be nonempty. Stage ids and preview choices must be unique.
+Theme names must be nonempty. Unknown names fail with a clear error.
 Sample choices use `design/name`; the combined name must be unique.
 Sample props must match the registered contract. Omitted props use the
 contract's preview defaults. Samples belong to the host, outside Design source.
 
-See [sample bindings and source](Design-workspace.samples.md) for slot factories,
-live inputs and examples. Sample selection changes the preview and preserves
-authored source. Explicit edit commands change the authored document.
+See [samples and themes](Design-workspace.samples.md) for examples. Sample
+selection preserves authored source. Theme selection updates the mounted
+StyleSheet and control theme. It preserves instances, source and undo history.
+Explicit edit commands change the authored document.
 
 Call `kit.edit(parent, designName)` with the existing host container and a
 registered Design name. It opens that Design's first sample. The workspace

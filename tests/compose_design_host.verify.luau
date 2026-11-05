@@ -106,6 +106,7 @@ return function(harness: Verify.Harness)
 			engine = engine,
 			runtime = runtime,
 			parent = parent,
+			services = services,
 			environments = environments,
 			options = { registry = registry, samples = samples },
 			created = function(): number
@@ -134,6 +135,132 @@ return function(harness: Verify.Harness)
 	end
 
 	harness:suite("host Compose Design workspace", function()
+		harness:case("switches named theme packages in the retained preview graph", {
+			id = "compose_design_host::retained package switching",
+			run = function(test: Verify.Context)
+				local host = workspace(test)
+				local base = host.surface.themes.neutralPackage()
+				local choices: { string | Facet.DesignStudioTheme } = {}
+				for index, name in { "Blue", "Purple" } do
+					local definition: Facet.ThemeDefinition = {
+						base = base,
+						identity = { id = string.lower(name), displayName = name },
+						style = {
+							defaultTheme = "Dark",
+							themes = {
+								{ name = "Dark", colors = { accent = { r = 0.3, g = 0.2, b = index * 0.3 } } },
+							},
+						},
+						metrics = { space = { m = index * 12 } },
+						icons = { preview = "rbxassetid://" .. tostring(index) },
+					}
+					local package, report = host.surface.themes.define(definition)
+					Verify.expect(report.ok):toBe(true)
+					table.insert(choices, { name = name, theme = assert(package) })
+				end
+				local first = choices[1]
+				assert(type(first) == "table")
+				table.insert(choices, "Dark")
+				local builds = 0
+				host.options.registry.Emblem.build = function(
+					controls: unknown,
+					_props: { [string]: unknown },
+					name: string
+				): unknown
+					local UI = controls :: Facet.Controls
+					builds += 1
+					return UI.VStack(name) {
+						gap = "m",
+						UI.Button "PreviewButton" { label = "Preview", icon = "preview" },
+					}
+				end
+				local source = ""
+				local writes = 0
+				local editor = host.surface
+					.composeDesign({
+						registry = host.options.registry,
+						samples = host.options.samples,
+						theme = first.theme,
+						themes = choices,
+						resolution = { X = 960, Y = 540 },
+					})
+					.edit(host.parent, "Emblem", {
+						read = function(): string
+							return source
+						end,
+						write = function(expected: string, generated: string): boolean
+							Verify.expect(expected):toBe(source)
+							source = generated
+							writes += 1
+							return true
+						end,
+						watch = function(): () -> ()
+							return function() end
+						end,
+					})
+				test:defer(editor.dispose)
+				Verify.expect(editor.execute({ action = "Rename", name = "Authored" }).ok):toBe(true)
+				local session = editor.session
+				local document = session.document:peek()
+				local original = source
+				local originalWrites = writes
+				local frame = editor.canvas.current()
+				local root = VerifyRoblox.assertInstance(assert(frame.stage).nodes.n1)
+				local control = assert(root:FindFirstChild("PreviewButton", true))
+				local icon = assert(control:FindFirstChildWhichIsA("ImageLabel", true))
+				local layout = assert(root:FindFirstChildWhichIsA("UIListLayout"))
+				local wrapper = assert(root.Parent)
+				local sheet = assert(wrapper:FindFirstChildWhichIsA("StyleSheet"))
+				local link = assert(wrapper:FindFirstChildWhichIsA("StyleLink"))
+				local originalBuilds = builds
+				for _, name in { "Blue", "Purple", "Blue", "Dark" } do
+					local index = if name == "Purple" then 2 else 1
+					local result = editor.execute({ action = "Preview", name = "Theme", choice = name })
+					Verify.expect(result.ok):toBe(true)
+					Verify.expect(result.previews.Theme):toBe(name)
+					local current = VerifyRoblox.assertInstance(assert(editor.canvas.current().stage).nodes.n1)
+					Verify.expect(rawequal(current, root)):toBe(true)
+					Verify.expect(rawequal(current:FindFirstChild("PreviewButton", true), control)):toBe(true)
+					Verify.expect(rawequal(control:FindFirstChildWhichIsA("ImageLabel", true), icon)):toBe(true)
+					Verify.expect(rawequal(current.Parent, wrapper)):toBe(true)
+					Verify.expect(icon.Parent ~= nil and wrapper.Parent ~= nil):toBe(true)
+					Verify.expect(rawequal(wrapper:FindFirstChildWhichIsA("StyleSheet"), sheet)):toBe(true)
+					Verify.expect(rawequal(link.StyleSheet, sheet)):toBe(true)
+					Verify.expect(layout.Padding):toBe(host.engine.types.UDim.new(0, index * 12))
+					Verify.expect(icon.Image):toBe("rbxassetid://" .. tostring(index))
+					Verify.expect(sheet:GetAttribute("FacetColor_accent"))
+						:toBe(host.engine.types.Color3.new(0.3, 0.2, index * 0.3))
+					Verify.expect(builds):toBe(originalBuilds)
+					Verify.expect(rawequal(editor.session, session)):toBe(true)
+					Verify.expect(rawequal(session.document:peek(), document)):toBe(true)
+					Verify.expect(session.canUndo:peek()):toBe(true)
+					Verify.expect(session.canRedo:peek()):toBe(false)
+					Verify.expect(source):toBe(original)
+					Verify.expect(writes):toBe(originalWrites)
+				end
+				local invalid = editor.execute({ action = "Preview", name = "Theme", choice = "Missing" })
+				Verify.expect(invalid.ok):toBe(false)
+				Verify.expect(string.find(invalid.problem or "", "Unknown choice for Theme", 1, true) ~= nil):toBe(true)
+				Verify.expect(invalid.previews.Theme):toBe("Dark")
+				Verify.expect(rawequal(assert(editor.canvas.current().stage).nodes.n1, root)):toBe(true)
+				Verify.expect(editor.execute({ action = "Undo" }).ok):toBe(true)
+				Verify.expect(session.document:peek().root.name):toBe("Emblem")
+				Verify.expect(session.canUndo:peek()):toBe(false)
+				Verify.expect(editor.execute({ action = "Redo" }).ok):toBe(true)
+				Verify.expect(source):toBe(original)
+				editor.dispose()
+				Verify.expect(root.Parent):toBe(nil)
+				Verify.expect(icon.Parent):toBe(nil)
+				Verify.expect(sheet.Parent):toBe(nil)
+				Verify.expect(#host.parent:GetDescendants()):toBe(0)
+				host.parent:Destroy()
+				for _, service in host.services do
+					VerifyRoblox.assertInstance(service):Destroy()
+				end
+				Verify.expect(host.engine.census().live):toBe(0)
+			end,
+		})
+
 		harness:case("previews required slots and cell inputs across host themes without writing source", {
 			id = "compose_design_host::owned host bindings and source preservation",
 			run = function(test: Verify.Context)
@@ -480,7 +607,21 @@ return function(harness: Verify.Harness)
 				options.resolution = nil
 				options.stages = nil
 				options.themes = { "Missing" }
-				Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)
+				local valid, problem = pcall(host.surface.composeDesign, options)
+				Verify.expect(valid):toBe(false)
+				Verify.expect(string.find(tostring(problem), "Unknown workspace theme: Missing", 1, true) ~= nil)
+					:toBe(true)
+				local theme = host.surface.themes.neutralPackage()
+				local invalidThemes: { { string | Facet.DesignStudioTheme } } = {
+					{},
+					{ { name = "", theme = theme } },
+					{ "Dark", { name = "Dark", theme = theme } },
+					{ { name = "Same", theme = theme }, { name = "Same", theme = theme } },
+				}
+				for _, choices in invalidThemes do
+					options.themes = choices
+					Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)
+				end
 				options.themes = nil
 				options.textSizes = { "Missing" }
 				Verify.expect(pcall(host.surface.composeDesign, options)):toBe(false)
