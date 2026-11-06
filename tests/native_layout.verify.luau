@@ -149,6 +149,46 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("wraps a bounded row only while its children do not fit on one line", {
+			id = "native_layout::native composition rest measurements::wraps a bounded row only while its children do not fit on one line",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack "Page" {
+						UI.HStack "Row" {
+							width = "fill",
+							Host.Frame "A" { Size = engine.types.UDim2.fromOffset(100, 20) },
+							Host.Frame "B" { Size = engine.types.UDim2.fromOffset(100, 20) },
+						},
+						UI.HStack "Kept" {
+							width = "fill",
+							wrap = false,
+							Host.Frame "C" { Size = engine.types.UDim2.fromOffset(100, 20) },
+							Host.Frame "D" { Size = engine.types.UDim2.fromOffset(100, 20) },
+						},
+						UI.HStack "Hug" {
+							Host.Frame "E" { Size = engine.types.UDim2.fromOffset(100, 20) },
+						},
+					}
+				end)
+				local V2 = engine.types.Vector2
+				local row, kept = root:FindFirstChild("Row"), root:FindFirstChild("Kept")
+				local list = row:FindFirstChildWhichIsA("UIListLayout")
+				engine.environment.poke(row:FindFirstChild("WrapUnit"), "AbsoluteSize", V2.new(100, 1))
+				for _, name in { "A", "B", "C", "D" } do
+					engine.environment.poke(root:FindFirstChild(name, true), "AbsoluteSize", V2.new(100, 20))
+				end
+				engine.environment.poke(row, "AbsoluteSize", V2.new(250, 20))
+				expect(list.Wraps):toBe(false)
+				engine.environment.poke(row, "AbsoluteSize", V2.new(150, 20))
+				expect(list.Wraps):toBe(true)
+				engine.environment.poke(row, "AbsoluteSize", V2.new(250, 40))
+				expect(list.Wraps):toBe(false)
+				engine.environment.poke(kept, "AbsoluteSize", V2.new(150, 20))
+				expect(kept:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(false)
+				expect(root:FindFirstChild("Hug"):FindFirstChild("WrapUnit")):toBe(nil)
+				stop()
+			end,
+		})
 		it("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()

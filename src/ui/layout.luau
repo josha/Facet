@@ -213,6 +213,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			flow = table.clone(spec)
 			flow.padding = clearCorners(spec.padding, bend)
 		end
+		local spills: ComposeTypes.Value<boolean>? = nil
+		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
+		if not vertical and spec.wrap == nil and bounded then
+			spills = Compose.cell(false)
+			if flow == spec then
+				flow = table.clone(spec)
+			end
+			flow.wrap = spills
+		end
 		local room: ComposeTypes.Value<FillAxis>? = nil
 		if properties.AutomaticSize == nil and fills(children) then
 			local bounded = Compose.cell("none" :: FillAxis)
@@ -225,6 +234,18 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local frame = kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
 		if room then
 			fillRoom(frame, room)
+		end
+		local list = if spills then frame:FindFirstChildWhichIsA("UIListLayout") else nil
+		if spills and list then
+			local spilling, outer = spills, ctx.observe.AbsoluteSize(frame)
+			local content, unit = ctx.observe.AbsoluteContentSize(list), ctx.layoutUnit(frame, "WrapUnit")
+			Compose.watch(function(use: ComposeTypes.Use)
+				local width, scale = use(outer).X, use(unit)
+				use(content)
+				if width > 0 and scale > 0 then
+					spilling:set(kit.intrinsic(frame, true, scale) > width / scale + 0.5)
+				end
+			end)
 		end
 		if box then
 			local measured, size = box, ctx.layoutSize(frame, ctx.layoutUnit(frame, "CornerUnit"))

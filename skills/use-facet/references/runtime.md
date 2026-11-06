@@ -66,14 +66,14 @@ the type at that boundary; do not cast the whole spec.
 | Title in a fixed-width cell | Omit `Size`; Text fills the cell and grows in height. Add `lines = 2` or `truncate = "end"` for long titles |
 | Full-width button | Parent VStack `align = "stretch"`, or `Size = UDim2.new(1, 0, 0, 0)` |
 | Full-width text input | Omit `Size`; TextInput fills its parent width and supplies its own height |
-| Equal peer buttons in a row | `UI.fill()` inside each Button; `HStack { width = "fill", wrap = true }` so a narrow row moves a button down instead of clipping its label |
+| Equal peer buttons in a row | `UI.fill()` inside each Button in an `HStack { width = "fill" }`; a bounded row moves a button down when they do not fit |
 | Label and trailing value | `UI.Spacer {}` between them in a bounded HStack |
 | Wrapped text beside a badge or value | `UI.fill()` inside the wrapped Text; a Spacer cannot shrink a wrapped Text, which spans the row |
 | Two or three actions that may turn into a column | AdaptiveStack |
 | Many short choices | `HStack { width = "fill", wrap = true }`; a wrapping row without a width hugs its children and never wraps |
 | A page body | The task body in [game screens](game-screens.md) |
 
-Stacks hug by default. `width`, `height`, `gap`, `padding` and `maxWidth` are
+Stacks hug by default. A bounded HStack wraps its children rather than letting them spill; `wrap = false` keeps one line. `width`, `height`, `gap`, `padding` and `maxWidth` are
 container options; Button, Text and TextInput take native `Size`. Text fills a
 parent with a defined width and hugs inside a hugging stack or a row;
 `AutomaticSize = Enum.AutomaticSize.XY` makes it hug everywhere. Bound the
