@@ -145,3 +145,18 @@ Do not add Python or Lune programs.
 ## Versioning
 
 `src/init.luau` is the only version authority. Use only the current API. Do not add compatibility shims or a second supported architecture. Keep documentation focused on current contracts. Describe changes in the pull request, and keep only the latest evaluation evidence in the repository.
+
+## Pull requests
+
+- Open a pull request against `main`. Do not push to `main` directly.
+- Every CI job must pass before a pull request merges, including paired
+  performance.
+- Describe what the change does, why, and the evidence: the specifications you
+  added, the gate, bench and package results, and the native and engine APIs
+  you checked before you wrote custom code.
+- Keep one change in one pull request.
+
+## License
+
+Facet is licensed under the [MIT License](LICENSE). By contributing, you agree
+that your contributions are licensed under the same license.

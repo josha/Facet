@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "0634495fe86f4687b2151716b4c5aa789c888251",
+  "commit": "38db8b8b170a6cae59f784d987709387a1eeb5eb",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -105,7 +105,7 @@
     "design-editor/ui.luau": "ca8de1ee6ecb51296fe5e1c4414eaed2c816c77cbd7e9616c3e60ace4509e698",
     "design/datatype.luau": "9684b8a107152a633aa4845fb646bfbd2e2ccfc03fe8767789b9cc70bb971d3c",
     "design/document-copy.luau": "6834f35603718dc9e94a49a80d873d6beef15133807c25ea6ccba191fe2cfd89",
-    "design/document.luau": "fb2b30f4dffc21c507a2dab329eeb9ece4597b152863c8f17c5f37aa333c0149",
+    "design/document.luau": "9fb0766116af951dcaf53d3136aa42d3e7f3c78e7d31214fd4473891112b42f1",
     "design/history.luau": "7682df2f2c6b01fd123210acd45cd9f2fc6c7e0925a04489cc3aae29bf81ef06",
     "design/imports.luau": "51116879413bad993b77820a3311655091d1e5502985fff3b03bd600f1fddcf2",
     "design/init.luau": "eb60c693e3e795fc4e4383f8f878227e15a337332015042f8bcf36d5dbf67c68",
@@ -132,7 +132,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "4958fbb289240f1a769c4e8a7809dda71f218196bf56185e47edcc0a2c1a65cb",
+    "SKILL.md": "b4d1dd0e5d0841fa2652eefdddcff885adfd3b654e36bfce3eb66d63d5f6346e",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }

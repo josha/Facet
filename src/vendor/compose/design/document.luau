@@ -363,7 +363,7 @@ local function checkValue(value: Document, field: Types.Field, property: Value, 
 	elseif input then
 		local declared = assert(inputOf(value, input), `{key} reads unknown input {input}`)
 		assert((field.type == "content") == (declared.type == "slot"), `{key} and input {input} do not match`)
-		assert(field.type ~= "event", `{key} needs an output`)
+		assert(field.type ~= "event" or declared.kind == "cell", `{key} needs an output or a cell input`)
 		local path = property.path
 		if path ~= nil then
 			assert(
