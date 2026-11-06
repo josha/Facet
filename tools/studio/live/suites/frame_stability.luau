@@ -6,6 +6,7 @@ type FrameNativeProps = typeof(require("@repo/tools/typecheck/aliases").FrameNat
 type CivilDate = typeof(require("@repo/tools/typecheck/aliases").CivilDate)
 type NoticeSpec = typeof(require("@repo/tools/typecheck/aliases").NoticeSpec)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
+type MenuItem = typeof(require("@repo/tools/typecheck/aliases").MenuItem)
 local function traceback(message: string): string
 	return debug.traceback(message, 2)
 end
@@ -821,6 +822,109 @@ add({
 		t.cleanup()
 	end,
 })
+
+for _, viewport in
+	{ { name = "phone", size = Vector2.new(390, 844) }, { name = "desktop", size = Vector2.new(1280, 720) } }
+do
+	for _, corner in
+		{ { name = "bottom-right", anchor = Vector2.new(1, 1) }, { name = "top-left", anchor = Vector2.new(0, 0) } }
+	do
+		for _, kind in { "menu", "popover", "picker", "callout" } do
+			add({
+				id = `overlay-first-frame/{kind}/{corner.name}/{viewport.name}`,
+				contracts = {},
+				keepGallery = false,
+				run = function(t: T)
+					local open: (() -> ())? = nil
+					local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+						local presented = Compose.cell(false)
+						open = function()
+							presented:set(true)
+						end
+						local target = UI.Button "Target" { label = "Lap times" }
+						local overlay = if kind == "picker"
+							then UI.Picker "Corner" {
+								isPresented = presented,
+								selected = Compose.cell("street"),
+								style = "menu",
+								options = {
+									{ value = "street", label = "Street" },
+									{ value = "rally", label = "Rally" },
+									{ value = "sport", label = "Sport" },
+									{ value = "drift", label = "Drift" },
+								},
+							}
+							elseif kind == "callout" then target
+							elseif kind == "menu" then UI.Menu "Corner" {
+								label = "Options",
+								isPresented = presented,
+								items = {
+									{ id = "rename", label = "Rename", onSelect = function() end } :: MenuItem,
+									{ id = "share", label = "Share", onSelect = function() end } :: MenuItem,
+									{ id = "archive", label = "Archive", onSelect = function() end } :: MenuItem,
+									{ id = "delete", label = "Delete", onSelect = function() end } :: MenuItem,
+								},
+							}
+							else UI.Popover "Corner" {
+								isPresented = presented,
+								onPresentedChange = function(nextValue: boolean)
+									presented:set(nextValue)
+								end,
+								trigger = UI.Button "Open" { label = "Details" },
+								content = function(): Instance
+									return UI.Text {
+										text = "Lap times are saved after each race and synced to every device.",
+										wrap = true,
+									}
+								end,
+							}
+						return Host.Frame {
+							Size = UDim2.fromScale(1, 1),
+							BackgroundTransparency = 1,
+							Host.UIPadding {
+								PaddingTop = UDim.new(0, 12),
+								PaddingBottom = UDim.new(0, 12),
+								PaddingLeft = UDim.new(0, 12),
+								PaddingRight = UDim.new(0, 12),
+							},
+							Host.Frame "Anchor" {
+								AnchorPoint = corner.anchor,
+								Position = UDim2.fromScale(corner.anchor.X, corner.anchor.Y),
+								Size = UDim2.fromOffset(0, 0),
+								AutomaticSize = Enum.AutomaticSize.XY,
+								BackgroundTransparency = 1,
+								overlay,
+							},
+							if kind == "callout"
+								then UI.Callout {
+									anchor = target,
+									isPresented = presented,
+									onRetire = function()
+										presented:set(false)
+									end,
+									content = function()
+										return UI.Text { text = "Your best lap is saved after every race.", wrap = true }
+									end,
+								}
+								else nil,
+						}
+					end, {
+						size = viewport.size,
+						frames = 30,
+						motionLevel = if kind == "callout"
+								or ((kind == "menu" or kind == "picker") and viewport.name == "phone")
+							then "none"
+							else "normal",
+					})
+					observe(t, `{kind} opens at the {corner.name}`, function()
+						return stage
+					end, assert(open))
+					t.cleanup()
+				end,
+			})
+		end
+	end
+end
 
 for _, textSize in { "Medium", "Largest" } do
 	add({
