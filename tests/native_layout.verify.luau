@@ -156,17 +156,17 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VStack "Page" {
 						UI.HStack "Row" {
 							width = "fill",
-							Host.Frame "A" { Size = engine.types.UDim2.fromOffset(100, 20) },
-							Host.Frame "B" { Size = engine.types.UDim2.fromOffset(100, 20) },
+							Host.Frame "A" {},
+							Host.Frame "B" {},
 						},
 						UI.HStack "Kept" {
 							width = "fill",
 							wrap = false,
-							Host.Frame "C" { Size = engine.types.UDim2.fromOffset(100, 20) },
-							Host.Frame "D" { Size = engine.types.UDim2.fromOffset(100, 20) },
+							Host.Frame "C" {},
+							Host.Frame "D" {},
 						},
 						UI.HStack "Hug" {
-							Host.Frame "E" { Size = engine.types.UDim2.fromOffset(100, 20) },
+							Host.Frame "E" {},
 						},
 					}
 				end)
