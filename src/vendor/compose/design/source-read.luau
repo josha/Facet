@@ -429,17 +429,57 @@ function source.parse(code: string, library: Library): Types.Document
 	end
 	local function annotation(stop: string)
 		if peek() == ":" then
-			while peek() ~= stop do
-				take()
+			take ":"
+			local depth = 0
+			local previous = ""
+			while depth > 0 or peek() ~= stop do
+				local part = take().text
+				if part == "(" or part == "{" or part == "[" or part == "<" then
+					depth += 1
+				elseif part == ")" or part == "}" or part == "]" or (part == ">" and previous ~= "-") then
+					depth -= 1
+				end
+				if
+					stop == "return"
+					and depth == 0
+					and part ~= "."
+					and part ~= "|"
+					and part ~= "&"
+					and part ~= "-"
+					and not (part == ">" and previous == "-")
+					and peek() ~= "."
+					and peek() ~= "<"
+					and peek() ~= "?"
+					and peek() ~= "|"
+					and peek() ~= "&"
+					and peek() ~= "-"
+				then
+					break
+				end
+				previous = part
 			end
 		end
 	end
+	local layoutMessage =
+		"Layout functions use a typed readable input: compute the value in the caller and bind props.<input>"
+	local itemMessage =
+		"Item bindings read the declared row parameter; use function(use) return use(current).field end and prepare computed fields in the caller"
+	local function rowParameter(): string
+		local parameter = name()
+		assert(parameter ~= "use", layoutMessage)
+		assert(
+			parameter ~= "props" and parameter ~= "state" and parameter ~= "refs" and parameter ~= library.parameter,
+			"Row parameters must not shadow Design inputs, state, references or controls"
+		)
+		return parameter
+	end
+	local currentRow = "current"
 	local function rowAlias()
 		if peek() == "local" and string.match(peek(1), "^row_[%w]+$") then
 			take "local"
 			take()
 			take "="
-			take "current"
+			take(currentRow)
 		end
 	end
 	local function referenceMessage()
@@ -456,17 +496,21 @@ function source.parse(code: string, library: Library): Types.Document
 		calls[kind.call] = kindName
 	end
 	local rows: { [string]: Node } = {}
+	local contract: Types.Contract = { inputs = {}, outputs = {} }
 	local typedLiterals: { [string]: Literal } = {}
 	local typedCells: { [string]: { Node } } = {}
 	local namedRefs: { [string]: string } = {}
 	local node: () -> Node
-	local function rowBody(): Node
+	local function rowBody(parameter: string?): Node
+		local outerRow = currentRow
+		currentRow = parameter or currentRow
+		rowAlias()
 		local cases: { Types.VariantCase } = {}
 		local alternatives: { Node } = {}
 		local item: string? = nil
 		while peek() == "if" do
 			take "if"
-			take "current"
+			take(currentRow)
 			take ":"
 			take "peek"
 			take "("
@@ -504,6 +548,7 @@ function source.parse(code: string, library: Library): Types.Document
 			end
 			root.rowVariant = { item = item, cases = cases }
 		end
+		currentRow = outerRow
 		return root
 	end
 	local pendingCells: { Node } = {}
@@ -517,6 +562,14 @@ function source.parse(code: string, library: Library): Types.Document
 			end
 			if peek() ~= "function" then
 				local rowName = name()
+				while peek() == "." do
+					take "."
+					rowName ..= "." .. name()
+				end
+				assert(
+					peek() ~= "(",
+					`{rowName} is custom code; compute it in the caller and bind props.<input> or a library token`
+				)
 				local cell = assert(rows[rowName], `{rowName} is not a row function`)
 				table.insert(pendingCells, cell)
 				local reference: Record = { ["$template"] = cell.id }
@@ -524,9 +577,11 @@ function source.parse(code: string, library: Library): Types.Document
 			end
 			take "function"
 			take "("
-			if peek() == "current" or peek() == ")" then
-				if peek() == "current" then
-					take "current"
+			assert(peek() ~= "use", layoutMessage)
+			if (tokens[at] and tokens[at].kind == "name") or peek() == ")" then
+				local outerRow = currentRow
+				if peek() ~= ")" then
+					currentRow = rowParameter()
 					annotation ")"
 				end
 				take ")"
@@ -534,6 +589,7 @@ function source.parse(code: string, library: Library): Types.Document
 				take "return"
 				local cell = node()
 				take "end"
+				currentRow = outerRow
 				table.insert(pendingCells, cell)
 				local reference: Record = { ["$template"] = cell.id }
 				return reference, at
@@ -550,8 +606,8 @@ function source.parse(code: string, library: Library): Types.Document
 			take(output)
 			take "("
 			local marker: Record = { ["$output"] = output }
-			if peek() == "current" then
-				take "current"
+			if peek() == currentRow then
+				take(currentRow)
 				take ":"
 				take "peek"
 				take "("
@@ -675,9 +731,14 @@ function source.parse(code: string, library: Library): Types.Document
 		elseif peek() == "function" then
 			take "function"
 			take "("
-			if peek() == "use" and peek(2) == "local" then
+			local reactive = peek() == "use"
+			if reactive then
 				take "use"
+				annotation ")"
 				take ")"
+				annotation "return"
+			end
+			if reactive and peek() == "local" and peek(1) == "chosen" then
 				take "local"
 				take "chosen"
 				take "="
@@ -721,9 +782,8 @@ function source.parse(code: string, library: Library): Types.Document
 				end
 				table.sort(candidates)
 				return { nodeFrom = source, nodes = candidates }, nil
-			elseif peek() == "use" then
-				take "use"
-				take ")"
+			elseif reactive then
+				assert(peek() == "return", layoutMessage)
 				take "return"
 				if peek() == "assert" then
 					take "assert"
@@ -752,10 +812,26 @@ function source.parse(code: string, library: Library): Types.Document
 				take "use"
 				take "("
 				local row = name()
-				assert(
-					row == "current" or string.match(row, "^row_[%w]+$") ~= nil,
-					"Item bindings read the current row"
-				)
+				assert(row ~= "environment" or row == currentRow, layoutMessage)
+				if row == "props" then
+					assert(not converted, itemMessage)
+					take "."
+					local input = name()
+					local readable = false
+					for _, declared in contract.inputs do
+						if declared.id == input then
+							readable = declared.kind ~= "value"
+						end
+					end
+					assert(
+						readable,
+						"Input formulas read a declared readable or cell input; bind props.<input> directly"
+					)
+					take ")"
+					take "end"
+					return { input = input }, nil
+				end
+				assert(row == currentRow or string.match(row, "^row_[%w]+$") ~= nil, itemMessage)
 				take ")"
 				take "."
 				local field = name()
@@ -799,8 +875,8 @@ function source.parse(code: string, library: Library): Types.Document
 				take "("
 				local arguments: { Types.ActionArgument } = {}
 				while peek() ~= ")" do
-					if peek() == "current" then
-						take "current"
+					if peek() == currentRow then
+						take(currentRow)
 						take ":"
 						take "peek"
 						take "("
@@ -818,9 +894,10 @@ function source.parse(code: string, library: Library): Types.Document
 				take "end"
 				take "end"
 				return { output = id, arguments = arguments }, nil
-			elseif peek() == "current" or peek() == ")" then
-				if peek() == "current" then
-					take "current"
+			elseif (tokens[at] and tokens[at].kind == "name") or peek() == ")" then
+				local outerRow = currentRow
+				if peek() ~= ")" then
+					currentRow = rowParameter()
 					annotation ")"
 				end
 				take ")"
@@ -829,6 +906,7 @@ function source.parse(code: string, library: Library): Types.Document
 				if peek() == "if" then
 					local child = rowBody()
 					take "end"
+					currentRow = outerRow
 					return nil, child
 				end
 				take "return"
@@ -836,10 +914,12 @@ function source.parse(code: string, library: Library): Types.Document
 				if next ~= nil and (next.text == "{" or next.kind == "string" or next.kind == "number") then
 					local perRow = plain()
 					take "end"
+					currentRow = outerRow
 					return { literal = perRow }, nil
 				end
 				local child = node()
 				take "end"
+				currentRow = outerRow
 				return nil, child
 			end
 			take "..."
@@ -861,8 +941,8 @@ function source.parse(code: string, library: Library): Types.Document
 				local supplied: { Literal } = {}
 				local fields: { string } = {}
 				while peek() ~= ")" do
-					if peek() == "current" then
-						take "current"
+					if peek() == currentRow then
+						take(currentRow)
 						take ":"
 						take "peek"
 						take "("
@@ -933,6 +1013,7 @@ function source.parse(code: string, library: Library): Types.Document
 							take "use"
 							take "("
 						end
+						assert(peek() ~= "environment", layoutMessage)
 						take "props"
 						take "."
 						local id = take()
@@ -1077,7 +1158,7 @@ function source.parse(code: string, library: Library): Types.Document
 				take "tostring"
 			end
 			take "("
-			take "current"
+			take(currentRow)
 			take ":"
 			take "peek"
 			take "("
@@ -1170,7 +1251,7 @@ function source.parse(code: string, library: Library): Types.Document
 						if item then
 							take "use"
 							take "("
-							take "current"
+							take(currentRow)
 							take ")"
 						else
 							take "props"
@@ -1225,10 +1306,11 @@ function source.parse(code: string, library: Library): Types.Document
 					if peek() == "function" then
 						take "function"
 						take "("
-						take "current"
+						local parameter = rowParameter()
 						annotation ")"
 						take ")"
-						row = rowBody()
+						annotation "return"
+						row = rowBody(parameter)
 						take "end"
 					else
 						local rowName = name()
@@ -1275,6 +1357,7 @@ function source.parse(code: string, library: Library): Types.Document
 	take "="
 	local header = plain()
 	assert(type(header) == "table", "The design header is a table")
+	contract = contractOf(header)
 	while not ((peek() == "return" or peek() == "local") and peek(1) == "function") do
 		take()
 	end
@@ -1352,11 +1435,15 @@ function source.parse(code: string, library: Library): Types.Document
 			take "function"
 			local rowName = name()
 			take "("
-			take "current"
+			local parameter = rowParameter()
 			annotation ")"
 			take ")"
+			annotation "return"
+			local outerRow = currentRow
+			currentRow = parameter
 			rowAlias()
 			rows[rowName] = rowBody()
+			currentRow = outerRow
 			take "end"
 		else
 			take()
@@ -1522,7 +1609,7 @@ function source.parse(code: string, library: Library): Types.Document
 		name = text(header, "name"),
 		library = library.name,
 		nextId = nextId,
-		contract = contractOf(header),
+		contract = contract,
 		typeImports = source.typeImports(code, table.concat(library.prelude, "\n")),
 		state = stateFrom(header),
 		sequences = sequencesFrom(header),
