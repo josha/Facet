@@ -18,7 +18,7 @@ local Types = require "./reactive/types"
 local extensionsModule: typeof(require "@self/extensions")? = nil
 local motionModule: typeof(require "./animation/motion")? = nil
 
-local WEAK_KEYS = table.freeze { __mode = "ks" }
+local WEAK_KEYS = table.freeze { __mode = "k" }
 
 export type Node = Host.Node
 type Dispose = Types.Dispose
@@ -170,10 +170,6 @@ local function createRuntime(host: Host.Host): Runtime
 			return Diagnostics.raise("host/node-not-a-reference", "owned node is not a reference", {})
 		end
 		local node = subject
-		if not Nodes.isDestructible(node) then
-			Props.detach(host, node)
-			return
-		end
 		Props.forget(node)
 		if tracked.dependents == 0 then
 			render.destroyNode(node)
@@ -231,7 +227,7 @@ local function createRuntime(host: Host.Host): Runtime
 			for index = 1, childCount do
 				local child = entries[index]
 				if type(child) == "table" or type(child) == "userdata" then
-					if not Nodes.belongsTo(child, token) or not Nodes.isDestructible(child) then
+					if not Nodes.belongsTo(child, token) then
 						local attached = staticChildren
 						if attached == nil then
 							local children: { Node } = {}

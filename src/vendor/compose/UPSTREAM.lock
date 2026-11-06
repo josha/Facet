@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "b46031f473de4d72b60a2351b26478233f601a26",
+  "commit": "38db8b8b170a6cae59f784d987709387a1eeb5eb",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -22,7 +22,7 @@
     "core/collection/prefix.luau": "5a98d1238a4f4e9042fa732fdf7364fde206e3607d55ffd304d53bee039c13ca",
     "core/collection/relevance.luau": "261acdc89e7700bb5b0e8ecfdf103f673786d7907cb6745b8cd38a343657df23",
     "core/collection/retain.luau": "af86eb0d4406f4a7a440682d6406038f9b45f8dbd98d641e0c7912123f246f67",
-    "core/context.luau": "d01d7e1913ec8d5a5795e746be08feb260da1ec873c86eb6fe0ee364d9ab7fb8",
+    "core/context.luau": "4fc8d6fb3ed0ce4e28db2697fd1ff24ac86a02de1b412bd5aa8c06668b341727",
     "core/diagnostics.luau": "fed3e94da3335c1de00ada09a422b9f0dccf5978fb467103c497b2c54c2c8a6d",
     "core/dynamic.luau": "76f8a9abb103a250a761a631334231ffa94b3dbb92cb25a3d7e7fd937135da5c",
     "core/focus-neighbor.luau": "adcef26786478021b99e4e86bc71eb707f5ed8b6ed978c5c6acd144a1e70e939",
@@ -30,7 +30,7 @@
     "core/frames.luau": "d9b7850d7f817448af0d91983ee3de4b609682a6f1123113d8ed1892963c14a0",
     "core/geometry.luau": "0fc2541ccde094d97602641f0044b43754a76d3b215fe801031842928b46aadb",
     "core/host-validation.luau": "c11cae8259965dfc6776f7335c329eea30f4fb7644c7953cde1aecf8f929c878",
-    "core/host.luau": "b0d3876d0861f87f37e31db6347eaa8f2b1ad6944db64bbdc8b2d31cdae556a2",
+    "core/host.luau": "e371162f0293cabdd84a2c117599b512e524c91a8699fb8020a8ec041d0ab1e2",
     "core/init.luau": "fcf358ec95ba55b3f025de9522a05702ebf793b57c35385f958c1185da7e91fa",
     "core/keyed-cache.luau": "acadf1ab256974c215a3ad70c4fc54eb76dc0325453570cd1cc0b4da75da59a5",
     "core/ownership/active.luau": "5520c80bbd84715c7324bf3c3cb460e21c1e228867d6a4851c63c48d3b23a3d4",
@@ -58,10 +58,10 @@
     "core/runtime/children.luau": "55b83e30758e80bbddc0b8b51f254447594aea1ae2fe99a46a975f21215de7f9",
     "core/runtime/clock.luau": "cb4e49ed1d3b781a049a5bcc8d814e8af2fc791d84453e6a9219103644d45610",
     "core/runtime/extensions.luau": "2a07ace5ef791b93a478fd1fbcad5d1f2f54358ab04dfabedc50a5ed0df16d82",
-    "core/runtime/init.luau": "28071a93bf9e7428a11b22d996df67f26641c0b06bcb7c4177463c5cfec995f4",
+    "core/runtime/init.luau": "1293d636f9a9b00d4f6be85de8ffd28c0479219bfe2514ebc8de6646c2917dc9",
     "core/runtime/observe.luau": "f46d0390cff8b4ddfdb0de450c5ad8f31ce89e39d0796a8847973f4a733aa869",
     "core/runtime/props-state.luau": "26a25a504a1e75baa4e8ef2f52e9d0aab4f99db5f2b6f1c00b1814bb0da34eca",
-    "core/runtime/props.luau": "50defc86d88c71ee332bdf5ebf3ec8023c4447d7fe9adb9119747d1eae856426",
+    "core/runtime/props.luau": "99425cdc05f0340b58b84311a0c3063adb488530731ef82e5d0bc0e9e97eaa35",
     "core/runtime/sequence.luau": "6259e63f6fb8eb934cc80606215793ce24e3502cb0946d6d7506e31e570710b6",
     "core/runtime/settled.luau": "fe387f0efd7ee9c218af265f51adbf7e12b9149ef1ec7a6b3eeec22b5d93599e",
     "core/scheduler.luau": "1818d0407c03d2cae835f5ad4f097a8fcf0d16a4a9b41379f501394a8e62772f",
@@ -78,11 +78,11 @@
     "core/structure/presence.luau": "8813eef2914bdafe22ee10d0077772de4aea9b371a6ccf84a725fcaa8b68bf27",
     "core/structure/show.luau": "4a7976959a0fe4871bc8fba840b58bf15f46e17ee4c074768439eaac2e27bcba",
     "core/structure/spatial-collection.luau": "c743b5e9a75190d952b9df596ecba8c7688bd422fd3de08c023ac500cd81d4d1",
-    "core/structure/support.luau": "3274304166835e7b5c168852754a9f32421aa9cadda9953b3d352bf2ac6094ee",
+    "core/structure/support.luau": "cab366a16265c6e1de17b4039103fc2f42ec88f626dca2ee0bd893be7d77926b",
     "core/structure/switch.luau": "6402e6a2fdb96478c7c017a06bccda1c1a3da93a96f60f3ada7b2bf25e913782",
     "core/structure/tile-collection.luau": "a6db70b5ea461a713e7451979a49799fb9d6628e6d3798438cb1c7638bc31f27",
     "core/types.luau": "b6f700eaaaf45a570c7d277eab21c238a1e2239718a47fbda56d12cb04e9d1b8",
-    "core/weak.luau": "2d26713c2a1e999ff9dae028402bed24228b37af0627fd860a00d395c3d0d217",
+    "core/weak.luau": "90c93045a47ecb507f0047ebb39bae28c914dee445ad747fa1323a88bad4a3cc",
     "design-editor/canvas.luau": "0c0dd2bb41103c935d505c64e7ca85f9fc0accd57a212c4298df12989fa0bafd",
     "design-editor/devices.luau": "0d6d79bea5419a173b723f7c2267addf6b3152f5f6af2964e433a43b12ebddf3",
     "design-editor/drafts.luau": "3c7b0a7f3c4fd92821cee527d6efd3901b84e84f48f0b274e2215a273dc0a850",
@@ -124,7 +124,7 @@
     "roblox/cleanup.luau": "27b2557f5fb5cbb65899e878f7e6316d1310ec75bf76fc296a37ed1f5923cfcc",
     "roblox/codecs.luau": "673643dde8dd993d8324e62bef4632c4715e1b8be2821ce176205405427b986e",
     "roblox/engine.luau": "3c700b961b160e0c3dd94aff8e1d3363f3cc9bf5bf99619927bb42603ff10856",
-    "roblox/host.luau": "7c5872f8d67d8347c33548412f84f3303c714fd3e068d3c683dcd05463579395",
+    "roblox/host.luau": "e72f43af97815e1fac104091f7c30587970347c4542f82fcc9c71b7136b8c2e9",
     "roblox/init.luau": "96cfee33e7454b349050818aee30536941b4b28608484e8f1252a4efa08d3cc5",
     "roblox/input.luau": "37d25dd3bc36de152c6e9bf74cb2f6ce38dc26fac156ddda98e0cd97a3a9795c",
     "roblox/preferred-input.luau": "45fb96a402bb4f931666e0b9152fdc0e93c4d012aef16bebb55f12921d6fa774",
@@ -132,7 +132,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "a845b9eb450ac1527238ee0401c6913daaf59dcc94d13fd90b3d23d96e2dbc8d",
+    "SKILL.md": "b4d1dd0e5d0841fa2652eefdddcff885adfd3b654e36bfce3eb66d63d5f6346e",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }

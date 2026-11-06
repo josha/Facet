@@ -68,8 +68,7 @@ export type Renderer = {
 
 export type Events = {
 	connectEvent: <Args...>(node: Node, event: string, handler: (Args...) -> ()) -> Unsubscribe,
-	attachEvent: (<Args...>(node: Node, event: string, handler: (Args...) -> ()) -> unknown)?,
-	detachEvent: ((connection: unknown) -> ())?,
+	attachEvent: (<Args...>(node: Node, event: string, handler: (Args...) -> ()) -> ())?,
 
 	classifyKey: ((node: Node, key: string) -> KeyKind)?,
 }

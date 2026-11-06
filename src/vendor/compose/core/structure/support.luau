@@ -5,6 +5,7 @@ local Active = require "../ownership/active"
 local Children = require "../runtime/children"
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
+local Nodes = require "../ownership/nodes"
 local Owner = require "../ownership/owner"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
@@ -139,6 +140,7 @@ local function mountBuilder(
 	end
 	Owner.own(owner, function()
 		mountPoint.remove(produced)
+		Nodes.forget(produced)
 	end)
 	return Owner.disposer(owner)
 end
