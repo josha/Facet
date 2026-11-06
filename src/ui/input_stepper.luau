@@ -88,7 +88,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					LayoutOrder = 1,
 					Text = spec.label,
 					Size = D2.fromScale(0, 0),
-					AutomaticSize = E.AutomaticSize.XY,
+					AutomaticSize = E.AutomaticSize.Y,
 					TextXAlignment = E.TextXAlignment.Left,
 					Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 					ctx.styled(Host.UIPadding {}, "stepper-inset"),
