@@ -226,6 +226,38 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if room then
 			fillRoom(frame, room)
 		end
+		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
+		local spillable = not vertical and spec.wrap == nil and bounded
+		local list = if spillable then frame:FindFirstChildWhichIsA("UIListLayout") else nil
+		if list then
+			local outer, content = ctx.observe.AbsoluteSize(frame), ctx.observe.AbsoluteContentSize(list)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local width, used = use(outer).X, use(content).X
+				if width <= 0 then
+					return
+				end
+				local scale = 1
+				local at: Instance? = frame
+				while at and at:IsA("GuiObject") do
+					local factor = at:FindFirstChildWhichIsA("UIScale")
+					if factor then
+						scale *= factor.Scale
+					end
+					at = at.Parent
+				end
+				local pad = frame:FindFirstChildWhichIsA("UIPadding")
+				local sides = if pad
+					then (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) * scale
+						+ (pad.PaddingLeft.Scale + pad.PaddingRight.Scale) * width
+					else 0
+				local spills = if list.Wraps
+					then kit.intrinsic(frame, true, scale) * scale > width + 0.5
+					else used + sides > width + 0.5
+				if list.Wraps ~= spills then
+					list.Wraps = spills
+				end
+			end)
+		end
 		if box then
 			local measured, size = box, ctx.layoutSize(frame, ctx.layoutUnit(frame, "CornerUnit"))
 			Compose.watch(function(use: ComposeTypes.Use)

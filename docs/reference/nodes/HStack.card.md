@@ -12,6 +12,9 @@ Key options: `width`, `gap`, `padding`, `surface`, `corners`.
 
 Use fill for remaining space.
 
+A bounded HStack wraps its children onto the next line when they do not fit;
+set `wrap = false` to keep one line.
+
 With `surface = "panel"` and `corners = "pill"`, Facet rounds the plate and
 keeps the content out of its curve, so do not add a `UICorner`.
 

@@ -149,6 +149,46 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("wraps a bounded row only while its children do not fit on one line", {
+			id = "native_layout::native composition rest measurements::wraps a bounded row only while its children do not fit on one line",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack "Page" {
+						UI.HStack "Row" {
+							width = "fill",
+							Host.Frame "A" {},
+							Host.Frame "B" {},
+						},
+						UI.HStack "Kept" {
+							width = "fill",
+							wrap = false,
+							Host.Frame "C" {},
+							Host.Frame "D" {},
+						},
+						UI.HStack "Hug" {
+							Host.Frame "E" {},
+						},
+					}
+				end)
+				local V2 = engine.types.Vector2
+				local row, kept = root:FindFirstChild("Row"), root:FindFirstChild("Kept")
+				local list = row:FindFirstChildWhichIsA("UIListLayout")
+				engine.environment.poke(list, "AbsoluteContentSize", V2.new(200, 20))
+				for _, name in { "A", "B", "C", "D" } do
+					engine.environment.poke(root:FindFirstChild(name, true), "AbsoluteSize", V2.new(100, 20))
+				end
+				engine.environment.poke(row, "AbsoluteSize", V2.new(250, 20))
+				expect(list.Wraps):toBe(false)
+				engine.environment.poke(row, "AbsoluteSize", V2.new(150, 20))
+				expect(list.Wraps):toBe(true)
+				engine.environment.poke(row, "AbsoluteSize", V2.new(250, 40))
+				expect(list.Wraps):toBe(false)
+				engine.environment.poke(kept, "AbsoluteSize", V2.new(150, 20))
+				expect(kept:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(false)
+				expect(root:FindFirstChild("Hug"):FindFirstChildWhichIsA("UIListLayout").Wraps == true):toBe(false)
+				stop()
+			end,
+		})
 		it("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()

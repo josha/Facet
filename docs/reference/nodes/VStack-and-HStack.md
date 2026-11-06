@@ -8,6 +8,15 @@ Frame` stacks them horizontally. Both hug their content by default. Options:
 and `maxHeight`. `wrap`
 sets `UIListLayout.Wraps`. The shared props type is `StackProps`.
 
+An HStack with a bounded width (`width = "fill"`, a number of pixels, or a
+native `Size`) never lets its children run past its edge. When you omit
+`wrap`, the row stays on one line while its children fit and wraps them onto
+the next line while they do not; it returns to one line when there is room
+again. Set `wrap = false` to keep one line regardless, for example in a row
+that scrolls or clips on purpose. A hugging HStack grows to fit its children,
+so it never wraps by itself. A wrapped row needs room to grow downward: give it
+no fixed height.
+
 `maxWidth` and `maxHeight` accept bound finite numbers of pixels, zero or more.
 They set a native `UISizeConstraint`; an omitted maximum leaves that axis
 unbounded. They cap the frame, but do not scroll its children. Use
