@@ -161,7 +161,7 @@ return function(ctx: Types.Context, spec: NavigationProps.TabViewSpec, view: Tab
 		end,
 		Padding = D.new(0, 4),
 	}
-	local stripContent = ctx.observeNative.AbsoluteContentSize(stripLayout)
+	local stripContent = ctx.observe.AbsoluteContentSize(stripLayout)
 	local function railWidth(use: ComposeTypes.Use): number
 		local authored = readNumber(spec.railWidth, use)
 		if authored then

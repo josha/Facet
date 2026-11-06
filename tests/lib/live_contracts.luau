@@ -1961,7 +1961,7 @@ local WEIGHTS: { [string]: number } = {
 	["container_transfer/reserved-slots-pointer-recall"] = 1,
 }
 
-local SHARDS = 40
+local SHARDS = 64
 
 local function assignments(): { [string]: number }
 	type Entry = { name: string, weight: number }

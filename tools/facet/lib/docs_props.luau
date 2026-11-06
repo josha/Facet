@@ -310,6 +310,7 @@ function Props.icons(root: string): string
 		"`NAME.fill` uses NAME when no filled art exists.",
 		"A theme package or the `icons` factory option can add a name or replace its art.",
 		"An unknown name causes an error, so take each name from this list or register it in your icons map.",
+		"Facet ships these names without image content. The theme package `icons` map supplies the art for each name. A listed name without art shows an empty image.",
 		"Each glyph is a near-white silhouette, and the theme supplies its color.",
 		"Use a name from this list before you draw a glyph with Path or Frames.",
 		"",

@@ -279,7 +279,7 @@ return function(
 						end),
 					}
 					if entry == rootEntry then
-						local barSize = ctx.observeNative.AbsoluteSize(navigationBar)
+						local barSize = ctx.observe.AbsoluteSize(navigationBar)
 						Compose.watch(function(use: ComposeTypes.Use)
 							local large = adaptive.sizeClass(use(barSize).X) ~= "compact"
 							title:RemoveTag(if large then "facet-type-heading" else "facet-type-title")

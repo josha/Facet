@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 local Bdd = require("../tools/vendor/verify/src/bdd")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Facet = require("../src")
+local StandardIcons = require("../examples/standard_icons")
 
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
@@ -745,12 +746,12 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 	describe("collection viewport coherence", function()
-		it("selected tabs reveal native content before the next frame", function(_own, t)
+		it("selected tabs reveal native content once the framed content size publishes", function(_own, t)
 			local engine, runtime, UI, target, _, ctx = setup()
 			local V2 = engine.types.Vector2
-			local stale = Compose.cell(V2.zero)
+			local content = Compose.cell(V2.zero)
 			ctx.observe.AbsoluteContentSize = function()
-				return stale
+				return content
 			end
 			local selected = Compose.cell("b")
 			local tabs: { FixtureNavigationTypes.Tab } = {
@@ -791,6 +792,7 @@ return function(verifyHarness: Verify.Harness)
 			engine.environment.poke(VerifyRoblox.assertInstance(button), "AbsoluteSize", V2.new(80, 44))
 			engine.environment.poke(VerifyRoblox.assertInstance(button), "AbsolutePosition", V2.new(160, 0))
 			engine.environment.poke(VerifyRoblox.assertInstance(layout), "AbsoluteContentSize", V2.new(240, 44))
+			content:set(V2.new(240, 44))
 			expect(bar.CanvasPosition.X):toBe(140)
 			expect(selected:peek()):toBe("b")
 			scroll:Disconnect()
@@ -799,7 +801,7 @@ return function(verifyHarness: Verify.Harness)
 			expect(engine.census().connections):toBe(0)
 		end)
 
-		it("row widths follow the native scrolling window before the next frame", function(_own, t)
+		it("row widths follow the scrolling window once its framed size publishes", function(_own, t)
 			local engine, runtime, UI, target, _, ctx = setup()
 			local V2 = engine.types.Vector2
 			local stale = Compose.cell(V2.new(200, 100))
@@ -825,8 +827,11 @@ return function(verifyHarness: Verify.Harness)
 			local row = assert(assert(node:FindFirstChild("Items")):FindFirstChild("one")) :: Frame
 			expect(row.Size.X.Offset):toBe(200)
 			engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(194, 100))
+			expect(row.Size.X.Offset):toBe(200)
+			stale:set(V2.new(194, 100))
 			expect(row.Size.X.Offset):toBe(194)
 			engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(200, 100))
+			stale:set(V2.new(200, 100))
 			expect(row.Size.X.Offset):toBe(200)
 			stop()
 			runtime:dispose()
@@ -5115,7 +5120,7 @@ return function(verifyHarness: Verify.Harness)
 		it("reorders selected blocks with native drag and cancels stale or keyboard moves", {
 			id = "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
 			run = function()
-				local engine, runtime, UI, target = setup()
+				local engine, runtime, UI, target = setup({ icons = StandardIcons.CONTENT })
 				local source, selected = Compose.cell(records(5)), Compose.cell({ [1] = true, [3] = true })
 				local requests: { { keys: { number }, slot: number } } = {}
 				local stop, node: any = runtime.mount(function()
@@ -5165,7 +5170,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(#requests):toBe(1)
 				handle.SelectionGained:Fire()
 				handle.Activated:Fire()
-				expect(handle:FindFirstChild("ReorderIcon").Image):toBe("rbxassetid://108245103349446")
+				expect(handle:FindFirstChild("ReorderIcon").Image):toBe(StandardIcons.CONTENT.checkmark)
 				local cancel
 				for _, contextNode in target:GetChildren() do
 					if contextNode.Name == "FacetReorderCancel" and contextNode.Enabled then

@@ -46,6 +46,9 @@
       "Facet": {
         "$path": "../src"
       },
+      "FacetStandardIcons": {
+        "$path": "standard_icons.luau"
+      },
       "FacetExamples": {
         "$path": "gallery/examples"
       },

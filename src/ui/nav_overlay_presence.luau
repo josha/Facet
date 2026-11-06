@@ -102,7 +102,7 @@ return function(ctx: Types.Context): Presence
 	): ({ ComposeTypes.ReadOnlyValue<Vector2> }, ComposeTypes.ReadOnlyValue<boolean>)
 		local live: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for index, node in nodes do
-			live[index] = ctx.observeNative.AbsoluteSize(node)
+			live[index] = ctx.observe.AbsoluteSize(node)
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
 		local sampled: { Vector2 } = {}

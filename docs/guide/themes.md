@@ -120,8 +120,10 @@ radius to match rounded artwork. It does not change sidebar or bottom tabs.
 A fourth, smaller size step is optional. `controlSizes.xsmall` (`height`,
 `paddingX` and `iconSize`) is the step that a dense toolbar or tag row asks for
 with `controlSize = "xsmall"`. Without it, the step is one step below
-`compact`: 28, 4 and 12 with the neutral values. The native control is its own
-hit area, so use `xsmall` only for pointer rows.
+`compact`: 28, 4 and 12 with the neutral values. On touch, a Button with text
+grows to `targetSizes.minimum`, so use `xsmall` only for pointer rows. An icon
+Button keeps its plate and gets a larger hit target. See
+[touch targets](../reference/nodes/Button.target.md).
 
 Dense rows for a mouse are also optional. `targetSizes.pointer` (24 up to
 `targetSizes.minimum`) is the row height of floating Menu and Picker menu rows
@@ -175,6 +177,10 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
   checks numeric fields.
 
 The report lists the covered entries and the missing entries.
+
+Facet ships the standard icon names without image content. Map each name that
+the game uses to image content in the theme package `icons`. A standard name
+without art shows an empty image. An unknown name causes an error.
 
 Icons resolve through `themes.resolveIcon`. Supply real image or vector image
 assets. Do not use arbitrary text glyphs as interface icons. An image

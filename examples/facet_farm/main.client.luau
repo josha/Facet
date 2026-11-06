@@ -18,6 +18,7 @@ for _ = 1, 10 do
 end
 pcall(starterGui.SetCore, starterGui, "ResetButtonCallback", false)
 local Facet = require(storage:WaitForChild("Facet"))
+local StandardIcons = require(storage:WaitForChild("FacetStandardIcons"))
 local Compose: ComposeModule = Facet.Compose
 local farmFolder = storage:WaitForChild("FacetFarm")
 local modelModule = require(farmFolder:WaitForChild("model"))
@@ -25,7 +26,7 @@ local screens = require(farmFolder:WaitForChild("screens"))
 local theme = require(farmFolder:WaitForChild("theme"))
 local world = require(farmFolder:WaitForChild("world"))
 
-local package = theme.create(Facet)
+local package = StandardIcons.apply(theme.create(Facet))
 local backdrop = Facet.app({
 	name = "FacetFarmBackdrop",
 	theme = package,

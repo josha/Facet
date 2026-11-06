@@ -271,7 +271,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local current = runtime.observe(stage, "CurrentCamera") :: ComposeTypes.ReadOnlyValue<Camera?>
 			Compose.watch(function(use: ComposeTypes.Use)
 				local active = use(current) or camera
-				local frame = ctx.observeNative.CFrame(active)
+				local frame = ctx.observe.CFrame(active)
 				runtime.decorate(stage, {
 					LightDirection = function(read: ComposeTypes.Use): Vector3
 						return (read(frame).LookVector + types.Vector3.new(0, -0.6, 0)).Unit

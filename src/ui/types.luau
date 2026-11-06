@@ -42,6 +42,7 @@ export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
 export type RobloxTypes = Engine.RobloxTypes
 export type Observe = Engine.Observe & {
+	AbsoluteCellSize: (UIGridLayout) -> ComposeTypes.ReadOnlyValue<Vector2>,
 	CFrame: (Camera) -> ComposeTypes.ReadOnlyValue<CFrame>,
 	Image: (ImageLabel) -> ComposeTypes.ReadOnlyValue<string>,
 	IsLoaded: (ImageLabel) -> ComposeTypes.ReadOnlyValue<boolean>,
@@ -290,7 +291,7 @@ export type Context = {
 	overlayHosts: { [Instance]: Instance },
 	thumbFloor: (ReadOnlyValue<number>) -> (Use?) -> number,
 	observe: Observe,
-	observeNative: Observe,
+	afterLayout: (() -> ()) -> () -> (),
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),
 	whenSelected: (Instance, Instance, () -> ()) -> (),

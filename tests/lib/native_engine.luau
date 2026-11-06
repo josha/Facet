@@ -21,6 +21,7 @@ export type Engine = {
 	rejectedSelections: () -> { any },
 	census: () -> { live: number, connections: number },
 	onWrite: ((any, string, any) -> ()) -> any,
+	layoutReadsInChange: () -> { string },
 }
 export type Options = {
 	layout: VerifyRoblox.UiLayoutOptions?,
@@ -31,6 +32,7 @@ export type Options = {
 	selectionNeedsPlayerGui: boolean?,
 	robloxScript: boolean?,
 	lenientProperties: boolean?,
+	guardLayoutReads: boolean?,
 }
 
 local snapshot = Lute.fixture.load()
@@ -168,6 +170,22 @@ local function defaultProperty(_className: string, key: string): unknown
 		else nil
 end
 
+local LAYOUT_PROPERTIES: { [string]: { string } } = {
+	GuiBase2d = { "AbsolutePosition", "AbsoluteSize", "AbsoluteRotation" },
+	UIGridStyleLayout = { "AbsoluteContentSize" },
+	UIGridLayout = { "AbsoluteCellSize", "AbsoluteCellCount" },
+	ScrollingFrame = { "AbsoluteCanvasSize", "AbsoluteWindowSize" },
+	TextLabel = { "TextBounds", "TextFits" },
+	TextButton = { "TextBounds", "TextFits" },
+	TextBox = { "TextBounds", "TextFits" },
+}
+local LAYOUT_KEYS: { [string]: boolean } = {}
+for _, properties in LAYOUT_PROPERTIES do
+	for _, property in properties do
+		LAYOUT_KEYS[property] = true
+	end
+end
+
 local function connections(signal: any): number
 	return owner(function(environment)
 		return environment.connectionsOf(signal)
@@ -205,6 +223,28 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 			return environment.newSignal()
 		end
 	end
+	local changing: { string } = {}
+	local reads: { string } = {}
+	if settings.guardLayoutReads then
+		assert(settings.layout == nil, "the layout read guard needs pokes, not the layout engine")
+		for className, properties in LAYOUT_PROPERTIES do
+			for _, property in properties do
+				local key = className .. "." .. property
+				local measured = computed[key]
+				local inner: ((any) -> any)? = if measured then measured.get else nil
+				computed[key] = {
+					get = function(object: VerifyRoblox.Instance): unknown
+						local active = changing[#changing]
+						if active ~= nil then
+							table.insert(reads, `{environment.nameOf(object)}.{property} read in the {active} signal`)
+						end
+						return if inner then inner(object) else nil
+					end,
+					writable = true,
+				}
+			end
+		end
+	end
 	local bridge = Lute.fixture.bridge(snapshot, {
 		classes = if settings.robloxScript then robloxScriptClasses() else classes,
 		defaultProperty = defaultProperty,
@@ -224,6 +264,21 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 	})
 	environment = bridge.environment
 	environments[environment] = true
+	if settings.guardLayoutReads then
+		local poke = environment.poke
+		environment.poke = function(object: VerifyRoblox.Instance, key: string, value: unknown)
+			if not LAYOUT_KEYS[key] then
+				poke(object, key, value)
+				return
+			end
+			table.insert(changing, `{environment.nameOf(object)}.{key}`)
+			local ok, failure = pcall(poke, object, key, value)
+			table.remove(changing)
+			if not ok then
+				error(failure, 0)
+			end
+		end
+	end
 	environment.onClone(function(_, copy)
 		if copy:IsA("ViewportFrame") then
 			environment.poke(copy, "CurrentCamera", nil)
@@ -257,6 +312,9 @@ local function new(options: Options?): (Engine, VerifyRoblox.FixtureBridge)
 				listener(event.object, event.member or "Parent", event.value)
 			end
 		end)
+	end
+	engine.layoutReadsInChange = function(): { string }
+		return table.clone(reads)
 	end
 	engine.types = table.clone(types)
 	return engine :: Engine, bridge

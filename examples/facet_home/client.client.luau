@@ -4,6 +4,7 @@ type ReadOnlyValue<T> = typeof(require("@repo/src/vendor/compose/core").accumula
 type Use = <T>(ReadOnlyValue<T>) -> T
 local storage, players = game:GetService("ReplicatedStorage"), game:GetService("Players")
 local Facet = require(storage:WaitForChild("Facet"))
+local StandardIcons = require(storage:WaitForChild("FacetStandardIcons"))
 local modules = storage:WaitForChild("FacetHome")
 local policy = require(modules:WaitForChild("model"))
 local homeDock = require(modules:WaitForChild("dock"))
@@ -99,7 +100,7 @@ local connections = {
 }
 updatePresence()
 local stop = runtime.mount(function()
-	local theme = Facet.themes.define(Facet.themes.neutralPackage())
+	local theme = Facet.themes.define(StandardIcons.apply(Facet.themes.neutralPackage()))
 	local UI = Facet.controls(runtime, {
 		theme = theme,
 		keyboardNavigation = true,
@@ -426,7 +427,7 @@ local function mountBoard(room: Instance)
 	assert(board:IsA("BasePart"), "Missing HomeBoard")
 	boardMounted = true
 	runtime.mount(function()
-		local theme = Facet.themes.define(Facet.themes.neutralPackage())
+		local theme = Facet.themes.define(StandardIcons.apply(Facet.themes.neutralPackage()))
 		local UI = Facet.controls(runtime, { theme = theme })
 		local sheet = Facet.themes.createStyleSheet(runtime, theme, { theme = "Dark" })
 		return Host.SurfaceGui "HomeWallUI" {

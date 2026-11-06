@@ -41,12 +41,14 @@ local EXAMPLES = {
 local GALLERY: { [string]: string } = {
 	Gallery = "gallery/client",
 	Facet = "../src",
+	FacetStandardIcons = "standard_icons.luau",
 	FacetExamples = "gallery/examples",
 }
 
 local SHOWCASE: { [string]: string } = {
 	Gallery = "gallery/client",
 	Facet = "../src",
+	FacetStandardIcons = "standard_icons.luau",
 	FacetExamples = "gallery/examples",
 	FacetReference = "reference",
 	FacetScenarios = "gallery/scenarios",
@@ -72,9 +74,11 @@ local LAB_CONTENT = {
 	"src",
 	"examples/themes",
 	"examples/gallery",
+	"examples/standard_icons.luau",
 	"tools/studio/live",
 }
-local PLACE_CONTENT = { "src", "examples/gallery", "examples/reference", "examples/themes" }
+local PLACE_CONTENT =
+	{ "src", "examples/gallery", "examples/reference", "examples/themes", "examples/standard_icons.luau" }
 
 local function world(
 	name: string,

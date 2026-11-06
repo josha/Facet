@@ -12,6 +12,9 @@ local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
 	AbsoluteContentSize = { frame = true },
 	AbsoluteWindowSize = { frame = true, poll = true },
 	AbsoluteCanvasSize = { frame = true },
+	AbsoluteCellSize = { frame = true },
+	AbsoluteCellCount = { frame = true },
+	AbsoluteRotation = { frame = true },
 	TextBounds = { frame = true, poll = true },
 	TextFits = { frame = true },
 }
@@ -240,11 +243,47 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	end
 	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
+	local queued: { [() -> ()]: boolean } = {}
+	local stopQueue: (() -> ())? = nil
+	local function flush()
+		local due = queued
+		queued = {}
+		local stop = stopQueue
+		stopQueue = nil
+		if stop then
+			stop()
+		end
+		for work in due do
+			work()
+		end
+	end
+	ctx.afterLayout = function(work: () -> ()): () -> ()
+		local frames = runtime.host.frames
+		if not framed or frames == nil then
+			return work
+		end
+		local live = true
+		local function run()
+			if live then
+				work()
+			end
+		end
+		Compose.cleanup(function()
+			live = false
+			queued[run] = nil
+		end)
+		return function()
+			if not live or queued[run] then
+				return
+			end
+			queued[run] = true
+			if stopQueue == nil then
+				stopQueue = frames.onFrame(flush)
+			end
+		end
+	end
 	ctx.selection = hostSelection(ctx, function(gui: GuiService): ComposeTypes.ReadOnlyValue<GuiObject?>
 		return ctx.observe.SelectedObject(gui)
-	end)
-	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
-		return runtime.observe(node, property)
 	end)
 	local function observeStyled(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
 		return runtime.observe(node, property, STYLED)
