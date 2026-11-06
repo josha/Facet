@@ -631,7 +631,11 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local w, expanded = tipsWorld(nil, nil, { lastInputType = UserInputType.Keyboard })
 				local trigger = w.find("Tips")
-				w.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsolutePosition", w.Vector2.new(700, 500))
+				w.engine.environment.poke(
+					FixtureRoblox.assertInstance(trigger),
+					"AbsolutePosition",
+					w.Vector2.new(700, 500)
+				)
 				w.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsoluteSize", w.Vector2.new(120, 44))
 				expanded:set(true)
 				local plate = w.find("Expanded")
