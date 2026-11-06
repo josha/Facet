@@ -14,7 +14,7 @@ return function(
 	open: ({ WorkspaceTheme }) -> Workspace,
 	options: Types.StudioOptions?,
 	defaultTheme: ThemeTypes.ReadOnlyThemePackage
-): Types.StudioKit
+): Types.StudioEditorKit
 	local base = if options and options.theme then options.theme else defaultTheme
 	local palettes: { [string]: boolean } = {}
 	for _, palette in base.style.themes do

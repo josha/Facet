@@ -274,7 +274,7 @@ return function(ctx: Types.Context, source: BasePart | Model, spec: Env.Draggabl
 		end)
 	end
 	local focus = options.focusTarget
-	local selected = if gui then ctx.observe.SelectedObject(gui) else nil
+	local selected = if gui then ctx.selection.observe() else nil
 	if focus then
 		local function pickUp(): boolean
 			begin("armed", nil)

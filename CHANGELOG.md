@@ -1,5 +1,49 @@
 # Current package
 
+On touch, a Button with no text keeps its plate size. An icon, glyph, image or
+circle Button no longer grows to `targetSizes.minimum`. An invisible
+`HitTarget` around the plate meets that size instead. An empty `label` is the
+same as no label, also when a reactive label changes to `""`. A Button with
+text still grows its plate. The touch floor now follows the effective input
+(`PreferredInput`), so a touch laptop that the player uses with a mouse has no
+floor. A gamepad keeps the floor on text Buttons only.
+Controls no longer read layout inside a layout change signal. In a game, the
+geometry that controls observe (collection viewports and measured rows,
+navigation chrome, pickers, popovers, Button `compactLabel`, level pickers,
+focus rings, world markers and grid cells) is read on the next frame. Fast
+resizes and scrolls no longer run these reads during the engine's layout pass.
+A form, a placement or a title style can update one frame after its bounds
+change. Feedback decoration still follows its host in the same frame.
+
+`Facet.DesignStudioKit` is now the read-only form of the Compose design editor
+kit type, so a kit built with the Compose design editor has this type.
+`Facet.composeDesign` returns `Facet.DesignStudioEditorKit`, whose `edit`
+returns the full `Facet.DesignStudioEditor`.
+`environment.safeInsets` measures each side from the full screen to the core
+UI safe area with `GuiService:GetInsetArea`. On Android, the bottom value now
+includes the navigation bar; before, it was always 0. A core script also gets
+the status bar, bottom bar, side bar and safe zone sizes. The value follows
+orientation changes.
+
+Controls under `CoreGui` move gamepad and keyboard focus through
+`GuiService.SelectedCoreObject` when the script can write it. All selection
+reads and writes go through one host seam, `ctx.selection`. The
+`selection-seam` check rejects a direct `SelectedObject` use in `src`.
+Text size comes from a type role. The base `facet-text` rule no longer sets
+`TextSize`; each Facet text node carries one `facet-type-<role>` tag, `body`
+by default. A Badge label and a ShortcutHint key use `caption`, and the text of
+a Chip with leading, trailing or remove content uses `control`. A pixel
+`textSize` on Text, Toggle or Picker sets the size with no role tag, so a size
+of 14 (the engine default) is no longer replaced by the body size. NavBar
+`titleSize` is a type role.
+
+Text fills the width that its parent gives and grows only in height. It still
+hugs its words in a horizontal stack, in a parent that hugs its width and at an
+explicit position. `AutomaticSize = Enum.AutomaticSize.XY` is the opt-in to hug
+everywhere. Collection rows keep the cell's cross-axis size and grow only on
+the main axis; `contentOverflow = "grow"` is the opt-in for growth on both
+axes. Card titles and captions show at most two lines and end with an
+ellipsis, so a long title in a narrow grid cell keeps the card's size.
 Theme and factory `icons` entries accept a font glyph
 `{ font, codepoint, tintRole? }` beside image content. Each control that takes
 an icon name draws the glyph at the short side of the icon box without

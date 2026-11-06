@@ -103,6 +103,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					})),
 					"Text"
 				))
+				ctx.textRole(cap, "caption")
 				ctx.textLayout(cap, nil, true)
 				if spec.Size == nil then
 					local bounds = ctx.layoutBounds(cap, ctx.layoutUnit(cap, "CapUnit"))

@@ -104,7 +104,7 @@ return function(
 		local text: Types.Input<string> = if structured then structured.body else value :: Types.Input<string>
 		local gate = plate and plate.gate
 		local state = ctx.observe.GuiState(anchor)
-		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
+		local selection = if gui and gui.GetPropertyChangedSignal then ctx.selection.observe() else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local held = Compose.cell(false)
 		local touchOffset: ComposeTypes.Value<Vector2?> = Compose.cell<<Vector2?>>(nil)
@@ -217,8 +217,9 @@ return function(
 						return readText(text, use) or ""
 					end,
 					TextWrapped = true,
+					AutomaticSize = E.AutomaticSize.XY,
 				}))
-				label:AddTag("facet-type-caption")
+				ctx.textRole(label, "caption")
 				local panelProps: Types.CanvasGroupProps = {
 					Name = plate and plate.name or "Help",
 					GroupTransparency = function(use: ComposeTypes.Use)
@@ -239,8 +240,9 @@ return function(
 						Text = function(use: ComposeTypes.Use)
 							return readText(title, use) or ""
 						end,
+						AutomaticSize = E.AutomaticSize.XY,
 					}))
-					heading:AddTag("facet-type-heading")
+					ctx.textRole(heading, "heading")
 					panelProps[#panelProps + 1] = heading
 				end
 				runtime.decorate(label, {
@@ -253,8 +255,13 @@ return function(
 				if structured then
 					local order = 3
 					local function detail(name: string, words: Types.Input<string>, secondary: boolean?)
-						local line = wrap(ctx.text({ Name = name, LayoutOrder = order, Text = words }))
-						line:AddTag("facet-type-caption")
+						local line = wrap(ctx.text({
+							Name = name,
+							LayoutOrder = order,
+							Text = words,
+							AutomaticSize = E.AutomaticSize.XY,
+						}))
+						ctx.textRole(line, "caption")
 						if secondary then
 							line:AddTag("facet-secondary")
 						end
@@ -285,8 +292,9 @@ return function(
 						Name = "HelpShortcut",
 						LayoutOrder = 1000,
 						Text = table.concat(chords, " or "),
+						AutomaticSize = E.AutomaticSize.XY,
 					}))
-					hint:AddTag("facet-type-caption")
+					ctx.textRole(hint, "caption")
 					hint:AddTag("facet-secondary")
 					panelProps[#panelProps + 1] = hint
 				end

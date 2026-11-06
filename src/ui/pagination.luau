@@ -142,7 +142,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			return (ctx.metric("space.xs", use))
 		end
 		local function measure(name: string, text: Types.Input<string>): TextLabel
-			local label = ctx.text({ Name = name, Text = text, Visible = false, TextWrapped = false })
+			local label = ctx.text({
+				Name = name,
+				Text = text,
+				Visible = false,
+				TextWrapped = false,
+				AutomaticSize = E.AutomaticSize.XY,
+			})
 			label:AddTag("facet-button")
 			return label
 		end
@@ -301,7 +307,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local pending = Compose.cell<<GuiObject?>>(nil)
 		local function watchFocus(button: TextButton)
 			Compose.cleanup(function()
-				if gui and gui.SelectedObject == button then
+				if gui and ctx.selection.get() == button then
 					lostFocus = true
 					lost:update(function(count: number): number
 						return count + 1
@@ -355,7 +361,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 						button,
 					})
 				elseif entry.kind == "gap" then
-					local mark = ctx.text({ Name = entry.key, Text = "…", LayoutOrder = index })
+					local mark = ctx.text({
+						Name = entry.key,
+						Text = "…",
+						LayoutOrder = index,
+						AutomaticSize = E.AutomaticSize.XY,
+					})
 					mark:AddTag("facet-secondary")
 					return mark
 				elseif entry.kind == "label" then
@@ -433,7 +444,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			items,
 		}
 		if gui and gui.GetPropertyChangedSignal then
-			local selected = ctx.observe.SelectedObject(gui)
+			local selected = ctx.selection.observe()
 			ctx.runtime.decorate(row, {
 				Selectable = function(use: ComposeTypes.Use)
 					local current = use(selected)
@@ -515,11 +526,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			use(entries)
 			use(lost)
 			local st = use(state)
-			local selection = gui
-			if not selection then
+			if not gui then
 				return
 			end
-			local selected = selection.SelectedObject
+			local selected = ctx.selection.get()
 			local dead = false
 			for kind, button in arrowButtons do
 				if selected == button and target(kind) == nil then
@@ -548,13 +558,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end
 			if landing then
 				pcall(function()
-					selection.SelectedObject = landing
+					ctx.selection.set(landing)
 				end)
 				pending:set(if landing.AbsoluteSize.X <= 0 then landing else nil)
 			end
 		end)
 		if gui and gui.GetPropertyChangedSignal then
-			local selection = ctx.observe.SelectedObject(gui)
+			local selection = ctx.selection.observe()
 			local held: Instance? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
 				local selected = use(selection)
@@ -580,7 +590,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					pending:set(nil)
 					if selected ~= landing then
 						pcall(function()
-							gui.SelectedObject = landing
+							ctx.selection.set(landing)
 						end)
 					end
 				end

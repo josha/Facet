@@ -2,6 +2,7 @@
 local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 local motion = require("./motion")
+local memo = require("./media_memo")
 
 return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: Types.Input<number>?)
 	local Compose = ctx.Compose
@@ -54,22 +55,31 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 					use(image)
 				end
 				local asset = assert(Compose.currentOwner())
-				local fetched = Compose.cell(false)
+				local current = if node:IsA("ImageLabel") then node.Image else ""
+				local reported = memo.probe(ctx, current)
+				local known = reported or memo.knows(ctx, current)
+				local fetched = Compose.cell(known)
 				local provider = ctx.config.services and ctx.config.services.ContentProvider
-				if provider and node:IsA("ImageLabel") and node.Image ~= "" then
-					local ok, status = pcall(provider.GetAssetFetchStatus, provider, node.Image)
-					fetched:set(ok and status == ctx.types.Enum.AssetFetchStatus.Success)
+				if loaded and current ~= "" then
+					local observed = loaded
+					local waited = not observed:peek()
+					Compose.watch(function(track: ComposeTypes.Use)
+						if not track(observed) then
+							waited = true
+						elseif waited and node.Image == current then
+							memo.remember(ctx, current)
+						end
+					end)
 				end
-				if provider and node:IsA("ImageLabel") and node.Image ~= "" and not fetched:peek() and task then
+				if provider and node:IsA("ImageLabel") and current ~= "" and not reported and task then
 					local thread = task.defer(function()
 						pcall(function()
 							provider:PreloadAsync({ node }, function(_content: string, status: Enum.AssetFetchStatus)
-								if
-									not ComposeTypes.owner.isDisposed(asset)
-									and status == ctx.types.Enum.AssetFetchStatus.Success
-								then
-									fetched:set(true)
+								if ComposeTypes.owner.isDisposed(asset) or node.Image ~= current then
+									return
 								end
+								memo.settle(ctx, current, status)
+								fetched:set(status == ctx.types.Enum.AssetFetchStatus.Success)
 							end)
 						end)
 					end)
@@ -126,6 +136,7 @@ return function(ctx: Types.Context, node: ImageLabel | ViewportFrame, authored: 
 					ease = ctx.motionEase("fade"),
 					reducedMotion = function(use: ComposeTypes.Use): boolean
 						return reduced(use)
+							or known
 							or (row:IsA("CanvasGroup") and row.GroupTransparency == 1)
 							or row:GetAttribute("FacetCollectionReady") == false
 					end,

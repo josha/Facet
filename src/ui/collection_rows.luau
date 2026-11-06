@@ -521,10 +521,12 @@ return function<V, K>(
 					groupProperties.GroupTransparency = 1
 				end
 				groupProperties.Attributes = { FacetCollectionRow = true, FacetCollectionReady = false }
-				groupProperties.AutomaticSize = if tree ~= nil or read(spec.contentOverflow) == "clip"
+				local overflow = read(spec.contentOverflow)
+				groupProperties.AutomaticSize = if tree ~= nil or overflow == "clip"
 					then E.AutomaticSize.None
-					elseif carded then (if horizontal then E.AutomaticSize.X else E.AutomaticSize.Y)
-					else E.AutomaticSize.XY
+					elseif overflow == "grow" and not carded then E.AutomaticSize.XY
+					elseif horizontal then E.AutomaticSize.X
+					else E.AutomaticSize.Y
 				content = if tree then ctx.fade(groupProperties) else Host.CanvasGroup(groupProperties)
 				local logical = surface or content
 				policy.drop(ctx, spec, current, keyCell:peek(), logical, kind == "grid" or horizontal, selectionHit)
@@ -656,9 +658,9 @@ return function<V, K>(
 				if mounted[gone] == node then
 					mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
 				end
-				if gui and State.belongsTo(gui.SelectedObject, node) then
+				if gui and State.belongsTo(ctx.selection.get(), node) then
 					view.focusOwned = true
-					gui.SelectedObject = nil
+					ctx.selection.set(nil)
 				end
 			end
 			if gone ~= nil and arrive then
@@ -833,9 +835,9 @@ return function<V, K>(
 		end)
 		Compose.cleanup(function()
 			live = false
-			if gui and State.belongsTo(gui.SelectedObject, node) then
+			if gui and State.belongsTo(ctx.selection.get(), node) then
 				view.focusOwned = true
-				gui.SelectedObject = nil
+				ctx.selection.set(nil)
 			end
 			if held ~= nil and mounted[held] == node then
 				mounted[held], placed[held], cellEdits[held] = nil, nil, nil

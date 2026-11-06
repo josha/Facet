@@ -328,6 +328,7 @@ export type DesignSeed = FacetDesign.Seed
 export type DesignStudioKit = FacetDesign.StudioKit
 export type DesignStudioOptions = FacetDesign.StudioOptions
 export type DesignStudioEditor = FacetDesign.StudioEditor
+export type DesignStudioEditorKit = FacetDesign.StudioEditorKit
 export type DesignStudioSample = FacetDesign.StudioSample
 export type DesignStudioSampleBindings = FacetDesign.StudioSampleBindings
 export type DesignStudioTheme = FacetDesign.StudioTheme
@@ -367,7 +368,7 @@ export type Facet = {
 	Compose: ComposeModule,
 	Roblox: ComposeRobloxModule,
 	design: () -> DesignKit,
-	composeDesign: (DesignStudioOptions?) -> DesignStudioKit,
+	composeDesign: (DesignStudioOptions?) -> DesignStudioEditorKit,
 	tag: <T>(instance: T, tags: StyleTags) -> T,
 	controls: (Runtime, ControlOptions?) -> Controls,
 	host: (Runtime) -> Host,
@@ -470,7 +471,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		return kit
 	end
 	local surface: Facet
-	local function composeDesign(options: DesignStudioOptions?): DesignStudioKit
+	local function composeDesign(options: DesignStudioOptions?): DesignStudioEditorKit
 		local DesignEditor = require("@self/vendor/compose/design-editor")
 		local studio = require("@self/design/studio")
 		return studio(function(workspaceThemes: { studio.WorkspaceTheme }): studio.Workspace

@@ -93,7 +93,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 					return use(entrySource).heading or ""
 				end,
 			})
-			title:AddTag("facet-type-caption")
+			ctx.textRole(title, "caption")
 			title:AddTag("facet-secondary")
 			return Host.Frame(entry.key)({
 				LayoutOrder = index,
@@ -218,6 +218,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Text = function(use: ComposeTypes.Use): string
 					return readText(actionItem(use(source)).meta, use) or ""
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
 			meta:AddTag("facet-secondary")
 			table.insert(accessories, meta)
@@ -229,6 +230,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Text = function(use: ComposeTypes.Use): string
 					return readText(actionItem(use(source)).shortcutLabel, use) or ""
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
 			shortcut:AddTag("facet-secondary")
 			table.insert(accessories, shortcut)

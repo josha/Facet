@@ -116,7 +116,8 @@ return function(ctx: Shared.Context, noKey: Enum.KeyCode): Glyph
 							end
 							return table.concat(keys, "+")
 						end,
-					})
+						AutomaticSize = E.AutomaticSize.XY,
+					}, nil, "caption")
 				end,
 			}),
 		})

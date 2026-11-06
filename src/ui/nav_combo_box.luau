@@ -151,7 +151,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				Compose.show(function(use: ComposeTypes.Use)
 					return use(errorText) ~= ""
 				end, function()
-					return ctx.text({ Name = "Validation", Text = errorText, TextWrapped = true, LayoutOrder = 2 })
+					return ctx.text({
+						Name = "Validation",
+						Text = errorText,
+						TextWrapped = true,
+						LayoutOrder = 2,
+						AutomaticSize = E.AutomaticSize.XY,
+					})
 				end),
 			},
 			ctx.props(spec, {
@@ -201,8 +207,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				local panel = menuPanel(menuSpec, close, row, true)
 				popup = panel
 				Compose.cleanup(function()
-					if gui and surfaces.within(gui.SelectedObject, panel) then
-						gui.SelectedObject = if ctx.available(root) then editor else nil
+					if gui and surfaces.within(ctx.selection.get(), panel) then
+						ctx.selection.set(if ctx.available(root) then editor else nil)
 					end
 					popup = nil
 				end)
@@ -251,7 +257,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						navigating = true
 						editor:ReleaseFocus(false)
 						navigating = false
-						gui.SelectedObject = target
+						ctx.selection.set(target)
 					end
 				end, { priority = 11000 })
 				ctx.action(root, "ComboCancel", { E.KeyCode.Escape, E.KeyCode.ButtonB }, opened, function()

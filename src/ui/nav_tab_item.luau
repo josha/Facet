@@ -143,6 +143,7 @@ return function(
 							then authored
 							else ctx.metric("typography.control.size", use)
 					end,
+					AutomaticSize = E.AutomaticSize.XY,
 				})
 				surfaces.attach(button, { measure })
 				local natural = textMeasure.natural(ctx, measure, function()

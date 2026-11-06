@@ -99,10 +99,10 @@ return function(ctx: Shared.Context, base: Base): Adjustment
 			return false
 		end
 		local guiService = ctx.config.services.GuiService
-		local target = guiService and guiService.SelectedObject
+		local target = guiService and ctx.selection.get()
 		local selected = Compose.cell(target ~= nil and target == node)
 		if guiService then
-			local nativeSelection = ctx.observe.SelectedObject(guiService)
+			local nativeSelection = ctx.selection.observe()
 			Compose.watch(function(use: ComposeTypes.Use)
 				local target = use(nativeSelection)
 				local inside = target ~= nil and target == node

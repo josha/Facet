@@ -730,6 +730,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return `{model.format(current.lower)} – {model.format(current.upper)}`
 				end
 				else "",
+			AutomaticSize = E.AutomaticSize.XY,
 		})
 		if not spec.row and not vertical then
 			runtime.decorate(readout, {
@@ -784,6 +785,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						TextTruncate = E.TextTruncate.AtEnd,
 						Host.UIFlexItem { FlexMode = E.UIFlexMode.Shrink },
 						Host.UIPadding { PaddingRight = ctx.types.UDim.new(0, KNOB / 2 + 8) },
+						AutomaticSize = E.AutomaticSize.XY,
 					})
 				)
 			end
@@ -837,7 +839,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			assert(node:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
 		end
 		local gui = ctx.config.services.GuiService
-		local selection = if gui then ctx.observe.SelectedObject(gui) else nil
+		local selection = if gui then ctx.selection.observe() else nil
 		if selection then
 			local observed = selection
 			Compose.watch(function(use: ComposeTypes.Use)

@@ -42,6 +42,7 @@ export type Attributes = Engine.Attributes
 export type AttributeValue = Engine.AttributeValue
 export type RobloxTypes = Engine.RobloxTypes
 export type Observe = Engine.Observe & {
+	AbsoluteCellSize: (UIGridLayout) -> ComposeTypes.ReadOnlyValue<Vector2>,
 	CFrame: (Camera) -> ComposeTypes.ReadOnlyValue<CFrame>,
 	Image: (ImageLabel) -> ComposeTypes.ReadOnlyValue<string>,
 	IsLoaded: (ImageLabel) -> ComposeTypes.ReadOnlyValue<boolean>,
@@ -226,6 +227,7 @@ export type ReservedKeyHandler = {
 	editing: ((TextBox) -> boolean)?,
 	node: Instance?,
 	gui: GuiService?,
+	selected: (() -> GuiObject?)?,
 	enabled: () -> boolean,
 	press: () -> (),
 	release: () -> (),
@@ -254,6 +256,12 @@ export type ResponderOptions = {
 }
 export type ResponderState = "passive" | "engaged"
 export type Responder = { read state: ReadOnlyValue<ResponderState>, read engage: () -> (), read resign: () -> () }
+export type HostSelection = {
+	get: () -> GuiObject?,
+	set: (GuiObject?) -> (),
+	changed: (() -> ()) -> () -> (),
+	observe: () -> ReadOnlyValue<GuiObject?>,
+}
 export type Context = {
 	motionCodecs: MotionCodecs?,
 	runtime: Runtime,
@@ -283,11 +291,12 @@ export type Context = {
 	overlayHosts: { [Instance]: Instance },
 	thumbFloor: (ReadOnlyValue<number>) -> (Use?) -> number,
 	observe: Observe,
-	observeNative: Observe,
+	afterLayout: (() -> ()) -> () -> (),
 	observeStyled: Observe,
 	shiftRoute: (Instance, () -> ()) -> (),
 	whenSelected: (Instance, Instance, () -> ()) -> (),
 	selectionHooks: { (unknown) -> () },
+	selection: HostSelection,
 	shiftActivation: (Instance, InputObject?) -> (() -> ())?,
 	playWhileShown: (Playback, Instance) -> (),
 	props: <P>(P, { string } | { [string]: boolean }?, unknown?) -> P,
@@ -299,7 +308,9 @@ export type Context = {
 	corner: (number?) -> UICorner,
 	fade: (CanvasGroupProps, boolean?, boolean?, boolean?) -> Frame,
 	fadeTo: (Instance, Engine.ValueNumber) -> (),
-	text: (TextLabelNativeProps?, boolean?) -> TextLabel,
+	text: (TextLabelNativeProps?, boolean?, Input<TextRole>?) -> TextLabel,
+	textRole: (Instance, Input<TextRole>?) -> (),
+	clampLines: (TextLabel, number) -> (),
 	textLayout: (TextLabel | TextButton, boolean?, boolean?, boolean?) -> (),
 	row: (ChildList, FrameNativeProps?) -> Frame,
 	layoutUnit: (GuiBase2d, string?) -> ComposeTypes.ReadOnlyValue<number>,

@@ -107,8 +107,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 	): ScrollingFrame
 		assert(
 			spec.contentOverflow == nil
-				or table.find({ "visible", "clip" }, read<<"visible" | "clip">>(assert(spec.contentOverflow))),
-			"Facet collection contentOverflow must be visible or clip"
+				or table.find(
+					{ "visible", "clip", "grow" },
+					read<<"visible" | "clip" | "grow">>(assert(spec.contentOverflow))
+				),
+			"Facet collection contentOverflow must be visible, clip or grow"
 		)
 		assert(
 			spec.snap == nil or spec.snap == "none" or spec.snap == "item",
@@ -271,8 +274,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 				return overlayReorder(true)
 			end, root)
 		end
-		local size = ctx.observeNative.AbsoluteWindowSize(root)
-		local outer = ctx.observeNative.AbsoluteSize(root)
+		local size = ctx.observe.AbsoluteWindowSize(root)
+		local outer = ctx.observe.AbsoluteSize(root)
 		local measuredOuter, reservingBar = V2.zero, false
 		local position = observe.CanvasPosition(root)
 		local mountParent = observe.Parent(root)

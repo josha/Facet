@@ -164,18 +164,15 @@ return function(ctx: Shared.Context): Chrome
 						options.focus()
 					end
 				end,
-				ctx.styled(
-					ctx.text({
-						Name = "Title",
-						Text = function(use: ComposeTypes.Use)
-							return labelText(spec, use)
-						end,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
-						TextWrapped = true,
-					}),
-					"type-label"
-				),
+				ctx.text({
+					Name = "Title",
+					Text = function(use: ComposeTypes.Use)
+						return labelText(spec, use)
+					end,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					TextWrapped = true,
+				}, nil, "label"),
 			}
 			table.insert(parts, label)
 		end
@@ -226,17 +223,14 @@ return function(ctx: Shared.Context): Chrome
 				messageAttached = messageAttached or line(use) ~= ""
 				return messageAttached
 			end, function()
-				local words = ctx.styled(
-					ctx.text({
-						Name = "Validation",
-						Text = line,
-						Size = D2.new(1, 0, 0, 0),
-						AutomaticSize = E.AutomaticSize.Y,
-						TextWrapped = true,
-						Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
-					}),
-					"type-caption"
-				)
+				local words = ctx.text({
+					Name = "Validation",
+					Text = line,
+					Size = D2.new(1, 0, 0, 0),
+					AutomaticSize = E.AutomaticSize.Y,
+					TextWrapped = true,
+					Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+				}, nil, "caption")
 				Compose.watch(function(use: ComposeTypes.Use)
 					tagWhile(words, "facet-validation", failure(use) ~= "")
 				end)

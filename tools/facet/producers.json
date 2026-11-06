@@ -15,6 +15,7 @@
     {"id": "art", "tier": "fast", "run": "lute run tools/facet art all --check", "why": "every generated icon and theme image matches its committed pixels"},
     {"id": "tool-specs", "tier": "fast", "kind": "tests", "plan": "tests/plan.json", "requires": "lute", "why": "every maintainer command and check passes its own cases"},
     {"id": "screen-key-bindings", "tier": "fast", "run": "lute run tools/facet check screen-key-bindings", "why": "screens do not bind keys directly; key input goes through commands"},
+    {"id": "selection-seam", "tier": "fast", "run": "lute run tools/facet check selection-seam", "why": "Facet source reads and writes the native selection only through the host selection seam"},
     {"id": "type-policy", "tier": "fast", "run": "lute run tools/facet check type-policy", "why": "maintained Luau is strict and stays within its any budget"},
     {"id": "facetbench", "tier": "fast", "run": "lute run tools/facet check facetbench", "why": "the single blank-project run retains its deadline, equal starting conditions, device coverage and required evaluation"},
     {"id": "run-comparison", "tier": "release", "run": "lute run tools/facet facetbench compare", "why": "the recorded paired game meets the required behavior coverage, author cost, visual preference and per-device runtime limits"},

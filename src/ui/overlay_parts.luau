@@ -562,7 +562,7 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 		elseif tracking == nil then
 			local window, canvas = V2.zero, V2.zero
 			tracking = frames.onFrame(function()
-				local selected = gui.SelectedObject
+				local selected = ctx.selection.get()
 				local resized = window ~= scroller.AbsoluteWindowSize or canvas ~= scroller.AbsoluteCanvasSize
 				if selected and selected:IsDescendantOf(scroller) and (selected ~= settled or resized) then
 					reveal(selected)
@@ -576,7 +576,7 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 	local directions: { [string]: number } = { Down = 1, DPadDown = 1, Up = -1, DPadUp = -1 }
 	ctx.runtime.connect(input, "InputBegan", function(event: InputObject)
 		local direction = if event.KeyCode then directions[event.KeyCode.Name] else nil
-		local from = gui.SelectedObject
+		local from = ctx.selection.get()
 		if
 			direction == nil
 			or from == nil
@@ -594,13 +594,13 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 				return
 			end
 			cancel()
-			if gui.SelectedObject ~= from or from.Parent == nil or not active:peek() then
+			if ctx.selection.get() ~= from or from.Parent == nil or not active:peek() then
 				return
 			end
 			local target = nearest(from, direction)
 			if target then
 				reveal(target)
-				gui.SelectedObject = target
+				ctx.selection.set(target)
 			end
 		end)
 	end)

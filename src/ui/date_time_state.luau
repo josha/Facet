@@ -375,7 +375,7 @@ return function(ctx: Shared.Context, parts: Parts.Parts, spec: Spec, options: Op
 		return kind == nil or kind == E.PreferredInput.KeyboardAndMouse
 	end)
 	local selected: ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
-		then ctx.observe.SelectedObject(gui)
+		then ctx.selection.observe()
 		else Compose.cell<<GuiObject?>>(nil)
 
 	return {

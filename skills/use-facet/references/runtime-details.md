@@ -48,6 +48,8 @@ factories return `Instance`; a NavBar trailing node can be stored in a
 | Intended relationship | Configuration |
 | --- | --- |
 | Bounded paragraph | Parent width; `UI.Text { wrap = true }` |
+| Title in a fixed-width cell | Omit `Size`; Text fills the cell. Add `lines = 2` or `truncate = "end"` so a long title stays in the cell |
+| Collection row content | Rows keep the cell width and grow on the main axis; `contentOverflow = "grow"` is the opt-in for growth on both axes |
 | Full-width primary button | Parent VStack `align = "stretch"` |
 | Equal peer buttons in a row | `UI.fill()` inside each Button; `HStack { width = "fill", wrap = true }` so a narrow row moves a button down instead of clipping its label |
 | Label and trailing value | `UI.Spacer {}` between them in a bounded HStack |
@@ -61,7 +63,10 @@ factories return `Instance`; a NavBar trailing node can be stored in a
 Stacks hug by default. `width`, `height`, `gap`, `padding` and `maxWidth` are
 container options; Button and Text do not accept `width`. Use native `Size`
 and `AutomaticSize` for explicit leaf sizing. Bound the available space before
-using fill. Wrapped Text fills its bounded parent and grows vertically.
+using fill. Text fills a parent with a defined width, such as a grid cell or a
+filled column, and grows vertically. In a hugging stack or a horizontal row a
+one-line Text hugs its words. Set `AutomaticSize = Enum.AutomaticSize.XY` only
+when the text must set its own width.
 Standard spacing steps are `xs`, `s`, `m`, `l`, `xl`; use `0` for no spacing.
 Surface styling can supply padding on omitted sides. For a compact fixed-height
 plate, set all four sides explicitly; check its text boxes and visible glyphs.
@@ -76,8 +81,9 @@ In selectable collections, a mouse click selects; double-click or Return
 activates. A touch tap activates. Selection must not imply commitment.
 Theme tokens own type, spacing, paint and motion; the game owns composition
 and art. Set the game's type hierarchy in `themes.define`'s `metrics.typography`,
-then use `textRole` on labels. A numeric `textSize` fixes pixels and does not
-follow the role's preferred-size adjustment. For example, a typed partial ramp
+then use `textRole` on labels. The role is the only theme source of a text
+size. A numeric `textSize` fixes pixels, carries no role and does not follow
+the role's preferred-size adjustment. For example, a typed partial ramp
 can strengthen a result without changing control or body text:
 
 ```luau

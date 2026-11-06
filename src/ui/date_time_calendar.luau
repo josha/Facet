@@ -377,16 +377,13 @@ return function(
 			local dayIndex = (options.weekStart - 1 + c) % 7 + 1
 			table.insert(
 				names,
-				ctx.styled(
-					ctx.text({
-						Name = `W{c + 1}`,
-						Text = options.weekdays[dayIndex],
-						Size = D2.fromOffset(CELL, 20),
-						AutomaticSize = E.AutomaticSize.None,
-						TextXAlignment = E.TextXAlignment.Center,
-					}),
-					"type-caption"
-				)
+				ctx.text({
+					Name = `W{c + 1}`,
+					Text = options.weekdays[dayIndex],
+					Size = D2.fromOffset(CELL, 20),
+					AutomaticSize = E.AutomaticSize.None,
+					TextXAlignment = E.TextXAlignment.Center,
+				}, nil, "caption")
 			)
 		end
 		local weekdayRow = ctx.row(names, { Name = "Weekdays" })
@@ -407,19 +404,17 @@ return function(
 			Size = D2.fromOffset(7 * CELL, 6 * CELL),
 			table.unpack(days),
 		}
-		local title = ctx.styled(
-			ctx.text({
-				Name = "Title",
-				Text = function(use: Use)
-					local m = paneMonth(k, use)
-					return `{months[m.month]} {m.year}`
-				end,
-				Visible = function(use: Use)
-					return use(state.dual)
-				end,
-			}),
-			"type-label"
-		)
+		local title = ctx.text({
+			Name = "Title",
+			Text = function(use: Use)
+				local m = paneMonth(k, use)
+				return `{months[m.month]} {m.year}`
+			end,
+			Visible = function(use: Use)
+				return use(state.dual)
+			end,
+			AutomaticSize = E.AutomaticSize.XY,
+		}, nil, "label")
 		local parts: { Shared.Child } = { title, weekdayRow, grid }
 		return ctx.column(parts, { Name = `Pane{k}` })
 	end
@@ -452,7 +447,7 @@ return function(
 			local list = if k then cells[k] else nil
 			local cell = if list and i then list[i] else nil
 			if gui and cell then
-				gui.SelectedObject = cell
+				ctx.selection.set(cell)
 			end
 		end
 		local function walk(name: string, step: number, keys: { Shared.ActionBinding })
@@ -482,7 +477,6 @@ return function(
 		turn("CalendarPreviousMonth", -1, { E.KeyCode.ButtonL1, E.KeyCode.Comma })
 		turn("CalendarNextMonth", 1, { E.KeyCode.ButtonR1, E.KeyCode.Period })
 		if gui then
-			local activeGui = gui
 			local last: GuiObject? = selected:peek()
 			Compose.watch(function(use: Use)
 				local now = use(selected)
@@ -492,7 +486,7 @@ return function(
 					local list = cells[1]
 					local target = if list then list[landing()] else nil
 					if target and target ~= now and target.Selectable then
-						activeGui.SelectedObject = target
+						ctx.selection.set(target)
 					end
 				end
 			end)
