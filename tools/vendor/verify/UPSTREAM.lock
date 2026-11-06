@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "cbf4821ce072e1b467b1ec0044b4c98466bf034f",
+  "commit": "628f975c5268accc39a80d9f4c9de17edc75fdf8",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "17586ba71f52ebf6136982f4d621f4bdf5981b15771d8118bc68e1931d6f07d1",
@@ -181,7 +181,7 @@
     "src/roblox/reflection.luau": "9524675fc76b1e0cb3c34ba3cf72f3a865718f7b364327dab6ca2bbae81eb6e9",
     "src/roblox/report-channel.luau": "67de59a8c821d0911f87672534e61c5138290bccd343a4399a530f7f0005dd29",
     "src/roblox/scheduler.luau": "5c0c5c172e349ab3f8b271acea8f2dad194abcb5869b52b18df82bae8d64a949",
-    "src/roblox/spatial-fakes.luau": "b26e11960489422f402ed7a47da9de2ccfeb2ebf8c9c90b7b41036476c2910d2",
+    "src/roblox/spatial-fakes.luau": "536fcb61ef5bf37452e480295919c8c3bc974f12d43bf285b5bef3c2a8573604",
     "src/roblox/spatial-query-fakes.luau": "6509c0bc80f5f44a007692a70e292125b91288c9bc97069479f36db308647fbc",
     "src/roblox/text-content.luau": "fe841c8b02859d46dcf8fab4b4b56e18c5fa5bf0702dc88a13a18a61812584ea",
     "src/roblox/text-metrics.luau": "a19256f44e6f48a6091430a11f98c2cca3ef8af610e283d5cd14e0cd8e009bbb",
