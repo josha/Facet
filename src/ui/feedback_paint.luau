@@ -186,7 +186,7 @@ return function(
 						local mask = Host.UIGradient "FeedbackMask" { Transparency = ctx.types.NumberSequence.new(1) }
 						local children: { Instance } = {}
 						local moving = true
-						local selected = if ctx.config.guiService then ctx.config.guiService.SelectedObject else nil
+						local selected = if ctx.config.guiService then ctx.selection.get() else nil
 						local function move(child: Instance)
 							local carried = child:IsA("GuiObject")
 								or child:IsA("Folder")
@@ -212,7 +212,7 @@ return function(
 						end
 						runtime.connect(node, "ChildAdded", move)
 						if selected and ctx.config.guiService then
-							ctx.config.guiService.SelectedObject = selected
+							ctx.selection.set(selected)
 						end
 						local padding = node:FindFirstChildWhichIsA("UIPadding")
 						local observePadding = (
@@ -230,16 +230,14 @@ return function(
 						end
 						Compose.cleanup(function()
 							moving = false
-							local currentSelection = if ctx.config.guiService
-								then ctx.config.guiService.SelectedObject
-								else nil
+							local currentSelection = if ctx.config.guiService then ctx.selection.get() else nil
 							for _, child in children do
 								if child.Parent == paint then
 									child.Parent = node
 								end
 							end
 							if currentSelection and ctx.config.guiService then
-								ctx.config.guiService.SelectedObject = currentSelection
+								ctx.selection.set(currentSelection)
 							end
 						end)
 						return { mask }

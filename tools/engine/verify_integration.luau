@@ -673,7 +673,7 @@ harness:suite("Facet gate through Verify", function()
 			seen[producer.id] = producer
 			tiers[producer.tier :: string] += 1
 		end
-		context:expect(tiers):toEqual({ fast = 17, full = 25, release = 3 })
+		context:expect(tiers):toEqual({ fast = 18, full = 25, release = 3 })
 		context:expect(seen["group-costs"].tier):toBe("full")
 		context:expect(seen["environments"].tier):toBe("fast")
 		context:expect(seen["environments"].argv):toEqual({ "lute", "run", "tools/facet", "check", "environments" })

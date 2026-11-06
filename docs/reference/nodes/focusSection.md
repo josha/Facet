@@ -5,7 +5,8 @@
 `UI.focusSection(group, options?)` makes the GuiObject `group` an entry
 region for directional navigation. Call it inside a component or a Compose
 owner; it stops when the owner ends. It reads and writes
-`GuiService.SelectedObject` and adds no input binding or focus stop.
+`GuiService.SelectedObject` (`SelectedCoreObject` under `CoreGui`, see
+[Selection](Selection.md)) and adds no input binding or focus stop.
 
 | Option | Effect |
 |---|---|

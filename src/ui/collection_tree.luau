@@ -448,7 +448,7 @@ return function<V, K>(
 		end,
 		bind = function(root: ScrollingFrame, controls: ComposeTypes.FocusScope<K>)
 			local gui = ctx.config.guiService
-			local selected = if gui then ctx.observe.SelectedObject(gui) else C.cell(nil :: GuiObject?)
+			local selected = if gui then ctx.selection.observe() else C.cell(nil :: GuiObject?)
 			local drag = sessionOf(ctx)
 			local function enabled(use: ComposeTypes.Use): boolean
 				local selected = use(selected)

@@ -20,7 +20,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 		local current = C.cell<<K?>>(nil)
 		local version, typing = C.cell(0), C.cell(input ~= nil and not not input:GetFocusedTextBox())
 		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
+			then ctx.selection.observe()
 			else C.cell<<GuiObject?>>(nil)
 		local actions: { [string]: InputAction } = {}
 		local function refresh()
@@ -175,7 +175,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 						then
 							local node = selectable(target.node)
 							if node then
-								gui.SelectedObject = node
+								ctx.selection.set(node)
 							end
 						end
 					end)
@@ -224,7 +224,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 					if target.key == key then
 						local node = selectable(target.node)
 						if node then
-							assert(gui).SelectedObject = node
+							ctx.selection.set(node)
 							return true
 						end
 					end
@@ -233,7 +233,7 @@ return function(ctx: Shared.Context, UI: Commands.Controls)
 			end,
 			clear = function()
 				if not ComposeTypes.owner.isDisposed(owner) and gui and current:peek() ~= nil then
-					gui.SelectedObject = nil
+					ctx.selection.set(nil)
 				end
 			end,
 		}

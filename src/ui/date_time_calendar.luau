@@ -452,7 +452,7 @@ return function(
 			local list = if k then cells[k] else nil
 			local cell = if list and i then list[i] else nil
 			if gui and cell then
-				gui.SelectedObject = cell
+				ctx.selection.set(cell)
 			end
 		end
 		local function walk(name: string, step: number, keys: { Shared.ActionBinding })
@@ -482,7 +482,6 @@ return function(
 		turn("CalendarPreviousMonth", -1, { E.KeyCode.ButtonL1, E.KeyCode.Comma })
 		turn("CalendarNextMonth", 1, { E.KeyCode.ButtonR1, E.KeyCode.Period })
 		if gui then
-			local activeGui = gui
 			local last: GuiObject? = selected:peek()
 			Compose.watch(function(use: Use)
 				local now = use(selected)
@@ -492,7 +491,7 @@ return function(
 					local list = cells[1]
 					local target = if list then list[landing()] else nil
 					if target and target ~= now and target.Selectable then
-						activeGui.SelectedObject = target
+						ctx.selection.set(target)
 					end
 				end
 			end)

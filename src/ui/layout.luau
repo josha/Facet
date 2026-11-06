@@ -884,7 +884,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			activate(selected)
 		end)
 		local gui = ctx.config.guiService
-		activate(if gui then gui.SelectedObject else nil)
+		activate(if gui then ctx.selection.get() else nil)
 		return node
 	end)
 

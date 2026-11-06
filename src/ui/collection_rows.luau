@@ -656,9 +656,9 @@ return function<V, K>(
 				if mounted[gone] == node then
 					mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
 				end
-				if gui and State.belongsTo(gui.SelectedObject, node) then
+				if gui and State.belongsTo(ctx.selection.get(), node) then
 					view.focusOwned = true
-					gui.SelectedObject = nil
+					ctx.selection.set(nil)
 				end
 			end
 			if gone ~= nil and arrive then
@@ -833,9 +833,9 @@ return function<V, K>(
 		end)
 		Compose.cleanup(function()
 			live = false
-			if gui and State.belongsTo(gui.SelectedObject, node) then
+			if gui and State.belongsTo(ctx.selection.get(), node) then
 				view.focusOwned = true
-				gui.SelectedObject = nil
+				ctx.selection.set(nil)
 			end
 			if held ~= nil and mounted[held] == node then
 				mounted[held], placed[held], cellEdits[held] = nil, nil, nil

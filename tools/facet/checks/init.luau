@@ -13,6 +13,7 @@ local rules: { Rule.Rule } = {
 	require("@self/vendor"),
 	require("@self/comments"),
 	require("@self/screen_key_bindings"),
+	require("@self/selection_seam"),
 	require("@self/source_size"),
 	require("@self/theme_drift"),
 	require("@self/theme_artifacts"),

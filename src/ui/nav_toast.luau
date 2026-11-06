@@ -89,8 +89,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		record.id = nil
 		status(record, "idle")
 		local row, spec = record.row, record.spec
-		if gui and row and surfaces.within(gui.SelectedObject, row) then
-			gui.SelectedObject = if returnTo and returnTo.Parent then returnTo else nil
+		if gui and row and surfaces.within(ctx.selection.get(), row) then
+			ctx.selection.set(if returnTo and returnTo.Parent then returnTo else nil)
 		end
 		local change = spec.onPresentedChange
 		if spec.isPresented ~= nil and change and not record.torn and wanted(record) then
@@ -141,7 +141,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		if record.row == nil or record.hovered then
 			return true
 		end
-		return (gui ~= nil and surfaces.within(gui.SelectedObject, record.row)) or #ctx.modalScopes:peek() > 0
+		return (gui ~= nil and surfaces.within(ctx.selection.get(), record.row)) or #ctx.modalScopes:peek() > 0
 	end
 
 	local function releaseStack(stack: Stack)
@@ -729,8 +729,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end
 		end)
 		Compose.cleanup(function()
-			if gui and surfaces.within(gui.SelectedObject, row) then
-				gui.SelectedObject = if returnTo and returnTo.Parent then returnTo else nil
+			if gui and surfaces.within(ctx.selection.get(), row) then
+				ctx.selection.set(if returnTo and returnTo.Parent then returnTo else nil)
 			end
 			reservations.clear(layer, row)
 			actionRows[row] = nil
@@ -739,7 +739,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end
 		end)
 		local selection: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui and gui.GetPropertyChangedSignal
-			then ctx.observe.SelectedObject(gui)
+			then ctx.selection.observe()
 			else Compose.cell<<GuiObject?>>(nil)
 		ctx.action(row, "ToastCancel", { E.KeyCode.ButtonB, E.KeyCode.Escape }, function(use: ComposeTypes.Use)
 			local selected = use(selection)
@@ -747,8 +747,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end, function()
 			local back = returnTo
 			finish(record, "cancel")
-			if gui and back and back.Parent and gui.SelectedObject ~= back then
-				gui.SelectedObject = back
+			if gui and back and back.Parent and ctx.selection.get() ~= back then
+				ctx.selection.set(back)
 			end
 		end, { priority = 2500 })
 		local raiser = returnTo
@@ -779,7 +779,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 
 	local function trackReturn()
 		if gui and gui.GetPropertyChangedSignal then
-			local selection = ctx.observe.SelectedObject(gui)
+			local selection = ctx.selection.observe()
 			Compose.watch(function(use: ComposeTypes.Use)
 				local selected = use(selection)
 				if selected == nil then

@@ -362,7 +362,7 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 
 	local gui = ctx.config.services.GuiService
 	local input = ctx.config.services.UserInputService
-	local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
+	local selected = if gui then ctx.selection.observe() else Compose.cell<<GuiObject?>>(nil)
 	local preferred = if input then ctx.observe.PreferredInput(input) else Compose.cell<<unknown>>(nil)
 	local function touch(use: Use?): boolean
 		return read(preferred, use) == E.PreferredInput.Touch

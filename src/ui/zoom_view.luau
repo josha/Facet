@@ -785,9 +785,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 		Compose.cleanup(function()
 			arbiter.cancelOwner(root)
 		end)
-		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui
-			then ctx.observe.SelectedObject(gui)
-			else Compose.cell(nil)
+		local selected: Shared.ReadOnlyValue<GuiObject?> = if gui then ctx.selection.observe() else Compose.cell(nil)
 		local function active(use: Shared.Use): boolean
 			return use(selected) == root and ctx.read(spec.enabled, use) ~= false and not blocked()
 		end
@@ -809,12 +807,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 			return high.X > low.X and high.Y > low.Y
 		end
 		local function enterContent()
-			if not gui or gui.SelectedObject ~= root or not enabled() then
+			if not gui or ctx.selection.get() ~= root or not enabled() then
 				return
 			end
 			local target = ctx.read<<GuiObject?>>(spec.preferredSelection)
 			if target and visibleTarget(target) then
-				gui.SelectedObject = target
+				ctx.selection.set(target)
 				return
 			end
 			local centre = root.AbsolutePosition + root.AbsoluteWindowSize / 2
@@ -829,7 +827,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls)
 				end
 			end
 			if target then
-				gui.SelectedObject = target
+				ctx.selection.set(target)
 			end
 		end
 		ctx.action(root, "ZoomEnter", {
