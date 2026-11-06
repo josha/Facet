@@ -1039,7 +1039,7 @@ return function(
 		changing: boolean
 	): TextLabel
 		local box = runtime.observe(icon, "Size")
-		local measured = ctx.layoutSize(icon)
+		local measured = ctx.observe.AbsoluteSize(icon)
 		local ink = runtime.observe(icon, "ImageColor3", STYLED)
 		local fade = runtime.observe(icon, "ImageTransparency", STYLED)
 		local native: Shared.TextLabelProps = {
@@ -1073,13 +1073,14 @@ return function(
 				end
 				else glyphFace(glyph()),
 			TextSize = function(use: ComposeTypes.Use): number
-				local area = use(measured)
-				if area.X > 0 and area.Y > 0 then
-					return math.round(math.min(area.X, area.Y))
-				end
 				local size = use(box)
 				assert(typeof(size) == "UDim2")
-				return math.max(0, math.min(size.X.Offset, size.Y.Offset))
+				local authored = math.min(size.X.Offset, size.Y.Offset)
+				if authored > 0 then
+					return authored
+				end
+				local area = use(measured)
+				return math.max(0, math.round(math.min(area.X, area.Y)))
 			end,
 		}
 		return ctx.styled(Host.TextLabel(native), "icon-glyph")
