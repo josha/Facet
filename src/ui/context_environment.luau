@@ -129,39 +129,40 @@ return function(
 		end
 	end
 	function ctx.thumbFloor(target: ComposeTypes.ReadOnlyValue<number>): (ComposeTypes.Use?) -> number
-		local input = config.userInputService
-		if input == nil then
+		if config.userInputService == nil then
 			return function()
 				return 0
 			end
 		end
-		local touch = ctx.observe.TouchEnabled(input)
-		local floor = ctx.touchFloor()
+		local effective, floor = ctx.effectiveInput(), ctx.touchFloor()
 		return function(use: ComposeTypes.Use?): number
-			if ctx.readSource(touch, use) ~= true then
+			if effective(use) ~= "Touch" then
 				return floor(use)
 			end
 			return if use then use(target) else target:peek()
 		end
 	end
 	function ctx.touchFloor(): (ComposeTypes.Use?) -> number
-		local input = config.userInputService
-		if input == nil then
+		if config.userInputService == nil then
 			return function()
 				return 0
 			end
 		end
-		local touch, gamepad = ctx.observe.TouchEnabled(input), ctx.observe.GamepadEnabled(input)
+		local effective = ctx.effectiveInput()
 		return function(use: ComposeTypes.Use?): number
-			if ctx.readSource(touch, use) ~= true and ctx.readSource(gamepad, use) ~= true then
+			if effective(use) == "KeyboardAndMouse" then
 				return 0
 			end
 			return ctx.metric("targetSizes.minimum", use)
 		end
 	end
 	ctx.runtime:watch(function()
-		local pointerOnly, tenFoot, hitFloor, effectiveInput, touchFloor =
-			ctx.pointerOnly(), ctx.tenFoot(), ctx.hitFloor(), ctx.effectiveInput(), ctx.touchFloor()
+		local effectiveInput = ctx.effectiveInput()
+		ctx.effectiveInput = function()
+			return effectiveInput
+		end
+		local pointerOnly, tenFoot, hitFloor, touchFloor =
+			ctx.pointerOnly(), ctx.tenFoot(), ctx.hitFloor(), ctx.touchFloor()
 		ctx.pointerOnly = function()
 			return pointerOnly
 		end
@@ -170,9 +171,6 @@ return function(
 		end
 		ctx.hitFloor = function()
 			return hitFloor
-		end
-		ctx.effectiveInput = function()
-			return effectiveInput
 		end
 		ctx.touchFloor = function()
 			return touchFloor
