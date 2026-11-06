@@ -173,7 +173,7 @@ return function(verifyHarness: Verify.Harness)
 				local V2 = engine.types.Vector2
 				local row, kept = root:FindFirstChild("Row"), root:FindFirstChild("Kept")
 				local list = row:FindFirstChildWhichIsA("UIListLayout")
-				engine.environment.poke(row:FindFirstChild("WrapUnit"), "AbsoluteSize", V2.new(100, 1))
+				engine.environment.poke(list, "AbsoluteContentSize", V2.new(200, 20))
 				for _, name in { "A", "B", "C", "D" } do
 					engine.environment.poke(root:FindFirstChild(name, true), "AbsoluteSize", V2.new(100, 20))
 				end
@@ -185,7 +185,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(list.Wraps):toBe(false)
 				engine.environment.poke(kept, "AbsoluteSize", V2.new(150, 20))
 				expect(kept:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(false)
-				expect(root:FindFirstChild("Hug"):FindFirstChild("WrapUnit")):toBe(nil)
+				expect(root:FindFirstChild("Hug"):FindFirstChildWhichIsA("UIListLayout").Wraps == true):toBe(false)
 				stop()
 			end,
 		})

@@ -213,15 +213,6 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			flow = table.clone(spec)
 			flow.padding = clearCorners(spec.padding, bend)
 		end
-		local spills: ComposeTypes.Value<boolean>? = nil
-		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
-		if not vertical and spec.wrap == nil and bounded then
-			spills = Compose.cell(false)
-			if flow == spec then
-				flow = table.clone(spec)
-			end
-			flow.wrap = spills
-		end
 		local room: ComposeTypes.Value<FillAxis>? = nil
 		if properties.AutomaticSize == nil and fills(children) then
 			local bounded = Compose.cell("none" :: FillAxis)
@@ -235,15 +226,36 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if room then
 			fillRoom(frame, room)
 		end
-		local list = if spills then frame:FindFirstChildWhichIsA("UIListLayout") else nil
-		if spills and list then
-			local spilling, outer = spills, ctx.observe.AbsoluteSize(frame)
-			local content, unit = ctx.observe.AbsoluteContentSize(list), ctx.layoutUnit(frame, "WrapUnit")
+		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
+		local list = if not vertical and spec.wrap == nil and bounded
+			then frame:FindFirstChildWhichIsA("UIListLayout")
+			else nil
+		if list then
+			local outer, content = ctx.observe.AbsoluteSize(frame), ctx.observe.AbsoluteContentSize(list)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local width, scale = use(outer).X, use(unit)
-				use(content)
-				if width > 0 and scale > 0 then
-					spilling:set(kit.intrinsic(frame, true, scale) > width / scale + 0.5)
+				local width, used = use(outer).X, use(content).X
+				if width <= 0 then
+					return
+				end
+				local scale = 1
+				local at: Instance? = frame
+				while at and at:IsA("GuiObject") do
+					local factor = at:FindFirstChildWhichIsA("UIScale")
+					if factor then
+						scale *= factor.Scale
+					end
+					at = at.Parent
+				end
+				local pad = frame:FindFirstChildWhichIsA("UIPadding")
+				local sides = if pad
+					then (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) * scale
+						+ (pad.PaddingLeft.Scale + pad.PaddingRight.Scale) * width
+					else 0
+				local spills = if list.Wraps
+					then kit.intrinsic(frame, true, scale) * scale > width + 0.5
+					else used + sides > width + 0.5
+				if list.Wraps ~= spills then
+					list.Wraps = spills
 				end
 			end)
 		end
