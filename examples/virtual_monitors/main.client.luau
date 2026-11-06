@@ -30,6 +30,7 @@ task.spawn(function()
 	end
 end)
 local Facet = require(storage:WaitForChild("Facet"))
+local StandardIcons = require(storage:WaitForChild("FacetStandardIcons"))
 Facet = Facet.bind(Facet.Compose, Facet.Roblox)
 local Compose = Facet.Compose
 local screens = require(storage.VirtualMonitors.screens)
@@ -271,7 +272,7 @@ local lifetime = Compose.createRootOwner(function()
 	end
 	for _, name in screens.APPS do
 		runtime.mount(function()
-			local package = Facet.themes.forDistance(theme.create(Facet, name), "near")
+			local package = Facet.themes.forDistance(StandardIcons.apply(theme.create(Facet, name)), "near")
 			local sheet = Facet.themes.createStyleSheet(runtime, package, {
 				motionLevel = motionLevel,
 				tenFoot = false,
@@ -300,7 +301,7 @@ local lifetime = Compose.createRootOwner(function()
 			})
 		end, players.LocalPlayer:WaitForChild("PlayerGui"))
 	end
-	local desktopPackage = theme.create(Facet, "Discover")
+	local desktopPackage = StandardIcons.apply(theme.create(Facet, "Discover"))
 	local palette = function(use: Use)
 		return theme.paletteName(use(model.palette), use(dark))
 	end

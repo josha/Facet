@@ -2083,46 +2083,44 @@ REGISTRATIONS.affected = function(harness: Verify.Harness, prefix: string)
 end
 
 REGISTRATIONS.publish = function(harness: Verify.Harness, prefix: string)
-	harness:case(
-		prefix .. "publish::records pr medians and renders the change from the previous commit",
-		function(context)
-			local Publish = require("../lib/perf_publish")
-			local root = Files.temporaryDirectory("facet-perf-publish-")
-			local function paired(name: string, p50: number): string
-				local directory = Files.join(root, name)
-				Files.makeDirectory(directory)
-				local rows = {}
-				for round = 1, 3 do
-					for _, label in { "base", "pr" } do
-						table.insert(
-							rows,
-							`\{"label": "{label}", "round": {round}, "row": \{"scene": "settings", "status": "ok", "p50": {p50}, "p95": {p50 * 2}, "memory": \{"mountedKb": 100\}\}\}`
-						)
-					end
+	harness:case(prefix .. "publish::records pr medians and renders the change from the paired base", function(context)
+		local Publish = require("../lib/perf_publish")
+		local root = Files.temporaryDirectory("facet-perf-publish-")
+		local function paired(name: string, p50: number, base: number): string
+			local directory = Files.join(root, name)
+			Files.makeDirectory(directory)
+			local rows = {}
+			for round = 1, 3 do
+				for _, label in { "base", "pr" } do
+					table.insert(
+						rows,
+						`\{"label": "{label}", "round": {round}, "row": \{"scene": "settings", "status": "ok", "p50": {if label
+								== "base"
+							then base
+							else p50}, "p95": {p50 * 2}, "memory": \{"mountedKb": 100\}\}\}`
+					)
 				end
-				Files.write(Files.join(directory, "scenes.jsonl"), table.concat(rows, "\n") .. "\n")
-				Files.write(
-					Files.join(directory, "bench-pr-1.json"),
-					`\{"results": [\{"name": "churn", "p50_ms": {p50 / 10}, "p95_ms": {p50 / 5}\}, \{"name": "zz-yardstick-cpu", "p50_ms": 1, "p95_ms": 1\}]\}`
-				)
-				return directory
 			end
-			local out = Files.join(root, "published")
-			context:expect(Publish.run(out, "aaaaaaaaaaaa", "2026-10-24", { paired("first", 1) })):toBe(0)
-			context:expect(Publish.run(out, "bbbbbbbbbbbb", "2026-10-25", { paired("second", 1.1) })):toBe(0)
-			local readme = Files.read(Files.join(out, "README.md"))
-			context
-				:expect(string.find(readme, "| settings | 1.1000 | 2.2000 | 100 | +10.0% |", 1, true) ~= nil)
-				:toBe(true)
-			context:expect(string.find(readme, "| churn | 0.1100 | 0.2200 | +10.0% |", 1, true) ~= nil):toBe(true)
-			context:expect(string.find(readme, "zz-yardstick-cpu", 1, true) == nil):toBe(true)
-			context:expect(string.find(readme, "xychart-beta", 1, true) ~= nil):toBe(true)
-			local image = Files.read(Files.join(out, "summary.svg"))
-			context:expect(string.find(image, ">settings<", 1, true) ~= nil):toBe(true)
-			context:expect(string.find(image, "+10.0%", 1, true) ~= nil):toBe(true)
-			context:expect(Publish.run(out, "c", "2026-10-26", { Files.join(root, "missing") })):toBe(1)
+			Files.write(Files.join(directory, "scenes.jsonl"), table.concat(rows, "\n") .. "\n")
+			Files.write(
+				Files.join(directory, "bench-pr-1.json"),
+				`\{"results": [\{"name": "churn", "p50_ms": {p50 / 10}, "p95_ms": {p50 / 5}\}, \{"name": "zz-yardstick-cpu", "p50_ms": 1, "p95_ms": 1\}]\}`
+			)
+			return directory
 		end
-	)
+		local out = Files.join(root, "published")
+		context:expect(Publish.run(out, "aaaaaaaaaaaa", "2026-10-24", { paired("first", 2, 2) })):toBe(0)
+		context:expect(Publish.run(out, "bbbbbbbbbbbb", "2026-10-25", { paired("second", 1.1, 1) })):toBe(0)
+		local readme = Files.read(Files.join(out, "README.md"))
+		context:expect(string.find(readme, "| settings | 1.1000 | 2.2000 | 100 | +10.0% |", 1, true) ~= nil):toBe(true)
+		context:expect(string.find(readme, "| churn | 0.1100 | 0.2200 | -45.0% |", 1, true) ~= nil):toBe(true)
+		context:expect(string.find(readme, "zz-yardstick-cpu", 1, true) == nil):toBe(true)
+		context:expect(string.find(readme, "xychart-beta", 1, true) ~= nil):toBe(true)
+		local image = Files.read(Files.join(out, "summary.svg"))
+		context:expect(string.find(image, ">settings<", 1, true) ~= nil):toBe(true)
+		context:expect(string.find(image, "+10.0%", 1, true) ~= nil):toBe(true)
+		context:expect(Publish.run(out, "c", "2026-10-26", { Files.join(root, "missing") })):toBe(1)
+	end)
 end
 
 local ORDER = {

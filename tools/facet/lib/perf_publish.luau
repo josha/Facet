@@ -3,11 +3,12 @@
 local Files = require("./files")
 local Json = require("./json")
 
-export type Row = { name: string, kind: string, p50: number, p95: number, retainedKb: number? }
+export type Row = { name: string, kind: string, p50: number, p95: number, retainedKb: number?, baseP50: number? }
 export type Entry = { commit: string, date: string, rows: { Row } }
 
 local CHART_POINTS = 30
 local ARM = "pr"
+local BASE = "base"
 
 local Publish = {}
 
@@ -24,12 +25,12 @@ local function median(values: { number }): number
 	return (sorted[middle] + sorted[middle + 1]) / 2
 end
 
-type Samples = { p50: { number }, p95: { number }, retained: { number } }
+type Samples = { p50: { number }, p95: { number }, retained: { number }, base: { number } }
 
 local function samplesFor(store: { [string]: Samples }, order: { string }, key: string): Samples
 	local found = store[key]
 	if found == nil then
-		found = { p50 = {}, p95 = {}, retained = {} }
+		found = { p50 = {}, p95 = {}, retained = {}, base = {} }
 		store[key] = found
 		table.insert(order, key)
 	end
@@ -49,12 +50,15 @@ function Publish.collect(directories: { string }): { Row }
 					local decoded = Json.decode(line)
 					local row = Json.objectField(decoded, "row")
 					local scene = Json.stringField(row, "scene")
-					if
-						Json.stringField(decoded, "label") == ARM
-						and Json.stringField(row, "status") == "ok"
-						and scene
-					then
-						local entry = samplesFor(scenes, sceneOrder, scene)
+					local label = Json.stringField(decoded, "label")
+					local ok = Json.stringField(row, "status") == "ok" and scene ~= nil
+					if ok and label == BASE then
+						local p50 = Json.numberField(row, "p50")
+						if p50 then
+							table.insert(samplesFor(scenes, sceneOrder, assert(scene)).base, p50)
+						end
+					elseif ok and label == ARM then
+						local entry = samplesFor(scenes, sceneOrder, assert(scene))
 						local p50, p95 = Json.numberField(row, "p50"), Json.numberField(row, "p95")
 						local retained = Json.numberField(Json.objectField(row, "memory"), "mountedKb")
 						if p50 and p95 then
@@ -69,7 +73,8 @@ function Publish.collect(directories: { string }): { Row }
 			end
 		end
 		for _, item in Files.list(directory) do
-			if string.match(item.name, "^bench%-" .. ARM .. "%-%d+%.json$") then
+			local arm = string.match(item.name, "^bench%-(%a+)%-%d+%.json$")
+			if arm == ARM or arm == BASE then
 				local results = Json.arrayField(Json.decode(Files.read(Files.join(directory, item.name))), "results")
 				local list: Json.Array = results or Json.array()
 				for _, result in list do
@@ -77,8 +82,12 @@ function Publish.collect(directories: { string }): { Row }
 					local p50, p95 = Json.numberField(result, "p50_ms"), Json.numberField(result, "p95_ms")
 					if name and name ~= "zz-yardstick-cpu" and p50 and p95 then
 						local entry = samplesFor(benches, benchOrder, name)
-						table.insert(entry.p50, p50)
-						table.insert(entry.p95, p95)
+						if arm == BASE then
+							table.insert(entry.base, p50)
+						else
+							table.insert(entry.p50, p50)
+							table.insert(entry.p95, p95)
+						end
 					end
 				end
 			end
@@ -89,17 +98,28 @@ function Publish.collect(directories: { string }): { Row }
 	local rows: { Row } = {}
 	for _, name in sceneOrder do
 		local entry = scenes[name]
-		table.insert(rows, {
-			name = name,
-			kind = "scene",
-			p50 = median(entry.p50),
-			p95 = median(entry.p95),
-			retainedKb = if #entry.retained > 0 then median(entry.retained) else nil,
-		})
+		if #entry.p50 > 0 then
+			table.insert(rows, {
+				name = name,
+				kind = "scene",
+				p50 = median(entry.p50),
+				p95 = median(entry.p95),
+				retainedKb = if #entry.retained > 0 then median(entry.retained) else nil,
+				baseP50 = if #entry.base > 0 then median(entry.base) else nil,
+			})
+		end
 	end
 	for _, name in benchOrder do
 		local entry = benches[name]
-		table.insert(rows, { name = name, kind = "microbenchmark", p50 = median(entry.p50), p95 = median(entry.p95) })
+		if #entry.p50 > 0 then
+			table.insert(rows, {
+				name = name,
+				kind = "microbenchmark",
+				p50 = median(entry.p50),
+				p95 = median(entry.p95),
+				baseP50 = if #entry.base > 0 then median(entry.base) else nil,
+			})
+		end
 	end
 	return rows
 end
@@ -114,6 +134,9 @@ function Publish.encode(entry: Entry): string
 		Json.set(object, "p95", Json.float(row.p95))
 		if row.retainedKb ~= nil then
 			Json.set(object, "retainedKb", Json.float(row.retainedKb))
+		end
+		if row.baseP50 ~= nil then
+			Json.set(object, "baseP50", Json.float(row.baseP50))
 		end
 		table.insert(rows, object)
 	end
@@ -139,10 +162,14 @@ function Publish.decode(text: string): Entry?
 		local name, kind = Json.stringField(raw, "name"), Json.stringField(raw, "kind")
 		local p50, p95 = Json.numberField(raw, "p50"), Json.numberField(raw, "p95")
 		if name and kind and p50 and p95 then
-			table.insert(
-				rows,
-				{ name = name, kind = kind, p50 = p50, p95 = p95, retainedKb = Json.numberField(raw, "retainedKb") }
-			)
+			table.insert(rows, {
+				name = name,
+				kind = kind,
+				p50 = p50,
+				p95 = p95,
+				retainedKb = Json.numberField(raw, "retainedKb"),
+				baseP50 = Json.numberField(raw, "baseP50"),
+			})
 		end
 	end
 	return { commit = commit, date = date, rows = rows }
@@ -189,7 +216,7 @@ function Publish.summary(entries: { Entry }): string
 	}
 	for index, row in rows do
 		local y = top + rowHeight * index + 16
-		local delta = change(row.p50, before[row.kind .. ":" .. row.name])
+		local delta = change(row.p50, row.baseP50 or before[row.kind .. ":" .. row.name])
 		local tone = if string.sub(delta, 1, 1) == "+" and delta ~= "+0.0%"
 			then "#cf222e"
 			elseif string.sub(delta, 1, 1) == "-" then "#1a7f37"
@@ -222,7 +249,7 @@ function Publish.render(entries: { Entry }): string
 		"",
 		`Latest: \`{latest.commit}\` on {latest.date}, measured on the CI Ubuntu runner by the paired performance shards.`,
 		"Times are milliseconds per frame or operation: the median over paired rounds of each round's p50 and p95.",
-		"Retained heap is the scene's mounted retained Luau heap. Change compares the p50 of the previous main commit.",
+		"Retained heap is the scene's mounted retained Luau heap. Change compares the p50 with the previous main commit measured in the same paired shard, on the same runner.",
 		"",
 		"| Scene | p50 ms | p95 ms | Retained KiB | Change |",
 		"| --- | ---: | ---: | ---: | ---: |",
@@ -233,7 +260,7 @@ function Publish.render(entries: { Entry }): string
 		"| --- | ---: | ---: | ---: |",
 	}
 	for _, row in latest.rows do
-		local delta = change(row.p50, before[row.kind .. ":" .. row.name])
+		local delta = change(row.p50, row.baseP50 or before[row.kind .. ":" .. row.name])
 		if row.kind == "scene" then
 			local retained = if row.retainedKb then ("%d"):format(math.floor(row.retainedKb + 0.5)) else "—"
 			table.insert(lines, ("| %s | %.4f | %.4f | %s | %s |"):format(row.name, row.p50, row.p95, retained, delta))

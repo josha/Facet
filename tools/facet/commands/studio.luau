@@ -310,6 +310,7 @@ local function run(invocation: Cli.Invocation): number
 			or report.passed == 0
 			or #issues > 0
 	end
+	fs.remove(PLACE)
 	if reportPath and reportRun then
 		Lute.gate.writeReport(
 			reportPath,
