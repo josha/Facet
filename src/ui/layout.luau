@@ -13,6 +13,10 @@ local glass = require("./glass")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
+
+local ROW_RETURN_MARGIN = 8
+local hugWarned: { [string]: boolean } = {}
+
 export type LayoutControls = ControlTypes.Controls
 
 return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTypes.Controls
@@ -999,16 +1003,21 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if room then
 			kit.shadowRoom(node, room)
 		end
-		local box, holder, content =
-			ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node), ctx.observe.AbsoluteContentSize(layout)
-		local rowNeed, lastCount = 0, 0
-		local retried: string?, refused: string? = nil, nil
+		local box, holder = ctx.observe.AbsoluteSize(node), ctx.observe.Parent(node)
+		local measured, lastCount = 0, 0
+		local retried: string?, refusal: { key: string, need: number }? = nil, nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(members)
-			local width, row = use(box).X, use(content).X
+			local width = use(box).X
 			if scrolls(use(holder), true) then
 				vertical:set(false)
 				return
+			end
+			if read<<Types.Extent?>>(spec.width, use) == "hug" and not hugWarned[node.Name] then
+				hugWarned[node.Name] = true
+				warn(
+					`Facet AdaptiveStack '{node.Name}' has width = "hug", so it is always as wide as its row and never turns into a column. Give it a bounded width, or set axis`
+				)
 			end
 			local padding = node:FindFirstChildWhichIsA("UIPadding")
 			local offered = if padding then width - padding.PaddingLeft.Offset - padding.PaddingRight.Offset else width
@@ -1021,26 +1030,31 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					end
 				end
 			end
-			local key = `{total}/{count}/{offered}`
+			local need = total + kit.spacing(spec.gap, use) * math.max(count - 1, 0)
+			local stretched = read(spec.align, use) == "stretch"
+			local key = if stretched then `{count}` else `{total}/{count}`
 			if not vertical:peek() then
-				rowNeed = row
-				if rowNeed > offered then
-					refused = retried
+				measured = need
+				if width > 0 and need > offered then
+					if retried ~= nil then
+						refusal = { key = retried, need = need }
+					end
+					retried = nil
+					vertical:set(true)
 				end
-			elseif read(spec.align, use) ~= "stretch" then
-				rowNeed = if key == refused
-					then math.huge
-					else total + kit.spacing(spec.gap, use) * math.max(count - 1, 0)
-			elseif count ~= lastCount then
-				rowNeed = 0
+			else
+				if not stretched then
+					measured = need
+				elseif count ~= lastCount then
+					measured = 0
+				end
+				local estimate = if refusal and refusal.key == key then math.max(measured, refusal.need) else measured
+				if width > 0 and estimate + ROW_RETURN_MARGIN <= offered then
+					retried = key
+					vertical:set(false)
+				end
 			end
 			lastCount = count
-			if width > 0 then
-				if vertical:peek() and rowNeed <= offered then
-					retried = key
-				end
-				vertical:set(rowNeed > offered)
-			end
 		end)
 		return node
 	end)

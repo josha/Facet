@@ -59,11 +59,15 @@ return function(verifyHarness: Verify.Harness)
 					sized(engine, root, 400, 40)
 					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(340, 40))
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
-					sized(engine, root, 300, 40)
+					sized(engine, root, 340, 40)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
+					sized(engine, root, 339, 40)
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
 					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(100, 160))
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-					sized(engine, root, 340, 160)
+					sized(engine, root, 347, 160)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, root, 348, 160)
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
 					stop()
 				end,
@@ -78,7 +82,7 @@ return function(verifyHarness: Verify.Harness)
 					sized(engine, root, 300, 40)
 					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(340, 40))
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-					sized(engine, root:FindFirstChild("C"), 60, 40)
+					sized(engine, root:FindFirstChild("C"), 40, 40)
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
 					stop()
 				end,
@@ -99,6 +103,8 @@ return function(verifyHarness: Verify.Harness)
 					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(300, 160))
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
 					sized(engine, root, 340, 160)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, root, 348, 160)
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
 					stop()
 				end,
@@ -119,42 +125,105 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
-			verifyHarness:case(
-				"counts no width for a Divider or a filling child and retries a refused row only after a change",
-				{
-					id = "native_adaptive_layout::AdaptiveStack that fits::counts no width for a Divider or a filling child and retries a refused row only after a change",
-					run = function()
-						local root, engine, stop = build(function(UI, Host)
-							return UI.AdaptiveStack {
-								gap = 20,
-								Host.Frame { Name = "A" },
-								UI.Divider "Line" {},
-								Host.Frame { Name = "B", UI.fill() },
-								Host.Frame { Name = "C" },
-							}
-						end)
-						local E, V2 = engine.types.Enum, engine.types.Vector2
-						local layout = list(root)
-						for _, name in { "A", "B", "C" } do
-							sized(engine, root:FindFirstChild(name), 100, 40)
+			verifyHarness:case("counts no width for a Divider or a filling child in either axis", {
+				id = "native_adaptive_layout::AdaptiveStack that fits::counts no width for a Divider or a filling child in either axis",
+				run = function()
+					local root, engine, stop = build(function(UI, Host)
+						return UI.AdaptiveStack {
+							gap = 20,
+							Host.Frame { Name = "A" },
+							UI.Divider "Line" {},
+							Host.Frame { Name = "B", UI.fill() },
+							Host.Frame { Name = "C" },
+						}
+					end)
+					local E, V2 = engine.types.Enum, engine.types.Vector2
+					local layout = list(root)
+					for _, name in { "A", "B", "C" } do
+						sized(engine, root:FindFirstChild(name), 100, 40)
+					end
+					sized(engine, root:FindFirstChild("Line"), 1, 40)
+					sized(engine, root, 300, 40)
+					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(400, 40))
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
+					sized(engine, root, 260, 40)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, root:FindFirstChild("Line"), 260, 1)
+					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(260, 200))
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, root, 268, 200)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
+					stop()
+				end,
+			})
+
+			verifyHarness:case("keeps a column after a refused row until the width holds the row it measured", {
+				id = "native_adaptive_layout::AdaptiveStack that fits::keeps a column after a refused row until the width holds the row it measured",
+				run = function()
+					local root, engine, stop = toolbar()
+					local E = engine.types.Enum
+					local layout = list(root)
+					local C = root:FindFirstChild("C")
+					sized(engine, root, 300, 40)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, C, 40, 40)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
+					sized(engine, C, 120, 40)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, C, 40, 40)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					for width = 301, 367 do
+						sized(engine, root, width, 160)
+						Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					end
+					sized(engine, root, 368, 160)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
+					stop()
+				end,
+			})
+
+			verifyHarness:case("turns once each way while a row with a Spacer is dragged narrower and wider", {
+				id = "native_adaptive_layout::AdaptiveStack that fits::turns once each way while a row with a Spacer is dragged narrower and wider",
+				run = function()
+					local root, engine, stop = build(function(UI, Host)
+						return UI.AdaptiveStack {
+							gap = 20,
+							Host.Frame { Name = "A" },
+							UI.Spacer "Push" {},
+							Host.Frame { Name = "B" },
+							Host.Frame { Name = "C" },
+						}
+					end)
+					local E, V2 = engine.types.Enum, engine.types.Vector2
+					local layout = list(root)
+					for _, name in { "A", "B", "C" } do
+						sized(engine, root:FindFirstChild(name), 100, 40)
+					end
+					sized(engine, root, 420, 40)
+					engine.environment.poke(layout, "AbsoluteContentSize", V2.new(420, 40))
+					local direction = layout.FillDirection
+					Verify.expect(direction):toBe(E.FillDirection.Horizontal)
+					local turns: { number } = {}
+					local previous = 420
+					local function drag(width: number)
+						sized(engine, root, width, 40)
+						engine.environment.poke(layout, "AbsoluteContentSize", V2.new(previous, 40))
+						previous = width
+						if layout.FillDirection ~= direction then
+							direction = layout.FillDirection
+							table.insert(turns, width)
 						end
-						sized(engine, root:FindFirstChild("Line"), 1, 40)
-						sized(engine, root, 300, 40)
-						engine.environment.poke(layout, "AbsoluteContentSize", V2.new(400, 40))
-						Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-						sized(engine, root:FindFirstChild("Line"), 300, 1)
-						engine.environment.poke(layout, "AbsoluteContentSize", V2.new(300, 200))
-						Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
-						engine.environment.poke(layout, "AbsoluteContentSize", V2.new(330, 40))
-						Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-						engine.environment.poke(layout, "AbsoluteContentSize", V2.new(300, 200))
-						Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-						sized(engine, root, 340, 200)
-						Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
-						stop()
-					end,
-				}
-			)
+					end
+					for width = 419, 300, -1 do
+						drag(width)
+					end
+					for width = 301, 420 do
+						drag(width)
+					end
+					Verify.expect(turns):toEqual({ 359, 368 })
+					stop()
+				end,
+			})
 
 			verifyHarness:case("measures against the width inside its padding", {
 				id = "native_adaptive_layout::AdaptiveStack that fits::measures against the width inside its padding",
@@ -168,7 +237,9 @@ return function(verifyHarness: Verify.Harness)
 					sized(engine, root, 115, 40)
 					engine.environment.poke(layout, "AbsoluteContentSize", engine.types.Vector2.new(100, 40))
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
-					sized(engine, root, 120, 60)
+					sized(engine, root, 127, 60)
+					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Vertical)
+					sized(engine, root, 128, 60)
 					Verify.expect(layout.FillDirection):toBe(E.FillDirection.Horizontal)
 					stop()
 				end,

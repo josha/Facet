@@ -1,5 +1,14 @@
 # Current package
 
+An `AdaptiveStack` without `axis` no longer flickers between a row and a
+column while its width changes, such as during a window resize. It measures
+its row the same way as a row and as a column: the widths of its children and
+the gaps, with no width for a `Spacer`, a `Divider` or another filling child.
+It turns back into a row only when the row fits with 8 pixels to spare, and
+after a refused row it stays a column until its width holds the row that it
+measured. An `AdaptiveStack` without `axis` and with `width = "hug"` warns
+once, because it can never turn.
+
 When the theme supplies no art for a standard icon that a control uses for its
 own parts (close, the chevrons, checkmark, more, menu, increment, decrement,
 search, the status and selection marks, clock and calendar), the icon draws as
