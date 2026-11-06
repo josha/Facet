@@ -286,6 +286,7 @@ local function create<V, K>(
 		end,
 		destroy = function(record: PooledRow)
 			ComposeTypes.owner.dispose(record.owner)
+			record.node:Destroy()
 		end,
 	})
 	local function edgeOf(gutter: Types.Input<number>?, use: ComposeTypes.Use?): number

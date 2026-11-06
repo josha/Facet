@@ -7,6 +7,8 @@ local Enums = require "./datatypes/enum"
 local Names = require "./datatypes/names"
 local Environment = require "./environment-types"
 local Geometry = require "./query-geometry"
+local Terrain = require "./terrain-fakes"
+local Index = require "./spatial-query-index"
 
 type Instance = Environment.Instance
 type Vector = D.Vector3Value
@@ -61,7 +63,8 @@ local function ball(position: Vector, radius: number): Shape
 	return { frame = D.CFrame.new(position), half = V.one * radius, radius = radius }
 end
 
-local function attach(environment: Environment.Environment)
+local function attach(environment: Environment.Environment, selectOverride: ((Index.Select) -> Index.Select)?)
+	local terrain = Terrain.attach(environment)
 	local function listed(part: Instance, filter: { unknown }): boolean
 		for _, candidate in filter do
 			assert(Names.kind(candidate) == "Instance", "query filters require Instances")
@@ -74,7 +77,7 @@ local function attach(environment: Environment.Environment)
 	end
 
 	type Rules = { groups: { [string]: boolean }, masks: { [string]: { [string]: boolean } } }
-	local worlds: { [Instance]: Rules } = setmetatable({}, { __mode = "k" })
+	local worlds: { [Instance]: Rules } = setmetatable({}, { __mode = "ks" })
 	local function rules(owner: Instance): Rules
 		local world = owner
 		if owner:IsA "PhysicsService" or owner:IsA "Workspace" then
@@ -170,9 +173,21 @@ local function attach(environment: Environment.Environment)
 		end
 		return nil
 	end
-	local function candidates(world: Instance, params: Filter, skip: Instance?): { Instance }
+	local select = Index.attach(environment, function(part: Instance): Shape
+		return shape(part, false)
+	end, owningWorld)
+	if selectOverride then
+		select = selectOverride(select)
+	end
+	local function candidates(
+		world: Instance,
+		params: Filter,
+		skip: Instance?,
+		source: Shape,
+		direction: Vector
+	): { Instance }
 		local found = {}
-		for _, part in world:GetDescendants() do
+		for _, part in select(world, source, direction) do
 			if part == skip or not (part:IsA "BasePart" or part:IsA "Terrain") or owningWorld(part) ~= world then
 				continue
 			end
@@ -232,29 +247,40 @@ local function attach(environment: Environment.Environment)
 			)
 		end
 		local nearest: Result? = nil
-		for _, part in candidates(world, params, skip) do
-			if part:IsA "Terrain" then
-				assert(
-					environment.propertyOf(part, "Material") ~= nil,
-					"unsupported_content: Terrain requires a uniform authored Material"
-				)
-			end
-			if
-				part:IsA "Terrain"
-				and params.IgnoreWater
-				and Enums.itemValue(environment.propertyOf(part, "Material")).Name == "Water"
-			then
-				continue
-			end
-			local target = shape(part, false)
-			if length == 0 then
-				continue
-			end
-			local t: number?, normal: Vector?, position: Vector?
-			if isRay then
-				t, normal, position = Geometry.ray(source, direction, target)
+		for _, part in candidates(world, params, skip, source, direction) do
+			local t: number?, normal: Vector?, position: Vector?, hitMaterial: unknown
+			if part:IsA "Terrain" and terrain.authored(part) then
+				assert(isRay, "unsupported_content: authored terrain supports rays only")
+				if length > 0 then
+					local hit = terrain.ray(part, source.frame.Position, direction, params.IgnoreWater)
+					if hit then
+						t, normal = hit.t, hit.normal
+						position, hitMaterial = source.frame.Position + direction * hit.t, hit.material
+					end
+				end
 			else
-				t, normal, position = Geometry.cast(source, direction, target)
+				if part:IsA "Terrain" then
+					assert(
+						environment.propertyOf(part, "Material") ~= nil,
+						"unsupported_content: Terrain requires a uniform authored Material"
+					)
+					if
+						params.IgnoreWater
+						and Enums.itemValue(environment.propertyOf(part, "Material")).Name == "Water"
+					then
+						continue
+					end
+				end
+				local target = shape(part, false)
+				if length == 0 then
+					continue
+				end
+				if isRay then
+					t, normal, position = Geometry.ray(source, direction, target)
+				else
+					t, normal, position = Geometry.cast(source, direction, target)
+				end
+				hitMaterial = environment.propertyOf(part, "Material")
 			end
 			if t ~= nil and (nearest == nil or t * length < nearest.Distance) then
 				nearest = Names.make(resultKind, {
@@ -262,7 +288,7 @@ local function attach(environment: Environment.Environment)
 					Position = assert(position),
 					Normal = assert(normal),
 					Distance = t * length,
-					Material = environment.propertyOf(part, "Material"),
+					Material = hitMaterial,
 				})
 				results[nearest] = nearest
 			end
@@ -281,7 +307,7 @@ local function attach(environment: Environment.Environment)
 		assert(params.MaxParts >= 0, "MaxParts must be nonnegative")
 		assert(params.Tolerance == 0, "unsupported: nonzero overlap Tolerance")
 		local found = {}
-		for _, part in candidates(world, params, skip) do
+		for _, part in candidates(world, params, skip, source, V.zero) do
 			if Geometry.overlaps(source, shape(part, bounds)) then
 				table.insert(found, part)
 			end

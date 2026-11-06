@@ -10,7 +10,7 @@ type Curve = { [number]: number }
 
 local function attach(environment: Environment.Environment)
 	local seeks: { [Instance]: number } = {}
-	setmetatable(seeks, { __mode = "k" })
+	setmetatable(seeks, { __mode = "ks" })
 	local active: { [Instance]: number } = {}
 	local heartbeat: Environment.Connection? = nil
 	local function idle()
@@ -94,8 +94,22 @@ local function attach(environment: Environment.Environment)
 		idle()
 		environment.fire(sound, "Stopped", sound.SoundId)
 	end)
+	for _, className in { "AudioPlayer", "AudioTextToSpeech" } do
+		environment.fake(className .. ".Play", function(player: Instance, atTime: number?)
+			assert(atTime == nil, "unsupported: scheduled audio playback")
+			local ready = environment.propertyOf(player, if className == "AudioPlayer" then "IsReady" else "IsLoaded")
+			environment.poke(player, "IsPlaying", className == "AudioPlayer" or ready == true)
+		end)
+		environment.fake(
+			className .. (if className == "AudioPlayer" then ".Stop" else ".Pause"),
+			function(player: Instance, atTime: number?)
+				assert(atTime == nil, "unsupported: scheduled audio playback")
+				environment.poke(player, "IsPlaying", false)
+			end
+		)
+	end
 	local curves: { [Instance]: Curve } = {}
-	setmetatable(curves, { __mode = "k" })
+	setmetatable(curves, { __mode = "ks" })
 	environment.fake("AudioEmitter.SetDistanceAttenuation", function(object: Instance, curve: { [unknown]: unknown }?)
 		local nextCurve: Curve = {}
 		local count = 0

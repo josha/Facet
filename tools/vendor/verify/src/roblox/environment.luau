@@ -13,6 +13,8 @@ local Types = require "./environment-types"
 local Vm = require "./value"
 local SpatialFakes = require "./spatial-fakes"
 local AudioFakes = require "./audio-fakes"
+local MessagingFakes = require "./messaging-fakes"
+local TeleportFakes = require "./teleport-fakes"
 local InputActionFakes = require "./input-action-fakes"
 local HapticFakes = require "./haptic-fakes"
 local TweenFakes = require "./tween-fakes"
@@ -184,7 +186,7 @@ local function create(options: Options?): Environment
 	local mutations, published = 0, 0
 	local publishing = false
 	local layoutStamps: { [Instance]: number } = {}
-	setmetatable(layoutStamps, { __mode = "k" })
+	setmetatable(layoutStamps, { __mode = "ks" })
 	local layoutEpoch = 0
 
 	local function touch()
@@ -272,15 +274,7 @@ local function create(options: Options?): Environment
 			published += 1
 		else
 			mutations += 1
-			local className = state.className
-			if
-				className == "StyleRule"
-				or className == "StyleSheet"
-				or className == "StyleLink"
-				or className == "StyleDerive"
-			then
-				layoutEpoch = mutations
-			elseif property == "GuiState" then
+			if property == "GuiState" or property == "Name" or property == "Interactable" then
 				stampDown(object)
 			else
 				stampUp(object)
@@ -561,12 +555,7 @@ local function create(options: Options?): Environment
 		end,
 		touch = touch,
 		attributeChanged = function(object: Instance)
-			local className = stateOf(object).className
-			if string.sub(className, 1, 5) == "Style" then
-				layoutEpoch = mutations
-			else
-				stampDown(object)
-			end
+			stampDown(object)
 		end,
 		setTag = function(object: Instance, tag: string, present: boolean)
 			setTag(object, tag, present)
@@ -1076,9 +1065,13 @@ local function create(options: Options?): Environment
 	environment.layoutEpoch = function(): number
 		return layoutEpoch
 	end
-	environment.invalidateLayout = function()
+	environment.invalidateLayout = function(subtree: Instance?)
 		touch()
-		layoutEpoch = mutations
+		if subtree then
+			stampDown(subtree)
+		else
+			layoutEpoch = mutations
+		end
 	end
 	environment.stampLayout = function(object: Instance)
 		touch()
@@ -1301,6 +1294,8 @@ local function create(options: Options?): Environment
 		return stateOf(object).worldPivotSet == true
 	end)
 	AudioFakes.attach(environment)
+	MessagingFakes.attach(environment)
+	TeleportFakes.attach(environment)
 	inputActions = InputActionFakes.attach(environment)
 	HapticFakes.attach(environment)
 	TweenFakes.attach(environment)
