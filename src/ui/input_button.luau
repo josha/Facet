@@ -343,9 +343,50 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end))
 			elseif ctx.config.userInputService ~= nil then ctx.touchFloor()
 			else nil
+		local effective = if targetFloor then ctx.effectiveInput() else nil
+		local leadingArt = icon ~= nil or spec.glyph ~= nil
+		local circled = spec.shape == "circle" and (spec.icon ~= nil or spec.glyph ~= nil)
+		local hasText = kit.hasText
+		local function worded(use: ComposeTypes.Use?): boolean
+			if circled then
+				return false
+			end
+			local row = spec.row
+			return hasText(spec.label, use)
+				or hasText(spec.subtitle, use)
+				or hasText(spec.hint, use)
+				or (not rich and hasText(spec.Text, use))
+				or (rich and not leadingArt and hasText(spec.name, use))
+				or (
+					row ~= nil
+					and (
+						hasText(row.title, use)
+						or hasText(row.description, use)
+						or (row.value ~= nil and row.value ~= "")
+					)
+				)
+		end
+		local function touching(use: ComposeTypes.Use?): boolean
+			return effective ~= nil and effective(use) == "Touch"
+		end
+		local function plateFloor(use: ComposeTypes.Use?): number
+			local floor = targetFloor
+			if floor == nil or not ((thumb and touching(use)) or worded(use)) then
+				return 0
+			end
+			return floor(use)
+		end
+		local function reachFloor(use: ComposeTypes.Use?): number
+			local floor = targetFloor
+			if floor == nil or thumb or not touching(use) or worded(use) then
+				return 0
+			end
+			return floor(use)
+		end
 		local constrainedCaption = bounded
 			and not dynamic(spec.AutomaticSize)
 			and spec.label ~= nil
+			and spec.label ~= ""
 			and spec.shape ~= "circle"
 			and (spec.AutomaticSize == nil or rich)
 		local function targetWidth(minimum: number, use: ComposeTypes.Use?): number
@@ -357,7 +398,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 					local skin = package and package.chrome and package.chrome.control
 					local carve: ThemeTypes.Insets = if skin then skin.contentInsets or {} else {}
-					local minimum = if targetFloor then targetFloor(use) else 0
+					local minimum = plateFloor(use)
 					local leadingGlyph, trailingGlyph = read(spec.icon, use), read(spec.trailingIcon, use)
 					local glyphs = (if spec.glyph or (leadingGlyph ~= nil and leadingGlyph ~= "") then 1 else 0)
 						+ (if trailingGlyph ~= nil and trailingGlyph ~= "" then 1 else 0)
@@ -403,18 +444,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return if underline == "always" or use(assert(engaged)) then `<u>{words}</u>` else words
 			end
 		end
-		p.Activated = activate
-		if repeatable or spec.Activated then
-			p.Activated = function(input: InputObject, clicks: number)
-				if not repeated then
-					activate(input, clicks)
-				end
-				repeated = false
-				if spec.Activated then
-					spec.Activated(input, clicks)
-				end
+		local function activated(input: InputObject, clicks: number)
+			if not repeated then
+				activate(input, clicks)
+			end
+			repeated = false
+			if spec.Activated then
+				spec.Activated(input, clicks)
 			end
 		end
+		local press: (InputObject, number) -> () = if repeatable or spec.Activated then activated else activate
+		p.Activated = press
 
 		if spec.Size ~= nil and spec.shape ~= "circle" then
 			local given = spec.Size
@@ -1000,6 +1040,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		else
 			updateState()
 		end
+		local pressBegan: ((InputObject) -> ())? = nil
+		local pressEnded: ((InputObject) -> ())? = nil
+		local pressCancelled: (() -> ())? = nil
 		if repeatable or spec.onPointerDown or spec.onPointerUp or spec.onPointerCancel then
 			local stopFrame: (() -> ())?
 			local function release()
@@ -1033,7 +1076,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			Compose.cleanup(cancel)
 			runtime.connect(node, "Destroying", cancel)
-			runtime.connect(node, "InputBegan", function(input)
+			local function began(input: InputObject)
 				local kind = input.UserInputType.Name
 				if
 					isEnabled()
@@ -1052,8 +1095,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						pointerDown(input)
 					end
 				end
-			end)
-			runtime.connect(node, "InputEnded", function(input)
+			end
+			local function ended(input: InputObject)
 				if held then
 					release()
 					local pointerUp = spec.onPointerUp
@@ -1061,7 +1104,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						pointerUp(input)
 					end
 				end
-			end)
+			end
+			pressBegan, pressEnded, pressCancelled = began, ended, cancel
+			runtime.connect(node, "InputBegan", began)
+			runtime.connect(node, "InputEnded", ended)
 			runtime.connect(node, "MouseLeave", cancel)
 		end
 
@@ -1108,22 +1154,104 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			})
 		end
 		if targetFloor and not constrainedCaption then
-			local floor = targetFloor
 			runtime.mountFragment(function()
 				return {
 					Compose.show(function(use: ComposeTypes.Use): boolean
-						return floor(use) > 0
+						return plateFloor(use) > 0
 					end, function()
 						local extra = sizeFloor.of(node, Compose.cell)
 						return Host.UISizeConstraint "TargetFloor" {
 							MinSize = function(use: ComposeTypes.Use): Vector2
-								local minimum = floor(use)
+								local minimum = plateFloor(use)
 								return V2.new(
 									math.max(targetWidth(minimum, use), use(extra.x)),
 									math.max(minimum, use(extra.y))
 								)
 							end,
 						}
+					end),
+				}
+			end, node)
+		end
+		if targetFloor then
+			local function reached(input: InputObject, clicks: number)
+				local layer = node:FindFirstAncestorWhichIsA("LayerCollector")
+				local host = if layer then layer:FindFirstAncestorWhichIsA("BasePlayerGui") else nil
+				if host and input then
+					local point = input.Position
+					for _, hit in (host :: BasePlayerGui):GetGuiObjectsAtPosition(point.X, point.Y) do
+						if node:IsDescendantOf(hit) then
+							break
+						elseif
+							hit ~= node
+							and not hit:IsDescendantOf(node)
+							and activation.marked(hit)
+							and activation.trigger(hit, input, clicks)
+						then
+							return
+						end
+					end
+				end
+				press(input, clicks)
+			end
+			local function hitTarget(margin: ComposeTypes.ReadOnlyValue<Vector2>): GuiObject
+				local function strip(name: string, anchor: Vector2, at: UDim2, band: boolean): TextButton
+					local props: Shared.TextButtonProps = {
+						Text = "",
+						BackgroundTransparency = 1,
+						AutoButtonColor = false,
+						Selectable = false,
+						Interactable = enabledProperty,
+						AnchorPoint = anchor,
+						Position = at,
+						Size = function(use: ComposeTypes.Use): UDim2
+							local gap = use(margin)
+							return if band then D2.new(1, 2 * gap.X, 0, gap.Y) else D2.new(0, gap.X, 1, 0)
+						end,
+						Visible = function(use: ComposeTypes.Use): boolean
+							local gap = use(margin)
+							return (if band then gap.Y else gap.X) > 0
+						end,
+						Activated = reached,
+					}
+					local made = Host.TextButton(name)(props)
+					local began, ended, cancelled = pressBegan, pressEnded, pressCancelled
+					if began and ended and cancelled then
+						runtime.connect(made, "InputBegan", began)
+						runtime.connect(made, "InputEnded", ended)
+						runtime.connect(made, "MouseLeave", cancelled)
+					end
+					return made
+				end
+				local area = Host.Frame "HitTarget" {
+					Size = D2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					strip("Top", V2.new(0.5, 1), D2.fromScale(0.5, 0), true),
+					strip("Bottom", V2.new(0.5, 0), D2.fromScale(0.5, 1), true),
+					strip("Leading", V2.new(1, 0.5), D2.fromScale(0, 0.5), false),
+					strip("Trailing", V2.new(0, 0.5), D2.fromScale(1, 0.5), false),
+				}
+				return decoration(Compose, runtime, ctx.types, node, area)
+			end
+			runtime.mountFragment(function()
+				return {
+					Compose.show(function(use: ComposeTypes.Use): boolean
+						return reachFloor(use) > 0
+					end, function()
+						local plate = ctx.layoutSize(node)
+						local margin = Compose.formula(function(use: ComposeTypes.Use): Vector2
+							local size, floor = use(plate), reachFloor(use)
+							return V2.new(
+								math.max(0, (targetWidth(floor, use) - size.X) / 2),
+								math.max(0, (floor - size.Y) / 2)
+							)
+						end)
+						return Compose.show(function(use: ComposeTypes.Use): boolean
+							local gap = use(margin)
+							return gap.X > 0 or gap.Y > 0
+						end, function()
+							return hitTarget(margin)
+						end)
 					end),
 				}
 			end, node)

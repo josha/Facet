@@ -7,6 +7,17 @@ of the surface colour with `reveal.enter` and `easing.fade`. Keep a fixed
 media size or use UIAspectRatioConstraint to reserve its slot. Scene creation
 does not report when the GPU has completed its first ViewportFrame render.
 
+Facet remembers the image ids that became ready. The memo is for each
+ContentProvider, or for each runtime when the config has no ContentProvider.
+It keeps the most recently used ids and drops the oldest ids when it is full.
+When a recycled row or a new mount shows a remembered id, the image shows
+immediately, without the fade. The same applies when
+`ContentProvider:GetAssetFetchStatus` reports `Success`. Only a successful
+fetch or a change of `IsLoaded` to `true` for the current id adds an id. A
+failed or timed-out fetch removes the id. A remembered image still preloads,
+and a failure then hides it again. A Stage has no image id, so it always
+waits for its scene.
+
 For a bounded tile, set `contentOverflow = "clip"`. Give rendered content
 `Size = UDim2.fromScale(1, 1)` and `AutomaticSize = Enum.AutomaticSize.None`.
 A larger child keeps its authored size but native clipping limits its paint

@@ -9,4 +9,5 @@ Open:
 - [Button.appearance](Button.appearance.md)
 - [Button.disclose](Button.disclose.md)
 - [Button.label](Button.label.md)
+- [Button.target](Button.target.md)
 - [Button.underline](Button.underline.md)

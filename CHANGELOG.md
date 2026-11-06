@@ -1,5 +1,12 @@
 # Current package
 
+On touch, a Button with no text keeps its plate size. An icon, glyph, image or
+circle Button no longer grows to `targetSizes.minimum`. An invisible
+`HitTarget` around the plate meets that size instead. An empty `label` is the
+same as no label, also when a reactive label changes to `""`. A Button with
+text still grows its plate. The touch floor now follows the effective input
+(`PreferredInput`), so a touch laptop that the player uses with a mouse has no
+floor. A gamepad keeps the floor on text Buttons only.
 Controls no longer read layout inside a layout change signal. In a game, the
 geometry that controls observe (collection viewports and measured rows,
 navigation chrome, pickers, popovers, Button `compactLabel`, level pickers,

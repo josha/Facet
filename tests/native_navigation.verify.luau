@@ -33,6 +33,7 @@ return function(verifyHarness: Verify.Harness)
 	local Roblox = require("../src/vendor/compose/roblox")
 	local controls = require("../src/ui")
 	local Facet = require("../src")
+	local StandardIcons = require("../examples/standard_icons")
 	local engines = require("./lib/native_engine")
 	local LIFT = 16 * math.sqrt(2) / 2
 	local function noop() end
@@ -453,8 +454,9 @@ return function(verifyHarness: Verify.Harness)
 			for _, id in { "one", "two" } do
 				local button = find(dots, id)
 				expect(button.Size.X.Offset):toBe(24)
-				expect(button:FindFirstChild("TargetFloor").MinSize.X):toBe(24)
-				expect(button:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
+				world.engine.environment.poke(button, "AbsoluteSize", world.engine.types.Vector2.new(24, 44))
+				expect(button:FindFirstChild("TargetFloor")):toBe(nil)
+				expect(find(button, "HitTarget")):toBe(nil)
 			end
 			find(dots, "two").Activated:Fire()
 			expect(chosen:peek()):toBe("two")
@@ -1874,7 +1876,7 @@ return function(verifyHarness: Verify.Harness)
 								return Host.Frame "Details" { LayoutOrder = -10 }
 							end,
 						}
-					end)
+					end, { theme = StandardIcons.apply(Facet.themes.neutralPackage()) })
 					local header = find(world.screen, "Header")
 					expect(built):toBe(0)
 					local function checkOrder()
@@ -5428,7 +5430,7 @@ return function(verifyHarness: Verify.Harness)
 		it("keeps panel art outside native layout and exposes alert artwork", {
 			id = "native_navigation::native navigation controls::keeps panel art outside native layout and exposes alert artwork",
 			run = function()
-				local package = require("../src/ui/themes")(Compose).neutralPackage()
+				local package = StandardIcons.apply(require("../src/ui/themes")(Compose).neutralPackage())
 				assert(package.assets).panel = { content = "rbxassetid://42" }
 				assert(package.chrome).panel = {
 					kind = "layered" :: "layered",

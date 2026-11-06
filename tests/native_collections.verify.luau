@@ -4,6 +4,7 @@ local Verify = require("../tools/vendor/verify/src/core")
 local Bdd = require("../tools/vendor/verify/src/bdd")
 local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
 local Facet = require("../src")
+local StandardIcons = require("../examples/standard_icons")
 
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
@@ -5119,7 +5120,7 @@ return function(verifyHarness: Verify.Harness)
 		it("reorders selected blocks with native drag and cancels stale or keyboard moves", {
 			id = "native_collections::Compose native collections::reorders selected blocks with native drag and cancels stale or keyboard moves",
 			run = function()
-				local engine, runtime, UI, target = setup()
+				local engine, runtime, UI, target = setup({ icons = StandardIcons.CONTENT })
 				local source, selected = Compose.cell(records(5)), Compose.cell({ [1] = true, [3] = true })
 				local requests: { { keys: { number }, slot: number } } = {}
 				local stop, node: any = runtime.mount(function()
@@ -5169,7 +5170,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(#requests):toBe(1)
 				handle.SelectionGained:Fire()
 				handle.Activated:Fire()
-				expect(handle:FindFirstChild("ReorderIcon").Image):toBe("rbxassetid://108245103349446")
+				expect(handle:FindFirstChild("ReorderIcon").Image):toBe(StandardIcons.CONTENT.checkmark)
 				local cancel
 				for _, contextNode in target:GetChildren() do
 					if contextNode.Name == "FacetReorderCancel" and contextNode.Enabled then

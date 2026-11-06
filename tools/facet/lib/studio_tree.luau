@@ -83,6 +83,13 @@ function StudioTree.entries(fs: FileSystem, root: string?, mode: string?): { Fil
 	addTree(fs, root, entries, "src", "ReplicatedStorage.Facet", "ModuleScript")
 	addTree(fs, root, entries, "tools/vendor/verify/src", "ReplicatedStorage.FacetVerify", "Folder")
 	addTree(fs, root, entries, "examples/themes", "ReplicatedStorage.FacetThemes", "Folder")
+	if fs.isFile(located(root, "examples/standard_icons.luau")) then
+		table.insert(entries, {
+			path = "ReplicatedStorage.FacetStandardIcons",
+			className = "ModuleScript",
+			file = "examples/standard_icons.luau",
+		})
+	end
 	if mode == "perf" then
 		addTree(fs, root, entries, "examples/performance/lab", "ReplicatedStorage.FacetScenarios", "ModuleScript")
 		addTree(fs, root, entries, "examples/performance/client", "ReplicatedStorage.PerfLab", "ModuleScript")

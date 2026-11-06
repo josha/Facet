@@ -92,6 +92,19 @@ function theme.create(Facet: FacetModule, name: string)
 		table.insert(palettes, palette(entry, true))
 	end
 	local definition: ThemeDefinition = {
+		icons = {
+			["facet:search"] = "rbxassetid://85188541706347",
+			person = "rbxassetid://75342910516929",
+			edit = "rbxassetid://97349995335189",
+			checkmark = "rbxassetid://108245103349446",
+			increment = "rbxassetid://128664097463435",
+			close = "rbxassetid://133198978089241",
+			["chevron.up"] = "rbxassetid://92798715826227",
+			["chevron.leading"] = "rbxassetid://81739481512878",
+			["vote.up"] = "rbxassetid://75207492738442",
+			["vote.down"] = "rbxassetid://105653007466295",
+			["status.info"] = "rbxassetid://119954823374061",
+		},
 		identity = {
 			id = "virtual-monitors-" .. string.lower(name),
 			displayName = "Virtual Monitors / " .. name,
