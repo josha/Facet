@@ -149,6 +149,26 @@ return function(
 		else
 			add(selector, properties)
 		end
+		local tint, fade = properties.ImageColor3, properties.ImageTransparency
+		if tint ~= nil or type(fade) == "number" then
+			local strokes: { string } = {}
+			for _, part in string.split(selector, ",") do
+				local target = string.match(part, "^%s*(.-)%s*$") or part
+				if string.match(target, "%.facet%-icon[%w%-]*$") ~= nil then
+					table.insert(strokes, target .. " > .facet-icon-stroke")
+				end
+			end
+			if #strokes > 0 then
+				local mirrored: ThemeTypes.RuleProperties = {}
+				if tint ~= nil then
+					mirrored.Color3 = tint
+				end
+				if type(fade) == "number" then
+					mirrored.Visible = fade < 1
+				end
+				add(table.concat(strokes, ", "), mirrored)
+			end
+		end
 	end
 	add(".facet-fade-stroke", { Enabled = false, Transparency = 1 })
 	local function finish(): { NativeRule }

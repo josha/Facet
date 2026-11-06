@@ -6,8 +6,8 @@
     },
     "Picker-open": {
         "instances": 36,
-        "connections": 70,
-        "holdings": 298
+        "connections": 64,
+        "holdings": 295
     },
     "Card-actions-reactive-theme": {
         "instances": 27,
@@ -36,8 +36,8 @@
     },
     "Picker": {
         "instances": 11,
-        "connections": 20,
-        "holdings": 73
+        "connections": 16,
+        "holdings": 66
     },
     "TextInput-reactive-theme": {
         "instances": 3,
@@ -81,8 +81,8 @@
     },
     "Picker-open-reactive-theme": {
         "instances": 40,
-        "connections": 72,
-        "holdings": 355
+        "connections": 67,
+        "holdings": 348
     },
     "TextInput": {
         "instances": 2,
@@ -191,8 +191,8 @@
     },
     "Picker-reactive-theme": {
         "instances": 12,
-        "connections": 20,
-        "holdings": 88
+        "connections": 17,
+        "holdings": 79
     },
     "Button-bounded-reactive-theme": {
         "instances": 4,

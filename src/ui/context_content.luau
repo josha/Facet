@@ -1103,52 +1103,50 @@ return function(
 			}
 		end, icon)
 	end
-	local function strokePaths(icon: ImageLabel, strokes: { iconStrokes.Stroke }): { Path2D }
-		local box = runtime.observe(icon, "Size")
-		local ink = runtime.observe(icon, "ImageColor3", STYLED)
-		local fade = runtime.observe(icon, "ImageTransparency", STYLED)
-		local function thickness(use: ComposeTypes.Use): number
-			local size = use(box)
-			assert(typeof(size) == "UDim2")
-			return math.max(1, math.min(size.X.Offset, size.Y.Offset) / 12)
+	local strokePoints: { [iconStrokes.Stroke]: { Path2DControlPoint } } = {}
+	local function pointsOf(stroke: iconStrokes.Stroke): { Path2DControlPoint }
+		local cached = strokePoints[stroke]
+		if cached then
+			return cached
 		end
-		local function color(use: ComposeTypes.Use): Color3
-			local value = use(ink)
-			assert(typeof(value) == "Color3")
-			return value
-		end
-		local function shown(use: ComposeTypes.Use): boolean
-			local amount = use(fade)
-			assert(type(amount) == "number")
-			return amount < 1
-		end
-		local paths: { Path2D } = {}
-		for _, stroke in strokes do
-			local points: { Path2DControlPoint } = {}
-			for _, point in stroke.points do
-				table.insert(
-					points,
-					types.Path2DControlPoint.new(
-						types.UDim2.fromScale(point[1], point[2]),
-						types.UDim2.new(),
-						types.UDim2.new()
-					)
+		local points: { Path2DControlPoint } = {}
+		for _, point in stroke.points do
+			table.insert(
+				points,
+				types.Path2DControlPoint.new(
+					types.UDim2.fromScale(point[1], point[2]),
+					types.UDim2.new(),
+					types.UDim2.new()
 				)
-			end
-			local path = ctx.styled(
-				Host.Path2D({
-					Name = "Stroke",
-					Closed = stroke.closed,
-					Thickness = thickness,
-					Color3 = color,
-					Visible = shown,
-				}),
-				"icon-stroke"
 			)
-			path:SetControlPoints(points)
-			table.insert(paths, path)
 		end
-		return paths
+		strokePoints[stroke] = points
+		return points
+	end
+	local prototypes: { [iconStrokes.Stroke]: Path2D } = {}
+	local function strokeThickness(icon: ImageLabel): number
+		local size = icon.Size
+		return math.max(1, math.min(size.X.Offset, size.Y.Offset) / 12)
+	end
+	local function strokePath(icon: ImageLabel, stroke: iconStrokes.Stroke, thickness: number): Path2D
+		local prototype = prototypes[stroke]
+		local path: Path2D
+		if prototype and prototype.Parent ~= nil then
+			path = prototype:Clone()
+		else
+			path = ctx.styled(Host.Path2D({ Name = "Stroke", Closed = stroke.closed }), "icon-stroke")
+			path:SetControlPoints(pointsOf(stroke))
+			prototypes[stroke] = path
+		end
+		path.Thickness = thickness
+		path.Parent = icon
+		return path
+	end
+	local function strokePaths(icon: ImageLabel, strokes: { iconStrokes.Stroke })
+		local thickness = strokeThickness(icon)
+		for _, stroke in strokes do
+			strokePath(icon, stroke, thickness)
+		end
 	end
 	local function strokesFor(requested: Theme.ResolvedIcon?): { iconStrokes.Stroke }?
 		if type(requested) ~= "string" or not standardIcons.registered(requested) then
@@ -1157,25 +1155,32 @@ return function(
 		return iconStrokes[requested] or iconStrokes[string.match(requested, "^(.+)%.fill$") or requested]
 	end
 	local function armStrokes(icon: ImageLabel, unsupplied: (ComposeTypes.Use?) -> Theme.ResolvedIcon?)
-		local key = Compose.formula(function(use: ComposeTypes.Use): string
-			local requested = unsupplied(use)
-			return if type(requested) == "string" then requested else ""
-		end)
-		runtime.mountFragment(function()
-			return {
-				Compose.switch(key, {}, function()
-					local strokes = strokesFor(key:peek())
-					if strokes == nil then
-						return Compose.fragment(function()
-							return {}
-						end)
-					end
-					return Compose.fragment(function()
-						return strokePaths(icon, strokes)
+		local paths: { Path2D } = {}
+		local owner = assert(Compose.currentOwner())
+		Compose.watch(function(use: ComposeTypes.Use)
+			local strokes = strokesFor(unsupplied(use)) or {}
+			local thickness = strokeThickness(icon)
+			for index, stroke in strokes do
+				local path = paths[index]
+				if path then
+					path.Closed = stroke.closed
+					path:SetControlPoints(pointsOf(stroke))
+				else
+					paths[index] = Compose.withOwner(owner, function(): Path2D
+						return strokePath(icon, stroke, thickness)
 					end)
-				end),
-			}
-		end, icon)
+				end
+			end
+			for index = #paths, #strokes + 1, -1 do
+				paths[index]:Destroy()
+				paths[index] = nil
+			end
+		end)
+		Compose.cleanup(function()
+			for _, path in paths do
+				path:Destroy()
+			end
+		end)
 	end
 	function ctx.icon(
 		name: Shared.Input<Theme.ResolvedIcon?>,
@@ -1278,9 +1283,7 @@ return function(
 		elseif not changing and initial == nil then
 			local strokes = strokesFor(ctx.read<<Theme.ResolvedIcon?>>(name))
 			if strokes then
-				runtime.mountFragment(function()
-					return strokePaths(made, strokes)
-				end, made)
+				strokePaths(made, strokes)
 			end
 		end
 		return made
