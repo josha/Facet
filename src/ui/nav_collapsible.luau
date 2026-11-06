@@ -128,17 +128,6 @@ return function(
 							h = h,
 						}
 					end)
-					local function lerp(use: ComposeTypes.Use): Overlay.Rect
-						local goal, at, offset = use(target), use(rootAt), use(origin)
-						local t = if use(prepared) then progress(use) else 1
-						local x, y = at.X - offset.X, at.Y - offset.Y
-						return {
-							x = x + (goal.x - x) * t,
-							y = y + (goal.y - y) * t,
-							w = goal.w,
-							h = goal.h,
-						}
-					end
 					local fade = ctx.fade {
 						Name = "ExpandedFade",
 						BackgroundTransparency = 1,
@@ -177,11 +166,11 @@ return function(
 							BackgroundTransparency = 0,
 							ClipsDescendants = true,
 							Position = function(use: ComposeTypes.Use)
-								local rect = lerp(use)
+								local rect = use(target)
 								return D2.fromOffset(rect.x, rect.y)
 							end,
 							Size = function(use: ComposeTypes.Use)
-								local rect = lerp(use)
+								local rect = use(target)
 								return D2.fromOffset(rect.w, rect.h)
 							end,
 							fade,
