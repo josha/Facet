@@ -314,7 +314,7 @@ return function(verifyHarness: Verify.Harness)
 					return sheet
 				end, e.new("Folder"))
 				for _, rule in (sheet :: any):GetChildren() do
-					rules[rule.Selector] = rule:GetProperties()
+					rules[string.split(rule.Selector, ",")[1]] = rule:GetProperties()
 				end
 				expect(rules[".facet-icon-error"].ImageColor3 ~= nil):toBe(true)
 				expect(rules[".facet-validation"].TextColor3 == rules[".facet-icon-error"].ImageColor3):toBe(true)

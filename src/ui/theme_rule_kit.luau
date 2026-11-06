@@ -142,32 +142,29 @@ return function(
 					or types.Enum.BorderStrokePosition.Inner
 			end
 		end
-		if string.sub(selector, -10) == "::UIStroke" then
-			add(selector .. ", " .. string.sub(selector, 1, -11) .. " > .facet-fade-stroke", properties)
-		elseif string.sub(selector, -11) == "::UIPadding" then
-			add(selector .. ", " .. string.sub(selector, 1, -12) .. " > UIPadding", properties)
-		else
-			add(selector, properties)
-		end
 		local tint, fade = properties.ImageColor3, properties.ImageTransparency
+		local strokes: { string } = {}
 		if tint ~= nil or type(fade) == "number" then
-			local strokes: { string } = {}
 			for _, part in string.split(selector, ",") do
 				local target = string.match(part, "^%s*(.-)%s*$") or part
 				if string.match(target, "%.facet%-icon[%w%-]*$") ~= nil then
 					table.insert(strokes, target .. " > .facet-icon-stroke")
 				end
 			end
-			if #strokes > 0 then
-				local mirrored: ThemeTypes.RuleProperties = {}
-				if tint ~= nil then
-					mirrored.Color3 = tint
-				end
-				if type(fade) == "number" then
-					mirrored.Visible = fade < 1
-				end
-				add(table.concat(strokes, ", "), mirrored)
-			end
+		end
+		if string.sub(selector, -10) == "::UIStroke" then
+			add(selector .. ", " .. string.sub(selector, 1, -11) .. " > .facet-fade-stroke", properties)
+		elseif string.sub(selector, -11) == "::UIPadding" then
+			add(selector .. ", " .. string.sub(selector, 1, -12) .. " > UIPadding", properties)
+		elseif tint ~= nil and #strokes > 0 then
+			local painted = table.clone(properties)
+			painted.Color3 = tint
+			add(selector .. ", " .. table.concat(strokes, ", "), painted)
+		else
+			add(selector, properties)
+		end
+		if type(fade) == "number" and #strokes > 0 then
+			add(table.concat(strokes, ", "), { Visible = fade < 1 })
 		end
 	end
 	add(".facet-fade-stroke", { Enabled = false, Transparency = 1 })
