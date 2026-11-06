@@ -573,6 +573,12 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 				Files.write(target, Files.read(source))
 			end
 		end
+		local verify = Files.absolute("tools/vendor/verify")
+		local measured = Files.join(entry.tree, "tools/vendor/verify")
+		if not samePath(measured, verify) then
+			Files.remove(measured)
+			Files.copyTree(verify, measured)
+		end
 	end
 	for round = 1, rounds do
 		append(log, ("round %d start %s load %s\n"):format(round, os.date("%H:%M:%S"), loadAverage()))
@@ -1126,6 +1132,10 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	local failed = mode == "fail" or mode == "memory"
 	local final = if failed or mode == "flaky" then "FAIL" else "PASS"
 	Verify.expect(status):toBe(if invalid then 2 elseif failed then 1 else 0)
+	for _, label in { "base", "cand" } do
+		local measured = Files.join(root, label, "tools/vendor/verify/UPSTREAM.lock")
+		Verify.expect(Files.read(measured)):toBe(Files.read(Files.absolute("tools/vendor/verify/UPSTREAM.lock")))
+	end
 	Verify.expect(summaryCount):toBe(
 		if mode == "manual" or invalid
 			then 0
