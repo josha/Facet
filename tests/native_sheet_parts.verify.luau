@@ -352,6 +352,40 @@ return function(verifyHarness: Verify.Harness)
 				w.stop()
 			end,
 		})
+		verifyHarness:case("relinks Close when the first body control hides or leaves while the sheet is open", {
+			id = "native_sheet_parts::close-relinks-removed-entry",
+			run = function()
+				local pinned = Compose.cell(true)
+				local grouped = Compose.cell(true)
+				local w = mount({
+					placement = "center",
+					closeButton = true,
+					content = built(function(UI: Facet.Controls, Host: Facet.Host)
+						return Host.Frame {
+							Host.Frame "Group" {
+								Visible = pinned,
+								UI.Button "ActivatePin" { label = "Pin" },
+							},
+							Compose.show(grouped, function()
+								return UI.Button "Quest" { label = "Quest" }
+							end),
+							UI.Button "Track" { label = "Track" },
+						}
+					end),
+				}, { motionLevel = "none" })
+				local close = w.find("Close")
+				Verify.expect(close.NextSelectionDown):toBe(w.find("ActivatePin"))
+				pinned:set(false)
+				w.advance(1 / 60, 2)
+				Verify.expect(close.NextSelectionDown):toBe(w.find("Quest"))
+				Verify.expect(w.find("Quest").NextSelectionUp):toBe(close)
+				grouped:set(false)
+				w.advance(1 / 60, 2)
+				Verify.expect(close.NextSelectionDown):toBe(w.find("Track"))
+				Verify.expect(close.NextSelectionRight):toBe(w.find("Track"))
+				w.stop()
+			end,
+		})
 		verifyHarness:case("routes Close to footer actions when the body has only text", {
 			id = "native_sheet_parts::text-body-footer-selection",
 			run = function()
