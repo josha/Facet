@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/verify",
-  "commit": "628f975c5268accc39a80d9f4c9de17edc75fdf8",
+  "commit": "1376e19834fab5822a25dbb4ebd0b63472d76eb5",
   "sha256": {
     "LICENSE": "384cb8fadeb9dec41e2269104bd05b1cb2a178ee6045c628009e07d84b2d0885",
     "PROVENANCE.md": "17586ba71f52ebf6136982f4d621f4bdf5981b15771d8118bc68e1931d6f07d1",
@@ -168,7 +168,7 @@
     "src/roblox/multiplayer.luau": "984240d19b3988231c312864fc465b017dd0337236996c038a00c71d390f7ed0",
     "src/roblox/network.luau": "200cede1a0941ae685bfa3241aed7b473566cfd3601f1a425b4c219a70779993",
     "src/roblox/performance.luau": "0c79e9f8399a6b8f656ad74aec4e0e78b88c9c2376ed2a7cd639c72d9ca4f93d",
-    "src/roblox/place-boot.luau": "36c499006fbf985745b63a229243bbff460c46efe33fdd236b4cd23e547f426b",
+    "src/roblox/place-boot.luau": "db18a3492525b7a21c4f407d58747cbd8e06223df90e73fe757dd47739db7f09",
     "src/roblox/place-runtime.luau": "0e8854f7ebf93a4e5da285a7d583f7b54417c0bfefa270e0284c0fed296d7ed0",
     "src/roblox/place-services.luau": "15a1837a0fe4e9b239d29d3efabd617cebd80d3ee0ffb0a8f85d9d9a0b417af5",
     "src/roblox/place-types.luau": "61b8187473bb84a7b02f779e7f9647186d6709d2b29eaa3bceacc897cb315355",
