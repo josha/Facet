@@ -821,17 +821,46 @@ return function(
 			end,
 		}
 	end
+	type SharedUnit = { value: ComposeTypes.ReadOnlyValue<number>, users: number, dispose: () -> () }
+	local units: { [GuiBase2d]: { [string]: SharedUnit } } = {}
 	function ctx.layoutUnit(parent: GuiBase2d, name: string?): ComposeTypes.ReadOnlyValue<number>
-		local probe: Frame? = nil
-		runtime.mount(function()
-			probe = Host.Frame(name or "LayoutUnit")({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
-			return probe
-		end, parent)
-		local size = ctx.observe.AbsoluteSize(assert(probe))
-		return Compose.formula(function(use: ComposeTypes.Use): number
-			local unit = use(size).X / 100
-			return if unit > 0 then unit else 1
+		local key = name or "LayoutUnit"
+		local named = units[parent]
+		if named == nil then
+			named = {}
+			units[parent] = named
+		end
+		local shared = named[key]
+		if shared == nil then
+			local value: ComposeTypes.ReadOnlyValue<number>
+			local scope = Compose.createRootOwner(function()
+				local probe = Host.Frame(key)({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
+				probe.Parent = parent
+				local size = ctx.observe.AbsoluteSize(probe)
+				value = Compose.formula(function(use: ComposeTypes.Use): number
+					local unit = use(size).X / 100
+					return if unit > 0 then unit else 1
+				end)
+			end, runtime.reactor)
+			shared = { value = value, users = 0, dispose = scope.dispose }
+			named[key] = shared
+		end
+		local held = assert(shared)
+		held.users += 1
+		Compose.cleanup(function()
+			held.users -= 1
+			if held.users > 0 then
+				return
+			end
+			if named[key] == held then
+				named[key] = nil
+				if next(named) == nil and units[parent] == named then
+					units[parent] = nil
+				end
+			end
+			held.dispose()
 		end)
+		return held.value
 	end
 	function ctx.layoutSize(
 		node: GuiBase2d,

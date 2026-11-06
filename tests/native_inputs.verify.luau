@@ -157,6 +157,70 @@ return function(verifyHarness: Verify.Harness)
 			stop()
 		end)
 
+		it("icon Buttons in one row share a single layout unit probe on touch", function()
+			local cells = Compose.cell(3)
+			local row, stop = world(function(UI, engine, runtime)
+				local Host = runtime.constructors :: any
+				return Host.Frame {
+					Name = "Row",
+					Size = engine.types.UDim2.fromOffset(200, 30),
+					Compose.show(function(use: Compose.Use): boolean
+						return use(cells) >= 1
+					end, function()
+						return UI.Button {
+							name = "One",
+							icon = "close",
+							label = "",
+							Size = engine.types.UDim2.fromOffset(30, 30),
+							AutomaticSize = engine.types.Enum.AutomaticSize.None,
+						}
+					end),
+					Compose.show(function(use: Compose.Use): boolean
+						return use(cells) >= 2
+					end, function()
+						return UI.Button {
+							name = "Two",
+							icon = "close",
+							label = "",
+							Size = engine.types.UDim2.fromOffset(30, 30),
+							AutomaticSize = engine.types.Enum.AutomaticSize.None,
+						}
+					end),
+					Compose.show(function(use: Compose.Use): boolean
+						return use(cells) >= 3
+					end, function()
+						return UI.Button {
+							name = "Three",
+							icon = "close",
+							label = "",
+							Size = engine.types.UDim2.fromOffset(30, 30),
+							AutomaticSize = engine.types.Enum.AutomaticSize.None,
+						}
+					end),
+				}
+			end, function(engine)
+				local input = (engine.new("UserInputService") :: unknown) :: UserInputService
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", false)
+				return { services = { UserInputService = input } }
+			end)
+			local function probes(): number
+				local count = 0
+				for _, child in row:GetChildren() do
+					if child.Name == "LayoutUnit" then
+						count += 1
+					end
+				end
+				return count
+			end
+			expect(probes()):toBe(1)
+			cells:set(1)
+			expect(probes()):toBe(1)
+			cells:set(0)
+			expect(probes()):toBe(0)
+			stop()
+		end)
+
 		it("inline targets keep touch height while compacting adjacent choices", function()
 			local input: UserInputService
 			local node, stop, engine = world(function(UI, engine)
@@ -174,15 +238,15 @@ return function(verifyHarness: Verify.Harness)
 			end)
 			engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(24, 28))
 			expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-			local hit = find(node, "HitTarget")
-			expect(find(hit, "Top").Size.X.Offset):toBe(0)
-			expect(find(hit, "Top").Size.Y.Offset):toBe(8)
-			expect(find(hit, "Leading").Visible):toBe(false)
-			expect(find(hit, "Trailing").Visible):toBe(false)
+			local hit = node
+			expect(find(hit, "HitTop").Size.X.Offset):toBe(0)
+			expect(find(hit, "HitTop").Size.Y.Offset):toBe(8)
+			expect(find(hit, "HitLeading").Visible):toBe(false)
+			expect(find(hit, "HitTrailing").Visible):toBe(false)
 			engine.environment.poke(VerifyRoblox.assertInstance(input), "TouchEnabled", false)
-			expect(find(node, "HitTarget")):toBe(nil)
+			expect(find(node, "HitTop")):toBe(nil)
 			engine.environment.poke(VerifyRoblox.assertInstance(input), "GamepadEnabled", true)
-			expect(find(node, "HitTarget")):toBe(nil)
+			expect(find(node, "HitTop")):toBe(nil)
 			expect(node:FindFirstChild("TargetFloor")):toBe(nil)
 			stop()
 		end)
@@ -260,9 +324,10 @@ return function(verifyHarness: Verify.Harness)
 				local P = engine.types.Enum.PreferredInput
 				engine.environment.poke(node, "AbsoluteSize", engine.types.Vector2.new(32, 36))
 				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				local hit = find(node, "HitTarget")
-				expect(hit ~= nil):toBe(true)
-				local top, leading = find(hit, "Top"), find(hit, "Leading")
+				local hit = node
+				expect(find(node, "HitTop").Parent):toBe(node)
+				expect(node:FindFirstChildWhichIsA("UIPadding")):toBe(nil)
+				local top, leading = find(hit, "HitTop"), find(hit, "HitLeading")
 				expect(top.Size.X.Scale):toBe(1)
 				expect(top.Size.X.Offset):toBe(12)
 				expect(top.Size.Y.Offset):toBe(4)
@@ -273,21 +338,21 @@ return function(verifyHarness: Verify.Harness)
 				leading.Activated:Fire()
 				expect(calls):toBe(1)
 				label:set("Close panel")
-				expect(find(node, "HitTarget")):toBe(nil)
+				expect(find(node, "HitTop")):toBe(nil)
 				expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
 				label:set("")
 				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				expect(find(node, "HitTarget") ~= nil):toBe(true)
+				expect(find(node, "HitTop") ~= nil):toBe(true)
 				engine.environment.poke(service, "MouseEnabled", true)
 				engine.environment.poke(service, "PreferredInput", P.KeyboardAndMouse)
-				expect(find(node, "HitTarget")):toBe(nil)
+				expect(find(node, "HitTop")):toBe(nil)
 				label:set("Close panel")
 				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
 				engine.environment.poke(service, "PreferredInput", P.Touch)
 				expect(node:FindFirstChild("TargetFloor").MinSize.Y):toBe(44)
 				label:set("")
 				expect(node:FindFirstChild("TargetFloor")):toBe(nil)
-				expect(find(node, "HitTarget") ~= nil):toBe(true)
+				expect(find(node, "HitTop") ~= nil):toBe(true)
 				stop()
 			end,
 		})

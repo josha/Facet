@@ -1195,7 +1195,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 				press(input, clicks)
 			end
-			local function hitTarget(margin: ComposeTypes.ReadOnlyValue<Vector2>): GuiObject
+			local function hitTarget(margin: ComposeTypes.ReadOnlyValue<Vector2>): GuiObject | ComposeTypes.Directive
 				local function strip(name: string, anchor: Vector2, at: UDim2, band: boolean): TextButton
 					local props: Shared.TextButtonProps = {
 						Text = "",
@@ -1224,13 +1224,21 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					end
 					return made
 				end
+				local strips = {
+					strip("HitTop", V2.new(0.5, 1), D2.fromScale(0.5, 0), true),
+					strip("HitBottom", V2.new(0.5, 0), D2.fromScale(0.5, 1), true),
+					strip("HitLeading", V2.new(1, 0.5), D2.fromScale(0, 0.5), false),
+					strip("HitTrailing", V2.new(0, 0.5), D2.fromScale(1, 0.5), false),
+				}
+				if spec.busy == nil then
+					return Compose.fragment(function()
+						return strips
+					end)
+				end
 				local area = Host.Frame "HitTarget" {
 					Size = D2.fromScale(1, 1),
 					BackgroundTransparency = 1,
-					strip("Top", V2.new(0.5, 1), D2.fromScale(0.5, 0), true),
-					strip("Bottom", V2.new(0.5, 0), D2.fromScale(0.5, 1), true),
-					strip("Leading", V2.new(1, 0.5), D2.fromScale(0, 0.5), false),
-					strip("Trailing", V2.new(0, 0.5), D2.fromScale(1, 0.5), false),
+					table.unpack(strips),
 				}
 				return decoration(Compose, runtime, ctx.types, node, area)
 			end
@@ -1239,7 +1247,33 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					Compose.show(function(use: ComposeTypes.Use): boolean
 						return reachFloor(use) > 0
 					end, function()
-						local plate = ctx.layoutSize(node)
+						local moved = Compose.cell(0)
+						runtime.connect(node, "AncestryChanged", function()
+							moved:set(moved:peek() + 1)
+						end)
+						local holder = Compose.formula(function(use: ComposeTypes.Use): GuiBase2d?
+							use(moved)
+							local parent = node.Parent
+							if
+								parent
+								and parent:IsA("GuiBase2d")
+								and (parent:IsA("LayerCollector") or parent:FindFirstAncestorWhichIsA("LayerCollector"))
+							then
+								return parent
+							end
+							return nil
+						end)
+						local unit = Compose.cell(1)
+						Compose.watch(function(use: ComposeTypes.Use)
+							local parent = use(holder)
+							if parent then
+								local measured = ctx.layoutUnit(parent)
+								Compose.watch(function(inner: ComposeTypes.Use)
+									unit:set(inner(measured))
+								end)
+							end
+						end)
+						local plate = ctx.layoutSize(node, unit)
 						local margin = Compose.formula(function(use: ComposeTypes.Use): Vector2
 							local size, floor = use(plate), reachFloor(use)
 							return V2.new(

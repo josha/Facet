@@ -132,7 +132,7 @@ return function(verifyHarness: Verify.Harness)
 			local grid = w.find(name or "Swatches")
 			local out = {}
 			for _, child in grid:GetChildren() do
-				if child:IsA("GuiObject") then
+				if child:IsA("GuiObject") and child.Name ~= "LayoutUnit" then
 					table.insert(out, child)
 				end
 			end

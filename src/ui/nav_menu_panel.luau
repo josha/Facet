@@ -492,6 +492,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local left, _, right = insets(use)
 			room:set(math.max(0, use(extent).X - left - right - 16))
 		end)
+		local function designed(use: ComposeTypes.Use): (number, number)
+			local function carve(side: string): number
+				return surfaces.inset(0, side, nil, use)
+			end
+			local _, insetTop, _, insetBottom = insets(use)
+			local height = math.min(
+				use(rowExtent).Y + carve("top") + carve("bottom"),
+				math.max(44, use(extent).Y - 24 - insetTop - insetBottom),
+				if spec.maxHeight then math.max(60, spec.maxHeight) else math.huge
+			)
+			return panelWidth(use) + carve("left") + carve("right"), height
+		end
+		local presented = Compose.formula(function(use: ComposeTypes.Use): Vector2
+			local box = use(measured)
+			local width, height = designed(use)
+			if box.X > 0 and box.Y <= 0 and width > 0 and not use(asSheet) then
+				return V2.new(box.X, height * box.X / width)
+			end
+			return box
+		end)
 		local presentedPlace: Vector2? = nil
 		local presentedPivot = V2.zero
 		local function place(use: ComposeTypes.Use): (Vector2, Vector2)
@@ -499,7 +519,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				return presentedPlace, presentedPivot
 			end
 			local at, bounds = anchorBounds(use)
-			local offer, panelSize, offset = use(extent), use(measured), originOf(use)
+			local offer, panelSize, offset = use(extent), use(presented), originOf(use)
 			local insetLeft, insetTop, insetRight, insetBottom = insets(use)
 			local low, high =
 				V2.new(insetLeft + 8, insetTop + 8), V2.new(offer.X - insetRight - 8, offer.Y - insetBottom - 8)
@@ -581,20 +601,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local panelGeometry: Types.FrameNativeProps = {
 			Size = function(use: ComposeTypes.Use)
-				local function carve(side: string): number
-					return surfaces.inset(0, side, nil, use)
-				end
-				local _, insetTop, _, insetBottom = insets(use)
-				local height = math.min(
-					use(rowExtent).Y + carve("top") + carve("bottom"),
-					math.max(44, use(extent).Y - 24 - insetTop - insetBottom),
-					if spec.maxHeight then math.max(60, spec.maxHeight) else math.huge
-				)
+				local width, height = designed(use)
 				if use(asSheet) then
 					local insetLeft, _, insetRight = insets(use)
 					return D2.new(1, -24 - insetLeft - insetRight, 0, height)
 				end
-				return D2.fromOffset(panelWidth(use) + carve("left") + carve("right"), height)
+				return D2.fromOffset(width, height)
 			end,
 		}
 		runtime.decorate(panel, panelGeometry)
@@ -603,7 +615,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				pinned = true,
 				from = materialize,
 				rested = rested,
-				size = measured,
+				size = presented,
 				geometry = { Size = panelGeometry.Size, AutomaticSize = panelGeometry.AutomaticSize },
 				rise = function(use: ComposeTypes.Use): number?
 					if not use(asSheet) then
