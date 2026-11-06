@@ -227,9 +227,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			fillRoom(frame, room)
 		end
 		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
-		local list = if not vertical and spec.wrap == nil and bounded
-			then frame:FindFirstChildWhichIsA("UIListLayout")
-			else nil
+		local spillable = not vertical and spec.wrap == nil and bounded
+		local list = if spillable then frame:FindFirstChildWhichIsA("UIListLayout") else nil
 		if list then
 			local outer, content = ctx.observe.AbsoluteSize(frame), ctx.observe.AbsoluteContentSize(list)
 			Compose.watch(function(use: ComposeTypes.Use)
