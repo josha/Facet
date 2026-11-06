@@ -148,8 +148,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				local places: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 				local shown: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 				local function observe(node: GuiObject)
-					table.insert(places, ctx.observeNative.AbsolutePosition(node))
-					table.insert(places, ctx.observeNative.AbsoluteSize(node))
+					table.insert(places, ctx.observe.AbsolutePosition(node))
+					table.insert(places, ctx.observe.AbsoluteSize(node))
 				end
 				observe(content)
 				for item in outside do

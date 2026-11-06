@@ -7,6 +7,18 @@ same as no label, also when a reactive label changes to `""`. A Button with
 text still grows its plate. The touch floor now follows the effective input
 (`PreferredInput`), so a touch laptop that the player uses with a mouse has no
 floor. A gamepad keeps the floor on text Buttons only.
+Controls no longer read layout inside a layout change signal. In a game, the
+geometry that controls observe (collection viewports and measured rows,
+navigation chrome, pickers, popovers, Button `compactLabel`, level pickers,
+focus rings, world markers and grid cells) is read on the next frame. Fast
+resizes and scrolls no longer run these reads during the engine's layout pass.
+A form, a placement or a title style can update one frame after its bounds
+change. Feedback decoration still follows its host in the same frame.
+
+`Facet.DesignStudioKit` is now the read-only form of the Compose design editor
+kit type, so a kit built with the Compose design editor has this type.
+`Facet.composeDesign` returns `Facet.DesignStudioEditorKit`, whose `edit`
+returns the full `Facet.DesignStudioEditor`.
 
 ScrollView and stack containers accept `maxHeight` beside `maxWidth` through
 one native size constraint. `ScrollView { height = "hug", maxHeight = limit }`

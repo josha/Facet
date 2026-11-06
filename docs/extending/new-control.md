@@ -58,6 +58,14 @@ observation, styles and input actions. It does not own another scene.
   constraint and content give the same size on consecutive frames. A loop
   that reacts to each stale frame oscillates or grows without limit.
   `kit.match` and Composition row matching do this through `extent_match`.
+- Do not read layout inside a layout change signal. Roblox fires the
+  `AbsoluteSize`, `AbsolutePosition`, `AbsoluteContentSize`,
+  `AbsoluteWindowSize` and `TextBounds` signals while it lays out. A read of
+  layout or a layout write in that handler can start a nested layout pass.
+  Observe geometry with `ctx.observe`, which reads it on the next frame. For a
+  handler that measures many nodes, wrap the work in `ctx.afterLayout` and
+  connect the returned function. Test with the layout read guard of the native
+  engine fixture (`guardLayoutReads`).
 - A value that holds space to stop jitter must give the space back. A
   readout keeps its widest width only while its text keeps the same length,
   and fits again when the length changes.

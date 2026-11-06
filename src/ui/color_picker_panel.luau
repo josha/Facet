@@ -76,7 +76,7 @@ return function(
 		end
 		local heights: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 		for _, show in shows do
-			table.insert(heights, ctx.observeNative.AbsoluteSize(show))
+			table.insert(heights, ctx.observe.AbsoluteSize(show))
 		end
 		local techniqueNode = Host.Frame(technique)
 		local unit = ctx.layoutUnit(techniqueNode)
@@ -89,7 +89,7 @@ return function(
 		end
 		local measured: { { node: GuiObject, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
 		local function measure(node: GuiObject): GuiObject
-			local size = ctx.observeNative.AbsoluteSize(node)
+			local size = ctx.observe.AbsoluteSize(node)
 			table.insert(measured, { node = node, size = size })
 			return node
 		end
@@ -137,10 +137,10 @@ return function(
 			bodyProps.AutomaticCanvasSize = E.AutomaticSize.Y
 			bodyProps.CanvasSize = D2.fromOffset(0, 0)
 			body = Host.ScrollingFrame(bodyProps)
-			window = ctx.observeNative.AbsoluteWindowSize(body)
+			window = ctx.observe.AbsoluteWindowSize(body)
 		else
 			body = Host.Frame(bodyProps)
-			window = ctx.observeNative.AbsoluteSize(body)
+			window = ctx.observe.AbsoluteSize(body)
 		end
 		Compose.watch(function(use: Use)
 			local w = use(window).X / use(unit)

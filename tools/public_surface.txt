@@ -378,6 +378,7 @@ type DesignSeed
 type DesignSequence
 type DesignState
 type DesignStudioEditor
+type DesignStudioEditorKit
 type DesignStudioFrame
 type DesignStudioKit
 type DesignStudioOptions

@@ -140,11 +140,12 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 		local function bump()
 			reshaped:set(reshaped:peek() + 1)
 		end
+		local moved = ctx.afterLayout(bump)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local target: GuiObject? = use(selected)
 			use(partRevision)
 			if observation and target and target:IsA("GuiObject") then
-				Compose.cleanup(observation.observeProperty(target, "AbsoluteSize", bump))
+				Compose.cleanup(observation.observeProperty(target, "AbsoluteSize", moved))
 				Compose.cleanup(observation.observeProperty(target, "SelectionImageObject", bump))
 				local reach = target:GetAttributeChangedSignal("FacetFocusHeight"):Connect(bump)
 				local named = target:GetAttributeChangedSignal("FacetFocusPart"):Connect(function()
@@ -157,9 +158,9 @@ return function(ctx: Shared.Context, UI: Env.EnvironmentControls)
 				end)
 				local part = partOf(target)
 				if part then
-					Compose.cleanup(observation.observeProperty(part, "AbsoluteSize", bump))
-					Compose.cleanup(observation.observeProperty(part, "AbsolutePosition", bump))
-					Compose.cleanup(observation.observeProperty(target, "AbsolutePosition", bump))
+					Compose.cleanup(observation.observeProperty(part, "AbsoluteSize", moved))
+					Compose.cleanup(observation.observeProperty(part, "AbsolutePosition", moved))
+					Compose.cleanup(observation.observeProperty(target, "AbsolutePosition", moved))
 				end
 				local own = (part or target):FindFirstChildWhichIsA("UICorner")
 				if own then

@@ -262,13 +262,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			local settled = Compose.cell(false)
 			local presence = surfaces.appearance(phase, popoverTiming, settled)
 			local layer = assert(surfaces.parent(root))
-			local extent = ctx.observeNative.AbsoluteSize(layer)
-			local origin = ctx.observeNative.AbsolutePosition(layer)
+			local extent = ctx.observe.AbsoluteSize(layer)
+			local origin = ctx.observe.AbsolutePosition(layer)
 			local sourceAt: ComposeTypes.ReadOnlyValue<Vector2>, sourceSize: ComposeTypes.ReadOnlyValue<Vector2>
 			local anchorNode = node or spec.trigger
 			if anchorNode then
-				sourceAt, sourceSize =
-					ctx.observeNative.AbsolutePosition(anchorNode), ctx.observeNative.AbsoluteSize(anchorNode)
+				sourceAt, sourceSize = ctx.observe.AbsolutePosition(anchorNode), ctx.observe.AbsoluteSize(anchorNode)
 			else
 				sourceAt, sourceSize = Compose.cell(V2.zero), Compose.cell(V2.zero)
 			end
