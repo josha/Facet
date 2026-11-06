@@ -376,7 +376,7 @@ return function(ui: UI.UI)
 							return node.hidden == true
 						end,
 						inputs = options.inputs,
-						bindings = bindings,
+						bindings = RenderPreview.bindings(preview, bindings, use),
 						outputs = options.outputs,
 						slots = options.slots,
 						players = function(made: { [string]: Design.Player })
