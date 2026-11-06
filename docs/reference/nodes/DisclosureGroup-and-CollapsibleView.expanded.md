@@ -15,9 +15,9 @@ you pass `corners`).
   the end (`TextTruncate.AtEnd`) and shrinks in the row (a `UIFlexItem` in
   `Shrink` mode). A `chevron.down` trailing icon is the More affordance. Pass
   `trailingIcon` to replace it.
-- When `expanded` is true, a panel named `Expanded` grows out of the trigger:
-  its rectangle moves from the trigger's rectangle to its open rectangle on
-  the page's layer, and it clips its content. The open panel is at least
+- When `expanded` is true, a panel named `Expanded` fades in at its open
+  rectangle on the page's layer, starting at the trigger's corner, and it
+  clips its content. It does not travel from the trigger. The open panel is at least
   `controls.popup.panelWidth` wide (or the trigger's width), as tall as its
   content, and stays inside the layer by `space.s`. A taller content scrolls
   in a `ScrollingFrame` named `ExpandedScroll`. The content is laid out once at

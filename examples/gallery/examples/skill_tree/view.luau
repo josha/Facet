@@ -409,6 +409,7 @@ return function(ctx: Context)
 				padding = "xs",
 				UI.HStack "MapTools" {
 					width = "fill",
+					wrap = true,
 					gap = "xs",
 					align = "center",
 					UI.Button "FitTree" {
@@ -421,6 +422,7 @@ return function(ctx: Context)
 						end,
 					},
 					UI.Button "ZoomOut" {
+						shape = "circle",
 						label = text("minus"),
 						name = text("farther"),
 						AutoLocalize = false,
@@ -431,6 +433,7 @@ return function(ctx: Context)
 						end,
 					},
 					UI.Button "ZoomIn" {
+						shape = "circle",
 						label = text("plus"),
 						name = text("closer"),
 						AutoLocalize = false,

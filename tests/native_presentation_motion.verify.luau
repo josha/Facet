@@ -626,6 +626,31 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("fades in at its open rectangle without travelling from the trigger", {
+			id = "native_presentation_motion::CollapsibleView in place::fades in at its open rectangle without travelling from the trigger",
+			run = function()
+				local w, expanded = tipsWorld(nil, nil, { lastInputType = UserInputType.Keyboard })
+				local trigger = w.find("Tips")
+				w.engine.environment.poke(
+					FixtureRoblox.assertInstance(trigger),
+					"AbsolutePosition",
+					w.Vector2.new(700, 500)
+				)
+				w.engine.environment.poke(FixtureRoblox.assertInstance(trigger), "AbsoluteSize", w.Vector2.new(120, 44))
+				expanded:set(true)
+				local plate = w.find("Expanded")
+				w.engine.environment.poke(w.find("ExpandedBody"), "AbsoluteSize", w.Vector2.new(360, 200))
+				local open = w.engine.types.UDim2.fromOffset(800 - 8 - 360, 600 - 8 - 200)
+				for _ = 1, 8 do
+					w.advance(FRAME)
+					Verify.expect(plate.Position):toBe(open)
+				end
+				w.advance(0.3, 18)
+				Verify.expect(plate.Position):toBe(open)
+				w.stop()
+			end,
+		})
+
 		verifyHarness:case("collapses by an outside tap, Cancel and the trigger, and hands focus back", {
 			id = "native_presentation_motion::CollapsibleView in place::collapses by an outside tap, Cancel and the trigger, and hands focus back",
 			run = function()

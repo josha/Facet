@@ -28,4 +28,4 @@ Motion.help option values and behavior.
 
 | Control | Enter | Exit |
 |---|---|---|
-| CollapsibleView | The panel grows out of the trigger's rectangle to its open rectangle, 0.25 seconds (`reveal.enter`), Cubic Out (`easing.present`), and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel shrinks back in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
+| CollapsibleView | The panel fades in at its open rectangle, 0.25 seconds (`reveal.enter`), Cubic Out (`easing.present`), and the content fades in over the theme's `motion.revealFadeShare` of that time (half by default). The chevron turns 180 degrees with it. | The panel fades out in place in 0.2 seconds (`reveal.exit`), and the content fades out over the same share of that time. |
