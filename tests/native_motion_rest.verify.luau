@@ -706,6 +706,29 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("opens above a low trigger from its row height before the panel height is measured", {
+			id = "native_motion_rest::present at rest: menu::opens above a low trigger from its row height before the panel height is measured",
+			run = function()
+				local world = menu({ items = NESTED, presentation = "menu" })
+				world.find("Trigger").Activated:Fire()
+				local panel = world.find("MenuPanel", world.screen.Parent)
+				lay(world, panel, Vector2.new(220, 200))
+				local trigger = world.find("Trigger")
+				world.engine.environment.poke(
+					FixtureRoblox.assertInstance(trigger),
+					"AbsolutePosition",
+					Vector2.new(300, 520)
+				)
+				world.engine.environment.poke(panel, "AbsoluteSize", Vector2.new(220, 0))
+				for _ = 1, 40 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				Verify.expect(panel.AnchorPoint.Y):toBe(1)
+				Verify.expect(panel.Position.Y.Offset <= 520):toBe(true)
+				world.stop()
+			end,
+		})
+
 		verifyHarness:case("keeps the pinned point across fractional panel handoff", {
 			id = "native_motion_rest::present at rest: menu::keeps the pinned point across fractional panel handoff",
 			run = function()

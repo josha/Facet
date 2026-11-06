@@ -456,7 +456,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(button.Size.X.Offset):toBe(24)
 				world.engine.environment.poke(button, "AbsoluteSize", world.engine.types.Vector2.new(24, 44))
 				expect(button:FindFirstChild("TargetFloor")):toBe(nil)
-				expect(find(button, "HitTarget")):toBe(nil)
+				expect(find(button, "HitTop")):toBe(nil)
 			end
 			find(dots, "two").Activated:Fire()
 			expect(chosen:peek()):toBe("two")
