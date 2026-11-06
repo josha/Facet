@@ -10,7 +10,7 @@ export type Context<T> = {
 
 local function createContext<T>(default: T): Context<T>
 	local provided: { [Owner.Owner]: { value: T } } = {}
-	setmetatable(provided, { __mode = "k" })
+	setmetatable(provided, { __mode = "ks" })
 
 	local function read(): T
 		local owner = Active.nearest()

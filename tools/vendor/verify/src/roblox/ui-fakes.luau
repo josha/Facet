@@ -8,7 +8,7 @@ local Datatypes = require "./datatypes"
 
 type Instance = Environment.Instance
 local function weaken<V>(values: { [Instance]: V })
-	setmetatable(values, { __mode = "k" })
+	setmetatable(values, { __mode = "ks" })
 end
 
 export type Options = {
@@ -277,7 +277,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 			end
 		)
 	end
-	local invalidateStyle: () -> () = function() end
+	local invalidateStyle: (Instance?) -> () = function() end
 	local properties: Style.Properties = {}
 	local transitions: Style.Properties = {}
 	local derives: { [Instance]: { Instance } } = {}
@@ -294,9 +294,9 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 			return table.clone(store[object] or {})
 		end)
 		env.fake(prefix .. "." .. setter, function(object: Instance, values: { [string]: unknown })
-			invalidateStyle()
+			invalidateStyle(object)
 			store[object] = table.clone(values)
-			invalidateStyle()
+			invalidateStyle(object)
 		end)
 	end
 	mapMethods("StyleRule", properties, "GetProperties", "SetProperties")
@@ -310,11 +310,11 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		name: string,
 		value: unknown
 	)
-		invalidateStyle()
+		invalidateStyle(object)
 		local values = store[object] or {}
 		store[object] = values
 		values[name] = value
-		invalidateStyle()
+		invalidateStyle(object)
 	end
 	env.fake("StyleRule.SetProperty", function(object: Instance, name: string, value: unknown)
 		setValue(properties, object, name, value)
@@ -336,7 +336,9 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		for _, value in values do
 			assert(value:IsA "StyleSheet", "SetDerives requires StyleSheets")
 		end
+		invalidateStyle(object)
 		derives[object] = table.clone(values)
+		invalidateStyle(object)
 	end)
 	env.fake("VideoFrame.Play", function(object: Instance)
 		env.poke(object, "Playing", true)
@@ -347,7 +349,7 @@ local function attach(env: Environment.Environment, options: Options?, rule: Sel
 		env.fire(object, "Paused", env.propertyOf(object, "Video"))
 	end)
 	local points: { [Instance]: { unknown } } = {}
-	setmetatable(points, { __mode = "k" })
+	setmetatable(points, { __mode = "ks" })
 	env.fake("Path2D.SetControlPoints", function(object: Instance, values: { unknown })
 		points[object] = table.clone(values)
 		env.fire(object, "ControlPointChanged")

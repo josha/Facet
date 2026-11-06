@@ -195,8 +195,12 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		return connectNative(signalOf(node, event), handler)
 	end
 
-	local function attachEvent<Args...>(node: Node, event: string, handler: (Args...) -> ())
-		Engine.invoke(readAnyMember, signalOf(node, event), "Connect", handler)
+	local function attachEvent<Args...>(node: Node, event: string, handler: (Args...) -> ()): unknown
+		return (Engine.invoke(readAnyMember, signalOf(node, event), "Connect", handler))
+	end
+
+	local function detachEvent(connection: unknown)
+		Engine.invoke(readAnyMember, connection, "Disconnect")
 	end
 
 	local function classifyKey(node: Node, key: string): Compose.KeyKind
@@ -352,6 +356,7 @@ local function createHost(engine: Engine.Engine): Compose.Host
 		events = {
 			connectEvent = connectEvent,
 			attachEvent = attachEvent,
+			detachEvent = detachEvent,
 			classifyKey = classifyKey,
 		},
 		observation = {

@@ -1,8 +1,8 @@
 --!strict
 
-local WEAK_KEYS = table.freeze { __mode = "k" }
-local WEAK_VALUES = table.freeze { __mode = "v" }
-local WEAK_ENTRIES = table.freeze { __mode = "kv" }
+local WEAK_KEYS = table.freeze { __mode = "ks" }
+local WEAK_VALUES = table.freeze { __mode = "vs" }
+local WEAK_ENTRIES = table.freeze { __mode = "kvs" }
 
 local function keys(made: {})
 	setmetatable(made, WEAK_KEYS)
