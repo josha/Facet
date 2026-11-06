@@ -4,6 +4,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
 local standardIcons = require("./icons")
+local iconStrokes = require("./icon_strokes")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 local support = require("./theme_support")
@@ -1102,6 +1103,80 @@ return function(
 			}
 		end, icon)
 	end
+	local function strokePaths(icon: ImageLabel, strokes: { iconStrokes.Stroke }): { Path2D }
+		local box = runtime.observe(icon, "Size")
+		local ink = runtime.observe(icon, "ImageColor3", STYLED)
+		local fade = runtime.observe(icon, "ImageTransparency", STYLED)
+		local function thickness(use: ComposeTypes.Use): number
+			local size = use(box)
+			assert(typeof(size) == "UDim2")
+			return math.max(1, math.min(size.X.Offset, size.Y.Offset) / 12)
+		end
+		local function color(use: ComposeTypes.Use): Color3
+			local value = use(ink)
+			assert(typeof(value) == "Color3")
+			return value
+		end
+		local function shown(use: ComposeTypes.Use): boolean
+			local amount = use(fade)
+			assert(type(amount) == "number")
+			return amount < 1
+		end
+		local paths: { Path2D } = {}
+		for _, stroke in strokes do
+			local points: { Path2DControlPoint } = {}
+			for _, point in stroke.points do
+				table.insert(
+					points,
+					types.Path2DControlPoint.new(
+						types.UDim2.fromScale(point[1], point[2]),
+						types.UDim2.new(),
+						types.UDim2.new()
+					)
+				)
+			end
+			local path = ctx.styled(
+				Host.Path2D({
+					Name = "Stroke",
+					Closed = stroke.closed,
+					Thickness = thickness,
+					Color3 = color,
+					Visible = shown,
+				}),
+				"icon-stroke"
+			)
+			path:SetControlPoints(points)
+			table.insert(paths, path)
+		end
+		return paths
+	end
+	local function strokesFor(requested: Theme.ResolvedIcon?): { iconStrokes.Stroke }?
+		if type(requested) ~= "string" or not standardIcons.registered(requested) then
+			return nil
+		end
+		return iconStrokes[requested] or iconStrokes[string.match(requested, "^(.+)%.fill$") or requested]
+	end
+	local function armStrokes(icon: ImageLabel, unsupplied: (ComposeTypes.Use?) -> Theme.ResolvedIcon?)
+		local key = Compose.formula(function(use: ComposeTypes.Use): string
+			local requested = unsupplied(use)
+			return if type(requested) == "string" then requested else ""
+		end)
+		runtime.mountFragment(function()
+			return {
+				Compose.switch(key, {}, function()
+					local strokes = strokesFor(key:peek())
+					if strokes == nil then
+						return Compose.fragment(function()
+							return {}
+						end)
+					end
+					return Compose.fragment(function()
+						return strokePaths(icon, strokes)
+					end)
+				end),
+			}
+		end, icon)
+	end
 	function ctx.icon(
 		name: Shared.Input<Theme.ResolvedIcon?>,
 		properties: Shared.ImageLabelNativeProps?,
@@ -1132,10 +1207,27 @@ return function(
 		local owner = if changing then Compose.currentOwner() else nil
 		local icon: ImageLabel? = nil
 		local armed = false
+		local stroked = false
+		local function unsupplied(use: ComposeTypes.Use?): Theme.ResolvedIcon?
+			return if resolved(use) == nil then ctx.read<<Theme.ResolvedIcon?>>(name, use) else nil
+		end
 		local function image(use: ComposeTypes.Use?): string
 			local found = resolved(use)
 			if type(found) == "string" then
 				return found
+			end
+			if
+				found == nil
+				and not stroked
+				and icon
+				and owner
+				and strokesFor(ctx.read<<Theme.ResolvedIcon?>>(name, use))
+			then
+				stroked = true
+				local node = icon
+				Compose.withOwner(owner, function()
+					armStrokes(node, unsupplied)
+				end)
 			end
 			if found ~= nil and not armed and icon and owner then
 				armed = true
@@ -1180,6 +1272,16 @@ return function(
 		elseif changing and type(resolved()) == "table" then
 			armed = true
 			armGlyph(made, resolved)
+		elseif changing and resolved() == nil and strokesFor(ctx.read<<Theme.ResolvedIcon?>>(name)) then
+			stroked = true
+			armStrokes(made, unsupplied)
+		elseif not changing and initial == nil then
+			local strokes = strokesFor(ctx.read<<Theme.ResolvedIcon?>>(name))
+			if strokes then
+				runtime.mountFragment(function()
+					return strokePaths(made, strokes)
+				end, made)
+			end
 		end
 		return made
 	end

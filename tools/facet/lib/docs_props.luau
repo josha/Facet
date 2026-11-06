@@ -310,7 +310,7 @@ function Props.icons(root: string): string
 		"`NAME.fill` uses NAME when no filled art exists.",
 		"A theme package or the `icons` factory option can add a name or replace its art.",
 		"An unknown name causes an error, so take each name from this list or register it in your icons map.",
-		"Facet ships these names without image content. The theme package `icons` map supplies the art for each name. A listed name without art shows an empty image.",
+		"Facet ships these names without image content. The theme package `icons` map supplies the art for each name. A listed name without art shows an empty image. The names that controls use for their own parts (close, the chevrons, checkmark, more, menu, increment, decrement, search, the status marks, the selection marks, clock and calendar) draw as thin native Path2D strokes in the icon tint until the theme supplies art.",
 		"Each glyph is a near-white silhouette, and the theme supplies its color.",
 		"Use a name from this list before you draw a glyph with Path or Frames.",
 		"",

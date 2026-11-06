@@ -1,5 +1,13 @@
 # Current package
 
+When the theme supplies no art for a standard icon that a control uses for its
+own parts (close, the chevrons, checkmark, more, menu, increment, decrement,
+search, the status and selection marks, clock and calendar), the icon draws as
+native Path2D strokes in its styled tint. A Dialog close button, a disclosure
+chevron or a checkbox mark is no longer blank in a game that supplies no icon
+art. A Button caption next to an icon now uses the control type role, the same
+size as a text-only Button label.
+
 On touch, a Button with no text keeps its plate size. An icon, glyph, image or
 circle Button no longer grows to `targetSizes.minimum`. An invisible
 `HitTarget` around the plate meets that size instead. An empty `label` is the

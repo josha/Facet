@@ -5,9 +5,9 @@
         "instances": 4
     },
     "Picker-open": {
-        "instances": 32,
-        "connections": 64,
-        "holdings": 295
+        "instances": 36,
+        "connections": 70,
+        "holdings": 298
     },
     "Card-actions-reactive-theme": {
         "instances": 27,
@@ -35,9 +35,9 @@
         "holdings": 220
     },
     "Picker": {
-        "instances": 9,
-        "connections": 16,
-        "holdings": 66
+        "instances": 11,
+        "connections": 20,
+        "holdings": 73
     },
     "TextInput-reactive-theme": {
         "instances": 3,
@@ -81,8 +81,8 @@
     },
     "Picker-open-reactive-theme": {
         "instances": 40,
-        "connections": 67,
-        "holdings": 348
+        "connections": 72,
+        "holdings": 355
     },
     "TextInput": {
         "instances": 2,
@@ -190,9 +190,9 @@
         "holdings": 4
     },
     "Picker-reactive-theme": {
-        "instances": 11,
-        "connections": 17,
-        "holdings": 79
+        "instances": 12,
+        "connections": 20,
+        "holdings": 88
     },
     "Button-bounded-reactive-theme": {
         "instances": 4,
@@ -200,7 +200,7 @@
         "holdings": 31
     },
     "Sheet": {
-        "instances": 41,
+        "instances": 43,
         "connections": 48,
         "holdings": 239
     },

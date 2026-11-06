@@ -180,7 +180,9 @@ The report lists the covered entries and the missing entries.
 
 Facet ships the standard icon names without image content. Map each name that
 the game uses to image content or a font glyph in the theme package `icons`. A
-standard name without art shows an empty image. An unknown name causes an error.
+standard name without art shows an empty image. The names that controls use for
+their own parts, such as close, the chevrons, checkmark and search, draw as thin
+native Path2D strokes in the icon tint instead. An unknown name causes an error.
 
 Icons resolve through `themes.resolveIcon`. An icon entry is image content,
 the name of a declared asset or a font glyph. A font glyph is
