@@ -193,14 +193,66 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		verifyHarness:case("leaves a standard glyph blank until the theme supplies its art", {
-			id = "native_restored_controls::native restored controls: Label::leaves a standard glyph blank until the theme supplies its art",
+		verifyHarness:case("sizes an icon Button caption like a text-only Button label", {
+			id = "native_restored_controls::native restored controls: Label::sizes an icon Button caption like a text-only Button label",
+			run = function()
+				local root, _, stop = build(nil, function(UI, Host)
+					return Host.Frame {
+						UI.Button "Plain" { label = "Harvest all" },
+						UI.Button "Iconic" { label = "Harvest all", icon = "checkmark" },
+					}
+				end)
+				local title = root:FindFirstChild("Iconic"):FindFirstChild("Title", true)
+				Verify.expect(title:HasTag("facet-type-control")):toBe(true)
+				Verify.expect(title:HasTag("facet-type-body")):toBe(false)
+				stop()
+			end,
+		})
+
+		verifyHarness:case("draws a standard control glyph as strokes until the theme supplies its art", {
+			id = "native_restored_controls::native restored controls: Label::draws a standard control glyph as strokes until the theme supplies its art",
 			run = function()
 				local root, _, stop = build(nil, function(UI)
 					return UI.Label { title = "Saved", icon = "checkmark" }
 				end)
-				Verify.expect(root:FindFirstChild("Icon", true).Image):toBe("")
+				local function strokes(node: Instance): { Path2D }
+					local found: { Path2D } = {}
+					for _, child in node:GetChildren() do
+						if child:IsA("Path2D") and child.Name == "Stroke" then
+							table.insert(found, child)
+						end
+					end
+					return found
+				end
+				local icon = root:FindFirstChild("Icon", true)
+				Verify.expect(icon.Image):toBe("")
+				Verify.expect(#strokes(icon)):toBe(1)
+				Verify.expect(#strokes(icon)[1]:GetControlPoints()):toBe(3)
 				stop()
+				local StandardIcons = require("../examples/standard_icons")
+				local themed, _, stopThemed = build(
+					{ theme = StandardIcons.apply(Facet.themes.neutralPackage()) },
+					function(UI)
+						return UI.Label { title = "Saved", icon = "checkmark" }
+					end
+				)
+				local art = themed:FindFirstChild("Icon", true)
+				Verify.expect(art.Image):toBe(StandardIcons.CONTENT.checkmark)
+				Verify.expect(#strokes(art)):toBe(0)
+				stopThemed()
+				local name = Compose.cell("chevron.down")
+				local live, _, stopLive = build(nil, function(UI)
+					return UI.Button { label = "More", icon = name }
+				end)
+				local liveIcon = live:FindFirstChild("LeadingIcon", true)
+				local function tip(): number
+					return math.round(strokes(liveIcon)[1]:GetControlPoints()[2].Position.Y.Scale * 100)
+				end
+				Verify.expect(tip()):toBe(66)
+				name:set("chevron.up")
+				Verify.expect(tip()):toBe(34)
+				Verify.expect(#strokes(liveIcon)):toBe(1)
+				stopLive()
 				local unknown = refusal(function(UI)
 					return UI.Label { title = "Kart", icon = "kart" }
 				end)

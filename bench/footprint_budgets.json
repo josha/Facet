@@ -5,7 +5,7 @@
         "instances": 4
     },
     "Picker-open": {
-        "instances": 32,
+        "instances": 36,
         "connections": 64,
         "holdings": 295
     },
@@ -35,7 +35,7 @@
         "holdings": 220
     },
     "Picker": {
-        "instances": 9,
+        "instances": 11,
         "connections": 16,
         "holdings": 66
     },
@@ -190,7 +190,7 @@
         "holdings": 4
     },
     "Picker-reactive-theme": {
-        "instances": 11,
+        "instances": 12,
         "connections": 17,
         "holdings": 79
     },
@@ -200,7 +200,7 @@
         "holdings": 31
     },
     "Sheet": {
-        "instances": 41,
+        "instances": 43,
         "connections": 48,
         "holdings": 239
     },

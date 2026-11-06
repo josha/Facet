@@ -201,7 +201,7 @@ return function(
 					elseif stacked then sizing(E.AutomaticSize.Y, E.AutomaticSize.XY)
 					else E.AutomaticSize.XY,
 				TextWrapped = if stacked then sizing(true, false) else imageCard,
-			})
+			}, nil, if name == "Title" and not stacked and not imageCard then "control" else nil)
 			if name == "Title" then
 				sized(made, spec.textSize)
 				if bounded then
