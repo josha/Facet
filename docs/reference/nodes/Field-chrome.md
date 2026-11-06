@@ -24,7 +24,8 @@ Frame holds these children in order:
 validate. `required` adds ` *` to the label text, also for a readable label.
 `optional` adds no word. Put localized "optional" text in `hint`.
 
-`leading` and `trailing` are children, such as native Instances. `leading` is
+`leading` is a child, such as a native Instance. `trailing` is one GuiObject or
+a function that returns one, as with `NavBar.trailing`. `leading` is
 decoration and is not a focus stop. A search field refuses `leading`, because its search mark
 leads. The focusable parts of `trailing` come after the TextBox and the clear
 button.

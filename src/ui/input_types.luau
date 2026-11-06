@@ -145,7 +145,7 @@ export type TextInputOptions = {
 	clearButtonMode: ClearButtonMode?,
 	selectOnFocus: SelectOnFocusValue?,
 	leading: Shared.Child?,
-	trailing: Shared.Child?,
+	trailing: (GuiObject | (() -> GuiObject))?,
 	onCancel: (() -> ())?,
 	min: number?,
 	max: number?,

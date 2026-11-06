@@ -371,6 +371,8 @@ return function(verifyHarness: Verify.Harness)
 				CanCollide = false,
 				CastShadow = false,
 				Reflectance = 0.2,
+				MaterialVariant = "OakFloor",
+				Shape = "Ball",
 			},
 			PointLight = { Color = "#123456", Brightness = 3, Range = 24, Shadows = true, Enabled = false },
 			SurfaceLight = {
@@ -440,6 +442,8 @@ return function(verifyHarness: Verify.Harness)
 							local expected: unknown = if key == liveProperty then 0.4 else literal
 							if key == "Color" or key == "Color3" then
 								expected = ctx.types.Color3.fromHex("123456")
+							elseif key == "Shape" then
+								expected = ctx.types.Enum.PartType.Ball
 							elseif key == "Face" then
 								expected = if literal == "Top"
 									then ctx.types.Enum.NormalId.Top
@@ -647,6 +651,44 @@ return function(verifyHarness: Verify.Harness)
 						assert(typeof(built) == "Instance")
 						local trailing = assert(built:FindFirstChild("Trailing"))
 						Verify.expect(trailing:FindFirstChildWhichIsA("TextButton") ~= nil):toBe(true)
+						Verify.expect(calls):toBe(if form == "slot" then 1 else 0)
+						return built
+					end).dispose)
+				end
+			end,
+		})
+
+		verifyHarness:case("authors TextInput trailing as content and a caller slot", {
+			id = "facet_compose_library::authors TextInput trailing as content and a caller slot",
+			run = function(test: Verify.Context)
+				for _, form in { "child", "slot" } do
+					test:defer(mount(function(ctx: Context): unknown
+						local library = live(ctx)
+						local value = Design.document.new("Search", library, "TextInput")
+						if form == "child" then
+							value = Design.document.content(value, library, "n1", "trailing", "Button")
+						else
+							value = Design.document.setContract(value, library, {
+								inputs = { { id = "find", kind = "value", type = "slot", required = true } },
+								outputs = {},
+							})
+							value = Design.document.change(value, library, "n1", "trailing", { input = "find" })
+						end
+						local code = Design.emit(value, library)
+						Verify.expect(Design.emit(Design.parse(code, library), library)):toBe(code)
+						local calls = 0
+						local built = Design.render(value, library, {
+							bindings = {
+								find = {
+									slot = function(): unknown
+										calls += 1
+										return ctx.UI.Button "Find" { label = "Find" }
+									end,
+								},
+							},
+						})
+						assert(typeof(built) == "Instance")
+						Verify.expect(built:FindFirstChildWhichIsA("TextButton", true) ~= nil):toBe(true)
 						Verify.expect(calls):toBe(if form == "slot" then 1 else 0)
 						return built
 					end).dispose)
