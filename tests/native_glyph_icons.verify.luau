@@ -79,6 +79,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(glyph.TextScaled):toBe(false)
 				expect(glyph.AutoLocalize):toBe(false)
 				expect(glyph:HasTag("facet-icon-glyph")):toBe(true)
+				expect(icon:FindFirstChild("LayoutUnit", true)):toBe(nil)
 				local box = assert(scaled)
 				local scaledGlyph = glyphOf(box)
 				engine.environment.poke(

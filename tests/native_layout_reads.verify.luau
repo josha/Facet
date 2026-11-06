@@ -132,6 +132,41 @@ return function(harness: Verify.Harness)
 	end
 
 	describe("layout change signals", function()
+		it("a truncated caption that reports TextFits false while its bounds fit reflows once, not every frame", {
+			id = "native_layout_reads::a truncated caption that reports TextFits false while its bounds fit reflows once, not every frame",
+			run = function()
+				local world = live()
+				local V2 = world.engine.types.Vector2
+				local E = world.engine.types.Enum
+				local label: TextLabel
+				world.mount(function()
+					label = world.UI.Text "Title" {
+						text = "Alpha",
+						AutomaticSize = E.AutomaticSize.XY,
+						TextTruncate = E.TextTruncate.AtEnd,
+					} :: TextLabel
+					return label
+				end)
+				local target = VerifyRoblox.assertInstance(label)
+				local toggles = 0
+				local poke = world.engine.environment.poke
+				poke(target, "TextFits", false)
+				poke(target, "TextBounds", V2.new(32, 18))
+				poke(target, "AbsoluteSize", V2.new(34, 18))
+				label:GetPropertyChangedSignal("AutomaticSize"):Connect(function()
+					toggles += 1
+					if label.AutomaticSize == E.AutomaticSize.None then
+						poke(target, "AbsoluteSize", V2.new(0, 0))
+					else
+						poke(target, "AbsoluteSize", V2.new(34, 18))
+					end
+				end)
+				world.step(60)
+				expect(toggles <= 8):toBe(true)
+				world.stop()
+			end,
+		})
+
 		it("the guard records a layout read inside a layout change handler", {
 			id = "native_layout_reads::layout change signals::the guard records a layout read inside a layout change handler",
 			run = function()

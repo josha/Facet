@@ -274,6 +274,7 @@ local function attachMeasuredLayout(
 			end
 		end)
 	end
+	local staleAttempt: string? = nil
 	checkStale = function()
 		local glyph, mode = bounds:peek(), snapMode
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
@@ -291,6 +292,11 @@ local function attachMeasuredLayout(
 			and box.Y > 0
 			and (stale or (not measured and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))))
 		then
+			local attempt = `{box.X},{box.Y},{glyph.X},{glyph.Y},{mode.Value},{label.Text}`
+			if attempt == staleAttempt then
+				return
+			end
+			staleAttempt = attempt
 			if not measured and not textChanged and services.TextService ~= nil then
 				textChanged = true
 				refloor()
@@ -1039,7 +1045,7 @@ return function(
 		changing: boolean
 	): TextLabel
 		local box = runtime.observe(icon, "Size")
-		local measured = ctx.layoutSize(icon)
+		local measured = ctx.observe.AbsoluteSize(icon)
 		local ink = runtime.observe(icon, "ImageColor3", STYLED)
 		local fade = runtime.observe(icon, "ImageTransparency", STYLED)
 		local native: Shared.TextLabelProps = {
@@ -1073,13 +1079,14 @@ return function(
 				end
 				else glyphFace(glyph()),
 			TextSize = function(use: ComposeTypes.Use): number
-				local area = use(measured)
-				if area.X > 0 and area.Y > 0 then
-					return math.round(math.min(area.X, area.Y))
-				end
 				local size = use(box)
 				assert(typeof(size) == "UDim2")
-				return math.max(0, math.min(size.X.Offset, size.Y.Offset))
+				local authored = math.min(size.X.Offset, size.Y.Offset)
+				if authored > 0 then
+					return authored
+				end
+				local area = use(measured)
+				return math.max(0, math.round(math.min(area.X, area.Y)))
 			end,
 		}
 		return ctx.styled(Host.TextLabel(native), "icon-glyph")
