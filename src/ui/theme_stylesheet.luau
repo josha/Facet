@@ -122,48 +122,26 @@ local function easingStyle(name: string): (string, string)
 end
 
 type Sized = { rules: { NativeRule }, sizes: { [string]: number } }
-local sizedFor = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: Sized }
-local sizedProperties = (
-	setmetatable({}, { __mode = "k" }) :: unknown
-) :: { [ThemeTypes.RuleProperties]: ThemeTypes.RuleProperties }
 local function textSizeToken(size: number): string
 	return "FacetTextSize_" .. string.gsub(tostring(size), "%.", "_")
 end
 local function sized(rules: { NativeRule }): Sized
-	local cached = sizedFor[rules]
-	if cached then
-		return cached
-	end
-	local out: { NativeRule } = {}
 	local sizes: { [string]: number } = {}
-	for index, definition in rules do
+	for _, definition in rules do
 		local size = definition.properties.TextSize
 		if type(size) == "number" then
 			local token = textSizeToken(size)
 			sizes[token] = size
-			local properties = sizedProperties[definition.properties]
-			if properties == nil then
-				local made = table.clone(definition.properties)
-				made.TextSize = "$" .. token
-				sizedProperties[definition.properties] = made
-				properties = made
-			end
-			local rule = table.clone(definition)
-			rule.properties = assert(properties)
-			out[index] = rule
-		else
-			out[index] = definition
+			definition.properties.TextSize = "$" .. token
 		end
 	end
-	local result = { rules = out, sizes = sizes }
-	sizedFor[rules] = result
-	return result
+	return { rules = rules, sizes = sizes }
 end
 type ByTiming = { [string]: { [string]: string } }
 local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
 type Known = { [ThemeTypes.RuleProperties]: boolean }
 local comparisons = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: Known }
-local compiledFor: { [Engine.RobloxTypes]: { [ThemeTypes.ReadOnlyThemePackage]: { [string]: { NativeRule } } } } = setmetatable(
+local compiledFor: { [Engine.RobloxTypes]: { [ThemeTypes.ReadOnlyThemePackage]: { [string]: Sized } } } = setmetatable(
 	{},
 	{ __mode = "k" }
 )
@@ -460,13 +438,13 @@ return function(
 		table.clear(awaited)
 	end)
 	local definitions: { [string]: NativeRule } = {}
-	local function compiledRules(package: ThemeTypes.ReadOnlyThemePackage, palette: string?): { NativeRule }
+	local function compiledRules(package: ThemeTypes.ReadOnlyThemePackage, palette: string?): Sized
 		if not support.sealed(package) then
-			return rulesFor(package, palette, types)
+			return sized(rulesFor(package, palette, types))
 		end
 		local byPackage = compiledFor[types]
 		if byPackage == nil then
-			local fresh: { [ThemeTypes.ReadOnlyThemePackage]: { [string]: { NativeRule } } } = {}
+			local fresh: { [ThemeTypes.ReadOnlyThemePackage]: { [string]: Sized } } = {}
 			support.weakKeys(fresh)
 			byPackage = fresh
 			compiledFor[types] = byPackage
@@ -481,7 +459,8 @@ return function(
 		if cached then
 			return cached
 		end
-		local result = rulesFor(package, palette, types)
+		local compiled = sized(rulesFor(package, palette, types))
+		local result = compiled.rules
 		local interned = internedFor[types]
 		if interned == nil then
 			interned = {}
@@ -495,7 +474,7 @@ return function(
 				interned[definition.id] = definition.properties
 			end
 		end
-		byPalette[key] = result
+		byPalette[key] = compiled
 		indexById(result)
 		local previous = lastCompiled[types]
 		if previous ~= nil then
@@ -507,7 +486,7 @@ return function(
 			end
 		end
 		lastCompiled[types] = result
-		return result
+		return compiled
 	end
 	local scaled: { [NativeRule]: { preference: number, properties: ThemeTypes.RuleProperties } } = setmetatable(
 		{},
@@ -667,9 +646,8 @@ return function(
 		local base = authored or neutral
 		local package = if read(distant, use) == true then forDistance(base, "ten-foot") else base
 		local compiled = compiledRules(package, read<<string?>>(settings.theme, use))
-		local tokens: { [string]: Color3? } = compiled[1].tokens or {}
-		local textSized = sized(compiled)
-		local rules = textSized.rules
+		local rules = compiled.rules
+		local tokens: { [string]: Color3? } = rules[1].tokens or {}
 		local hovering = read(settings.hover, use)
 		if hovering == nil then
 			hovering = read(hover, use)
@@ -678,7 +656,7 @@ return function(
 			package = package,
 			rules = if hovering == false then withoutHover(rules) else rules,
 			tokens = tokens,
-			sizes = textSized.sizes,
+			sizes = compiled.sizes,
 		}
 	end)
 	Compose.watch(function(use: ComposeTypes.Use)
