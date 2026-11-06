@@ -1,0 +1,321 @@
+{
+  "commit": "ba0600ff62593bb8369c99c831012a709bccd351",
+  "date": "2026-11-06T010359Z",
+  "rows": [
+    {
+      "name": "adaptive-navigation-images",
+      "kind": "scene",
+      "p50": 1.1733059999983197,
+      "p95": 1.285486999989871,
+      "retainedKb": 3947.0
+    },
+    {
+      "name": "alert-present-dismiss",
+      "kind": "scene",
+      "p50": 2.1231750000083593,
+      "p95": 3.262328999994679,
+      "retainedKb": 9368.0
+    },
+    {
+      "name": "animation-interruption",
+      "kind": "scene",
+      "p50": 0.027028000005202557,
+      "p95": 0.03117500000371365,
+      "retainedKb": 391.0
+    },
+    {
+      "name": "async-image-burst",
+      "kind": "scene",
+      "p50": 0.02993500000059157,
+      "p95": 0.034701999993558275,
+      "retainedKb": 490.0
+    },
+    {
+      "name": "async-image-grid",
+      "kind": "scene",
+      "p50": 2.1194349999973383,
+      "p95": 3.400128999999197,
+      "retainedKb": 2730.0
+    },
+    {
+      "name": "collection-mutation",
+      "kind": "scene",
+      "p50": 0.2370259999793234,
+      "p95": 0.26631999999437994,
+      "retainedKb": 2980.0
+    },
+    {
+      "name": "control-motion",
+      "kind": "scene",
+      "p50": 0.1800900000148431,
+      "p95": 0.5573919999903865,
+      "retainedKb": 1755.0
+    },
+    {
+      "name": "dense-hud",
+      "kind": "scene",
+      "p50": 0.10865999999509768,
+      "p95": 0.11818400000151996,
+      "retainedKb": 747.0
+    },
+    {
+      "name": "dense-motion",
+      "kind": "scene",
+      "p50": 0.8166069999901993,
+      "p95": 1.3297529999931612,
+      "retainedKb": 1630.0
+    },
+    {
+      "name": "hud-binding-storm",
+      "kind": "scene",
+      "p50": 0.2075929999989512,
+      "p95": 0.22638800001573145,
+      "retainedKb": 470.0
+    },
+    {
+      "name": "lab-collection-churn",
+      "kind": "scene",
+      "p50": 0.32669200001578247,
+      "p95": 0.4956249999850115,
+      "retainedKb": 4916.0
+    },
+    {
+      "name": "lab-dense-scroll",
+      "kind": "scene",
+      "p50": 0.11441200001627294,
+      "p95": 0.16925500000297689,
+      "retainedKb": 5932.0
+    },
+    {
+      "name": "locale-textsize-change",
+      "kind": "scene",
+      "p50": 0.02988599999298458,
+      "p95": 0.03252199999792538,
+      "retainedKb": 533.0
+    },
+    {
+      "name": "native-scroll-drag",
+      "kind": "scene",
+      "p50": 0.03584699999947816,
+      "p95": 0.05827900000099362,
+      "retainedKb": 1906.0
+    },
+    {
+      "name": "navigation-customization",
+      "kind": "scene",
+      "p50": 0.03150599999912629,
+      "p95": 0.03583300001253065,
+      "retainedKb": 3789.0
+    },
+    {
+      "name": "picker-menu-open-close",
+      "kind": "scene",
+      "p50": 5.35016599999949,
+      "p95": 8.040491000002703,
+      "retainedKb": 15964.0
+    },
+    {
+      "name": "picker-segmented-textsize",
+      "kind": "scene",
+      "p50": 0.06626500001516433,
+      "p95": 0.07958999999857497,
+      "retainedKb": 914.0
+    },
+    {
+      "name": "radial-menu-open-close",
+      "kind": "scene",
+      "p50": 2.2270190000028833,
+      "p95": 2.966415000003053,
+      "retainedKb": 6661.0
+    },
+    {
+      "name": "screen-lifecycle-churn",
+      "kind": "scene",
+      "p50": 14.232813999996097,
+      "p95": 19.94683300000588,
+      "retainedKb": 27073.0
+    },
+    {
+      "name": "scroll-focus-traversal",
+      "kind": "scene",
+      "p50": 0.28428800000313004,
+      "p95": 0.44245100000495086,
+      "retainedKb": 1239.0
+    },
+    {
+      "name": "settings-churn",
+      "kind": "scene",
+      "p50": 3.6590179999791417,
+      "p95": 5.506288999995945,
+      "retainedKb": 9377.0
+    },
+    {
+      "name": "shadow-storm",
+      "kind": "scene",
+      "p50": 0.00046099999906346056,
+      "p95": 0.0005200000003924288,
+      "retainedKb": 1960.0
+    },
+    {
+      "name": "stylesheet-state-churn",
+      "kind": "scene",
+      "p50": 0.24532900000906466,
+      "p95": 0.2692819999978724,
+      "retainedKb": 2584.0
+    },
+    {
+      "name": "theme-swap-assets",
+      "kind": "scene",
+      "p50": 1.1376139999867974,
+      "p95": 1.4377079999974285,
+      "retainedKb": 7072.0
+    },
+    {
+      "name": "theme-swap-flat",
+      "kind": "scene",
+      "p50": 0.3117790000004561,
+      "p95": 0.35105699998894124,
+      "retainedKb": 4467.0
+    },
+    {
+      "name": "theme-swap-metrics",
+      "kind": "scene",
+      "p50": 1.0599120000023277,
+      "p95": 1.357309000013629,
+      "retainedKb": 6106.0
+    },
+    {
+      "name": "virtual-list-scroll",
+      "kind": "scene",
+      "p50": 0.1261610000113933,
+      "p95": 0.18504099998040147,
+      "retainedKb": 4272.0
+    },
+    {
+      "name": "billboard-nameplate-storm",
+      "kind": "microbenchmark",
+      "p50": 0.14355999999793312,
+      "p95": 0.15979799997012378
+    },
+    {
+      "name": "collection-mutation",
+      "kind": "microbenchmark",
+      "p50": 0.008465999997042672,
+      "p95": 0.011571000015919708
+    },
+    {
+      "name": "collection-selection-update",
+      "kind": "microbenchmark",
+      "p50": 0.001932000003534995,
+      "p95": 0.0022730000068804657
+    },
+    {
+      "name": "hud-binding-storm",
+      "kind": "microbenchmark",
+      "p50": 0.2649179999991702,
+      "p95": 0.27716599998939273
+    },
+    {
+      "name": "motion-declarative",
+      "kind": "microbenchmark",
+      "p50": 0.7789420000108294,
+      "p95": 1.0954039999830911
+    },
+    {
+      "name": "motion-explicit",
+      "kind": "microbenchmark",
+      "p50": 0.8324519999973745,
+      "p95": 1.1597600000072816
+    },
+    {
+      "name": "mount-ramp",
+      "kind": "microbenchmark",
+      "p50": 125.82340400001613,
+      "p95": 146.43086800001015
+    },
+    {
+      "name": "mount-ramp-inherited",
+      "kind": "microbenchmark",
+      "p50": 124.09609499999874,
+      "p95": 139.7242729999988
+    },
+    {
+      "name": "mounted-slice-update-storm",
+      "kind": "microbenchmark",
+      "p50": 0.21222099999818056,
+      "p95": 0.22825600001397106
+    },
+    {
+      "name": "outline-measured-update",
+      "kind": "microbenchmark",
+      "p50": 1.3171179999886817,
+      "p95": 1.680493999998589
+    },
+    {
+      "name": "reserved-slot-record-update",
+      "kind": "microbenchmark",
+      "p50": 0.4732640000071342,
+      "p95": 0.5021860000056222
+    },
+    {
+      "name": "settings-churn",
+      "kind": "microbenchmark",
+      "p50": 0.010846000009223644,
+      "p95": 0.012749000006806455
+    },
+    {
+      "name": "sparse-update-under-load",
+      "kind": "microbenchmark",
+      "p50": 0.002180999985057497,
+      "p95": 0.0023999999996249244
+    },
+    {
+      "name": "table-mutation",
+      "kind": "microbenchmark",
+      "p50": 0.286230000000387,
+      "p95": 0.33472200000517205
+    },
+    {
+      "name": "table-resize-drag",
+      "kind": "microbenchmark",
+      "p50": 0.9987049999864439,
+      "p95": 1.3871909999920717
+    },
+    {
+      "name": "table-sort-values",
+      "kind": "microbenchmark",
+      "p50": 0.7548639999868101,
+      "p95": 0.9709790000016483
+    },
+    {
+      "name": "table-source-refresh",
+      "kind": "microbenchmark",
+      "p50": 0.193070000022999,
+      "p95": 0.38725199999589677
+    },
+    {
+      "name": "textinput-typing-storm",
+      "kind": "microbenchmark",
+      "p50": 0.23255899999696794,
+      "p95": 0.3855680000128814
+    },
+    {
+      "name": "timer-readout-storm",
+      "kind": "microbenchmark",
+      "p50": 0.11782300001073054,
+      "p95": 0.547866000005115
+    },
+    {
+      "name": "zz-yardstick-cpu-after",
+      "kind": "microbenchmark",
+      "p50": 1.2392651249989228,
+      "p95": 1.2453392000001173
+    },
+    {
+      "name": "zz-yardstick-cpu-before",
+      "kind": "microbenchmark",
+      "p50": 1.1483930750003424,
+      "p95": 1.1592633750005632
+    }
+  ]
+}
