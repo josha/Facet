@@ -52,10 +52,10 @@ local function materialize(
 	})
 	local function keepSelection(move: () -> ())
 		local gui = ctx.config.guiService
-		local selected = if gui then gui.SelectedObject else nil
+		local selected = if gui then ctx.selection.get() else nil
 		move()
-		if gui and selected and gui.SelectedObject ~= selected and selected:IsDescendantOf(panel) then
-			gui.SelectedObject = selected
+		if gui and selected and ctx.selection.get() ~= selected and selected:IsDescendantOf(panel) then
+			ctx.selection.set(selected)
 		end
 	end
 	runtime.mountFragment(function()

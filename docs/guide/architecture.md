@@ -62,9 +62,13 @@ allocate image bounds and geometry subscriptions before it has image art.
 
 Use known container width when a control first creates responsive content.
 Keep that content while native bounds are zero during mounting. Native size
-observations correct the layout when bounds arrive. Small overlay measurement
-sets use `runtime.observe` directly, so placement does not wait for another
-frame. High-volume geometry observations can use Compose frame coalescing.
+observations correct the layout when bounds arrive. In a game, Facet reads
+geometry on the next frame through Compose frame observation. It does not read
+layout inside a layout change signal, because the engine fires these signals
+during its layout pass. `ctx.observe` frames the geometry properties, and
+`ctx.afterLayout` moves the work of a raw signal handler to the next frame.
+Overlay placement and responsive forms can change one frame after the bounds
+change.
 
 `UI.Composition` selects among the native forms supplied to `UI.Region`.
 Roblox measures the forms. Facet uses their bounds and declared ranks to
@@ -85,3 +89,19 @@ index or anchor algorithm.
 Facet keeps an algorithm only when the platform has no equivalent. Examples are
 radial choices, value validation and adaptive presentation. Native selection
 and input contexts apply these policies. There is no general Facet focus graph.
+
+## Host seams
+
+Facet reads and writes the native selection only through `ctx.selection` in
+`src/ui/host_selection.luau`. `get` returns `GuiService.SelectedCoreObject`
+when it holds an object, else `GuiService.SelectedObject`. `set` writes
+`SelectedCoreObject` for a target under `CoreGui`, and `SelectedObject` for
+other targets. `changed` and `observe` follow both properties. A script that
+cannot read or write `SelectedCoreObject` (a game script or a plugin) uses
+`SelectedObject` for all targets. The `selection-seam` check rejects a direct
+use of either property in `src`.
+
+`environment.safeInsets` is the one value for code that needs the safe area
+as numbers. Its sources are `GuiService:GetInsetArea`, and for a core script
+the bar sizes and the safe zone offsets. Layout uses the native
+`ScreenGui.ScreenInsets` instead.

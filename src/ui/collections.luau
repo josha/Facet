@@ -274,8 +274,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 				return overlayReorder(true)
 			end, root)
 		end
-		local size = ctx.observeNative.AbsoluteWindowSize(root)
-		local outer = ctx.observeNative.AbsoluteSize(root)
+		local size = ctx.observe.AbsoluteWindowSize(root)
+		local outer = ctx.observe.AbsoluteSize(root)
 		local measuredOuter, reservingBar = V2.zero, false
 		local position = observe.CanvasPosition(root)
 		local mountParent = observe.Parent(root)

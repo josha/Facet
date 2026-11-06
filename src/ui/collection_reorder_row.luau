@@ -34,7 +34,7 @@ return function<V, K>(
 	local begin, commit, movePointer = shared.begin, shared.commit, shared.movePointer
 	local axis, crossAxis = shared.axis, shared.crossAxis
 	local selectedObject: ComposeTypes.ReadOnlyValue<unknown>? = if ctx.config.guiService
-		then ctx.observe.SelectedObject(ctx.config.guiService)
+		then ctx.selection.observe()
 		else nil
 	local edgeSpring = ctx.motionSpring("snappy")
 	local left: ComposeTypes.ReadOnlyValue<number> = ctx.runtime.spring(function(use: ComposeTypes.Use): number
@@ -142,7 +142,7 @@ return function<V, K>(
 						gesture.selectedPickup = moving:peek() ~= nil
 							and gui ~= nil
 							and handleNode ~= nil
-							and rawequal(gui.SelectedObject, handleNode)
+							and rawequal(ctx.selection.get(), handleNode)
 					end
 				end,
 				DragContinue = function(position)

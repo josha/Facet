@@ -3,6 +3,7 @@ local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
+local standardIcons = require("./icons")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
 local NATIVE_KEYS = table.freeze({ "ref" })
@@ -724,7 +725,18 @@ local function attachLayout(
 					attachMeasuredLayout(ctx, label, stable, watchPadding, property ~= "Text", warm, text, face, size)
 				end)
 			end
-			changed = label.Changed:Connect(start)
+			local laidOut = ctx.afterLayout(function()
+				if changed then
+					start("AbsoluteSize")
+				end
+			end)
+			changed = label.Changed:Connect(function(property: string)
+				if property == "AbsoluteSize" or property == "TextBounds" then
+					laidOut()
+				else
+					start(property)
+				end
+			end)
 			styled = label.StyledPropertiesChanged:Connect(start)
 			Compose.cleanup(release)
 			start("AbsoluteSize")
@@ -1020,6 +1032,9 @@ return function(
 			local asset = if type(requested) == "string" and string.match(requested, "^rbx")
 				then requested
 				else themes.resolveIcon(package, requested, ctx.read<<Theme.SkinState?>>(state, use))
+			if asset == nil and standardIcons.registered(requested) then
+				return ""
+			end
 			assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
 			return asset
 		end

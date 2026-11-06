@@ -12,6 +12,9 @@
       "Facet": {
         "$path": "../../src"
       },
+      "FacetStandardIcons": {
+        "$path": "../standard_icons.luau"
+      },
       "FacetFarm": {
         "$className": "Folder",
         "model": {

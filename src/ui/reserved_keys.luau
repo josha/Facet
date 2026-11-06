@@ -65,8 +65,8 @@ local function dispatch(input: UserInputService, dispatcher: Dispatcher, event: 
 	local ordered = table.clone(dispatcher.handlers)
 	local selected: { [Handler]: boolean } = {}
 	for _, handler in ordered do
-		local gui = handler.gui
-		selected[handler] = holds(handler, if gui then gui.SelectedObject else nil)
+		local read = handler.selected
+		selected[handler] = holds(handler, if read then read() else nil)
 	end
 	table.sort(ordered, function(a: Handler, b: Handler): boolean
 		if a.priority ~= b.priority then

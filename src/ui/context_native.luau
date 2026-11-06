@@ -187,10 +187,10 @@ return function(
 					}
 					local gui = config.guiService
 					local function keepSelection(move: () -> ())
-						local held = if gui then gui.SelectedObject else nil
+						local held = if gui then ctx.selection.get() else nil
 						move()
-						if gui and held and gui.SelectedObject ~= held and held:IsDescendantOf(node) then
-							gui.SelectedObject = held
+						if gui and held and ctx.selection.get() ~= held and held:IsDescendantOf(node) then
+							ctx.selection.set(held)
 						end
 					end
 					group.Parent = node

@@ -65,6 +65,9 @@
       "Facet": {
         "$path": "../../src"
       },
+      "FacetStandardIcons": {
+        "$path": "../standard_icons.luau"
+      },
       "FacetThemes": {
         "$path": "../themes"
       },

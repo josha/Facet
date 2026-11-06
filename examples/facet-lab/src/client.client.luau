@@ -22,6 +22,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Facet: FacetModule = require(ReplicatedStorage:WaitForChild("Facet"))
 local showcase = require(ReplicatedStorage:WaitForChild("FacetShowcase"):WaitForChild("screen"))
+local StandardIcons = require(ReplicatedStorage:WaitForChild("FacetStandardIcons"))
 local lab_settings = require(script.Parent.lab_settings)
 local catalog = require(script.Parent.catalog)
 local browser = require(script.Parent.browser)
@@ -50,6 +51,9 @@ end
 local packages = showcase.themePackages(Facet.themes, modules, loadTheme)
 local neutral = Facet.themes.define(Facet.themes.neutralPackage())
 packages.Neutral = assert(neutral)
+for name, package in packages do
+	packages[name] = StandardIcons.apply(package)
+end
 
 local lab = (nil :: unknown) :: typeof(browser.mount(nil :: never))
 local owner = Compose.createRootOwner(function()

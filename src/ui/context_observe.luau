@@ -3,6 +3,7 @@ local dataModel = require("./ambient")
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local preferredInput = require("./preferred_input")
+local hostSelection = require("./host_selection")
 local STYLED: ComposeTypes.ObserveOptions = { styled = true }
 
 local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
@@ -11,6 +12,9 @@ local GEOMETRY: { [string]: ComposeTypes.ObserveOptions } = {
 	AbsoluteContentSize = { frame = true },
 	AbsoluteWindowSize = { frame = true, poll = true },
 	AbsoluteCanvasSize = { frame = true },
+	AbsoluteCellSize = { frame = true },
+	AbsoluteCellCount = { frame = true },
+	AbsoluteRotation = { frame = true },
 	TextBounds = { frame = true, poll = true },
 	TextFits = { frame = true },
 }
@@ -129,6 +133,7 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	end
 	local function observe(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
 		local selection = property == "SelectedObject"
+		local seam = selection and node == config.guiService
 		local preferred = property == "PreferredInput" and node == config.userInputService
 		if not selection and not preferred then
 			return previewed(property, runtime.observe(node, property, if framed then GEOMETRY[property] else nil))
@@ -146,7 +151,10 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 				local scope = Compose.createRootOwner(function()
 					local observation = assert(runtime.host.observation)
 					local source = if selection then nil else runtime.observe(node, property)
-					local initial = if source then source:peek() else observation.readProperty(node, property)
+					local function read(): unknown
+						return if seam then ctx.selection.get() else observation.readProperty(node, property)
+					end
+					local initial = if source then source:peek() else read()
 					local value = Compose.cell(initial)
 					local stopNudges: (() -> ())? = nil
 					local function clearNudges()
@@ -165,15 +173,15 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 							and keys.PreferredInput == Enum.PreferredInput.Touch
 							and current ~= nil
 						then
-							gui.SelectedObject = nil
+							ctx.selection.set(nil)
 							current = nil
 						elseif
 							preferred
 							and gui
 							and current == Enum.PreferredInput.Touch
-							and gui.SelectedObject ~= nil
+							and ctx.selection.get() ~= nil
 						then
-							gui.SelectedObject = nil
+							ctx.selection.set(nil)
 						end
 						if input and preferredInput.withheld(input, current, Enum.PreferredInput.KeyboardAndMouse) then
 							stopNudges = stopNudges
@@ -191,9 +199,14 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 						end
 					end
 					if selection then
-						Compose.cleanup(observation.observeProperty(node, property, function()
-							publish(observation.readProperty(node, property))
-						end))
+						local function refresh()
+							publish(read())
+						end
+						Compose.cleanup(
+							if seam
+								then ctx.selection.changed(refresh)
+								else observation.observeProperty(node, property, refresh)
+						)
 						publish(initial, false)
 					else
 						Compose.watch(function(use: ComposeTypes.Use)
@@ -230,8 +243,47 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 	end
 	ctx.selectionHooks = {}
 	ctx.observe = observers(observe)
-	ctx.observeNative = observers(function(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
-		return runtime.observe(node, property)
+	local queued: { [() -> ()]: boolean } = {}
+	local stopQueue: (() -> ())? = nil
+	local function flush()
+		local due = queued
+		queued = {}
+		local stop = stopQueue
+		stopQueue = nil
+		if stop then
+			stop()
+		end
+		for work in due do
+			work()
+		end
+	end
+	ctx.afterLayout = function(work: () -> ()): () -> ()
+		local frames = runtime.host.frames
+		if not framed or frames == nil then
+			return work
+		end
+		local live = true
+		local function run()
+			if live then
+				work()
+			end
+		end
+		Compose.cleanup(function()
+			live = false
+			queued[run] = nil
+		end)
+		return function()
+			if not live or queued[run] then
+				return
+			end
+			queued[run] = true
+			if stopQueue == nil then
+				stopQueue = frames.onFrame(flush)
+			end
+		end
+	end
+	ctx.selection = hostSelection(ctx, function(gui: GuiService): ComposeTypes.ReadOnlyValue<GuiObject?>
+		return ctx.observe.SelectedObject(gui)
 	end)
 	local function observeStyled(node: Instance, property: string): ComposeTypes.ReadOnlyValue<unknown>
 		return runtime.observe(node, property, STYLED)

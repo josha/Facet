@@ -42,7 +42,7 @@ return function(
 		end)
 		local target = cells[math.min(index, #cells)]
 		if target then
-			gui.SelectedObject = target
+			ctx.selection.set(target)
 		end
 	end
 

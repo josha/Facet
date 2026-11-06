@@ -104,7 +104,7 @@ return function(
 		local text: Types.Input<string> = if structured then structured.body else value :: Types.Input<string>
 		local gate = plate and plate.gate
 		local state = ctx.observe.GuiState(anchor)
-		local selection = if gui and gui.GetPropertyChangedSignal then ctx.observe.SelectedObject(gui) else nil
+		local selection = if gui and gui.GetPropertyChangedSignal then ctx.selection.observe() else nil
 		local preferred = if input and input.GetPropertyChangedSignal then ctx.observe.PreferredInput(input) else nil
 		local held = Compose.cell(false)
 		local touchOffset: ComposeTypes.Value<Vector2?> = Compose.cell<<Vector2?>>(nil)

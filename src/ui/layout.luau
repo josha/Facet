@@ -786,15 +786,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		)
 		if cellWidth then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			local function measure()
-				local measured, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
+			local cell = ctx.observe.AbsoluteCellSize(grid)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local measured, offset = use(cell), grid.CellSize.Y.Offset
 				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
 				cellWidth:set(measured.X / unit)
-			end
-			measure()
-			local resized = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
-			Compose.cleanup(function()
-				resized:Disconnect()
 			end)
 		end
 		if cells then
@@ -889,7 +885,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			activate(selected)
 		end)
 		local gui = ctx.config.guiService
-		activate(if gui then gui.SelectedObject else nil)
+		activate(if gui then ctx.selection.get() else nil)
 		return node
 	end)
 

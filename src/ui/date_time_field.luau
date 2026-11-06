@@ -321,13 +321,7 @@ return function(
 					close("outside")
 				end,
 			})
-			local content = Compose.cell(panel.AbsoluteSize)
-			local resized = panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-				content:set(panel.AbsoluteSize)
-			end)
-			Compose.cleanup(function()
-				resized:Disconnect()
-			end)
+			local content = ctx.observe.AbsoluteSize(panel)
 			local function sheet(use: Use): boolean
 				return use(route) == "sheet" and not atTenFoot
 			end

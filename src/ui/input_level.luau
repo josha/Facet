@@ -272,34 +272,20 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local parent = ctx.observe.Parent(root)
 		local unit = ctx.layoutUnit(root)
 		local holderSize = Compose.cell(0)
-		local observation = runtime.host.observation
-		local stopHolder: (() -> ())? = nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local holder = use(parent)
-			if stopHolder then
-				stopHolder()
-				stopHolder = nil
-			end
 			if
 				holder
 				and holder:IsA("GuiObject")
 				and holder.AutomaticSize ~= E.AutomaticSize.X
 				and holder.AutomaticSize ~= E.AutomaticSize.XY
-				and observation
 			then
-				local frame = holder
-				local function measure()
-					holderSize:set(frame.AbsoluteSize.X)
-				end
-				stopHolder = observation.observeProperty(frame, "AbsoluteSize", measure)
-				measure()
+				local size = ctx.observe.AbsoluteSize(holder)
+				Compose.watch(function(inner: ComposeTypes.Use)
+					holderSize:set(inner(size).X)
+				end)
 			else
 				holderSize:set(0)
-			end
-		end)
-		Compose.cleanup(function()
-			if stopHolder then
-				stopHolder()
 			end
 		end)
 		local own = ctx.observe.AbsoluteSize(root)

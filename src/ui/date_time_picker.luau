@@ -91,7 +91,7 @@ return function(ctx: Shared.Context, UI: Deps, surfaces: Nav.Surfaces): ()
 				focus = function()
 					local list = calendar.cells[1]
 					if gui and list and list[landing()] then
-						gui.SelectedObject = list[landing()]
+						ctx.selection.set(list[landing()])
 					end
 				end,
 				enabled = enabled,

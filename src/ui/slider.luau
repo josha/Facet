@@ -839,7 +839,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			assert(node:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
 		end
 		local gui = ctx.config.services.GuiService
-		local selection = if gui then ctx.observe.SelectedObject(gui) else nil
+		local selection = if gui then ctx.selection.observe() else nil
 		if selection then
 			local observed = selection
 			Compose.watch(function(use: ComposeTypes.Use)

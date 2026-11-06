@@ -397,7 +397,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							scroller:SetAttribute("FacetSelectionOwner", true)
 							local gui = surfaces.service("GuiService")
 							local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-								then ctx.observe.SelectedObject(gui)
+								then ctx.selection.observe()
 								else Compose.cell(nil :: GuiObject?)
 							local function step(direction: number)
 								local box = scroller.AbsoluteWindowSize.Y

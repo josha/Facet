@@ -120,7 +120,7 @@ return function(
 				return
 			end
 			local gui = ctx.config.guiService
-			local current = if gui then gui.SelectedObject else nil
+			local current = if gui then ctx.selection.get() else nil
 			if
 				gui
 				and plate
@@ -129,7 +129,7 @@ return function(
 				and spec.anchor.Selectable
 				and spec.anchor.Parent
 			then
-				gui.SelectedObject = spec.anchor
+				ctx.selection.set(spec.anchor)
 			end
 			retired:set(true)
 			spec.onRetire(reason)
@@ -488,7 +488,7 @@ return function(
 				plate = panel
 				if gui then
 					local anchor = spec.anchor
-					local selection = ctx.observe.SelectedObject(gui)
+					local selection = ctx.selection.observe()
 					local panelAt = ctx.observe.AbsolutePosition(panel)
 					local linked: ("Down" | "Up")? = nil
 					local linkedTarget: GuiObject? = nil
@@ -542,9 +542,9 @@ return function(
 					end)
 					Compose.cleanup(function()
 						unlink()
-						local current = gui.SelectedObject
+						local current = ctx.selection.get()
 						if current and current:IsDescendantOf(panel) then
-							gui.SelectedObject = if anchor.Selectable and anchor.Parent then anchor else nil
+							ctx.selection.set(if anchor.Selectable and anchor.Parent then anchor else nil)
 						end
 					end)
 					ctx.action(

@@ -260,7 +260,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end)
 		end
 		local gui = surfaces.service("GuiService")
-		local selected = if gui then ctx.observe.SelectedObject(gui) else Compose.cell<<GuiObject?>>(nil)
+		local selected = if gui then ctx.selection.observe() else Compose.cell<<GuiObject?>>(nil)
 		local bindings: { Types.ActionBinding } = {}
 		if allows("keyboard") then
 			table.insert(bindings, E.KeyCode.Menu)

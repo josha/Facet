@@ -39,14 +39,14 @@ local function painted(node: Instance): boolean
 	return true
 end
 
-local function listen(node: Instance, root: GuiObject, geometry: { RBXScriptConnection }, prepare: () -> ())
+local function listen(node: Instance, root: GuiObject, geometry: { RBXScriptConnection }, changed: () -> ())
 	if node:IsA("GuiObject") then
 		if node ~= root then
-			table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare))
+			table.insert(geometry, node:GetPropertyChangedSignal("AbsoluteSize"):Connect(changed))
 		end
-		table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(prepare))
+		table.insert(geometry, node:GetPropertyChangedSignal("Visible"):Connect(changed))
 		if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-			table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(prepare))
+			table.insert(geometry, node:GetPropertyChangedSignal("TextBounds"):Connect(changed))
 		end
 	end
 end

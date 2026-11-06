@@ -90,9 +90,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				gui
 				and pendingFocus
 				and pendingFocus.Parent
-				and (gui.SelectedObject == node or gui.SelectedObject == nil)
+				and (ctx.selection.get() == node or ctx.selection.get() == nil)
 			then
-				gui.SelectedObject = pendingFocus
+				ctx.selection.set(pendingFocus)
 			end
 			pendingFocus = nil
 		end
@@ -100,7 +100,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			if not enabled(spec) or not ctx.available(node) then
 				return
 			end
-			if gui and gui.SelectedObject == node then
+			if gui and ctx.selection.get() == node then
 				pendingFocus = candidate()
 			end
 			assert(spec.onRemove)()
@@ -217,7 +217,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				return false
 			end
 			local focused: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
-				then ctx.observe.SelectedObject(gui)
+				then ctx.selection.observe()
 				else Compose.cell(nil :: GuiObject?)
 			local wasFocused = false
 			Compose.watch(function(use: ComposeTypes.Use)
