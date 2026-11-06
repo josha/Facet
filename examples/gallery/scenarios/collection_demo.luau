@@ -260,7 +260,8 @@ return function(ctx: ExampleContext, options: Options)
 				image = function(use: Use): string
 					local theme = ctx.theme
 					local package = if theme then use(theme) else ctx.Facet.themes.neutralPackage()
-					return ctx.Facet.themes.resolveIcon(package, "flag") or ""
+					local icon = ctx.Facet.themes.resolveIcon(package, "flag")
+					return if type(icon) == "string" then icon else ""
 				end,
 				Visible = function(use: Use)
 					return use(flaggedRows)[tostring(use(key))] == true

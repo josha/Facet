@@ -37,9 +37,10 @@ For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
   do not apply. `covered` lists names; each `missing` entry has `name`, `message`
   and `fix`. `ok` means none are missing. This checks only the supplied needs,
   not color validity, contrast, layout, readable text or complete UI coverage.
-- `resolveIcon(package, name, state?)` resolves real image content. A name
-  that ends in `.fill`, such as `"star.fill"`, is the filled variant. The
-  package art for that name wins. Without it, the regular icon draws.
+- `resolveIcon(package, name, state?)` returns image content, a font glyph
+  table or `nil`. A name that ends in `.fill`, such as `"star.fill"`, is the
+  filled variant. The package art for that name wins. Without it, the regular
+  icon draws. `define` rejects an invalid glyph.
 - `createStyleSheet(runtime, packageOrReadable?, options?)` returns a native
   StyleSheet that Compose owns. See the list below.
 - `forDistance(package, distance)` is the ten-foot metric ladder. `"near"`

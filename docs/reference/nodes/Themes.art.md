@@ -20,6 +20,17 @@ An asset reference is a name or
 Rotation supports 0 or 180; RGB components are normalized from 0 to 1. A state
 map can supply `default`, `hover`, `pressed`, `selected` and `disabled` references.
 
+## Icons
+
+An `icons` entry is image content, an asset name, an asset record or a font
+glyph `{ font, codepoint, tintRole? }` (`font` is a `Font` or a font spec). A
+state map can mix image and glyph entries.
+
+A glyph icon is the `facet-icon` ImageLabel with an empty `Image` and a
+`Glyph` TextLabel (`facet-icon-glyph`). Its `TextSize` is the short side of the
+icon box; `TextScaled` is off. Its `TextColor3` and `TextTransparency` follow
+the styled `ImageColor3` and `ImageTransparency` of the icon.
+
 ## Recipes
 
 | `kind` | Use |

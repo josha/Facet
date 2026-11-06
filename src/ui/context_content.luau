@@ -6,7 +6,9 @@ local Theme = require("./theme_types")
 local standardIcons = require("./icons")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
+local support = require("./theme_support")
 local NATIVE_KEYS = table.freeze({ "ref" })
+local STYLED: ComposeTypes.ObserveOptions = { styled = true }
 
 type Geometry = { apply: () -> (), frame: number }
 
@@ -992,54 +994,161 @@ return function(
 				end
 			end
 	end
-	function ctx.iconVaries(name: Shared.Input<string>?): boolean
+	local function registry(use: ComposeTypes.Use?): Theme.IconRegistry
+		local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use) or {}
+		local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons, use)
+		if overrides then
+			package = { icons = overrides, assets = package.assets }
+		end
+		return package
+	end
+	function ctx.iconVaries(name: Shared.Input<Theme.ResolvedIcon?>?): boolean
 		if name == nil then
 			return false
 		end
 		if live(name) or live(config.theme) or live(config.icons) then
 			return true
 		end
-		local requested: string = ctx.read<<string>>(name)
-		if requested == "" or string.match(requested, "^rbx") then
+		local requested = ctx.read<<Theme.ResolvedIcon?>>(name)
+		if type(requested) ~= "string" or requested == "" or string.match(requested, "^rbx") then
 			return false
 		end
-		local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme) or {}
-		local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons)
-		if overrides then
-			package = { icons = overrides, assets = package.assets }
-		end
+		local package = registry()
 		local resting = themes.resolveIcon(package, requested, "default")
 		return themes.resolveIcon(package, requested, "hover") ~= resting
 			or themes.resolveIcon(package, requested, "pressed") ~= resting
 			or themes.resolveIcon(package, requested, "selected") ~= resting
 			or themes.resolveIcon(package, requested, "disabled") ~= resting
 	end
+	local function glyphText(glyph: Theme.IconGlyph): string
+		local point = glyph.codepoint
+		assert(
+			type(point) == "number" and point % 1 == 0 and point >= 0 and point <= 0x10FFFF,
+			`Facet icon glyph codepoint {tostring(point)} must be an integer from 0 to 0x10FFFF`
+		)
+		return utf8.char(point)
+	end
+	local function glyphFace(glyph: Theme.IconGlyph): Font
+		assert(glyph.font ~= nil, "Facet icon glyph requires a font")
+		return support.font(types, glyph.font)
+	end
+	local function glyphLabel(
+		icon: ImageLabel,
+		glyph: (ComposeTypes.Use?) -> Theme.IconGlyph,
+		changing: boolean
+	): TextLabel
+		local box = runtime.observe(icon, "Size")
+		local measured = ctx.layoutSize(icon)
+		local ink = runtime.observe(icon, "ImageColor3", STYLED)
+		local fade = runtime.observe(icon, "ImageTransparency", STYLED)
+		local native: Shared.TextLabelProps = {
+			Name = "Glyph",
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Size = types.UDim2.fromScale(1, 1),
+			AutoLocalize = false,
+			TextScaled = false,
+			TextWrapped = false,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			TextColor3 = function(use: ComposeTypes.Use): Color3
+				local color = use(ink)
+				assert(typeof(color) == "Color3")
+				return color
+			end,
+			TextTransparency = function(use: ComposeTypes.Use): number
+				local amount = use(fade)
+				assert(type(amount) == "number")
+				return amount
+			end,
+			Text = if changing
+				then function(use: ComposeTypes.Use): string
+					return glyphText(glyph(use))
+				end
+				else glyphText(glyph()),
+			FontFace = if changing
+				then function(use: ComposeTypes.Use): Font
+					return glyphFace(glyph(use))
+				end
+				else glyphFace(glyph()),
+			TextSize = function(use: ComposeTypes.Use): number
+				local area = use(measured)
+				if area.X > 0 and area.Y > 0 then
+					return math.round(math.min(area.X, area.Y))
+				end
+				local size = use(box)
+				assert(typeof(size) == "UDim2")
+				return math.max(0, math.min(size.X.Offset, size.Y.Offset))
+			end,
+		}
+		return ctx.styled(Host.TextLabel(native), "icon-glyph")
+	end
+	local function armGlyph(icon: ImageLabel, resolved: (ComposeTypes.Use?) -> Theme.ResolvedIcon?)
+		local last: Theme.IconGlyph? = nil
+		local function current(use: ComposeTypes.Use?): Theme.IconGlyph
+			local found = resolved(use)
+			if type(found) == "table" then
+				last = found
+			end
+			return assert(last)
+		end
+		runtime.mountFragment(function()
+			return {
+				Compose.show(function(use: ComposeTypes.Use): boolean
+					return type(resolved(use)) == "table"
+				end, function()
+					return glyphLabel(icon, current, true)
+				end),
+			}
+		end, icon)
+	end
 	function ctx.icon(
-		name: Shared.Input<string?>,
+		name: Shared.Input<Theme.ResolvedIcon?>,
 		properties: Shared.ImageLabelNativeProps?,
 		state: Shared.Input<Theme.SkinState>?
 	): ImageLabel
-		local function image(use: ComposeTypes.Use?): string
-			local requested = ctx.read<<string?>>(name, use)
+		local function resolve(use: ComposeTypes.Use?, skin: Theme.SkinState?): Theme.ResolvedIcon?
+			local requested = ctx.read<<Theme.ResolvedIcon?>>(name, use)
 			if requested == nil or requested == "" then
-				return ""
+				return nil
 			end
-			local package: Theme.IconRegistry = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use) or {}
-			local overrides = ctx.read<<{ [string]: Theme.IconEntry }?>>(config.icons, use)
-			if overrides then
-				package = { icons = overrides, assets = package.assets }
+			if type(requested) ~= "string" then
+				return requested
 			end
-			local asset = if type(requested) == "string" and string.match(requested, "^rbx")
-				then requested
-				else themes.resolveIcon(package, requested, ctx.read<<Theme.SkinState?>>(state, use))
-			if asset == nil and standardIcons.registered(requested) then
-				return ""
+			if string.match(requested, "^rbx") then
+				return requested
 			end
-			assert(type(asset) == "string", `Facet icon {tostring(requested)} requires an image asset`)
-			return asset
+			local icon = themes.resolveIcon(registry(use), requested, skin)
+			if icon == nil and standardIcons.registered(requested) then
+				return nil
+			end
+			assert(icon ~= nil, `Facet icon {requested} requires an image asset or a font glyph`)
+			return icon
 		end
+		local function resolved(use: ComposeTypes.Use?): Theme.ResolvedIcon?
+			return resolve(use, ctx.read<<Theme.SkinState?>>(state, use))
+		end
+		local changing = live(name) or live(config.theme) or live(config.icons) or live(state)
+		local owner = if changing then Compose.currentOwner() else nil
+		local icon: ImageLabel? = nil
+		local armed = false
+		local function image(use: ComposeTypes.Use?): string
+			local found = resolved(use)
+			if type(found) == "string" then
+				return found
+			end
+			if found ~= nil and not armed and icon and owner then
+				armed = true
+				local node = icon
+				Compose.withOwner(owner, function()
+					armGlyph(node, resolved)
+				end)
+			end
+			return ""
+		end
+		local initial = if changing then nil else resolved()
 		local native: Shared.ImageLabelProps = {
-			Image = if live(name) or live(config.theme) or live(config.icons) or live(state) then image else image(),
+			Image = if changing then image else (if type(initial) == "string" then initial else ""),
 			BackgroundTransparency = 1,
 		}
 		local function iconSize(use: ComposeTypes.Use?): UDim2
@@ -1059,6 +1168,19 @@ return function(
 		elseif resample() ~= Enum.ResamplerMode.Default then
 			native.ResampleMode = resample()
 		end
-		return ctx.styled(Host.ImageLabel(ctx.props(properties or {}, NATIVE_KEYS, native)), "Icon")
+		local made = ctx.styled(Host.ImageLabel(ctx.props(properties or {}, NATIVE_KEYS, native)), "Icon")
+		icon = made
+		if type(initial) == "table" then
+			local glyph = initial
+			runtime.mount(function()
+				return glyphLabel(made, function()
+					return glyph
+				end, false)
+			end, made)
+		elseif changing and type(resolved()) == "table" then
+			armed = true
+			armGlyph(made, resolved)
+		end
+		return made
 	end
 end

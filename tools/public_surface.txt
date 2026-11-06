@@ -422,6 +422,8 @@ type HelpRow
 type HelpSpec
 type HierarchyOptions
 type Host
+type IconEntry
+type IconGlyph
 type IdentityCollectionSpec
 type IdentityOutlineSpec
 type IdentityTableSpec

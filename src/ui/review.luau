@@ -129,6 +129,8 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				local x, y = vector(read(child, "AbsolutePosition"))
 				local w, h = vector(read(child, "AbsoluteSize"))
 				local visible = shown and read(child, "Visible") ~= false
+				local tagged, marked = call(child, "HasTag", "facet-icon-glyph")
+				local glyph = tagged and marked == true
 				local element: ReviewElement = {
 					index = #elements + 1,
 					parent = parent,
@@ -143,6 +145,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					fill = color(styled(child, "BackgroundColor3")),
 					fillTransparency = math.clamp(number(styled(child, "BackgroundTransparency"), 1), 0, 1),
 					image = isA(child, "ViewportFrame")
+						or (glyph and (text(read(child, "Text")) or "") ~= "" and number(
+							styled(child, "TextTransparency"),
+							0
+						) < 0.9)
 						or (
 							(isA(child, "ImageLabel") or isA(child, "ImageButton"))
 							and (text(read(child, "Image")) or "") ~= ""
@@ -153,7 +159,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				if hasUnfit and type(unfit) == "string" and unfit ~= "" then
 					element.unfit = unfit
 				end
-				if isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox") then
+				if not glyph and (isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox")) then
 					local face = styled(child, "FontFace")
 					local weight = number(read(read(face, "Weight"), "Value"), 400)
 					local size = number(styled(child, "TextSize"), 14)

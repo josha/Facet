@@ -747,6 +747,13 @@
       ]
     },
     {
+      "id": "native_glyph_icons",
+      "locator": "tests/native_glyph_icons.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "native_toast_action",
       "locator": "tests/native_toast_action.verify.luau",
       "requires": [
