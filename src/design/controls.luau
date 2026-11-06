@@ -1622,6 +1622,7 @@ local controls: { [string]: Types.ControlSpec } = {
 				order = 24,
 				options = { "xsmall", "compact", "regular", "large" },
 			},
+			trailing = { type = "content", label = "Trailing content", order = 27 },
 		}),
 	},
 	Toast = {

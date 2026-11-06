@@ -371,6 +371,8 @@ local function native3dKinds(): { [string]: Types.DerivedKind }
 	result.Part.fields.CFrame = { type = "datatype", datatype = "CFrame" }
 	result.Part.fields.Anchored = { type = "boolean" }
 	result.Part.fields.Reflectance = { type = "number" }
+	result.Part.fields.MaterialVariant = { type = "string" }
+	result.Part.fields.Shape = { type = "datatype", datatype = "Enum.PartType" }
 	result.Decal.fields.ZIndex = { type = "number" }
 	result.Texture.fields.ZIndex = { type = "number" }
 	return result

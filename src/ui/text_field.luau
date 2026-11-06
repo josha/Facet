@@ -812,8 +812,12 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				stepButton("Decrement", "decrement", -1, 50)
 				stepButton("Increment", "increment", 1, 51)
 			end
-			if spec.trailing then
-				slot("Trailing", 60, spec.trailing)
+			local trailing = if type(spec.trailing) == "function" then spec.trailing() else spec.trailing
+			if spec.trailing ~= nil and (typeof(trailing) ~= "Instance" or not trailing:IsA("GuiObject")) then
+				error("Facet UI.TextInput: trailing is one GuiObject or a factory that returns one", 0)
+			end
+			if trailing then
+				slot("Trailing", 60, trailing)
 			end
 			local plate = ctx.row(parts, {
 				Name = "Input",

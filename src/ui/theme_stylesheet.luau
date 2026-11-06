@@ -121,11 +121,44 @@ local function easingStyle(name: string): (string, string)
 	return EASING_STYLES[rest] or "Quad", direction
 end
 
-local textRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [NativeRule]: { [number]: NativeRule } }
+type Sized = { rules: { NativeRule }, sizes: { [string]: number } }
+local sizedFor = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: Sized }
 local sizedProperties = (
 	setmetatable({}, { __mode = "k" }) :: unknown
-) :: { [ThemeTypes.RuleProperties]: { [number]: ThemeTypes.RuleProperties } }
-local sizedRules = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [{ NativeRule }]: { number } }
+) :: { [ThemeTypes.RuleProperties]: ThemeTypes.RuleProperties }
+local function textSizeToken(size: number): string
+	return "FacetTextSize_" .. string.gsub(tostring(size), "%.", "_")
+end
+local function sized(rules: { NativeRule }): Sized
+	local cached = sizedFor[rules]
+	if cached then
+		return cached
+	end
+	local out: { NativeRule } = {}
+	local sizes: { [string]: number } = {}
+	for index, definition in rules do
+		local size = definition.properties.TextSize
+		if type(size) == "number" then
+			local token = textSizeToken(size)
+			sizes[token] = size
+			local properties = sizedProperties[definition.properties]
+			if properties == nil then
+				local made = table.clone(definition.properties)
+				made.TextSize = "$" .. token
+				sizedProperties[definition.properties] = made
+				properties = made
+			end
+			local rule = table.clone(definition)
+			rule.properties = assert(properties)
+			out[index] = rule
+		else
+			out[index] = definition
+		end
+	end
+	local result = { rules = out, sizes = sizes }
+	sizedFor[rules] = result
+	return result
+end
 type ByTiming = { [string]: { [string]: string } }
 local transitionTables = (setmetatable({}, { __mode = "k" }) :: unknown) :: { [ThemeTypes.RuleProperties]: ByTiming }
 type Known = { [ThemeTypes.RuleProperties]: boolean }
@@ -189,56 +222,6 @@ return function(
 	local function textRank(value: unknown): number
 		local name = if typeof(value) == "EnumItem" then value.Name else value
 		return ({ Medium = 0, Large = 1, Larger = 2, Largest = 3 } :: { [unknown]: number })[name] or 0
-	end
-	local function withTextSize(definition: NativeRule, offset: number): NativeRule
-		local size = definition.properties.TextSize
-		if offset == 0 or type(size) ~= "number" then
-			return definition
-		end
-		local byOffset = textRules[definition]
-		if byOffset == nil then
-			local fresh: { [number]: NativeRule } = {}
-			byOffset = fresh
-			textRules[definition] = fresh
-		end
-		local known = assert(byOffset)
-		local cached = known[offset]
-		if cached then
-			return cached
-		end
-		local base = definition.properties
-		local bySize = sizedProperties[base]
-		if bySize == nil then
-			local fresh: { [number]: ThemeTypes.RuleProperties } = {}
-			bySize = fresh
-			sizedProperties[base] = fresh
-		end
-		local resized = assert(bySize)
-		local properties = resized[offset]
-		if properties == nil then
-			local made = table.clone(base)
-			made.TextSize = math.max(1, size + offset)
-			resized[offset] = made
-			properties = made
-		end
-		local rule = table.clone(definition)
-		rule.properties = assert(properties)
-		known[offset] = rule
-		return rule
-	end
-	local function sizedIn(rules: { NativeRule }): { number }
-		local cached = sizedRules[rules]
-		if cached then
-			return cached
-		end
-		local indexes: { number } = {}
-		for index, definition in rules do
-			if type(definition.properties.TextSize) == "number" then
-				table.insert(indexes, index)
-			end
-		end
-		sizedRules[rules] = indexes
-		return indexes
 	end
 	local preferredTransparency = settings.preferredTransparency
 	if preferredTransparency == nil then
@@ -632,14 +615,12 @@ return function(
 	end
 	local written: { [string]: TweenInfo } = {}
 	local writtenTokens: { [string]: Color3? }? = nil
+	local writtenSizes: { [string]: number } = {}
 	local timingMemo: { [ThemeTypes.ReadOnlyThemePackage]: TimingMemo } = {}
 	support.weakKeys(timingMemo)
 	local sharedTimings = motionCache.packages
 	local applied: { NativeRule }? = nil
 	local appliedArrivals = 0
-	local appliedBase: { NativeRule }? = nil
-	local appliedOffset = 0
-	local appliedPreference = 1
 	local initialIds: { [string]: boolean }? = nil
 	local warmed: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
@@ -676,26 +657,30 @@ return function(
 			end,
 		}),
 	})
-	local compiledTheme = Compose.formula(
-		function(
-			use: ComposeTypes.Use
-		): { package: ThemeTypes.ReadOnlyThemePackage, rules: { NativeRule }, tokens: { [string]: Color3? } }
-			local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
-			local base = authored or neutral
-			local package = if read(distant, use) == true then forDistance(base, "ten-foot") else base
-			local rules = compiledRules(package, read<<string?>>(settings.theme, use))
-			local tokens: { [string]: Color3? } = rules[1].tokens or {}
-			local hovering = read(settings.hover, use)
-			if hovering == nil then
-				hovering = read(hover, use)
-			end
-			return {
-				package = package,
-				rules = if hovering == false then withoutHover(rules) else rules,
-				tokens = tokens,
-			}
+	local compiledTheme = Compose.formula(function(use: ComposeTypes.Use): {
+		package: ThemeTypes.ReadOnlyThemePackage,
+		rules: { NativeRule },
+		tokens: { [string]: Color3? },
+		sizes: { [string]: number },
+	}
+		local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
+		local base = authored or neutral
+		local package = if read(distant, use) == true then forDistance(base, "ten-foot") else base
+		local compiled = compiledRules(package, read<<string?>>(settings.theme, use))
+		local tokens: { [string]: Color3? } = compiled[1].tokens or {}
+		local textSized = sized(compiled)
+		local rules = textSized.rules
+		local hovering = read(settings.hover, use)
+		if hovering == nil then
+			hovering = read(hover, use)
 		end
-	)
+		return {
+			package = package,
+			rules = if hovering == false then withoutHover(rules) else rules,
+			tokens = tokens,
+			sizes = textSized.sizes,
+		}
+	end)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local authored = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use)
 		if authored and not warmed[authored] then
@@ -724,7 +709,7 @@ return function(
 			end
 		end
 		local compiled = use(compiledTheme)
-		local package, current, colorTokens = compiled.package, compiled.rules, compiled.tokens
+		local package, current, colorTokens, sizes = compiled.package, compiled.rules, compiled.tokens, compiled.sizes
 		local explicit = read<<(TweenInfo | false)?>>(settings.transition, use)
 		local snapped = snaps(use)
 		local cache = if support.sealed(package) then sharedTimings else timingMemo
@@ -766,33 +751,16 @@ return function(
 		local textOffset = if textChoice ~= nil
 			then (textRank(textChoice) - textRank(read(nativeTextSize, use))) * typography.preferredSizeStep
 			else 0
+		for token, size in sizes do
+			local value = math.max(1, size + textOffset)
+			if writtenSizes[token] ~= value then
+				writtenSizes[token] = value
+				sheet:SetAttribute(token, value)
+			end
+		end
 		local arrived = use(arrivals)
-		local plain = textOffset == 0 and preference >= 1
-		if
-			appliedBase == current
-			and arrived == appliedArrivals
-			and preference == appliedPreference
-			and textOffset ~= appliedOffset
-		then
-			local resized = table.clone(definitions)
-			for _, index in sizedIn(current) do
-				local definition = withTextSize(current[index], textOffset)
-				if preference < 1 then
-					definition = withPreference(definition, preference)
-				end
-				resized[definition.id] = definition
-				local record = mounted[definition.id]
-				if record and record.properties ~= definition.properties then
-					record.node:SetProperty("TextSize", definition.properties.TextSize)
-					record.properties = definition.properties
-				end
-			end
-			definitions = resized
-			appliedOffset = textOffset
-			applied = if plain then current else nil
-			if plain then
-				byIdOf[current] = definitions
-			end
+		local plain = preference >= 1
+		if plain and applied == current and arrived == appliedArrivals then
 			return
 		end
 		local changes = if plain
@@ -810,16 +778,13 @@ return function(
 			end
 			definitions = indexById(current)
 			applied = current
-			appliedBase, appliedOffset, appliedPreference = current, textOffset, preference
 			return
 		end
 		local previousIds = ids:peek()
 		local nextIds: { string } = {}
 		definitions = {}
 		for _, compiledDefinition in current do
-			local definition = if textOffset ~= 0
-				then withTextSize(compiledDefinition, textOffset)
-				else compiledDefinition
+			local definition = compiledDefinition
 			if preference < 1 then
 				definition = withPreference(definition, preference)
 			end
@@ -853,7 +818,6 @@ return function(
 		end
 		applied = if plain then current else nil
 		appliedArrivals = arrived
-		appliedBase, appliedOffset, appliedPreference = current, textOffset, preference
 		if plain then
 			byIdOf[current] = definitions
 		end
