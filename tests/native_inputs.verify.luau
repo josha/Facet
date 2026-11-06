@@ -903,6 +903,21 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("lets a labelled Stepper caption fill its row so steppers in a column align", {
+			id = "native_inputs::native input controls::lets a labelled Stepper caption fill its row so steppers in a column align",
+			run = function()
+				local node, stop = world(function(UI: FacetControls)
+					local props: InputProps.StepperCellProps =
+						{ label = "Blast door", value = Compose.cell(1), max = 3 }
+					return UI.Stepper(props)
+				end)
+				local label = node:FindFirstChild("Label", true)
+				expect(label.AutomaticSize.Name):toBe("Y")
+				expect(label:FindFirstChildWhichIsA("UIFlexItem").FlexMode.Name):toBe("Fill")
+				stop()
+			end,
+		})
+
 		it("steps from the minimum, respects live stepping and gates all activation", {
 			id = "native_inputs::native input controls::steps from the minimum, respects live stepping and gates all activation",
 			run = function()
