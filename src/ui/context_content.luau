@@ -274,6 +274,7 @@ local function attachMeasuredLayout(
 			end
 		end)
 	end
+	local staleAttempt: string? = nil
 	checkStale = function()
 		local glyph, mode = bounds:peek(), snapMode
 		local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
@@ -291,6 +292,11 @@ local function attachMeasuredLayout(
 			and box.Y > 0
 			and (stale or (not measured and ((freeX and glyph.X > box.X) or (freeY and glyph.Y > box.Y))))
 		then
+			local attempt = `{box.X},{box.Y},{glyph.X},{glyph.Y},{mode.Value},{label.Text}`
+			if attempt == staleAttempt then
+				return
+			end
+			staleAttempt = attempt
 			if not measured and not textChanged and services.TextService ~= nil then
 				textChanged = true
 				refloor()
