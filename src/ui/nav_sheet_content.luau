@@ -262,6 +262,33 @@ return function(
 			local entry: GuiObject? = nil
 			local command: GuiObject? = nil
 			local previousUp: GuiObject? = nil
+			local watching: { RBXScriptConnection } = {}
+			local relink: () -> () = function() end
+			local function watch(target: GuiObject?)
+				for _, connection in watching do
+					connection:Disconnect()
+				end
+				table.clear(watching)
+				if target == nil then
+					return
+				end
+				table.insert(
+					watching,
+					target.AncestryChanged:Connect(function()
+						relink()
+					end)
+				)
+				for _, property in { "Selectable", "Interactable" } do
+					table.insert(watching, target:GetPropertyChangedSignal(property):Connect(relink))
+				end
+				local at: Instance? = target
+				while at and at ~= body do
+					if at:IsA("GuiObject") then
+						table.insert(watching, at:GetPropertyChangedSignal("Visible"):Connect(relink))
+					end
+					at = at.Parent
+				end
+			end
 			local function linkContent(use: ComposeTypes.Use?)
 				local nextCommand = if gesture.showGrabber(use)
 					then grabber
@@ -287,6 +314,7 @@ return function(
 				end
 				entry = nextEntry
 				command = nextCommand
+				watch(entry)
 				if command then
 					local outgoing = (
 						command :: unknown
@@ -298,11 +326,15 @@ return function(
 					nextEntry.NextSelectionUp = command
 				end
 			end
+			relink = ctx.afterLayout(function()
+				linkContent(nil)
+			end)
 			Compose.watch(linkContent)
 			runtime.connect(body, "DescendantAdded", function()
 				linkContent(nil)
 			end)
 			Compose.cleanup(function()
+				watch(nil)
 				if command and entry and entry.NextSelectionUp == command then
 					local links = (entry :: unknown) :: { NextSelectionUp: GuiObject? }
 					links.NextSelectionUp = previousUp
