@@ -305,8 +305,12 @@ add("wrapped-text-resizes-and-keeps-explicit-sizing", {}, function(t)
 	t.check("the narrow paragraph grows vertically", paragraph.AbsoluteSize.Y > wideHeight)
 	t.check("the narrow paragraph fits", paragraph.TextFits)
 	t.check("explicit sizing remains exact", explicit.AbsoluteSize == Vector2.new(100, 40), explicit.AbsoluteSize)
-	t.check("unwrapped text hugs its content", unwrapped.AbsoluteSize.X < 100, unwrapped.AbsoluteSize)
-	t.check("native wrapping override keeps content sizing", not override.TextWrapped and override.AbsoluteSize.X < 100)
+	t.near("unwrapped text fills the bounded column", unwrapped.AbsoluteSize.X, 180, 1)
+	t.check("unwrapped text grows only in height", unwrapped.AutomaticSize == Enum.AutomaticSize.Y)
+	t.check(
+		"native wrapping override keeps one line in the column",
+		not override.TextWrapped and math.abs(override.AbsoluteSize.X - 180) <= 1
+	)
 end)
 
 add("styled-caption-does-not-hide-the-composition", {}, function(t)

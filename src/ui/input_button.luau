@@ -605,7 +605,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return D2.new(0.5, 0, 1, ctx.metric("space.xs", use))
 				end,
 			})
-			caption:AddTag("facet-type-caption")
+			ctx.textRole(caption, "caption")
 			caption:AddTag("facet-button-outside")
 			node.ClipsDescendants = false
 			caption.Parent = node
@@ -883,6 +883,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					TextSize = ctx.observeStyled.TextSize(node),
 					Visible = false,
 					TextWrapped = false,
+					AutomaticSize = E.AutomaticSize.XY,
 				})
 				return measure
 			end, node)

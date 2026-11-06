@@ -645,6 +645,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			nativeProps[#nativeProps + 1] = clear
 		end
 		node = ctx.styled(Host.TextBox(nativeProps), "text")
+		if nativeProps.TextSize == nil then
+			ctx.textRole(node, "body")
+		end
 		displayed = node.Text
 		if not framed then
 			ctx.styled(ctx.styled(node, "field"), "text-input")
@@ -715,7 +718,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 				if words ~= nil then
 					table.insert(
 						parts,
-						ctx.styled(ctx.text({ Name = name, LayoutOrder = order, Text = words }), "secondary")
+						ctx.styled(
+							ctx.text({
+								Name = name,
+								LayoutOrder = order,
+								Text = words,
+								AutomaticSize = E.AutomaticSize.XY,
+							}),
+							"secondary"
+						)
 					)
 				end
 			end

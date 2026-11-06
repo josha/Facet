@@ -730,6 +730,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					return `{model.format(current.lower)} – {model.format(current.upper)}`
 				end
 				else "",
+			AutomaticSize = E.AutomaticSize.XY,
 		})
 		if not spec.row and not vertical then
 			runtime.decorate(readout, {
@@ -784,6 +785,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						TextTruncate = E.TextTruncate.AtEnd,
 						Host.UIFlexItem { FlexMode = E.UIFlexMode.Shrink },
 						Host.UIPadding { PaddingRight = ctx.types.UDim.new(0, KNOB / 2 + 8) },
+						AutomaticSize = E.AutomaticSize.XY,
 					})
 				)
 			end

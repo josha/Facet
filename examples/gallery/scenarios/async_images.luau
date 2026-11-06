@@ -59,6 +59,7 @@ return {
 					UI.Text {
 						LayoutOrder = 2,
 						text = "Pictures keep their space while loading; unavailable pictures keep a placeholder.",
+						wrap = true,
 					},
 					UI.Text {
 						LayoutOrder = 3,
@@ -70,6 +71,7 @@ return {
 								use(states[3])
 							)
 						end,
+						wrap = true,
 					},
 					Host.Frame "Row" {
 						LayoutOrder = 4,

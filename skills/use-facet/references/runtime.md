@@ -63,6 +63,7 @@ the type at that boundary; do not cast the whole spec.
 | Intended relationship | Configuration |
 | --- | --- |
 | Bounded paragraph | Parent width; `UI.Text { wrap = true }` |
+| Title in a fixed-width cell | Omit `Size`; Text fills the cell and grows in height. Add `lines = 2` or `truncate = "end"` for long titles |
 | Full-width button | Parent VStack `align = "stretch"`, or `Size = UDim2.new(1, 0, 0, 0)` |
 | Full-width text input | Omit `Size`; TextInput fills its parent width and supplies its own height |
 | Equal peer buttons in a row | `UI.fill()` inside each Button; `HStack { width = "fill", wrap = true }` so a narrow row moves a button down instead of clipping its label |
@@ -73,7 +74,9 @@ the type at that boundary; do not cast the whole spec.
 | A page body | The task body in [game screens](game-screens.md) |
 
 Stacks hug by default. `width`, `height`, `gap`, `padding` and `maxWidth` are
-container options; Button, Text and TextInput take native `Size`. Bound the
+container options; Button, Text and TextInput take native `Size`. Text fills a
+parent with a defined width and hugs inside a hugging stack or a row;
+`AutomaticSize = Enum.AutomaticSize.XY` makes it hug everywhere. Bound the
 space before you use fill. Spacing steps are `xs`, `s`, `m`, `l` and `xl`. Do
 not repair overflow by shrinking all text.
 

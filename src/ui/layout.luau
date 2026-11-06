@@ -441,6 +441,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					node.ZIndex = index
 				end
 				if aligned then
+					node:SetAttribute("FacetPlaced", true)
 					placed[node] = ctx.observe.AbsoluteSize(node)
 					members:update(function(count: number): number
 						return count + 1

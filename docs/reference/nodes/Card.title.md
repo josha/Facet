@@ -26,6 +26,10 @@ of that area as a multiple of the body's, which the look reads. So a card's look
 pulses, hides after mouse input and follows a theme change like every other
 control's. A selected action keeps the look on itself.
 
+The title and the caption fill the width of the card and wrap. Each shows at
+most two lines and ends with an ellipsis when it needs more, so a long title in
+a narrow grid cell does not grow the card.
+
 `badges` shows item states, such as Owned or Rare, on the top corners of the
 art. See [Card.badges](Card.badges.md).
 

@@ -2976,6 +2976,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 								content = function()
 									return c.UI.Text {
 										text = "The badge is below the icon. The mark has its own label gap.",
+										wrap = true,
 									}
 								end,
 							},

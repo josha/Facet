@@ -6,12 +6,15 @@ Text.textRole option values and behavior.
 
 - `textRole` sets the type role tag, for example `facet-type-title`. The
   default is `body`. `textSize` can give the role instead, as a role name.
-  Both together cause an error.
-- `textSize` as a number sets `TextSize` in pixels. `"fit"` and
-  `{ fit = { cap, floor } }` fit the text to its box. See [Text-fit](Text-fit.md).
-- Native `TextSize` accepts a live numeric input and overrides the size from
-  `textRole` or numeric `textSize`. The role still supplies the other
-  typography properties. This follows the theme's native property precedence.
+  Both together cause an error. The role is the only theme source of the text
+  size: the base `facet-text` rule sets the colour and the font, not the size.
+- `textSize` as a number sets `TextSize` in pixels. Without `textRole` the
+  text has no type role tag, so no theme rule replaces the size. `"fit"` and `{ fit = { cap, floor } }` fit the
+  text to its box. See [Text-fit](Text-fit.md).
+- Native `TextSize` accepts a live numeric input. With `textRole`, a pixel
+  size (native or numeric `textSize`) keeps the role's other typography and
+  wins only while it is not 14, the engine default. Omit `textRole` for an
+  exact pixel size.
 - `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
   removes it. `role` can be bound.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can

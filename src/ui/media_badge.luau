@@ -89,6 +89,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			}
 		)
 		local node = ctx.styled(Host.TextLabel(native), "text")
+		ctx.textRole(node, "caption")
 		if spec.icon == nil then
 			Host.UIPadding {}.Parent = node
 		end
@@ -217,10 +218,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						Text = ctx.observe.Text(node),
 						TextColor3 = ctx.observeStyled.TextColor3(node),
 						FontFace = ctx.observeStyled.FontFace(node),
-						TextSize = ctx.observeStyled.TextSize(node),
 						TextXAlignment = ctx.observeStyled.TextXAlignment(node),
 						TextYAlignment = ctx.observeStyled.TextYAlignment(node),
-					}),
+					}, nil, "caption"),
 					"badge-caption"
 				)
 				local boundary = decoration(Compose, runtime, types, node, label, { inset = true })
@@ -370,6 +370,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			native[#native + 1] = Host.UIListLayout { HorizontalAlignment = E.HorizontalAlignment.Center }
 		end
 		local node = ctx.styled(Host.TextLabel(native), "text")
+		ctx.textRole(node, "body")
 		ctx.styled(node, "badge")
 		statusTag(node, spec.status)
 		Compose.watch(function(use: ComposeTypes.Use)

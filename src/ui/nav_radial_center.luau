@@ -334,7 +334,7 @@ return function<V>(
 		ZIndex = 106,
 		ctx.padding(8, 6),
 	})
-	preview:AddTag("facet-type-caption")
+	ctx.textRole(preview, "caption")
 	surfaces.attach(preview, {
 		Host.UISizeConstraint {
 			MaxSize = function(use: ComposeTypes.Use): Vector2

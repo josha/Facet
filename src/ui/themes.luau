@@ -308,7 +308,6 @@ local function rulesFor(
 	rule(".facet-text", {
 		TextColor3 = c("content"),
 		FontFace = f(package.metrics.typography.body.font),
-		TextSize = package.metrics.typography.body.size,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	})
@@ -321,6 +320,12 @@ local function rulesFor(
 			TextColor3 = if role == "caption" then c("contentSecondary") else nil,
 		})
 	end
+	rule(
+		".facet-badge.facet-type-caption, .facet-badge > .facet-type-caption, .facet-shortcut-hint >> .facet-type-caption",
+		{
+			TextColor3 = c("content"),
+		}
+	)
 	rule(".facet-validation", { TextColor3 = c("danger"), TextSize = package.metrics.typography.caption.size })
 	rule(".facet-secondary", { TextColor3 = c("contentSecondary") })
 	rule("TextBox.facet-text", { PlaceholderColor3 = c("contentSecondary") })

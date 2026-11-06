@@ -15,6 +15,7 @@ local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActiva
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
 local BADGE_KEYS: { [string]: boolean } = { label = true, status = true, icon = true, name = true }
 local CORNER_KEYS: { [string]: boolean } = { leading = true, trailing = true }
+local CARD_TEXT_LINES = 2
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
@@ -434,9 +435,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			TextWrapped = true,
+			TextTruncate = E.TextTruncate.AtEnd,
 			inset(false),
-		})
-		titleLabel:AddTag("facet-type-label")
+		}, nil, "label")
+		ctx.clampLines(titleLabel, CARD_TEXT_LINES)
 		local captionLabel: TextLabel?
 		if spec.caption ~= nil or badges ~= nil then
 			local label = ctx.text({
@@ -451,9 +453,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				Size = D2.fromScale(1, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				TextWrapped = true,
+				TextTruncate = E.TextTruncate.AtEnd,
 				inset(true),
-			})
-			label:AddTag("facet-type-caption")
+			}, nil, "caption")
+			ctx.clampLines(label, CARD_TEXT_LINES)
 			label:AddTag("facet-secondary")
 			captionLabel = label
 		end

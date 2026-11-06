@@ -377,16 +377,13 @@ return function(
 			local dayIndex = (options.weekStart - 1 + c) % 7 + 1
 			table.insert(
 				names,
-				ctx.styled(
-					ctx.text({
-						Name = `W{c + 1}`,
-						Text = options.weekdays[dayIndex],
-						Size = D2.fromOffset(CELL, 20),
-						AutomaticSize = E.AutomaticSize.None,
-						TextXAlignment = E.TextXAlignment.Center,
-					}),
-					"type-caption"
-				)
+				ctx.text({
+					Name = `W{c + 1}`,
+					Text = options.weekdays[dayIndex],
+					Size = D2.fromOffset(CELL, 20),
+					AutomaticSize = E.AutomaticSize.None,
+					TextXAlignment = E.TextXAlignment.Center,
+				}, nil, "caption")
 			)
 		end
 		local weekdayRow = ctx.row(names, { Name = "Weekdays" })
@@ -407,19 +404,17 @@ return function(
 			Size = D2.fromOffset(7 * CELL, 6 * CELL),
 			table.unpack(days),
 		}
-		local title = ctx.styled(
-			ctx.text({
-				Name = "Title",
-				Text = function(use: Use)
-					local m = paneMonth(k, use)
-					return `{months[m.month]} {m.year}`
-				end,
-				Visible = function(use: Use)
-					return use(state.dual)
-				end,
-			}),
-			"type-label"
-		)
+		local title = ctx.text({
+			Name = "Title",
+			Text = function(use: Use)
+				local m = paneMonth(k, use)
+				return `{months[m.month]} {m.year}`
+			end,
+			Visible = function(use: Use)
+				return use(state.dual)
+			end,
+			AutomaticSize = E.AutomaticSize.XY,
+		}, nil, "label")
 		local parts: { Shared.Child } = { title, weekdayRow, grid }
 		return ctx.column(parts, { Name = `Pane{k}` })
 	end

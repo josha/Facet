@@ -63,7 +63,7 @@ return function(ctx: Shared.Context, button: TextButton, cooldown: Inputs.Cooldo
 				end,
 				ZIndex = button.ZIndex + 2,
 			})
-			label:AddTag("facet-type-caption")
+			ctx.textRole(label, "caption")
 			label:AddTag("facet-charges")
 			table.insert(children, label)
 		end

@@ -188,6 +188,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				end,
 				AnchorPoint = V2.new(0.5, 0.5),
 				Position = D2.fromScale(0.5, 0.5),
+				AutomaticSize = E.AutomaticSize.XY,
 			})
 			local numberUnit = ctx.layoutUnit(numberLabel)
 			local numberBounds = ctx.layoutBounds(numberLabel, numberUnit)
@@ -245,6 +246,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					return if step then step.label else ""
 				end,
 				TextTruncate = E.TextTruncate.AtEnd,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
 			local state = ctx.text({
 				Name = "State",
@@ -253,8 +255,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					local step = stepById(id, use)
 					return if step then STATES[stateOf(step, ctx.readSource(model, use).current)] else ""
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
-			state:AddTag("facet-type-caption")
+			ctx.textRole(state, "caption")
 			state:AddTag("facet-secondary")
 			local description = ctx.text({
 				Name = "Description",
@@ -267,8 +270,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					local step = stepById(id, use)
 					return step ~= nil and step.description ~= nil
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
-			description:AddTag("facet-type-caption")
+			ctx.textRole(description, "caption")
 			description:AddTag("facet-secondary")
 			local copy = ctx.column({ label, state, description }, { Name = "Copy", LayoutOrder = 2 })
 			local measure = ctx.text({
@@ -278,6 +282,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					local step = stepById(id, use)
 					return if step then step.label else ""
 				end,
+				AutomaticSize = E.AutomaticSize.XY,
 			})
 			local next = table.clone(measures:peek())
 			next[id] = {
@@ -505,7 +510,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end
 		end)
 		local compact = ctx.row({
-			ctx.text({ Name = "Summary", Text = summary, TextTruncate = E.TextTruncate.AtEnd }),
+			ctx.text({
+				Name = "Summary",
+				Text = summary,
+				TextTruncate = E.TextTruncate.AtEnd,
+				AutomaticSize = E.AutomaticSize.XY,
+			}),
 			Compose.show(function(use: ComposeTypes.Use): boolean
 				return #use(model).steps > 0
 			end, function()

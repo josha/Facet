@@ -10,8 +10,8 @@
         "holdings": 295
     },
     "Card-actions-reactive-theme": {
-        "instances": 26,
-        "connections": 25,
+        "instances": 27,
+        "connections": 27,
         "holdings": 146
     },
     "Button-focused": {
@@ -50,8 +50,8 @@
         "instances": 4
     },
     "Card-reactive-theme": {
-        "instances": 10,
-        "connections": 7,
+        "instances": 11,
+        "connections": 8,
         "holdings": 61
     },
     "VirtualList-1-rows": {
@@ -90,8 +90,8 @@
         "holdings": 17
     },
     "Card": {
-        "instances": 10,
-        "connections": 7,
+        "instances": 11,
+        "connections": 8,
         "holdings": 61
     },
     "ColorPicker-reactive-theme": {
@@ -120,8 +120,8 @@
         "holdings": 22
     },
     "Card-actions": {
-        "instances": 24,
-        "connections": 25,
+        "instances": 26,
+        "connections": 27,
         "holdings": 135
     },
     "Menu-2-rows-reactive-theme": {

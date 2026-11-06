@@ -135,6 +135,7 @@ return function(
 						return state.valueText(use)
 					end,
 					TextTruncate = E.TextTruncate.AtEnd,
+					AutomaticSize = E.AutomaticSize.XY,
 				}),
 				"secondary"
 			)

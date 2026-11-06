@@ -107,8 +107,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 	): ScrollingFrame
 		assert(
 			spec.contentOverflow == nil
-				or table.find({ "visible", "clip" }, read<<"visible" | "clip">>(assert(spec.contentOverflow))),
-			"Facet collection contentOverflow must be visible or clip"
+				or table.find(
+					{ "visible", "clip", "grow" },
+					read<<"visible" | "clip" | "grow">>(assert(spec.contentOverflow))
+				),
+			"Facet collection contentOverflow must be visible, clip or grow"
 		)
 		assert(
 			spec.snap == nil or spec.snap == "none" or spec.snap == "item",
