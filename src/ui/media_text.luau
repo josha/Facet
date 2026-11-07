@@ -12,6 +12,7 @@ local textReveal = require("./text_reveal")
 local ControlTypes = require("./control_types")
 local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
+local textChanges = require("./text_changes")
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
 	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
@@ -243,11 +244,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
 			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
 			local appliedSize, appliedMode = label.Size, label.AutomaticSize
-			local connection: RBXScriptConnection? = nil
+			local connection: (() -> ())? = nil
 			local function hug()
 				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
 					if connection then
-						connection:Disconnect()
+						connection()
 						connection = nil
 					end
 					return
@@ -278,10 +279,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						else E.TextXAlignment.Left
 				end
 			end
-			connection = label.AncestryChanged:Connect(hug)
+			connection = textChanges(ctx, label, function(property: string)
+				if property == "Parent" then
+					hug()
+				end
+			end)
 			Compose.cleanup(function()
 				if connection then
-					connection:Disconnect()
+					connection()
 					connection = nil
 				end
 			end)

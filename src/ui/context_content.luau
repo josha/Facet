@@ -7,6 +7,7 @@ local standardIcons = require("./icons")
 local iconStrokes = require("./icon_strokes")
 local layoutKit = require("./layout_kit")
 local textMeasure = require("./text_measure")
+local textChanges = require("./text_changes")
 local support = require("./theme_support")
 local NATIVE_KEYS = table.freeze({ "ref" })
 local STYLED: ComposeTypes.ObserveOptions = { styled = true }
@@ -223,7 +224,7 @@ local function attachMeasuredLayout(
 		invalidate(true)
 	end
 	local styled = label.StyledPropertiesChanged:Connect(styleChanged)
-	local changed = label.Changed:Connect(function(property: string)
+	local changed = textChanges(ctx, label, function(property: string)
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
 		elseif property == "AbsoluteSize" or property == "TextBounds" then
@@ -366,12 +367,13 @@ local function attachMeasuredLayout(
 			local ticket = serial
 			finish()
 			release = textMeasure.hold(label)
-			local request = prepare(text, style.rich, font, points, wide)
+			local request, recycle = prepare(text, style.rich, font, points, wide)
 			local service = assert(services.TextService)
 			local function measure()
 				local ok, measured = pcall(function()
 					return service:GetTextBoundsAsync(request)
 				end)
+				recycle()
 				if ok and active and alive and ticket == serial and measured.Y > 0 then
 					local lineCount = math.max(1, math.round(measured.Y / points))
 					local inset = label:FindFirstChildWhichIsA("UIPadding")
@@ -588,10 +590,15 @@ local function attachMeasuredLayout(
 			local next = "none"
 			if not overridden and alive then
 				local measuring = services.TextService ~= nil
-				if measuring and isWrapped() then
+				local mode = snapMode
+				local freeX = mode == Enum.AutomaticSize.X or mode == Enum.AutomaticSize.XY
+				local freeY = mode == Enum.AutomaticSize.Y or mode == Enum.AutomaticSize.XY
+				local retained = floor ~= nil and mode == Enum.AutomaticSize.None
+				if measuring and isWrapped() and (freeY or retained) then
 					next = "wrapped"
 				elseif
 					(textChanged or not measuring)
+					and (freeX or (freeY and snapSize.X.Scale == 0) or retained)
 					and not isWrapped()
 					and textStyle().truncate == Enum.TextTruncate.None
 				then
@@ -647,7 +654,7 @@ local function attachMeasuredLayout(
 	Compose.cleanup(function()
 		alive = false
 		styled:Disconnect()
-		changed:Disconnect()
+		changed()
 
 		if pending then
 			pending:Disconnect()
@@ -664,6 +671,96 @@ local function attachLayout(
 	lazy: boolean?,
 	warm: boolean?
 )
+	local function needsMeasurement(): boolean
+		local mode, size = label.AutomaticSize, label.Size
+		if mode == ctx.types.Enum.AutomaticSize.None then
+			return false
+		end
+		return mode ~= ctx.types.Enum.AutomaticSize.Y or size.X.Scale == 0 or label:GetStyled("TextWrapped") == true
+	end
+	if not needsMeasurement() then
+		local E = ctx.types.Enum
+		local face: Font = label:GetStyled("FontFace")
+		local points: number = label:GetStyled("TextSize")
+		local pending: RBXScriptConnection? = nil
+		local refreshing, alive = false, true
+		local function clearPending()
+			if pending then
+				pending:Disconnect()
+				pending = nil
+			end
+		end
+		local function reflow(metrics: boolean?)
+			local mode = label.AutomaticSize
+			if not alive or refreshing or mode == E.AutomaticSize.None then
+				return
+			end
+			refreshing = true
+			local resetFace = metrics == true and label.FontFace ~= face
+			local resetSize = metrics == true and label.TextSize ~= points
+			if resetFace then
+				label.FontFace = face
+			end
+			if resetSize then
+				label.TextSize = points
+			end
+			label.AutomaticSize = E.AutomaticSize.None
+			label.AutomaticSize = mode
+			if resetFace then
+				label:ResetPropertyToDefault("FontFace")
+			end
+			if resetSize then
+				label:ResetPropertyToDefault("TextSize")
+			end
+			refreshing = false
+		end
+		local function refreshMetrics()
+			local nextFace: Font = label:GetStyled("FontFace")
+			local nextSize: number = label:GetStyled("TextSize")
+			local moved = face ~= nextFace or points ~= nextSize
+			face, points = nextFace, nextSize
+			if not moved or label.AutomaticSize == E.AutomaticSize.None then
+				return
+			end
+			reflow()
+			local frames = ctx.config.services.RunService
+			if pending == nil and frames then
+				local function apply()
+					clearPending()
+					reflow(true)
+				end
+				pending = if frames.PreRender then frames.PreRender:Connect(apply) else frames.Heartbeat:Connect(apply)
+			end
+		end
+		local attach = ctx.Compose.bindOwner(function()
+			attachLayout(ctx, label, stable, watchPadding, lazy, warm)
+		end)
+		local stop: (() -> ())? = nil
+		stop = textChanges(ctx, label, function(property: string)
+			if refreshing then
+				return
+			end
+			if property == "FontFace" or property == "TextSize" then
+				refreshMetrics()
+			end
+			if
+				(property == "AutomaticSize" or property == "Size" or property == "TextWrapped")
+				and needsMeasurement()
+			then
+				clearPending()
+				local detach = stop
+				stop = nil
+				if detach then
+					detach()
+				end
+				attach()
+			end
+		end, function()
+			alive = false
+			clearPending()
+		end)
+		return
+	end
 	if lazy and not warm and ctx.config.services.TextService and label:GetStyled("TextWrapped") ~= true then
 		local face: Font = label:GetStyled("FontFace")
 		local size: number = label:GetStyled("TextSize")
@@ -671,11 +768,11 @@ local function attachLayout(
 			local Compose, E = ctx.Compose, ctx.types.Enum
 			local owner = assert(Compose.currentOwner())
 			local text = label.Text
-			local changed: RBXScriptConnection?, styled: RBXScriptConnection?
+			local changed: (() -> ())?, styled: RBXScriptConnection?
 			local checking = false
 			local function release()
 				if changed then
-					changed:Disconnect()
+					changed()
 					changed = nil
 				end
 				if styled then
@@ -739,7 +836,7 @@ local function attachLayout(
 					start("AbsoluteSize")
 				end
 			end)
-			changed = label.Changed:Connect(function(property: string)
+			changed = textChanges(ctx, label, function(property: string)
 				if property == "AbsoluteSize" or property == "TextBounds" then
 					laidOut()
 				else
@@ -899,24 +996,7 @@ return function(
 			ctx.textRole(label, role)
 		end
 
-		if label.AutomaticSize == Enum.AutomaticSize.None then
-			local attach = Compose.bindOwner(function()
-				attachLayout(ctx, label, stable, nil, true, bound)
-			end)
-			local stop: ComposeTypes.Dispose?
-			stop = Compose.cleanup(assert(runtime.host.observation).observeProperty(label, "AutomaticSize", function()
-				if label.AutomaticSize ~= Enum.AutomaticSize.None then
-					local detach = stop
-					stop = nil
-					if detach then
-						detach()
-					end
-					attach()
-				end
-			end))
-		else
-			attachLayout(ctx, label, stable, nil, true, bound)
-		end
+		attachLayout(ctx, label, stable, nil, true, bound)
 
 		return label
 	end

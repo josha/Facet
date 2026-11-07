@@ -43,43 +43,71 @@ local recent: { [string]: { [string]: Vector2 } } = {}
 local older: { [string]: { [string]: Vector2 } } = {}
 local recentCount = 0
 
-local function prepare(ctx: Types.Context): (string, boolean, Font, number, number) -> GetTextBoundsParams
-	local params: GetTextBoundsParams? = nil
-	local text: string?, rich: boolean?, font: Font?, points: number?, wide: number? = nil, nil, nil, nil, nil
-	return ctx.Compose.bindOwner(
-		function(words: string, markup: boolean, face: Font, size: number, width: number): GetTextBoundsParams
-			local request: GetTextBoundsParams
-			if params then
-				request = params
-				if text ~= words then
-					request.Text = words
-				end
-				if rich ~= markup then
-					request.RichText = markup
-				end
-				if font ~= face then
-					request.Font = face
-				end
-				if points ~= size then
-					request.Size = size
-				end
-				if wide ~= width then
-					request.Width = width
-				end
-			else
-				request = ctx.Host.GetTextBoundsParams {
+type Requests = { [string]: GetTextBoundsParams }
+type RequestPool = { available: Requests, owner: ComposeTypes.Owner, alive: boolean }
+local requests: { [ComposeTypes.Owner]: ComposeTypes.AcquireSharedResource<RequestPool> } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
+
+local function prepare(ctx: Types.Context): (string, boolean, Font, number, number) -> (GetTextBoundsParams, () -> ())
+	local acquire = requests[ctx.lifetime]
+	if acquire == nil then
+		acquire = ctx.Compose.createSharedResource(function(): (RequestPool, (() -> ())?)
+			local pool: RequestPool = { available = {}, owner = assert(ctx.Compose.currentOwner()), alive = true }
+			ctx.Compose.cleanup(function()
+				pool.alive = false
+				requests[ctx.lifetime] = nil
+			end)
+			return pool, nil
+		end)
+		requests[ctx.lifetime] = acquire
+	end
+	local pool = assert(acquire)()
+	local available = pool.available
+	return function(
+		words: string,
+		markup: boolean,
+		face: Font,
+		size: number,
+		width: number
+	): (GetTextBoundsParams, () -> ())
+		local shape = `{face.Family}|{face.Weight.Name}|{face.Style.Name}|{size}|{markup}`
+		local request = available[shape]
+		available[shape] = nil
+		if request == nil then
+			request = ctx.Compose.withOwner(pool.owner, function(): GetTextBoundsParams
+				return ctx.Host.GetTextBoundsParams {
 					Text = words,
 					RichText = if markup then true else nil,
 					Font = face,
 					Size = size,
 					Width = if width ~= 0 then width else nil,
 				}
-				params = request
+			end)
+		else
+			if request.Text ~= words then
+				request.Text = words
 			end
-			text, rich, font, points, wide = words, markup, face, size, width
-			return request
+			if request.Width ~= width then
+				request.Width = width
+			end
 		end
-	)
+		local held = request
+		local released = false
+		return held,
+			function()
+				if released then
+					return
+				end
+				released = true
+				if available[shape] == nil and pool.alive then
+					available[shape] = held
+				else
+					held:Destroy()
+				end
+			end
+	end
 end
 
 local function remember(geometry: string, words: string, value: Vector2)
@@ -127,15 +155,20 @@ local function inline(
 	local measurement = ""
 	local thread: thread? = nil
 	local release: (() -> ())? = nil
+	local releaseRequest: (() -> ())? = nil
 	local function cancel()
 		if release then
 			release()
 			release = nil
 		end
 		if thread and coroutine.status(thread) == "suspended" and task then
-			pcall(task.cancel, thread)
+			local cancelled = pcall(task.cancel, thread)
+			if cancelled and releaseRequest then
+				releaseRequest()
+			end
 		end
 		thread = nil
+		releaseRequest = nil
 	end
 	Compose.cleanup(function()
 		alive = false
@@ -184,15 +217,18 @@ local function inline(
 		end
 		local completed = hold(label)
 		release = completed
-		local request = prepare(words, style.rich, style.face, style.size, 0)
+		local request, recycle = prepare(words, style.rich, style.face, style.size, 0)
+		releaseRequest = recycle
 		local shape = measurement
 		local settled = false
 		local function measure()
 			local ok, value = pcall(service.GetTextBoundsAsync, service, request)
+			recycle()
 			if ok then
 				remember(shape, words, value)
 			end
 			if alive and ticket == serial then
+				releaseRequest = nil
 				if ok then
 					publish(words, value)
 				end
