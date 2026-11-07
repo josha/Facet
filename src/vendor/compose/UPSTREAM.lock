@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "18d67c231b2a1fb696d615fd094f03269be1f624",
+  "commit": "9b7c21792d974bc02a6733f5235072584440fc1b",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -38,7 +38,7 @@
     "core/ownership/charges.luau": "bb071a86b6e47a3a72e9a1fc60083e370cbbb92d8f6a2172d7332f1099334a51",
     "core/ownership/frame.luau": "b6171981159693750e0519c9aa20d2ab93040cbdae158721ffca26c9950bd71f",
     "core/ownership/inspect.luau": "b257089b304950cee03fce086f07d780ba8e256062ffc2bea9f346d25099d630",
-    "core/ownership/nodes.luau": "918e7104bd2856aeb2600f5c921610357c81eb3001464a70a9d7e6751970748e",
+    "core/ownership/nodes.luau": "bf4ab13ba18abbf2cc4ff72b12ba1451edd5d405377b98f41edac66955497b9c",
     "core/ownership/owner.luau": "3c326b6f954290b7307b98f971623a1904c7ecee9c25cb263665a436f3df891d",
     "core/ownership/report.luau": "817e6a181cd5dfc6e01948adddd45c0fc9de6dc782dbed3d3d834f235c22ae1b",
     "core/ownership/root-scope.luau": "550e65a629edadf67ef2f0081cdb43e7f08bd4e8c5f93e8634a15aa79c90b21b",
@@ -58,10 +58,10 @@
     "core/runtime/children.luau": "55b83e30758e80bbddc0b8b51f254447594aea1ae2fe99a46a975f21215de7f9",
     "core/runtime/clock.luau": "cb4e49ed1d3b781a049a5bcc8d814e8af2fc791d84453e6a9219103644d45610",
     "core/runtime/extensions.luau": "2a07ace5ef791b93a478fd1fbcad5d1f2f54358ab04dfabedc50a5ed0df16d82",
-    "core/runtime/init.luau": "28071a93bf9e7428a11b22d996df67f26641c0b06bcb7c4177463c5cfec995f4",
+    "core/runtime/init.luau": "418e11f3d3fd0dfc64483efb61de2fbabec2c27617798ea8326b6d02cdd93803",
     "core/runtime/observe.luau": "f46d0390cff8b4ddfdb0de450c5ad8f31ce89e39d0796a8847973f4a733aa869",
     "core/runtime/props-state.luau": "26a25a504a1e75baa4e8ef2f52e9d0aab4f99db5f2b6f1c00b1814bb0da34eca",
-    "core/runtime/props.luau": "50defc86d88c71ee332bdf5ebf3ec8023c4447d7fe9adb9119747d1eae856426",
+    "core/runtime/props.luau": "2c16a3265eca5320ccef499690c74108b09c91e458dfc62c697dcea71596aed1",
     "core/runtime/sequence.luau": "6259e63f6fb8eb934cc80606215793ce24e3502cb0946d6d7506e31e570710b6",
     "core/runtime/settled.luau": "fe387f0efd7ee9c218af265f51adbf7e12b9149ef1ec7a6b3eeec22b5d93599e",
     "core/scheduler.luau": "1818d0407c03d2cae835f5ad4f097a8fcf0d16a4a9b41379f501394a8e62772f",
@@ -132,7 +132,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "1ecfb590df9d8588ee4773c7c61635ae357ad2828470ad5071fedb970d79640d",
+    "SKILL.md": "75d07028a0bd319c0d5db7666ff7fa0f8318531002c00aaaf52f0d6dbae0c904",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }

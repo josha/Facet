@@ -125,6 +125,12 @@ local function remember(node: Node, connection: unknown)
 	end
 	local single = attached[node]
 	if single == nil then
+		if Nodes.rememberEvent(node, connection) then
+			return
+		end
+		single = Nodes.takeEvent(node)
+	end
+	if single == nil then
 		attached[node] = connection
 		return
 	end
@@ -134,6 +140,9 @@ end
 
 local function detach(host: Host.Host, node: Node)
 	local single, many = attached[node], attachedMany[node]
+	if single == nil then
+		single = Nodes.takeEvent(node)
+	end
 	if single == nil and many == nil then
 		return
 	end
@@ -270,9 +279,7 @@ local function mappedListener(write: (Node, string, unknown) -> (), liveRead: ((
 	return listener
 end
 
-local function forget(node: Node)
-	attached[node] = nil
-	attachedMany[node] = nil
+local function forgetFast(node: Node)
 	if fastEdges[node] ~= nil then
 		fastEdges[node] = nil
 		fastCount -= 1
@@ -288,6 +295,12 @@ local function forget(node: Node)
 	end
 end
 
+local function forget(node: Node)
+	attached[node] = nil
+	attachedMany[node] = nil
+	forgetFast(node)
+end
+
 local function retireFast(node: Node, key: string)
 	local edge = fastEdges[node]
 	local previous: Types.Node? = nil
@@ -296,7 +309,7 @@ local function retireFast(node: Node, key: string)
 		if edge.fastKey == key then
 			if previous == nil then
 				if following == nil then
-					forget(node)
+					forgetFast(node)
 				else
 					fastEdges[node] = following
 				end
@@ -419,7 +432,7 @@ local function apply(host: Host.Host, node: Node, source: unknown, owner: Owner.
 							}
 						)
 					end
-					subscribe(host, node, owner, markerName, value)
+					subscribe(host, node, owner, markerName, value, fresh)
 				elseif type(value) == "function" or cellModule.isValue(value) then
 					local loaded = bindingsModule or require "./bindings"
 					bindingsModule = loaded
