@@ -254,9 +254,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					then (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) * scale
 						+ (pad.PaddingLeft.Scale + pad.PaddingRight.Scale) * width
 					else 0
-				local spills = if list.Wraps
-					then kit.intrinsic(frame, true, scale) * scale > width + 0.5
-					else used + sides > width + 0.5
+				local spills = (list.Wraps or used + sides > width + 0.5)
+					and kit.intrinsic(frame, true, scale) * scale > width + 0.5
 				if list.Wraps ~= spills then
 					list.Wraps = spills
 				end
