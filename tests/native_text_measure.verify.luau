@@ -10,6 +10,83 @@ local ComposeTypes = require("../src/vendor/compose/core")
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 return function(harness: Verify.Harness)
+	harness:case("fixed and width-filled text use one change listener without measurement resources", function(t)
+		local engine, bridge = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service: TextService = engine.new("TextService")
+		local calls = 0
+		engine.environment.fake("TextService.GetTextBoundsAsync", function(_self: unknown, params: GetTextBoundsParams)
+			calls += 1
+			return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+		end)
+		local UI = Facet.controls(runtime, { types = engine.types, services = { TextService = service } })
+		local text = Facet.Compose.cell("Ready")
+		local labels: { GuiObject } = {}
+		local requests = 0
+		local observer = bridge.observe(function(event: VerifyRoblox.EnvironmentEvent)
+			if event.operation == "create" and event.object.ClassName == "GetTextBoundsParams" then
+				requests += 1
+			end
+		end)
+		t:defer(function()
+			observer:Disconnect()
+		end)
+		local stop = runtime.mount(function()
+			local Host = runtime.constructors
+			labels = {
+				UI.Text { text = text, AutomaticSize = engine.types.Enum.AutomaticSize.None },
+				UI.Text { text = text },
+			}
+			return Host.Frame { Size = engine.types.UDim2.fromOffset(320, 100), table.unpack(labels) }
+		end, engine.new("ScreenGui"))
+		t:defer(function()
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
+		for _, words in { "Ready", "A longer localized caption", "9" } do
+			text:set(words)
+			for _, label in labels do
+				assert(label:IsA("TextLabel"))
+				t:expect(label.Text):toBe(words)
+				t:expect(bridge.environment.connectionsOfInstance(VerifyRoblox.assertInstance(label))):toBe(1)
+				t:expect(label:FindFirstChild("TextBoundsFloor")):toBeNil()
+			end
+		end
+		t:expect(calls):toBe(0)
+		t:expect(requests):toBe(0)
+	end)
+	harness:case("text requests reuse idle metric shapes and isolate concurrent measurements", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local ctx = context(Facet.Compose, runtime, { types = engine.types })
+		local target = engine.new("ScreenGui")
+		local before = engine.census().live
+		local stop = runtime.mount(function()
+			local Host = runtime.constructors
+			local prepare = measure.prepare(ctx)
+			local face = engine.types.Font.new("rbxasset://fonts/families/SourceSansPro.json")
+			local first, finishFirst = prepare("First", false, face, 16, 0)
+			local second, finishSecond = prepare("Second", false, face, 16, 80)
+			t:expect(first == second):toBe(false)
+			t:expect(first.Text):toBe("First")
+			t:expect(second.Text):toBe("Second")
+			finishFirst()
+			local reused, finishReused = prepare("Third", false, face, 16, 120)
+			t:expect(reused == first):toBe(true)
+			t:expect(reused.Text):toBe("Third")
+			t:expect(reused.Width):toBe(120)
+			t:expect(second.Text):toBe("Second")
+			t:expect(second.Width):toBe(80)
+			finishReused()
+			finishSecond()
+			return Host.Frame {}
+		end, target)
+		stop()
+		t:expect(engine.census().live):toBe(before)
+		runtime:dispose()
+		t:expect(engine.census().connections):toBe(0)
+	end)
 	harness:case("deferred text floors keep their owner across nested callback threads", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
