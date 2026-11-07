@@ -36,6 +36,15 @@ return function<V, K>(
 	local readColumns = ctx.read<<{ CollectionTypes.TableColumn<V, K> }>>
 	local readSource = ctx.readSource
 	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+	local fixedColumns = not Compose.isValue(spec.columns) and type(spec.columns) ~= "function"
+	if fixedColumns then
+		for _, column in readColumns(spec.columns) do
+			if column.width == nil or column.minWidth ~= nil or column.maxWidth ~= nil then
+				fixedColumns = false
+				break
+			end
+		end
+	end
 	local viewportWidth = Compose.cell(0)
 	local fillWidth = Compose.cell(0)
 	local primaryNatural = Compose.cell(0)
@@ -343,12 +352,14 @@ return function<V, K>(
 			LayoutOrder = index,
 			BackgroundTransparency = 1,
 			Size = layout.size,
-			Host.UISizeConstraint { MinSize = layout.minimum, MaxSize = layout.maximum },
-			Host.UIFlexItem { FlexMode = layout.flex },
 			content,
 			extra,
 			more,
 		}
+		if not fixedColumns then
+			table.insert(nativeProps, Host.UISizeConstraint { MinSize = layout.minimum, MaxSize = layout.maximum })
+			table.insert(nativeProps, Host.UIFlexItem { FlexMode = layout.flex })
+		end
 		return Host.Frame(nativeProps)
 	end
 	return {

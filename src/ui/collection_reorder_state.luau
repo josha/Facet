@@ -39,6 +39,7 @@ export type Gesture<V, K> = {
 	keyboardTarget: TextButton?,
 	touchKey: K?,
 	touchOrigin: Vector2?,
+	touchHold: RBXScriptConnection?,
 	pressTransfer: { key: K, pointer: InputObject, options: DragTypes.SourceSpec, keys: { K }, items: { V } }?,
 	releaseScrollers: (() -> ())?,
 	gestureOwner: GuiObject?,
@@ -245,7 +246,12 @@ return function<V, K>(
 		else Compose.cell<<GuiObject?>>(nil)
 	local function disarm()
 		gesture.touchKey, gesture.touchOrigin = nil, nil
+		if gesture.touchHold then
+			gesture.touchHold:Disconnect()
+			gesture.touchHold = nil
+		end
 	end
+	Compose.cleanup(disarm)
 	local lifts: { [K]: DragLift.Lift } = {}
 	local liftScale = Compose.cell(1)
 	local lifted: K? = nil

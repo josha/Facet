@@ -256,7 +256,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 				else Compose.show(function(use: ComposeTypes.Use): boolean
 					return use(view.containsCards)
 				end, padding)
-			return Host.Frame(nativeProps)
+			local items = Host.Frame(nativeProps)
+			view.rowParent = items
+			runtime.connect(items, "ChildAdded", function(child: Instance)
+				if child:IsA("Frame") and view.slotKeys[child] ~= nil then
+					view.mountedVersion:update(function(value: number): number
+						return value + 1
+					end)
+				end
+			end)
+			Compose.cleanup(function()
+				if view.rowParent == items then
+					view.rowParent = nil
+				end
+			end)
+			return items
 		end)
 		native[#native + 1] = view.unit
 		root = ctx.styled(Host.ScrollingFrame(native), "Collection")

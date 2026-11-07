@@ -272,6 +272,28 @@ return function<V, K>(
 	local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 		then ctx.selection.observe()
 		else Compose.cell<<GuiObject?>>(nil)
+	local function captureSelection()
+		local node = selected:peek()
+		if node == nil or restoring or not belongsTo(node, root) then
+			return
+		end
+		focusActive:set(true)
+		for row, held in view.slotKeys do
+			if belongsTo(node, row) then
+				view.focusOwned = true
+				local path: { string } = {}
+				local current: Instance? = node
+				while current and current ~= row do
+					table.insert(path, 1, current.Name)
+					current = current.Parent
+				end
+				view.focusedPath = path
+				focusScope.focus(held:peek())
+				break
+			end
+		end
+	end
+	Compose.cleanup(ctx.selection.changed(captureSelection))
 	Compose.watch(function(use: ComposeTypes.Use)
 		local field = use(selected)
 		if

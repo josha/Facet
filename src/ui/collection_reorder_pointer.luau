@@ -2,6 +2,7 @@
 local activation = require("./activation")
 local ComposeTypes = require("../vendor/compose/core")
 local DragTypes = require("./drag_types")
+local pointerOf = require("./drag_pointer")
 local State = require("./collection_reorder_state")
 local SLOP = 10
 export type Pointer<K> = {
@@ -99,6 +100,23 @@ return function<V, K>(shared: State.Reorder<V, K>): Pointer<K>
 			disarm()
 			gesture.touchKey, gesture.touchOrigin, gesture.pendingInput = key, V2.new(at.X, at.Y), value
 			gesture.pickupPosition = gesture.touchOrigin
+			if row then
+				gesture.touchHold = row.TouchLongPress:Connect(
+					function(positions: { Vector2 }, state: Enum.UserInputState)
+						if state ~= E.UserInputState.Begin or gesture.touchKey ~= key or moving:peek() ~= nil then
+							return
+						end
+						local position = if gesture.pendingInput
+							then V2.new(gesture.pendingInput.Position.X, gesture.pendingInput.Position.Y)
+							elseif positions[1] then pointerOf(ctx, positions[1])
+							else gesture.touchOrigin
+						shared.disarm()
+						if position then
+							begin(key, position)
+						end
+					end
+				)
+			end
 		else
 			return
 		end

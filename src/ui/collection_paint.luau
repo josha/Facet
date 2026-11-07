@@ -180,20 +180,19 @@ return function(
 		end
 		local box = root.AbsoluteSize
 		if box.X <= 0 or box.Y <= 0 then
-			halt()
 			ready:set(false)
+			arm()
 			return
 		end
 		if ready:peek() then
-			halt()
 			return
 		end
 		if sample() then
-			halt()
 			ready:set(true)
+			arm()
 			return
 		end
-		if #geometry == 0 then
+		if not render and not frames and #geometry == 0 then
 			listen(root, root, geometry, arm)
 			for _, node in root:GetDescendants() do
 				listen(node, root, geometry, arm)
@@ -201,13 +200,17 @@ return function(
 		end
 		arm()
 	end
-	local changed = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(arm)
+	local changed = if not render and not frames
+		then root:GetPropertyChangedSignal("AbsoluteSize"):Connect(prepare)
+		else nil
 	local function close()
 		if closed then
 			return
 		end
 		closed = true
-		changed:Disconnect()
+		if changed then
+			changed:Disconnect()
+		end
 		halt()
 	end
 	ctx.Compose.cleanup(close)

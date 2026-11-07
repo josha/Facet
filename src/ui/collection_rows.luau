@@ -63,7 +63,7 @@ return function<V, K>(
 		end
 	)
 	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
-	local reduced, focusActive = view.reduced, view.focusActive
+	local reduced = view.reduced
 	local liveOverflow = Compose.isValue(spec.contentOverflow) or type(spec.contentOverflow) == "function"
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
 	local preparing, waiting = view.preparing, view.waiting
@@ -99,35 +99,6 @@ return function<V, K>(
 		local choosing = selectionMode ~= "none" and read(spec.editing) == true
 		if spec.onActivate and not choosing and (selectionMode == "none" or not pointer or double) then
 			spec.onActivate(current:peek(), key, input, clicks)
-		end
-	end
-	local function captureSelection(node: Instance, key: K): ()
-		if view.scope == nil then
-			return
-		end
-		focusActive:set(true)
-		view.focusOwned = true
-		local path: { string } = {}
-		local current: Instance? = node
-		while current and current ~= mounted[key] do
-			table.insert(path, 1, current.Name)
-			current = current.Parent
-		end
-		view.focusedPath = path
-		view.scope.focus(key)
-	end
-	local function wireSelection(node: Instance, key: ComposeTypes.ReadOnlyValue<K>, wired: Instance?): ()
-		if
-			node ~= wired
-			and node:IsA("GuiObject")
-			and (node.Selectable or node:IsA("GuiButton") or node:IsA("TextBox"))
-		then
-			runtime.connect(node, "SelectionGained", function()
-				captureSelection(node, key:peek())
-			end)
-		end
-		for _, child in node:GetChildren() do
-			wireSelection(child, key, wired)
 		end
 	end
 	local positionEditor = rowEditor or (if spec.reorderable or spec.drag then editor else nil)
@@ -420,9 +391,6 @@ return function<V, K>(
 							select(keyCell:peek(), current, input, clicks)
 						end
 					end
-					local function gained()
-						captureSelection(hit, keyCell:peek())
-					end
 					local hitAttributes: EngineTypes.Attributes = { FacetSelectionRequired = selectionMode ~= "none" }
 					hit = Host.TextButton "RowHit" {
 						AnchorPoint = centre,
@@ -433,7 +401,6 @@ return function<V, K>(
 						Selectable = true,
 						Interactable = interactable,
 						Activated = activate,
-						SelectionGained = gained,
 						Attributes = hitAttributes,
 					}
 					selectionHit, offered = hit, activate
@@ -565,50 +532,25 @@ return function<V, K>(
 			end, node)
 		end)
 		local parked: Instance? = nil
-		local previousParent: Instance? = node.Parent
 		local released = false
 		local restoringParent = false
 		local destroyed: RBXScriptConnection? = nil
-		local live = true
-		local restore = node.AncestryChanged:Connect(function()
-			if node.Parent and parked == nil then
-				previousParent = node.Parent
-			end
-			if
-				parked
-				and not restoringParent
-				and not ComposeTypes.owner.isDisposed(poolOwner)
-				and node.Parent == nil
-			then
-				restoringParent = true
-				local ok = pcall(function()
-					node.Parent = parked
-				end)
-				restoringParent = false
-				if not ok then
-					parked = nil
-				end
-			end
-			if live then
-				mountedVersion:update(function(value)
-					return value + 1
-				end)
-			end
-		end)
+		local restore: RBXScriptConnection? = nil
 		local function release()
 			if released then
 				return
 			end
 			released = true
 			parked = nil
-			restore:Disconnect()
+			if restore then
+				restore:Disconnect()
+			end
 			if destroyed then
 				destroyed:Disconnect()
 			end
 			stop()
 			lease.release()
 		end
-		wireSelection(content, keyCell, if marked then marked.hit else nil)
 		view.slotKeys[node] = keyCell
 		local arrive: ((K) -> ())? = nil
 		if entrance and shown then
@@ -834,7 +776,6 @@ return function<V, K>(
 			return value + 1
 		end)
 		Compose.cleanup(function()
-			live = false
 			if gui and State.belongsTo(ctx.selection.get(), node) then
 				view.focusOwned = true
 				ctx.selection.set(nil)
@@ -881,7 +822,24 @@ return function<V, K>(
 				and not ComposeTypes.owner.isDisposed(poolOwner)
 				and #nextRows > 0
 			then
-				parked = previousParent
+				parked = node.Parent or view.rowParent
+				restore = node.AncestryChanged:Connect(function()
+					if
+						parked
+						and not restoringParent
+						and not ComposeTypes.owner.isDisposed(poolOwner)
+						and node.Parent == nil
+					then
+						restoringParent = true
+						local ok = pcall(function()
+							node.Parent = parked
+						end)
+						restoringParent = false
+						if not ok then
+							parked = nil
+						end
+					end
+				end)
 				destroyed = node.Destroying:Connect(function()
 					parked = nil
 				end)
