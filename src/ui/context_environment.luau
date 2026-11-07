@@ -157,18 +157,12 @@ return function(
 		end
 	end
 	ctx.runtime:watch(function()
-		local effective = Compose.formula(ctx.effectiveInput())
-		local function effectiveInput(use: ComposeTypes.Use?): "Touch" | "Gamepad" | "KeyboardAndMouse"
-			return ctx.readSource(effective, use)
-		end
+		local effectiveInput = ctx.effectiveInput()
 		ctx.effectiveInput = function()
 			return effectiveInput
 		end
-		local pointerOnly, tenFoot, hitFloor = ctx.pointerOnly(), ctx.tenFoot(), ctx.hitFloor()
-		local floor = Compose.formula(ctx.touchFloor())
-		local function touchFloor(use: ComposeTypes.Use?): number
-			return ctx.readSource(floor, use)
-		end
+		local pointerOnly, tenFoot, hitFloor, touchFloor =
+			ctx.pointerOnly(), ctx.tenFoot(), ctx.hitFloor(), ctx.touchFloor()
 		ctx.pointerOnly = function()
 			return pointerOnly
 		end
