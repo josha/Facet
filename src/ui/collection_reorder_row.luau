@@ -398,19 +398,6 @@ return function<V, K>(
 		end
 		local frame = Host.Frame(nativeProps)
 		rowNodes[key] = frame
-		ctx.runtime.connect(frame, "TouchLongPress", function(positions: { Vector2 }, state: Enum.UserInputState)
-			if state ~= E.UserInputState.Begin or gesture.touchKey ~= key or moving:peek() ~= nil then
-				return
-			end
-			local position = if gesture.pendingInput
-				then V2.new(gesture.pendingInput.Position.X, gesture.pendingInput.Position.Y)
-				elseif positions[1] then pointerOf(ctx, positions[1])
-				else gesture.touchOrigin
-			shared.disarm()
-			if position then
-				begin(key, position)
-			end
-		end)
 		local rowOrigin: Vector2? = nil
 		local rowDragged = false
 		local function continueRowDrag(position: Vector2)
@@ -533,6 +520,9 @@ return function<V, K>(
 		end
 		Compose.cleanup(function()
 			if rowNodes[key] == frame then
+				if gesture.touchKey == key then
+					shared.disarm()
+				end
 				rowNodes[key] = nil
 				local move = moving:peek()
 				if move and move.key == key then

@@ -27,6 +27,8 @@ return function<V, K>(
 	local D2, D, V2, E = ctx.types.UDim2, ctx.types.UDim, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
 	local spec, tree = view.spec, view.tree
+	local directSelection = (gui == nil and spec.focus ~= nil) or (gui ~= nil and spec.mode ~= "all")
+	local rowSignals = view.rowSignals
 	local kind: ComposeTypes.OrderedCollectionLayoutKind = view.kind
 	local source, viewport, cross = view.source, view.viewport, view.cross
 	local mountedVersion, status, controls, selection = view.mountedVersion, view.status, view.controls, view.selection
@@ -63,7 +65,7 @@ return function<V, K>(
 		end
 	)
 	local measured, containsCards, horizontal = view.measured, view.containsCards, view.horizontal
-	local reduced, focusActive = view.reduced, view.focusActive
+	local reduced = view.reduced
 	local liveOverflow = Compose.isValue(spec.contentOverflow) or type(spec.contentOverflow) == "function"
 	local mounted, cellEdits, placed, poolOwner = view.mounted, view.cellEdits, view.placed, view.poolOwner
 	local preparing, waiting = view.preparing, view.waiting
@@ -101,11 +103,12 @@ return function<V, K>(
 			spec.onActivate(current:peek(), key, input, clicks)
 		end
 	end
-	local function captureSelection(node: Instance, key: K): ()
-		if view.scope == nil then
+	local function captureSelection(node: Instance, key: K)
+		local scope = view.scope
+		if scope == nil then
 			return
 		end
-		focusActive:set(true)
+		view.focusActive:set(true)
 		view.focusOwned = true
 		local path: { string } = {}
 		local current: Instance? = node
@@ -114,9 +117,9 @@ return function<V, K>(
 			current = current.Parent
 		end
 		view.focusedPath = path
-		view.scope.focus(key)
+		scope.focus(key)
 	end
-	local function wireSelection(node: Instance, key: ComposeTypes.ReadOnlyValue<K>, wired: Instance?): ()
+	local function wireSelection(node: Instance, key: ComposeTypes.ReadOnlyValue<K>, wired: Instance?)
 		if
 			node ~= wired
 			and node:IsA("GuiObject")
@@ -420,9 +423,6 @@ return function<V, K>(
 							select(keyCell:peek(), current, input, clicks)
 						end
 					end
-					local function gained()
-						captureSelection(hit, keyCell:peek())
-					end
 					local hitAttributes: EngineTypes.Attributes = { FacetSelectionRequired = selectionMode ~= "none" }
 					hit = Host.TextButton "RowHit" {
 						AnchorPoint = centre,
@@ -433,7 +433,11 @@ return function<V, K>(
 						Selectable = true,
 						Interactable = interactable,
 						Activated = activate,
-						SelectionGained = gained,
+						SelectionGained = if directSelection
+							then function()
+								captureSelection(hit, keyCell:peek())
+							end
+							else nil,
 						Attributes = hitAttributes,
 					}
 					selectionHit, offered = hit, activate
@@ -570,7 +574,7 @@ return function<V, K>(
 		local restoringParent = false
 		local destroyed: RBXScriptConnection? = nil
 		local live = true
-		local restore = node.AncestryChanged:Connect(function()
+		local function restoreParent()
 			if node.Parent and parked == nil then
 				previousParent = node.Parent
 			end
@@ -590,25 +594,30 @@ return function<V, K>(
 				end
 			end
 			if live then
-				mountedVersion:update(function(value)
+				mountedVersion:update(function(value: number): number
 					return value + 1
 				end)
 			end
-		end)
+		end
+		local restore: RBXScriptConnection? = if rowSignals then node.AncestryChanged:Connect(restoreParent) else nil
 		local function release()
 			if released then
 				return
 			end
 			released = true
 			parked = nil
-			restore:Disconnect()
+			if restore then
+				restore:Disconnect()
+			end
 			if destroyed then
 				destroyed:Disconnect()
 			end
 			stop()
 			lease.release()
 		end
-		wireSelection(content, keyCell, if marked then marked.hit else nil)
+		if directSelection then
+			wireSelection(content, keyCell, if marked then marked.hit else nil)
+		end
 		view.slotKeys[node] = keyCell
 		local arrive: ((K) -> ())? = nil
 		if entrance and shown then
@@ -816,7 +825,8 @@ return function<V, K>(
 				ctx,
 				if measureRow then measuredNode else content,
 				measureRow,
-				tree == nil and (spec.measure == true or measureRow ~= nil)
+				tree == nil and (spec.measure == true or measureRow ~= nil),
+				rowSignals
 			)
 			settle = close
 			return prepared
@@ -881,7 +891,10 @@ return function<V, K>(
 				and not ComposeTypes.owner.isDisposed(poolOwner)
 				and #nextRows > 0
 			then
-				parked = previousParent
+				parked = node.Parent or previousParent or view.rowParent
+				if restore == nil then
+					restore = node.AncestryChanged:Connect(restoreParent)
+				end
 				destroyed = node.Destroying:Connect(function()
 					parked = nil
 				end)

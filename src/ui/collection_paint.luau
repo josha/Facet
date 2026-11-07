@@ -55,7 +55,8 @@ return function(
 	ctx: Types.Context,
 	root: GuiObject,
 	measure: ((ComposeTypes.Use, Vector2) -> ())?,
-	rest: boolean?
+	rest: boolean?,
+	rowSignals: boolean?
 ): (ComposeTypes.ReadOnlyValue<boolean>, (() -> ())?)
 	local function sample(): boolean
 		local box = root.AbsoluteSize
@@ -113,6 +114,7 @@ return function(
 	local ready = ctx.Compose.cell(false)
 	local render = ctx.config.services.RunService and ctx.config.services.RunService.PreRender
 	local frames = ctx.runtime.host.frames
+	local signalled = rowSignals == true or (not render and not frames)
 	local waiting, closed = false, false
 	local poll: Poll? = nil
 	local geometry: { RBXScriptConnection } = {}
@@ -136,7 +138,7 @@ return function(
 		end
 	end
 	local function arm()
-		if waiting or (not render and not frames) then
+		if closed or waiting or (not render and not frames) then
 			return
 		end
 		local key: unknown = ctx.runtime
@@ -180,20 +182,30 @@ return function(
 		end
 		local box = root.AbsoluteSize
 		if box.X <= 0 or box.Y <= 0 then
-			halt()
 			ready:set(false)
+			if signalled then
+				halt()
+			else
+				arm()
+			end
 			return
 		end
 		if ready:peek() then
-			halt()
+			if signalled then
+				halt()
+			end
 			return
 		end
 		if sample() then
-			halt()
 			ready:set(true)
+			if signalled then
+				halt()
+			else
+				arm()
+			end
 			return
 		end
-		if #geometry == 0 then
+		if signalled and #geometry == 0 then
 			listen(root, root, geometry, arm)
 			for _, node in root:GetDescendants() do
 				listen(node, root, geometry, arm)
@@ -201,13 +213,15 @@ return function(
 		end
 		arm()
 	end
-	local changed = root:GetPropertyChangedSignal("AbsoluteSize"):Connect(arm)
+	local changed = if signalled then root:GetPropertyChangedSignal("AbsoluteSize"):Connect(arm) else nil
 	local function close()
 		if closed then
 			return
 		end
 		closed = true
-		changed:Disconnect()
+		if changed then
+			changed:Disconnect()
+		end
 		halt()
 	end
 	ctx.Compose.cleanup(close)

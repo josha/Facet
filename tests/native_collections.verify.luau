@@ -7,6 +7,7 @@ local Facet = require("../src")
 local StandardIcons = require("../examples/standard_icons")
 
 return function(verifyHarness: Verify.Harness)
+	require("./lib/collection_resources")(verifyHarness)
 	local test = Bdd.create(verifyHarness)
 	local describe, it, expect = test.describe, test.it, test.expect
 	local nativeDrag = require("./lib/native_drag")
