@@ -1,5 +1,8 @@
 --!strict
 local EXCLUSIONS: { [string]: { string } } = {
+	["native UISizeConstraint style modifier geometry requires Studio"] = {
+		"weak3_geometry/button-input-floor-and-retained-reach",
+	},
 	["native ScrollingFrame canvas and window geometry require Studio"] = {
 		"dialog_bounds/canonical-navigable-dialog-keeps-insets-and-logical-density",
 		"primitives/scroll-view-capped-natural-height",

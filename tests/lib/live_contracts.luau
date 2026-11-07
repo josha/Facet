@@ -1031,6 +1031,7 @@ local SUITES: { { id: string, cases: { string }, controller: boolean?, touch: bo
 	{
 		id = "weak3_geometry",
 		cases = {
+			"button-icon-reach-geometry",
 			"uicorner-per-corner-probe",
 		},
 	},

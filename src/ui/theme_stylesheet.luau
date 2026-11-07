@@ -8,6 +8,7 @@ local motionLevels = require("./motion")
 local preferredInput = require("./preferred_input")
 local support = require("./theme_support")
 local RuleKit = require("./theme_rule_kit")
+local buttonFloor = require("./input_button_floor")
 
 local read, typesFor, sameProperties = support.read, support.typesFor, support.sameProperties
 
@@ -811,5 +812,6 @@ return function(
 			connection:Disconnect()
 		end)
 	end
+	buttonFloor.register(runtime, Compose, sheet)
 	return sheet
 end

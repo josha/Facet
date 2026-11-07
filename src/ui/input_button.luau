@@ -8,6 +8,7 @@ local help = require("./help")
 local activation = require("./activation")
 local inputKit = require("./input_kit")
 local buttonContent = require("./input_button_content")
+local buttonFloor = require("./input_button_floor")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ThemeTypes = require("./theme_types")
@@ -21,6 +22,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 	local read = ctx.read
 	local D, D2, V2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
 	local dynamic, enabled = kit.dynamic, kit.enabled
+	local styledFloor: buttonFloor.Bind? = nil
+	local nativeSheets: ComposeTypes.ReadOnlyValue<boolean>? = nil
+	if ctx.config.userInputService ~= nil then
+		styledFloor, nativeSheets = buttonFloor.create(ctx)
+	end
 	local noKey, typeRoles = kit.noKey, kit.typeRoles
 	local function captioned(package: ThemeTypes.ReadOnlyThemePackage?): boolean
 		local recipe = package and package.chrome and package.chrome.control
@@ -347,7 +353,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local leadingArt = icon ~= nil or spec.glyph ~= nil
 		local circled = spec.shape == "circle" and (spec.icon ~= nil or spec.glyph ~= nil)
 		local hasText = kit.hasText
+		local fixedWords: boolean? = nil
 		local function worded(use: ComposeTypes.Use?): boolean
+			if fixedWords ~= nil then
+				return fixedWords
+			end
 			if circled then
 				return false
 			end
@@ -366,6 +376,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					)
 				)
 		end
+		local row = spec.row
+		if
+			not dynamic(spec.label)
+			and not dynamic(spec.subtitle)
+			and not dynamic(spec.hint)
+			and not dynamic(spec.Text)
+			and not dynamic(spec.name)
+			and (row == nil or (not dynamic(row.title) and not dynamic(row.description)))
+		then
+			fixedWords = worded()
+		end
 		local function touching(use: ComposeTypes.Use?): boolean
 			return effective ~= nil and effective(use) == "Touch"
 		end
@@ -378,7 +399,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local function reachFloor(use: ComposeTypes.Use?): number
 			local floor = targetFloor
-			if floor == nil or thumb or not touching(use) or worded(use) then
+			if floor == nil or thumb or worded(use) or not touching(use) then
 				return 0
 			end
 			return floor(use)
@@ -1155,12 +1176,27 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			})
 		end
 		if targetFloor and not constrainedCaption then
+			local extra = sizeFloor.of(node, Compose.cell)
+			local styled: ComposeTypes.ReadOnlyValue<boolean>? = nil
 			runtime.mountFragment(function()
 				return {
 					Compose.show(function(use: ComposeTypes.Use): boolean
+						if
+							styled == nil
+							and fixedWords == true
+							and not thumb
+							and nativeSheets
+							and use(nativeSheets)
+						then
+							styled = Compose.withOwner(owner, function()
+								return assert(styledFloor)(node, spec.target == "inline", extra)
+							end)
+						end
+						if styled and use(styled) then
+							return false
+						end
 						return plateFloor(use) > 0
 					end, function()
-						local extra = sizeFloor.of(node, Compose.cell)
 						return Host.UISizeConstraint "TargetFloor" {
 							MinSize = function(use: ComposeTypes.Use): Vector2
 								local minimum = plateFloor(use)
@@ -1176,6 +1212,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		if targetFloor then
 			local function reached(input: InputObject, clicks: number)
+				if reachFloor() <= 0 then
+					return
+				end
 				local layer = node:FindFirstAncestorWhichIsA("LayerCollector")
 				local host = if layer then layer:FindFirstAncestorWhichIsA("BasePlayerGui") else nil
 				if host and input then
@@ -1195,7 +1234,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				end
 				press(input, clicks)
 			end
-			local function hitTarget(margin: ComposeTypes.ReadOnlyValue<Vector2>): GuiObject | ComposeTypes.Directive
+			local function hitTarget(margin: ComposeTypes.ReadOnlyValue<Vector2>): ComposeTypes.Directive
 				local function strip(name: string, anchor: Vector2, at: UDim2, band: boolean): TextButton
 					local props: Shared.TextButtonProps = {
 						Text = "",
@@ -1224,28 +1263,44 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					end
 					return made
 				end
-				local strips = {
+				local strips: { GuiObject } = {
 					strip("HitTop", V2.new(0.5, 1), D2.fromScale(0.5, 0), true),
 					strip("HitBottom", V2.new(0.5, 0), D2.fromScale(0.5, 1), true),
 					strip("HitLeading", V2.new(1, 0.5), D2.fromScale(0, 0.5), false),
 					strip("HitTrailing", V2.new(0, 0.5), D2.fromScale(1, 0.5), false),
 				}
-				if spec.busy == nil then
-					return Compose.fragment(function()
-						return strips
-					end)
+				local targets: { GuiObject } = strips
+				if spec.busy ~= nil then
+					local area = Host.Frame "HitTarget" {
+						Size = D2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						table.unpack(strips),
+					}
+					targets = { decoration(Compose, runtime, ctx.types, node, area) }
 				end
-				local area = Host.Frame "HitTarget" {
-					Size = D2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					table.unpack(strips),
-				}
-				return decoration(Compose, runtime, ctx.types, node, area)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local gap = use(margin)
+					local active = reachFloor(use) > 0 and (gap.X > 0 or gap.Y > 0)
+					for _, target in targets do
+						target.Parent = if active then node else nil
+					end
+					if not active and pressCancelled then
+						pressCancelled()
+					end
+				end)
+				return Compose.fragment(function()
+					return targets
+				end)
 			end
 			runtime.mountFragment(function()
+				local measured = false
+				local retainReach = leadingArt or trailingIcon ~= nil or spec.image ~= nil
 				return {
 					Compose.show(function(use: ComposeTypes.Use): boolean
-						return reachFloor(use) > 0
+						measured = if retainReach and not worded(use)
+							then measured or reachFloor(use) > 0
+							else reachFloor(use) > 0
+						return measured
 					end, function()
 						local moved = Compose.cell(0)
 						runtime.connect(node, "AncestryChanged", function()
@@ -1275,15 +1330,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						end)
 						local plate = ctx.layoutSize(node, unit)
 						local margin = Compose.formula(function(use: ComposeTypes.Use): Vector2
-							local size, floor = use(plate), reachFloor(use)
+							local size, floor = use(plate), ctx.metric("targetSizes.minimum", use)
 							return V2.new(
 								math.max(0, (targetWidth(floor, use) - size.X) / 2),
 								math.max(0, (floor - size.Y) / 2)
 							)
 						end)
+						local attached = false
 						return Compose.show(function(use: ComposeTypes.Use): boolean
 							local gap = use(margin)
-							return gap.X > 0 or gap.Y > 0
+							attached = (gap.X > 0 or gap.Y > 0) and (attached or reachFloor(use) > 0)
+							return attached
 						end, function()
 							return hitTarget(margin)
 						end)

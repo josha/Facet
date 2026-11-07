@@ -425,4 +425,95 @@ local _ = interactive
 local _ = selectedName
 local _ = overlap
 
+add("button-icon-reach-geometry", { "UI.Button" }, function(t)
+	local preferred = t.Facet.Compose.cell("KeyboardAndMouse")
+	local stage = t.mount(function(_, Host, _C, env)
+		local UI = t.Facet.controls(env.runtime, {
+			theme = env.theme,
+			motionLevel = "none",
+			environment = { preferredInput = preferred, viewingDistance = "near" },
+		})
+		return Host.Frame {
+			Size = UDim2.fromOffset(400, 200),
+			UI.Button "Icon" {
+				icon = "close",
+				label = "",
+				Size = UDim2.fromOffset(30, 30),
+				AutomaticSize = Enum.AutomaticSize.None,
+			},
+		}
+	end, { size = Vector2.new(600, 300) })
+	local icon = t.find(stage, "Icon")
+	t.near("pointer plate keeps its size", icon.AbsoluteSize.X, 30, 0.5)
+	preferred:set("Touch")
+	t.settle(5)
+	local top, leading = icon:FindFirstChild("HitTop"), icon:FindFirstChild("HitLeading")
+	t.check("touch supplies both reach axes", top ~= nil and leading ~= nil)
+	if top == nil or leading == nil then
+		return
+	end
+	t.near("touch keeps the plate size", icon.AbsoluteSize.X, 30, 0.5)
+	t.near("touch reach is 44 pixels wide", icon.AbsoluteSize.X + 2 * leading.AbsoluteSize.X, 44, 0.5)
+	t.near("touch reach is 44 pixels high", icon.AbsoluteSize.Y + 2 * top.AbsoluteSize.Y, 44, 0.5)
+	preferred:set("KeyboardAndMouse")
+	t.settle(5)
+	t.check("pointer detaches reach", top.Parent == nil and leading.Parent == nil)
+	preferred:set("Touch")
+	t.settle(5)
+	t.check("touch reuses reach", icon:FindFirstChild("HitTop") == top and icon:FindFirstChild("HitLeading") == leading)
+end)
+
+add("button-input-floor-and-retained-reach", { "UI.Button" }, function(t)
+	local preferred = t.Facet.Compose.cell("KeyboardAndMouse")
+	local stage = t.mount(function(_, Host, C, env)
+		local UI = t.Facet.controls(env.runtime, {
+			theme = env.theme,
+			motionLevel = "none",
+			environment = { preferredInput = preferred, viewingDistance = "near" },
+		})
+		return Host.Frame {
+			Size = UDim2.fromOffset(400, 200),
+			UI.Button "Caption" { label = "I", controlSize = "compact" },
+			UI.Button "Icon" {
+				icon = "close",
+				label = "",
+				Position = UDim2.fromOffset(100, 0),
+				Size = UDim2.fromOffset(30, 30),
+				AutomaticSize = Enum.AutomaticSize.None,
+			},
+		}
+	end, { size = Vector2.new(600, 300) })
+	local caption, icon = t.find(stage, "Caption"), t.find(stage, "Icon")
+	t.settle(5)
+	t.near("pointer caption keeps its compact height", caption.AbsoluteSize.Y, 36, 0.5)
+	t.near("pointer icon keeps its plate", icon.AbsoluteSize.X, 30, 0.5)
+	preferred:set("Touch")
+	t.settle(5)
+	t.check(
+		"touch caption has the native plate floor",
+		caption.AbsoluteSize.X >= 43.5 and caption.AbsoluteSize.Y >= 43.5,
+		caption.AbsoluteSize
+	)
+	t.near("touch icon keeps its plate", icon.AbsoluteSize.X, 30, 0.5)
+	local top = icon:FindFirstChild("HitTop")
+	local leading = icon:FindFirstChild("HitLeading")
+	t.check("touch adds four strips", top ~= nil and leading ~= nil)
+	if top == nil or leading == nil then
+		return
+	end
+	t.near("the touch target reaches its minimum width", icon.AbsoluteSize.X + 2 * leading.AbsoluteSize.X, 44, 0.5)
+	t.near("the touch target reaches its minimum height", icon.AbsoluteSize.Y + 2 * top.AbsoluteSize.Y, 44, 0.5)
+	preferred:set("KeyboardAndMouse")
+	t.settle(5)
+	t.near("pointer releases the caption floor", caption.AbsoluteSize.Y, 36, 0.5)
+	t.check("pointer detaches the touch target", top.Parent == nil and leading.Parent == nil)
+	preferred:set("Touch")
+	t.settle(5)
+	t.check(
+		"touch reuses both strips",
+		icon:FindFirstChild("HitTop") == top and icon:FindFirstChild("HitLeading") == leading
+	)
+	t.check("touch restores the caption floor", caption.AbsoluteSize.X >= 43.5 and caption.AbsoluteSize.Y >= 43.5)
+end)
+
 return cases
