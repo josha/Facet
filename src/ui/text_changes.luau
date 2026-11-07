@@ -5,7 +5,7 @@ type Listener = (string) -> ()
 type Entry = { listeners: { [Listener]: boolean }, connection: RBXScriptConnection }
 local entries: { [Instance]: Entry } = setmetatable({}, { __mode = "k" })
 
-return function(ctx: Types.Context, label: Instance, listener: Listener): () -> ()
+return function(ctx: Types.Context, label: Instance, listener: Listener, onStop: (() -> ())?): () -> ()
 	local entry = entries[label]
 	if entry == nil then
 		local listeners: { [Listener]: boolean } = {}
@@ -29,6 +29,9 @@ return function(ctx: Types.Context, label: Instance, listener: Listener): () -> 
 		if next(held.listeners) == nil then
 			held.connection:Disconnect()
 			entries[label] = nil
+		end
+		if onStop then
+			onStop()
 		end
 	end)
 end

@@ -53,6 +53,12 @@ return function(harness: Verify.Harness)
 				t:expect(label:FindFirstChild("TextBoundsFloor")):toBeNil()
 			end
 		end
+		for _, label in labels do
+			assert(label:IsA("TextLabel"))
+			label.TextSize = 24
+			t:expect(bridge.environment.connectionsOfInstance(VerifyRoblox.assertInstance(label))):toBe(1)
+			t:expect(label:FindFirstChild("TextBoundsFloor")):toBeNil()
+		end
 		t:expect(calls):toBe(0)
 		t:expect(requests):toBe(0)
 	end)
