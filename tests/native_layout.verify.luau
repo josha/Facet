@@ -189,6 +189,36 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("keeps a padded row whose children fit on one line when its content reads wider than the row", {
+			id = "native_layout::native composition rest measurements::keeps a padded row whose children fit on one line when its content reads wider than the row",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack "Page" {
+						UI.HStack "Header" {
+							width = "fill",
+							Host.Frame "Title" {},
+							Host.Frame "Balance" {},
+						},
+					}
+				end)
+				local V2 = engine.types.Vector2
+				local row = root:FindFirstChild("Header")
+				local list = row:FindFirstChildWhichIsA("UIListLayout")
+				local pad = engine.new("UIPadding")
+				pad.PaddingLeft = engine.types.UDim.new(0, 8)
+				pad.PaddingRight = engine.types.UDim.new(0, 8)
+				pad.Parent = row
+				for _, name in { "Title", "Balance" } do
+					engine.environment.poke(root:FindFirstChild(name, true), "AbsoluteSize", V2.new(100, 20))
+				end
+				engine.environment.poke(list, "AbsoluteContentSize", V2.new(250, 20))
+				engine.environment.poke(row, "AbsoluteSize", V2.new(250, 20))
+				expect(list.Wraps):toBe(false)
+				engine.environment.poke(row, "AbsoluteSize", V2.new(251, 20))
+				expect(list.Wraps):toBe(false)
+				stop()
+			end,
+		})
 		it("keeps a simplified Region rectangle after a scaled viewport round trip", {
 			id = "native_layout::native composition rest measurements::keeps a simplified Region rectangle after a scaled viewport round trip",
 			run = function()
