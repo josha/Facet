@@ -483,6 +483,12 @@
       "Volume"
     ]
   },
+  "StringValue": {
+    "sha256": "556312b27e506242997ee779e289d72bbc3653f83cf29a41aa44219579aeeecb",
+    "writable": [
+      "Value"
+    ]
+  },
   "StyleBase": {
     "sha256": "71e27319116cacd57845697e96493e41d040f546d6368b1856c41c13f4746b7a",
     "writable": []
@@ -796,6 +802,10 @@
       "MaxTextSize",
       "MinTextSize"
     ]
+  },
+  "ValueBase": {
+    "sha256": "86dd1315ff7572ca4ae8f4a7604967e37b0c096ae31051a673bfd3adc135dfdf",
+    "writable": []
   },
   "ViewportFrame": {
     "sha256": "9fb0391e6720b9f1cfb0ee755f3f72f02d3d41418451d8e958f4f3a298148df4",

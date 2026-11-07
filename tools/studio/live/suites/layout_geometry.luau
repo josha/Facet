@@ -1106,10 +1106,13 @@ add("review-names-hub-regions-that-overlap-on-a-phone", {}, function(t)
 		t.cleanup()
 		return
 	end
-	local unfit = hub:GetAttribute("FacetUnfit")
+	local details = hub:FindFirstChild("FacetUnfitDetails")
+	local unfit = if details and details:IsA("StringValue") then details.Value else nil
 	t.check(
 		"the hub records the regions that overlap on a portrait phone",
-		type(unfit) == "string" and string.find(unfit, "358 by 812: Destinations, Race", 1, true) ~= nil,
+		hub:GetAttribute("FacetUnfit") == true
+			and type(unfit) == "string"
+			and string.find(unfit, "358 by 812: Destinations, Race", 1, true) ~= nil,
 		{ unfit = unfit }
 	)
 	local report = Facet.review.screen({ root = hub }).text
