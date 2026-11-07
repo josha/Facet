@@ -90,6 +90,7 @@ function FORMULA.refresh(self: Node)
 	evaluationCache.order = order
 	current.consumer = self
 	current.order = order
+	evaluationCache.consumer = self
 	self.reads = 0
 	local ok, incoming
 	if validationState.validating then
@@ -104,6 +105,7 @@ function FORMULA.refresh(self: Node)
 	end
 	evaluationCache.thread = running
 	evaluationCache.frame = current
+	evaluationCache.consumer = if previousOrder > 0 then previousConsumer else nil
 	if not ok then
 		self.state = if self.released then RELEASED else RETRY
 		error(incoming, 0)

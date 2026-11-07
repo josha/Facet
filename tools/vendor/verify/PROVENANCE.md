@@ -9,7 +9,7 @@ Verify is licensed under the MIT License in [`LICENSE`](LICENSE). It is distribu
 - Lute, Luau-LSP, StyLua and Rojo are pinned development tools in `rokit.toml`. Rokit fetches them. Verify does not distribute them.
 - This repository contains no implementation from another test framework.
 - Comparisons with other frameworks and their measurements stay outside this release tree.
-- The public roots in the [README](README.md#packages) belong to Verify.
+- The public roots in the [API setup](docs/api.md#shared-setup) belong to Verify.
 
 ## Generated fixtures
 
@@ -24,6 +24,8 @@ These files are generated. They are not authored.
 
 The Lune fixture does not change. The tests use it as a second, smaller database.
 The Studio files record the engine version that wrote them. Regenerate them after a Roblox update and review the difference.
+
+The capture and export commands above record fixture provenance. They were retired when the unused capture tooling was removed; the captured bytes remain unchanged. New captures require a caller-owned exporter.
 
 ## Leakage checks
 

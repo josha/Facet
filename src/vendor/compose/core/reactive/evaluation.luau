@@ -109,9 +109,9 @@ export type Evaluation = { consumer: Node?, order: number }
 
 local evaluations: { [thread]: Evaluation } = {}
 Weak.keys(evaluations)
-export type Cache = { thread: thread?, frame: Evaluation?, active: number, order: number }
+export type Cache = { thread: thread?, frame: Evaluation?, consumer: Node?, active: number, order: number }
 
-local cache: Cache = { thread = nil, frame = nil, active = 0, order = 0 }
+local cache: Cache = { thread = nil, frame = nil, consumer = nil, active = 0, order = 0 }
 
 local function contextOn(running: thread): (Node?, number, thread?)
 	if cache.active == 0 then
@@ -173,6 +173,7 @@ local function frame(): Evaluation
 	end
 	cache.thread = running
 	cache.frame = current
+	cache.consumer = if current.order > 0 then current.consumer else nil
 	return current
 end
 
@@ -188,12 +189,16 @@ local function enterFrame(consumer: Node?): (Evaluation, Node?, number)
 	cache.order = order
 	current.consumer = consumer
 	current.order = order
+	cache.consumer = consumer
 	return current, previousConsumer, previousOrder
 end
 
 local function leaveFrame(current: Evaluation, previousConsumer: Node?, previousOrder: number)
 	current.consumer = previousConsumer
 	current.order = previousOrder
+	if cache.frame == current then
+		cache.consumer = if previousOrder > 0 then previousConsumer else nil
+	end
 	if previousOrder == 0 then
 		cache.active -= 1
 	end
@@ -214,6 +219,7 @@ local function leave(previousConsumer: Node?, previousOrder: number)
 	end
 	current.consumer = previousConsumer
 	current.order = previousOrder
+	cache.consumer = if previousOrder > 0 then previousConsumer else nil
 end
 
 local validation = { validating = false }

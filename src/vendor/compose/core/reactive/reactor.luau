@@ -144,6 +144,9 @@ local function runInRest(reactor: Reactor): unknown
 			node.queued = false
 			local runIn = node.runIn
 			frame.consumer = previousConsumer
+			if evaluationCache.frame == frame then
+				evaluationCache.consumer = previousConsumer
+			end
 			if runIn ~= nil then
 				runIn(node, frame)
 			else
@@ -187,7 +190,37 @@ local function drain(reactor: Reactor): { string }?
 	else
 		consumer, at = Evaluation.snapshot()
 	end
-	repeat
+	local only = if reactor.count == 1 and reactor.cursor == 0 then reactor.queue[1] else nil
+	local producer = if only ~= nil then only[1] else nil
+	local listener = if only ~= nil then only.listener else nil
+	if
+		only ~= nil
+		and producer ~= nil
+		and listener ~= nil
+		and producer.refresh == nil
+		and producer.first == only
+		and rawget(only, 4) == nil
+		and (only.version or 0) >= 0
+		and not statsOn.enabled
+	then
+		reactor.cursor = 1
+		only.queued = false
+		if only.version ~= producer.version then
+			only.version = producer.version
+			local ok: boolean
+			local failure: unknown
+			if only.subject ~= nil then
+				ok, failure = xpcall(listener, traceback, producer.value, only)
+			else
+				ok, failure = xpcall(listener, traceback, producer.value)
+			end
+			if not ok then
+				Evaluation.leave(consumer, at)
+				fail(reactor, tostring(failure))
+			end
+		end
+	end
+	while not reactor.abandoned and reactor.cursor < reactor.count do
 		local first = reactor.queue[reactor.cursor + 1]
 		local run = if first ~= nil and first.runIn ~= nil then runInRest else runRest
 		local ok, failure = xpcall(run, traceback, reactor)
@@ -195,7 +228,7 @@ local function drain(reactor: Reactor): { string }?
 			Evaluation.leave(consumer, at)
 			fail(reactor, tostring(failure))
 		end
-	until reactor.abandoned or reactor.cursor >= reactor.count
+	end
 
 	local cursor = reactor.cursor
 	if statsOn.enabled then

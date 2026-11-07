@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "b46031f473de4d72b60a2351b26478233f601a26",
+  "commit": "18d67c231b2a1fb696d615fd094f03269be1f624",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -44,13 +44,13 @@
     "core/ownership/root-scope.luau": "550e65a629edadf67ef2f0081cdb43e7f08bd4e8c5f93e8634a15aa79c90b21b",
     "core/ownership/types.luau": "cd58e0f5b1440a815f53bc548f2a0c530081c3e27b78caaf28b14eec85dcc13c",
     "core/pool.luau": "21c96c92970926aa7ccf61c04842b43a1e62b48cadc17a7dd291fc89e4669c09",
-    "core/reactive/cell.luau": "a0e2276d721b65a8f63b7a0211a69ed8f04a51f015d51cbfb86b74d2a57ff7ce",
-    "core/reactive/evaluation.luau": "1da53af70f34bc65f0220aa26200a7a32844775556cb4a5554f9d78b5c21377b",
-    "core/reactive/formula.luau": "f34e6c22d9a0090b28d9c0aae9ea65ca18c42eabe25d978c558aec4961763490",
-    "core/reactive/graph.luau": "7848578d535b1aec145acad828ec60406b58943e386d9f53d2df6ad386240e82",
+    "core/reactive/cell.luau": "f2bced1f88cf5639778bfda3945e55cbbef7cad05dce6944b4aefdbe360ffab8",
+    "core/reactive/evaluation.luau": "0c0f729f7403c37655c9381b0bc828f94fd9162b472a2b3a5b29bf3fe6412b49",
+    "core/reactive/formula.luau": "cdbc8a7726799dedd6077750c2548f65b65164014444f8fe120331189d804ca5",
+    "core/reactive/graph.luau": "46c50bd8882fb60764f3983945eee6548408a4d7bf9e2c6cc8043634a7475bd9",
     "core/reactive/node.luau": "11dd33eebfef5564450634a998c5160a0f5344c56345a69dee82367601799a45",
     "core/reactive/profile.luau": "5ad6c0fc3c406e4010d37ba632d88978ba6a9e43bca6069ceb0e9b8b6941254b",
-    "core/reactive/reactor.luau": "48bc41263387cbddb1cbc1f4a00ebeb6d5cc7341b168faacb92971ef159526e3",
+    "core/reactive/reactor.luau": "884079e3b1d75ce46e4ea50f77fd15196ae2f621e920f73856b820a4f705a88e",
     "core/reactive/types.luau": "45f4e68f3eeb8b688cac4b9c0a3e6e22bb319c602dc88d664f5c97c557f1a653",
     "core/reactive/watch.luau": "d97410c8cfce6c19cf7d20f25a9b16585d30508c34b55a1ebff24da97147bc33",
     "core/reactive/yield-check.luau": "0d71a666c78d016412d3f93fec8f1e0b1e37847896767b9252a4e9de36df86a4",
@@ -132,7 +132,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "a845b9eb450ac1527238ee0401c6913daaf59dcc94d13fd90b3d23d96e2dbc8d",
+    "SKILL.md": "1ecfb590df9d8588ee4773c7c61635ae357ad2828470ad5071fedb970d79640d",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }

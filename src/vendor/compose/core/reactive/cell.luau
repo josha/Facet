@@ -110,26 +110,11 @@ function CELL.peek<T>(self: Types.Cache<T>): T
 	return cached.value
 end
 
-local function plainSet(self: Node, incoming: unknown)
-	CELL.set(self, incoming)
-end
-
 local function coalesced(self: Node, incoming: unknown)
 	if self.coalescing == nil then
-		plainSet(self, incoming)
-	elseif self.value ~= incoming then
+		CELL.set(self, incoming)
+	elseif type(incoming) == "number" or self.value ~= incoming then
 		self.value = incoming
-	end
-end
-
-local function coalescedNumber(self: Node, incoming: unknown)
-	if self.set ~= coalescedNumber then
-		plainSet(self, incoming)
-		return
-	end
-	self.value = incoming
-	if type(incoming) ~= "number" then
-		Dynamic.write(self, "set", coalesced)
 	end
 end
 
@@ -146,14 +131,38 @@ function CELL.set<T>(self: Value<T>, incoming: T)
 		return
 	end
 	node.value = incoming
-	if node.first == nil and not statsOn.enabled then
+	local first = node.first
+	if first == nil and not statsOn.enabled then
 		local version = clockState.now + 1
 		clockState.now = version
 		node.version = version
 		return
 	end
-	local first = node.first
 	local consumer: Node? = if first ~= nil then first[2] else nil
+	if
+		first ~= nil
+		and not statsOn.enabled
+		and consumer == nil
+		and (rawget(first, 4) == nil or first.listenerGroup)
+	then
+		local version = clockState.now + 1
+		clockState.now = version
+		node.version = version
+		local reactor = first.reactor
+		if reactor ~= nil and reactor.batching then
+			if not first.queued then
+				first.queued = true
+				local count = reactor.count + 1
+				reactor.count = count
+				reactor.queue[count] = first
+			elseif not validationState.validating then
+				Graph.coalesce(node, first, coalesced)
+			end
+		else
+			Reactor.runNow(first)
+		end
+		return
+	end
 	local state = if consumer ~= nil then consumer.state else nil
 	if
 		state == DIRTY
@@ -165,7 +174,7 @@ function CELL.set<T>(self: Value<T>, incoming: T)
 		and not consumer.retry
 	then
 		if consumer[2] == nil and consumer.queued then
-			Graph.coalesce(node, consumer, if type(incoming) == "number" then coalescedNumber else coalesced)
+			Graph.coalesce(node, consumer, coalesced)
 		end
 		return
 	end
@@ -179,24 +188,7 @@ function CELL.set<T>(self: Value<T>, incoming: T)
 	elseif first == nil then
 		return
 	else
-		if consumer == nil then
-			if rawget(first, 4) == nil or first.listenerGroup then
-				local reactor = first.reactor
-				if reactor ~= nil and reactor.batching then
-					if not first.queued then
-						first.queued = true
-						local count = reactor.count + 1
-						reactor.count = count
-						reactor.queue[count] = first
-					elseif not validationState.validating then
-						Graph.coalesce(node, first, if type(incoming) == "number" then coalescedNumber else coalesced)
-					end
-				else
-					Reactor.runNow(first)
-				end
-				return
-			end
-		elseif rawget(first, 4) == nil then
+		if consumer ~= nil and rawget(first, 4) == nil then
 			if state == DIRTY and not consumer.retry then
 				return
 			elseif state == CHECK and not consumer.retry then
