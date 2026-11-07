@@ -109,12 +109,12 @@ export type Runtime = {
 	dispose: (self: Runtime) -> (),
 }
 
-local function rollbackChildren(removeChild: (Node, Node) -> (), props: unknown, node: Node, token: number)
+local function rollbackChildren(removeChild: (Node, Node) -> (), props: unknown, node: Node, owner: Owner.Owner)
 	local entries = Dynamic.entries(props)
 	local failures: { unknown } = {}
 	for index = #entries, 1, -1 do
 		local child = entries[index]
-		if (type(child) == "table" or type(child) == "userdata") and Nodes.belongsTo(child, token) then
+		if (type(child) == "table" or type(child) == "userdata") and Nodes.belongsTo(child, owner) then
 			local ok, failure: unknown = pcall(removeChild, node, child)
 			if not ok then
 				table.insert(failures, failure)
@@ -227,11 +227,10 @@ local function createRuntime(host: Host.Host): Runtime
 			local list: Children.ChildList? = nil
 			local staticSlot = 0
 			local staticChildren: { Node }? = nil
-			local token = assert(owner.nodeToken)
 			for index = 1, childCount do
 				local child = entries[index]
 				if type(child) == "table" or type(child) == "userdata" then
-					if not Nodes.belongsTo(child, token) or not Nodes.isDestructible(child) then
+					if not Nodes.belongsTo(child, owner) or not Nodes.isDestructible(child) then
 						local attached = staticChildren
 						if attached == nil then
 							local children: { Node } = {}
@@ -333,7 +332,7 @@ local function createRuntime(host: Host.Host): Runtime
 			end
 			if not ok then
 				local released, cleanup: unknown =
-					pcall(rollbackChildren, supplied.render.removeChild, props, node, token)
+					pcall(rollbackChildren, supplied.render.removeChild, props, node, owner)
 				Owner.rollbackTo(owner, mark)
 				Owner.rollbackHeld(owner, heldMark)
 				local key = applying.key

@@ -4,18 +4,21 @@ local Weak = require "../weak"
 
 local Diagnostics = require "../diagnostics"
 local Host = require "../host"
+local OwnerTypes = require "./types"
 
 type Node = Host.Node
 
 export type Custody = "owned" | "adopted" | "borrowed"
 
-local custody: { [unknown]: Custody | number } = {}
+local custody: { [unknown]: Custody | number | Node } = {}
+local preservedEvents: { [Node]: unknown } = {}
 local issuedToken = 0
 local TOKEN_STRIDE = 4
 local BORROWED_TAG = 1
 local ADOPTED_TAG = 2
 
 Weak.keys(custody)
+Weak.keys(preservedEvents)
 
 local tracked = { dependents = 0, labels = 0, charges = 0 }
 
@@ -47,8 +50,24 @@ local function markOwned(node: Node, token: number)
 	custody[node] = token
 end
 
-local function belongsTo(node: Node, token: number): boolean
+local function belongsTo<R>(node: Node, owner: OwnerTypes.Owner<R>): boolean
 	local known = custody[node]
+	if type(known) == "table" or type(known) == "userdata" then
+		local entry = owner.head
+		while entry ~= nil do
+			for index = 1, #entry do
+				if entry[index] == node then
+					return true
+				end
+			end
+			entry = entry.following
+		end
+		return false
+	end
+	local token = owner.nodeToken
+	if token == nil then
+		return false
+	end
 	return known == token or known == token + BORROWED_TAG or known == token + ADOPTED_TAG
 end
 
@@ -56,6 +75,9 @@ local function protect(node: Node)
 	local known = custody[node]
 	if type(known) == "number" and known > 0 then
 		custody[node] = -known
+	elseif type(known) == "table" or type(known) == "userdata" then
+		preservedEvents[node] = known
+		custody[node] = "owned"
 	end
 end
 
@@ -66,6 +88,9 @@ local function changeCustody(node: Node, kind: Custody, tag: number)
 		local token = current - current % TOKEN_STRIDE + tag
 		custody[node] = if known < 0 then -token else token
 	else
+		if type(known) == "table" or type(known) == "userdata" then
+			preservedEvents[node] = known
+		end
 		custody[node] = kind
 	end
 end
@@ -92,7 +117,7 @@ local function custodyOf(node: Node): Custody
 		return "owned"
 	end
 	if known ~= nil then
-		return known
+		return if type(known) == "string" then known else "owned"
 	end
 	return "borrowed"
 end
@@ -102,7 +127,29 @@ local function isDestructible(node: unknown): boolean
 	if type(known) == "number" then
 		return math.abs(known) % TOKEN_STRIDE ~= BORROWED_TAG
 	end
-	return known == "owned" or known == "adopted"
+	return known == "owned" or known == "adopted" or type(known) == "table" or type(known) == "userdata"
+end
+
+local function rememberEvent(node: Node, connection: unknown): boolean
+	local known = custody[node]
+	if type(known) == "number" and known > 0 and known % TOKEN_STRIDE == 0 then
+		if type(connection) == "table" or type(connection) == "userdata" then
+			custody[node] = connection
+			return true
+		end
+	end
+	return false
+end
+
+local function takeEvent(node: Node): unknown
+	local known = custody[node]
+	if type(known) == "table" or type(known) == "userdata" then
+		custody[node] = "owned"
+		return known
+	end
+	local connection = preservedEvents[node]
+	preservedEvents[node] = nil
+	return connection
 end
 
 local dependents: { [Node]: { () -> () } } = {}
@@ -198,6 +245,7 @@ end
 
 local function forget(node: Node)
 	custody[node] = nil
+	preservedEvents[node] = nil
 	if tracked.labels > 0 and labels[node] ~= nil then
 		labels[node] = nil
 		tracked.labels -= 1
@@ -223,6 +271,7 @@ end
 
 local function resetForTests()
 	table.clear(custody)
+	table.clear(preservedEvents)
 	table.clear(dependents)
 	table.clear(labels)
 	tracked.dependents = 0
@@ -236,6 +285,8 @@ return {
 	markOwned = markOwned,
 	ownerToken = ownerToken,
 	belongsTo = belongsTo,
+	rememberEvent = rememberEvent,
+	takeEvent = takeEvent,
 	protect = protect,
 	markAdopted = markAdopted,
 	markBorrowed = markBorrowed,
