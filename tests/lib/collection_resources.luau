@@ -83,6 +83,7 @@ return function(harness: Verify.Harness)
 		t:expect(engine.environment.signalOf(VerifyRoblox.assertInstance(second), "SelectionGained").connections())
 			:toBe(0)
 		gui.SelectedObject = second
+		engine.environment.fire(VerifyRoblox.assertInstance(second), "SelectionGained")
 		t:expect(assert(focus.current):peek()):toBe(2)
 		assert(focus.next)()
 		local third = assert(list:FindFirstChild("3", true)):FindFirstChild("LateAction", true)

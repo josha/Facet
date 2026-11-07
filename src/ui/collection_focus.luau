@@ -272,11 +272,7 @@ return function<V, K>(
 	local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 		then ctx.selection.observe()
 		else Compose.cell<<GuiObject?>>(nil)
-	local function captureSelection()
-		local node = selected:peek()
-		if node == nil or restoring or not belongsTo(node, root) then
-			return
-		end
+	local function captureSelection(node: GuiObject)
 		focusActive:set(true)
 		for row, held in view.slotKeys do
 			if belongsTo(node, row) then
@@ -293,7 +289,27 @@ return function<V, K>(
 			end
 		end
 	end
-	Compose.cleanup(ctx.selection.changed(captureSelection))
+	local gained: RBXScriptConnection? = nil
+	local function followSelection()
+		if gained then
+			gained:Disconnect()
+			gained = nil
+		end
+		local node = ctx.selection.get()
+		if node and belongsTo(node, root) then
+			gained = node.SelectionGained:Connect(function()
+				captureSelection(node)
+			end)
+		end
+	end
+	if gui == nil or spec.mode == "all" then
+		Compose.cleanup(ctx.selection.changed(followSelection))
+	end
+	Compose.cleanup(function()
+		if gained then
+			gained:Disconnect()
+		end
+	end)
 	Compose.watch(function(use: ComposeTypes.Use)
 		local field = use(selected)
 		if

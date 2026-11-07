@@ -27,8 +27,8 @@ return function<V, K>(
 	local D2, D, V2, E = ctx.types.UDim2, ctx.types.UDim, ctx.types.Vector2, ctx.types.Enum
 	local gui = ctx.config.guiService
 	local spec, tree = view.spec, view.tree
-	local directSelection = gui == nil and spec.focus ~= nil
-	local rowSignals = spec.recycle == false or directSelection
+	local directSelection = (gui == nil and spec.focus ~= nil) or (gui ~= nil and spec.mode ~= "all")
+	local rowSignals = view.rowSignals
 	local kind: ComposeTypes.OrderedCollectionLayoutKind = view.kind
 	local source, viewport, cross = view.source, view.viewport, view.cross
 	local mountedVersion, status, controls, selection = view.mountedVersion, view.status, view.controls, view.selection

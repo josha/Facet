@@ -258,13 +258,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 				end, padding)
 			local items = Host.Frame(nativeProps)
 			view.rowParent = items
-			runtime.connect(items, "ChildAdded", function(child: Instance)
-				if child:IsA("Frame") and view.slotKeys[child] ~= nil then
+			if not view.rowSignals then
+				local attached = ctx.afterLayout(function()
 					view.mountedVersion:update(function(value: number): number
 						return value + 1
 					end)
-				end
-			end)
+				end)
+				runtime.connect(items, "ChildAdded", function(child: Instance)
+					if child:IsA("Frame") and view.slotKeys[child] ~= nil then
+						attached()
+					end
+				end)
+			end
 			Compose.cleanup(function()
 				if view.rowParent == items then
 					view.rowParent = nil
