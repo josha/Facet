@@ -429,13 +429,27 @@ return function(verifyHarness: Verify.Harness)
 				expect(root:GetAttribute("FacetUnfit")):toBeNil()
 				sized(engine, root:FindFirstChild("Circles", true), 330, 44)
 				sized(engine, root:FindFirstChild("Race", true), 200, 44)
-				local unfit = tostring(root:GetAttribute("FacetUnfit"))
-				expect(root:GetAttribute("FacetUnfit") ~= nil):toBe(true)
+				local details = root:FindFirstChild("FacetUnfitDetails")
+				assert(details and details:IsA("StringValue"))
+				local unfit = details.Value
+				expect(root:GetAttribute("FacetUnfit")):toBe(true)
 				expect(string.find(unfit, "358 by 812: Actions, Go", 1, true) ~= nil):toBe(true)
 				expect((string.find(unfit, "812 by 358", 1, true))):toBeNil()
 				sized(engine, root:FindFirstChild("Circles", true), 156, 44)
 				sized(engine, root:FindFirstChild("Race", true), 80, 44)
 				expect(root:GetAttribute("FacetUnfit")):toBeNil()
+				expect(details.Value):toBe("")
+				local region = assert(root:FindFirstChild("Actions", true))
+				region.Name = string.rep("LongRegionName", 8)
+				sized(engine, root:FindFirstChild("Circles", true), 330, 44)
+				expect(#details.Value > 50):toBe(true)
+				expect(string.find(details.Value, region.Name, 1, true) ~= nil):toBe(true)
+				expect(root:GetAttribute("FacetUnfit")):toBe(true)
+				for _, value in root:GetAttributes() do
+					if type(value) == "string" then
+						expect(#value <= 50):toBe(true)
+					end
+				end
 				stop()
 			end,
 		})

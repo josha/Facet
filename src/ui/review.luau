@@ -156,8 +156,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 						),
 				}
 				local hasUnfit, unfit = call(child, "GetAttribute", "FacetUnfit")
-				if hasUnfit and type(unfit) == "string" and unfit ~= "" then
-					element.unfit = unfit
+				if hasUnfit and unfit == true then
+					local found, details = call(child, "FindFirstChild", "FacetUnfitDetails")
+					local message = if found then text(read(details, "Value")) else nil
+					element.unfit = message or "composition does not fit"
 				end
 				if not glyph and (isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox")) then
 					local face = styled(child, "FontFace")

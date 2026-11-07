@@ -672,6 +672,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			table.unpack(placed),
 		}
 		properties[#properties + 1] = safe
+		local unfitDetails = Host.StringValue { Name = "FacetUnfitDetails", Value = "" }
+		properties[#properties + 1] = unfitDetails
 		local frames = ctx.config.services.RunService
 		local preparing = frames ~= nil and frames.PreRender ~= nil and runtime.host.frames ~= nil
 		local root = kit.plain(
@@ -1140,8 +1142,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 			end
 			local verdict = if #unfit > 0 then table.concat(unfit, "; ") else nil
-			if root:GetAttribute("FacetUnfit") ~= verdict then
-				root:SetAttribute("FacetUnfit", verdict)
+			unfitDetails.Value = verdict or ""
+			local failed = if verdict ~= nil then true else nil
+			if root:GetAttribute("FacetUnfit") ~= failed then
+				root:SetAttribute("FacetUnfit", failed)
 			end
 			local before = landed:peek()
 			local same = #before == #down
