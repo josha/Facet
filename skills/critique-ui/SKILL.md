@@ -33,8 +33,13 @@ Use the full loop when independent review would add useful evidence.
 ## Review a design target
 
 When a separate concept guides an expressive game, review it before translation.
-For a native graphic prototype, the first Studio screen can supply both the
-direction and the runtime evidence; it does not need a duplicate concept round.
+For new open art direction, review the alternatives together in one round.
+Check that their composition, type and rendering approach differ, then judge
+each against the same task and finish. Do not select a winner solely because
+it is the easiest to implement. If all are generic, request revision of the set.
+For a focused native study suited to an established, quiet or explicitly
+minimal brief, the first Studio screen can supply both the direction and the
+runtime evidence; it does not need a duplicate concept round.
 Use the loop below for a separate concept with a packet labeled
 `design target`: the original brief, prototype images, inspected references
 and the states the design proposes. Static representative data is sufficient.
@@ -49,8 +54,11 @@ Show the choice, action and opened control where the task has them. Include
 selection with focus on that item, selection after focus moves to a peer,
 pressed paint, and any changing feedback before and after acceptance. Do not
 infer these combinations from separate idle images. For multi-device work,
-include a wide view and the supported narrow and short layouts in
-this early packet. For phones supporting both orientations, require portrait
+include a wide view and the declared minimum supported narrow and short layouts
+in this early packet. Use the [minimum-viewport procedure](../use-facet/references/compact-compositions.md#verify-the-minimum-viewport).
+Require recorded camera, safe-area and task-body dimensions with scaling;
+a preset name alone does not establish coverage. Keep a separate notched case
+when it imposes different constraints. For phones supporting both orientations, require portrait
 and landscape evidence; neither proves the other. Check actual target sizes
 and text, not the device's nominal resolution. View enlarged phone captures at their recorded camera width
 for readability, and use the full-resolution image for painted-edge inspection.
@@ -73,11 +81,13 @@ fresh round remains, use a separate self-review and report that limit.
 1. **Collect evidence.** With a shell and a Rojo project:
 
    ```sh
-   lute run tools/facet critique --device desktop --device phone-portrait \
-     --tap Shop --brief brief.txt --out artifacts/critique/r1
+   lute run tools/facet critique --tap Shop --brief brief.txt --out artifacts/critique/r1
    ```
 
    With a saved screenshot and dump: `--capture shot.png --dump shot.json`.
+   The default sweep includes small and notched phones in both orientations.
+   Use explicit `--device` flags for a focused review; report that narrower
+   coverage and add the product's minimum cases when the presets do not cover it.
    With Studio tools only, follow [Studio only](references/studio-only.md).
    The brief states the task, audience, supported contexts and intended visual
    direction. Include the owner's constraints, not the author's proposed fixes.
@@ -87,6 +97,11 @@ fresh round remains, use a separate self-review and report that limit.
    References calibrate craft and clarity. They are not templates to copy.
    Include the visual study when one guided the implementation. Label it as
    a design target so the reviewer can compare it with the actual capture.
+   When prior work is available and a new identity is intended, include a small
+   comparison of recent interfaces. Judge repeated composition and typography,
+   not only changed colors or artwork. Shared styling within an established
+   product is appropriate. In a blind author evaluation, keep this comparison
+   in the reviewer packet; do not give prior solutions to the author.
    Include the states needed to judge the task. For a choice, show selection
    and focus together. For changing feedback, show before and after the action
    so the reviewer can judge readability and placement. A single idle capture
@@ -142,6 +157,8 @@ fresh round remains, use a separate self-review and report that limit.
 - Judge images, models, glyphs, text and numbers by how they serve the task.
   Do not require decoration, unique branding or a visual for every record.
 - Captures do not prove motion, input or reachability. Test those separately.
+- Report visual quality and device/input coverage separately. Missing minimum
+  viewport or input evidence cannot be cleared by high aesthetic scores.
 
 ## Calibrate the reviewer
 

@@ -13,6 +13,10 @@ It does not decide how every game should look.
 For a new game direction, inspect screenshots of shipped games with a related
 player task, tone or input context. [Game UI Database](https://www.gameuidatabase.com/)
 and [Interface In Game](https://interfaceingame.com/) collect such screens.
+For an open brief, also seek a different source of visual craft, such as
+editorial design, animation, physical objects or stage design. Use the game
+reference to understand the task and the other source to broaden the visual
+language. A set of similar genre screens can anchor every proposal to one look.
 An explicitly spare native or text-led brief can use its actual first screen
 as the design target without a separate image-reference search.
 Open the images at a useful size; search snippets and a list of game names
@@ -62,6 +66,30 @@ and timing. Fun does not always mean bright colors, bounce or heavy decoration.
 
 ### Resolve the whole composition
 
+When a new expressive game's style is unspecified, make the creative decision
+within the request. Infer a concrete premise from its activity, audience and
+world. Do not require the user to supply a style or accept a neutral default.
+Keep the requested game systems and task; a premise does not authorize new ones.
+
+Before choosing a direction, render three alternatives with the same task,
+facts and representative states. Change the composition, typography and
+rendering approach across them. Also consider light and dark balance, density,
+camera framing, materials and motion. They should remain visibly different
+when viewed small or in grayscale. Different colors, titles or mascots on the
+same panel arrangement are not three directions. This exploration applies to
+new open art direction, not small edits, established identities, quiet tools
+or explicitly minimal, text-led or prototype requests.
+
+Compare the alternatives together for character, finished craft, task clarity
+and a credible route to runtime assets. Use one design-target critique round
+for the set. Do not award visual quality because controls are correct. If all
+directions are bland, revise the set rather than selecting the least weak one.
+Choose without adding a user approval step unless intent is materially unclear.
+Record the selected target and the few visible qualities that make it work:
+for example, object scale, a type relationship, a surface treatment and an
+action response. These qualities come from this design, not a fixed checklist
+of decorations. Keep the alternatives as evidence of the choice.
+
 For a new expressive game direction, make and review a visual study before
 building functional routes. It can use static representative data. Resolve the subject, type hierarchy, control surfaces,
 state marks and use of space together. Use a styled native prototype, a drawn
@@ -92,7 +120,9 @@ Generate a new composition for the brief, not a reskin of a reference image.
 Then derive separate runtime assets with quiet live-text regions; do not
 flatten the controls, labels or focus behavior into a screenshot.
 For a new expressive game with no established art direction, use available
-image generation for this whole-screen exploration by default. Give it the
+image generation for these whole-screen alternatives by default. Calling the
+first idea "graphic" does not exempt an open brief from this exploration.
+Graphic concepts are welcome among the alternatives. Give the art workflow the
 brief, player task, representative content, intended finish, readable text
 areas and relevant states. Ask for a new composition and artwork, without
 passing a reference screen to be reskinned. Review the resulting image as a
@@ -109,14 +139,16 @@ to call a wireframe finished.
 Professional tools and small edits within an established style do not need
 this separate exploration.
 
-Inspect the study beside the shipped references at a similar viewing size.
+Inspect the studies together and beside the references at a similar viewing size.
 Check whether the choices and action belong to the same visual world as the
-subject. Use the [early critique](../../critique-ui/SKILL.md#review-a-design-target)
+subject. Compare recent work when available: repeated type, framing and panel
+arrangements need a reason in the current task. Do not force difference within
+an established product. Use the [early critique](../../critique-ui/SKILL.md#review-a-design-target)
 before translating the study into functional routes. Resolve its visual
 `must` fixes here, while the composition is still inexpensive to change.
 Then mount one representative screen in Studio with the intended artwork,
 live labels and real controls. Static data is sufficient for this first runtime
-check. For multi-device work, include the supported narrow and short layouts
+check. For multi-device work, include the [minimum supported narrow and short layouts](compact-compositions.md#verify-the-minimum-viewport)
 as well as a wide view. Phones supporting both orientations need portrait
 and landscape checks. Resolve these compact forms before functional routes;
 changing device scale does not make a fixed desktop control stack fit.

@@ -18,6 +18,9 @@ reach the first delivery. A request for a wireframe or functional spike can
 stop at that stated scope.
 
 Establish the supported viewports and inputs from the brief and existing product.
+Record the minimum usable width and height for each supported orientation,
+after insets and scaling. Use the [minimum-viewport checks](references/compact-compositions.md#verify-the-minimum-viewport)
+to choose and prove those limits; a named phone preset alone is not coverage.
 For phone use, cover portrait and landscape unless the product deliberately
 restricts orientation. A landscape-only test does not establish that restriction
 or prove general mobile support. Respect a limited test request and report its
@@ -39,26 +42,25 @@ capture and review below as the checkpoint for expanding the interface.
 
 For a new expressive game, complete these steps within the initial request:
 
-1. **Look before coding.** Open the
-   [concept → first Studio → revised Studio comparison sheet](references/visual-translations/images/translation-detail-comparison.png)
-   with an image viewer. Compare the actual control surfaces, subject scale,
-   type and state emphasis. Reading a link does not inspect its pixels. Then
-   read the relevant [worked recipe](references/visual-translations/guide.md).
-   These examples teach how to carry a visual treatment into working controls;
-   their subjects, layouts and dimensions are not defaults for another game.
-   If the host cannot display images, record that limit.
-2. **Choose and review an original target.** Inspect relevant shipped screen
-   images for clarity and craft, then choose this game's composition, type,
-   materials and feedback. References are quality comparisons, not screens to
-   reproduce. Render a finished-looking whole-screen concept with representative
-   content and the choice, action and state treatments the task uses. When
-   illustration or material detail carries the direction, use the available
-   art or image-generation workflow before constructing GUI objects.
-   A finished native prototype is valid for a graphic
-   or text-led style; a colored wireframe is not the finished visual target.
-   Follow [visual study](references/game-themes.md#resolve-the-whole-composition)
-   and the [design-target review](../critique-ui/SKILL.md#review-a-design-target).
-   Resolve visual `must` fixes before functional routes.
+1. **Explore before choosing.** Infer a specific creative premise from the
+   activity, audience and world when the brief leaves style open. Inspect
+   relevant visual references, then render three whole-screen directions for
+   the same representative task. Vary composition, type and rendering approach,
+   not just palette or subject art. Use available image generation by default
+   for an open direction. Choosing to call your own first idea "graphic" does
+   not waive exploration. An established direction or an explicitly minimal,
+   text-led or prototype brief can use a focused native study instead. Follow
+   [visual study](references/game-themes.md#resolve-the-whole-composition).
+2. **Review and commit to a target.** Compare the directions together in one
+   [design-target review](../critique-ui/SKILL.md#review-a-design-target).
+   Choose for character, craft, task clarity and feasible runtime production.
+   If every candidate is generic, revise the concepts before building routes.
+   Record the few visible qualities the implementation must preserve. Then
+   inspect the [worked translations](references/visual-translations/guide.md)
+   for implementation techniques relevant to that target. Their layouts and
+   materials are examples, not a style to choose by default. Resolve visual
+   `must` fixes before functional routes. This is an internal choice, not a
+   user approval step.
 3. **Prove one real screen before expanding.** Create the reusable artwork
    needed to preserve that target's finish. Upload original UI art and icons
    through [Open Cloud](references/asset-upload.md), bind the returned IDs and
@@ -67,9 +69,10 @@ For a new expressive game, complete these steps within the initial request:
    and chrome contracts, live labels and standard control behavior.
    Build a representative choice, primary action and opened control where
    the task has them. Use static data if useful. Capture a wide view, then the
-   supported narrow and short layouts after device and control scaling.
+   minimum supported narrow and short layouts after insets and control scaling.
    For phones supporting both orientations, check portrait and landscape here;
-   neither substitutes for the other. Use [compact compositions](references/compact-compositions.md)
+   neither substitutes for the other. Include the notched safe-area case too
+   when it imposes different constraints. Use [compact compositions](references/compact-compositions.md)
    to change the arrangement when its readable content and targets cannot fit.
    View phone captures at the recorded camera width to judge text size; Studio
    can enlarge them. Use the full-resolution capture to inspect painted edges.
@@ -89,7 +92,9 @@ For a new expressive game, complete these steps within the initial request:
    a suggested shape does not require replacing a control's behavior.
 4. **Complete and verify.** Build the remaining routes around that working
    treatment. Inspect supported desktop, phone portrait, short landscape and
-   console views. Record input proof separately from visual review. Check
+   console views, including the declared minima and stateful rotation back.
+   Follow the [minimum-viewport checks](references/compact-compositions.md#verify-the-minimum-viewport).
+   Record input proof separately from visual review. Check
    acceptance, cancellation and return; overflow and painted-edge overlap; essential text; selection
    with focus; and action placement before and after feedback. Recheck identity
    after readability and layout repairs. Preserve the game's materials and
@@ -100,8 +105,8 @@ and completed task. This is internal design and repair within the request,
 not a user approval step. In review notes, record the image paths actually
 viewed, the first-screen captures and the affected states tested. A later
 capture cannot establish that early review happened.
-For a native graphic prototype, the first Studio screen can supply both the
-design target and runtime evidence; it does not need a duplicate concept round.
+When a focused native study fits the brief, its first Studio screen can supply
+both the design target and runtime evidence without a duplicate concept round.
 
 Plan [labels and states](references/game-themes.md#protect-labels-from-artwork)
 with the art. A small edit needs only its affected states checked. Do not add

@@ -33,7 +33,8 @@ For each screen the packet holds:
 PACKET.md lists the screens, the brief and the rubric. A packet does not judge.
 
 Without --capture, critique plays the place on each device like audit and
-preview. The default devices are desktop and phone-portrait.
+preview. The default checks all registered devices, including small and notched
+phones in both orientations. Use --device to request a focused capture.
 
   --capture FILE  Use a saved PNG or JPEG instead of playing the place. Add
                   --dump for the rules and the blocks render. A Studio-only
@@ -200,7 +201,7 @@ local function run(invocation: Cli.Invocation): number
 			dump = Cli.flag(invocation, "dump"),
 		})
 	else
-		local devices: { string } = invocation.repeated.device or { "desktop", "phone-portrait" }
+		local devices: { string } = invocation.repeated.device or Look.DEVICES
 		for _, device in devices do
 			if table.find(Look.DEVICES, device) == nil then
 				print(("facet critique: unknown device %s; use %s"):format(device, table.concat(Look.DEVICES, ", ")))

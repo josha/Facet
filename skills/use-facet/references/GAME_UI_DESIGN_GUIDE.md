@@ -46,8 +46,9 @@ in play; opening the collection alone does not complete the task.
 
 Choose references with a similar task, pace, input and viewing context. Inspect
 the actual images for principles of clarity and craft, then create this game's
-own visual treatment from its brief. Review the first representative Studio screen before repeating a new expressive
-direction. Use a separate concept when the chosen art needs it. See
+own visual treatment from its brief. For a new open art direction, compare
+rendered alternatives before choosing; then review the first representative
+Studio screen before repeating the treatment. See
 [theme direction](game-themes.md#inspect-references-before-choosing-the-composition).
 
 ## Organize interaction

@@ -16,13 +16,24 @@ support includes both orientations unless the product deliberately restricts
 them. A test brief that samples only landscape leaves portrait unverified;
 it does not establish an orientation restriction in the product.
 
-For a new multi-device composition, inspect a wide view and the supported
+For a new multi-device composition, declare the minimum supported usable width
+and height for each orientation. Follow the [minimum-viewport procedure](../../skills/use-facet/references/compact-compositions.md#verify-the-minimum-viewport)
+for choosing limits, measuring the safe rectangle, testing complete painted
+bounds and proving routes by input. An unspecified range needs provisional
+tests at the smallest available phone preset in both orientations, plus a
+notched case when its insets impose different constraints. A larger preset
+does not stand in for a smaller supported viewport.
+
+Inspect a wide view and these minimum
 narrow and short layouts in the first runtime prototype, before
 extending the screen's routes. Portrait and landscape expose different limits;
 there is no single phone viewport that proves both. Record the mounted safe
 area after insets and control scaling.
 Check actual button and text bounds: minimum touch targets can exceed authored
-heights. Recompose content that cannot fit instead of compressing a fixed stack.
+heights. Include focus strokes, selection marks and clipping ancestors. A
+visible, clickable center does not prove the whole action fits. If scrolling
+is intended, reveal and activate the complete target through real input.
+Recompose content that cannot fit instead of compressing a fixed stack.
 
 | Context | Evidence to collect |
 | --- | --- |
