@@ -932,7 +932,12 @@ return function(
 			local value: ComposeTypes.ReadOnlyValue<number>
 			local scope = Compose.createRootOwner(function()
 				local probe = Host.Frame(key)({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
-				probe.Parent = parent
+				if parent:IsA("ScrollingFrame") then
+					local container = Host.Folder(key .. "Container")({ probe })
+					container.Parent = parent
+				else
+					probe.Parent = parent
+				end
 				local size = ctx.observe.AbsoluteSize(probe)
 				value = Compose.formula(function(use: ComposeTypes.Use): number
 					local unit = use(size).X / 100

@@ -2116,7 +2116,7 @@ return function(verifyHarness: Verify.Harness)
 					own(world.stop)
 					local pages: ScrollingFrame = find(world.screen, "Pages")
 					local V2 = world.engine.types.Vector2
-					for _, node in pages:GetChildren() do
+					for _, node in pages:GetDescendants() do
 						if node.Name == "LayoutUnit" and node:IsA("Frame") then
 							world.engine.environment.poke(
 								VerifyRoblox.assertInstance(node),
@@ -2211,7 +2211,7 @@ return function(verifyHarness: Verify.Harness)
 				)
 				expect(pages.CanvasPosition.X):toBe(3219)
 				for _, scale in { 4 / 3, 2 } do
-					for _, node in pages:GetChildren() do
+					for _, node in pages:GetDescendants() do
 						if node.Name == "LayoutUnit" and node:IsA("Frame") then
 							world.engine.environment.poke(
 								VerifyRoblox.assertInstance(node),

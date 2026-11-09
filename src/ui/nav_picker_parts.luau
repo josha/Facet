@@ -47,7 +47,7 @@ return function(ctx: Types.Context, surfaces: Nav.Surfaces): Parts
 		local probe: Frame? = nil
 		ctx.runtime.mount(function()
 			probe = Host.Frame "Unit" { Size = D2.fromOffset(1, 1), Visible = false }
-			return probe
+			return Host.Folder "UnitContainer" { probe }
 		end, node)
 		local pixel = ctx.observe.AbsoluteSize(assert(probe))
 		return Compose.formula(function(use: ComposeTypes.Use): number
