@@ -49,14 +49,25 @@ quality, readability, composition and state treatment; mark runtime and input
 as unverified. Resolve visual `must` fixes before implementation.
 
 Use the next fresh round on the first representative Studio screen, before
-functional routes and repeated layouts. Label the packet `runtime translation`
-and include the target beside the actual capture at a similar viewing size.
+functional routes and repeated layouts. Label the packet `runtime translation`.
+State whether the target is an agent-chosen concept (90% visual lock), a
+user-provided specification (100% lock), a directional sketch, or external
+inspiration. For a directional sketch, record the intended constraints and
+the developed visual target; do not require fidelity to incidental sketch
+styling or spacing. Determine its role from the user's wording and task.
+Include the
+original target, any permitted refinements, and the reference-size capture
+at equal viewing sizes, with an aligned layout overlay and paired detail crops.
+Judge target fidelity separately from general visual quality. A coherent
+screen with a materially different composition or finish needs revision.
 Show the choice, action and opened control where the task has them. Include
 selection with focus on that item, selection after focus moves to a peer,
 pressed paint, and any changing feedback before and after acceptance. Do not
-infer these combinations from separate idle images. For multi-device work,
-include a wide view and the declared minimum supported narrow and short layouts
-in this early packet. Use the [minimum-viewport procedure](../use-facet/references/compact-compositions.md#verify-the-minimum-viewport).
+infer these combinations from separate idle images. First resolve fidelity
+at the target's aspect ratio. A packet limited to that first-screen checkpoint
+does not need an invented multi-device scope. For a full multi-device task,
+subsequently include the declared minimum supported narrow and short layouts
+before the author expands to other routes. Use the [minimum-viewport procedure](../use-facet/references/compact-compositions.md#verify-the-minimum-viewport).
 Require recorded camera, safe-area and task-body dimensions with scaling;
 a preset name alone does not establish coverage. Keep a separate notched case
 when it imposes different constraints. For phones supporting both orientations, require portrait
@@ -101,7 +112,9 @@ fresh round remains, use a separate self-review and report that limit.
    Include the original request. When references informed the direction or the
    requested comparison, include those images or links. The reviewer must view
    their pixels before judging that gap; a search result does not show them.
-   References calibrate craft and clarity. They are not templates to copy.
+   Agent-found inspiration calibrates craft and clarity. A selected concept
+   constrains the implementation; a user-provided reference is a visual
+   specification unless the user explicitly gives it a narrower role.
    Include the visual study when one guided the implementation. Label it as
    a design target so the reviewer can compare it with the actual capture.
    When prior work is available and a new identity is intended, include a small

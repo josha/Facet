@@ -74,8 +74,9 @@ UI that clashes with the game can fail identity despite its technical detail.
 
 Apply these questions to the real captures at each supported form factor.
 Do not credit an identity described in notes but absent from the screen.
-Assess an original treatment suited to the brief. Use references to compare
-craft, clarity and coherence, not similarity to their layout, assets or branding.
+Assess a treatment suited to the brief. Use agent-found inspiration to compare
+craft, clarity and coherence without requiring imitation. Apply the target
+contract below to a selected concept or user-provided reference.
 Familiar genre arrangements and standard controls are valid; copied surface
 details do not establish a product's own direction.
 When the brief asks for a compelling game UI, identity needs positive visual
@@ -100,12 +101,42 @@ traits, such as pixel rendering, while varying the decisions left open.
 Palette swaps on the same structure need revision before
 implementation. Recommend a direction only if its craft and task clarity
 meet the brief; a least-bad candidate is not a pass.
-When a runtime packet includes a design target, compare their defining
-qualities at the same viewing size. Check subject separation, control
-silhouettes, edges, type hierarchy and state emphasis where they carry the
-direction. Name the largest visible loss even when the artwork loads and the
-palette matches. Allow changes that improve correctness, readability or fit;
-matching the concept's pixels is not the goal.
+When a runtime packet includes a committed target, assess fidelity separately
+from general identity. An agent-chosen concept is a **90% visual lock**:
+limited, documented refinements or ideas from other concepts can improve it,
+but its defining composition and finish must remain. A user-provided reference
+is a **100% visual specification** unless the user explicitly limits its role.
+Unapproved material departures from that specification need revision. These
+percentages describe design authority, not a numerical image-similarity test.
+
+An approximate sketch or wireframe is a directional reference. Check its
+intended content, relationships, behavior and any explicitly fixed details,
+then judge visual fidelity against the developed concept. Do not penalize
+improvements to provisional styling, proportions, type or incidental spacing.
+Use the user's wording and task context to establish the reference's role;
+neither a polished image nor a hand-drawn image determines authority by itself.
+
+Compare equal-size target and runtime images at the reference aspect ratio.
+Use the overlay for region placement and relative scale, then paired crops for
+type, subject separation, materials, edges, depth and control paint. List the
+defining relationships as preserved, changed within the target contract, or
+missing. A plausible reason in the author's notes does not prove preservation;
+verify the visible result. Name the largest loss even when the artwork loads
+and the palette matches. A lost defining quality is a `must` fix and a `revise`
+verdict regardless of general visual scores. Do not clear it by counting small
+ornaments or by lowering the target to the implementation.
+
+Inspect details the target leaves unspecified, including supporting indicators,
+opened controls and feedback. Their material, shape, type and state treatment
+must extend the target's visual language. Sharing its palette does not clear
+an unrelated default badge or panel. A quieter supporting role is valid; judge
+whether it still belongs to this design. Check inferred details in context,
+not only the regions that can be compared directly with the target.
+
+Correct factual errors and require usable live states. Judge necessary visual
+adaptations under the target contract. For a reference-viewport checkpoint,
+review that declared scope. Broader device evidence is required when the task
+advances to that stage, not as a substitute for matching the first screen.
 
 Inspect essential labels over art in the actual selected and focused states,
 including both states together. Read them at the intended viewing size, without
@@ -160,8 +191,9 @@ and use 4; do not invent a need for numbers or art to increase the score.
 | `identity` | 5 |
 | `economy` | 6, 7 |
 
-The verdict is `pass` only when every score is 4 or more. Otherwise it is
-`revise`. This is the critique tool's review convention, not proof of usability
+The verdict is `pass` only when every score is 4 or more and no required target
+relationship is missing or changed outside the target contract. Otherwise it
+is `revise`. This is the critique tool's review convention, not proof of usability
 or a universal release threshold. Report missing evidence separately.
 
 ## Fixes
