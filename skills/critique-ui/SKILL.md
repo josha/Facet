@@ -34,8 +34,9 @@ Use the full loop when independent review would add useful evidence.
 
 When a separate concept guides an expressive game, review it before translation.
 For new open art direction, review the alternatives together in one round.
-Check that their composition, type and rendering approach differ, then judge
-each against the same task and finish. Do not select a winner solely because
+Check that their composition, type and rendering approach differ where the
+game's visual constraints leave room, then judge each against the same task
+and appropriate finish. Do not select a winner solely because
 it is the easiest to implement. If all are generic, request revision of the set.
 For a focused native study suited to an established, quiet or explicitly
 minimal brief, the first Studio screen can supply both the direction and the

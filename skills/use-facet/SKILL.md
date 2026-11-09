@@ -32,6 +32,10 @@ For a new interface or visual redesign, choose its identity from the brief.
 A game should express its world and intended feeling. A professional mail app
 or Studio tool can use quiet, familiar styling. Preserve established direction
 for small edits and respect an explicitly minimal or text-led brief.
+Set the level and kind of visual detail from the game's art, tone and audience.
+Finished pixel art, soft colorful shapes and detailed illustrated or realistic
+surfaces can each be high quality. Judge craft within that language; greater
+realism or complexity is not a universal improvement. See [appropriate finish](references/game-themes.md#match-the-finish-to-the-game).
 
 Decide what the player should see, understand and do, and how the experience
 should feel. Design that composition before mapping it to library components.
@@ -45,8 +49,10 @@ For a new expressive game, complete these steps within the initial request:
 1. **Explore before choosing.** Infer a specific creative premise from the
    activity, audience and world when the brief leaves style open. Inspect
    relevant visual references, then render three whole-screen directions for
-   the same representative task. Vary composition, type and rendering approach,
-   not just palette or subject art. Use available image generation by default
+   the same representative task. Vary composition, type and rendering approach
+   where the game's direction leaves room, not just palette or subject art.
+   Keep every alternative appropriate to its world, tone and audience.
+   Use available image generation by default
    for an open direction. Choosing to call your own first idea "graphic" does
    not waive exploration. An established direction or an explicitly minimal,
    text-led or prototype brief can use a focused native study instead. Follow
