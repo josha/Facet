@@ -1,0 +1,15 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "moon-market-coherent-bland",
+  "source": "R27 avatar customizer final parent-repaired Studio desktop capture. Place SHA256 7c2dc67d43fc125f429133a8344c564a58e16d6ceafb272f23ccb96389a854a4. The first delivery and frozen kit remain unchanged.",
+  "labeler": "Josh's qualitative feedback, 2026-11-09; generic-identity tag mapped by the agent. No owner numeric scores supplied.",
+  "capture": "capture.jpg",
+  "device": "desktop",
+  "brief": "Create a distinctive, delightful, finished avatar accessory shop and outfit customizer. Players inspect accessories, preview them on an avatar, distinguish ownership from try-on, buy or equip, and review and apply an outfit. Choose the visual direction from this open brief.",
+  "label": {
+    "verdict": "revise",
+    "must": ["generic-identity"],
+    "should": [],
+    "notes": "Owner: 'That’s kind of bland still. I’ve noticed stylistically all of the demos were producing are similar.' Earlier reviewer and parent judgments overcredited coherent theme details as distinction. This case informed the revised guidance and is development calibration, not an unseen test. The screenshot does not establish device fit or input behavior. The owner supplied no per-dimension scores."
+  }
+}

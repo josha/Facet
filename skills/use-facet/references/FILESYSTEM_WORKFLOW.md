@@ -21,8 +21,13 @@ Run one live check at a time and wait for its verdict before editing or starting
 another. A returned process handle means the check is still running. Poll that
 handle; changing `--out` does not make a competing Studio check useful.
 Give one `--tap` for each control in the path to a screen. Without `--device`,
-it uses one capture session across all five devices. It prints only problems
-and screenshot paths.
+it uses one capture session across the registered devices, including small
+unnotched and larger notched phones in both orientations. It prints only
+problems and screenshot paths. These are samples, not the product's support
+limits. Apply the [minimum-viewport procedure](compact-compositions.md#verify-the-minimum-viewport)
+when the product supports a smaller or differently constrained safe area.
+The sweep does not replace stateful rotation, real-input checks or visual
+inspection of painted edges.
 During repairs, use `--device ID` to check the affected device. Run one complete
 final sweep without `--device`. Use the printed `verify --report` queries to
 read findings. Add `--step ID` for one capture. Do not read the full report.

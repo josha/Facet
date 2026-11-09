@@ -302,7 +302,7 @@ return function(harness: Verify.Harness)
 		t:expect(reason):toBe("covered by modal")
 		t:expect((Actions.returnToRoot(qa))):toBe(true)
 	end)
-	for _, device in { "desktop", "phone-portrait" } do
+	for _, device in { "desktop", "phone-portrait", "phone-small-portrait", "phone-small-landscape" } do
 		harness:case(device .. " failed reveal never taps a different matching button", function(t)
 			local qa = QA.create(
 				(
@@ -337,7 +337,7 @@ return function(harness: Verify.Harness)
 			t:expect(commands):toEqual({ "reveal", "reveal", "tap" })
 		end)
 	end
-	for _, device in { "desktop", "phone-landscape" } do
+	for _, device in { "desktop", "phone-landscape", "phone-small-portrait", "phone-small-landscape" } do
 		harness:case(device .. " explicit visible tap retains native hit bounds and requires activation", function(t)
 			local qa = hostFixture(device)
 			local query: QA.Query = { role = "button", exact = "Shop", near = "Menu" }

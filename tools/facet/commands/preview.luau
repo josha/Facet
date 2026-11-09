@@ -18,7 +18,8 @@ Use preview to look at a screen. It is not a flow test: the controls own their
 input on each device, and audit checks every device. The outline is the
 summary of a dump, so you do not need to read the dump files.
 
-  --device ID     desktop, phone-portrait, phone-landscape, tablet or console.
+  --device ID     desktop, phone-portrait, phone-landscape, phone-small-portrait,
+                  phone-small-landscape, tablet or console.
                   Repeat it for more devices. The default is desktop and
                   phone-portrait.
   --tap TEXT      After the first screen, tap the control that shows TEXT and

@@ -1,5 +1,10 @@
 # Carry a visual concept into Facet
 
+Choose the current task's direction before using these implementation examples.
+For an open brief, first [compare original alternatives](../game-themes.md#resolve-the-whole-composition).
+These translations explain specific techniques; they are not the set of styles
+available to a new game or the quality threshold for every finished screen.
+
 Open the [content-detail comparison sheet](images/translation-detail-comparison.png) with an image viewer before reading the code. It places each concept beside its first and revised Studio captures, cropping only the outer desktop canvas. The [full-frame comparison](images/translation-comparison.png) preserves the original framing. Compare the same decision and controls in each image. Reading this page or its links does not show the pixels. If the host cannot display them, report that limit. Open the full images below when you need to inspect small text or painted edges.
 
 Use the comparison to understand a material, hierarchy or control treatment. Keep the current task's reviewed concept beside its runtime capture as the target; do not copy an example's composition into an unrelated game.
@@ -95,8 +100,9 @@ The Export example shows the same state relationships with quiet surfaces.
 Native controller evidence is still required for a product that supports it;
 these examples do not establish that a new screen is correct.
 
-Capture this representative task wide and at the most constrained supported
-safe viewport before expanding it. Include selected with focus, selection with
+Capture this representative task wide and at the [minimum supported safe viewport
+in each orientation](../compact-compositions.md#verify-the-minimum-viewport) before expanding it.
+Include selected with focus, selection with
 focus elsewhere, pressed state and any confirmation or changing feedback the
 task uses. Inspect the captures yourself, then include them in the early
 runtime critique. A missing state stays unverified even if the idle screen

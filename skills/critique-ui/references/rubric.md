@@ -42,6 +42,12 @@ art, large numerals, borders, exposed world or screen structure.
    For an identity score of 4 or more on an expressive game, name the visible
    evidence in the choices and action as well as the subject in `keep`.
    Reusing the illustration's colors on generic buttons is not sufficient.
+   When a new identity is intended and recent work is supplied, compare the
+   whole composition, type hierarchy, framing and shape language. A recurring
+   subject panel beside the same card stack can remain generic despite new
+   props and colors. Name the similarity and why it weakens this brief; do not
+   penalize intentional consistency within one product. Coherence alone does
+   not establish distinction or finished craft.
    Judge the complete composition again after each repair; adding the requested
    props does not automatically resolve a weak visual language.
    A professional mail app, Studio tool or explicitly minimal game
@@ -81,6 +87,10 @@ a screenshot cannot prove selection, activation, text entry or return behavior.
 For a packet labeled `design target`, judge the proposed visual states and
 record runtime, device and input behavior as unverified. Do not treat a visual
 pass on that prototype as a release verdict for the implementation.
+When a design-target packet contains alternatives, assess each and compare
+their visual range. Palette swaps on the same structure need revision before
+implementation. Recommend a direction only if its craft and task clarity
+meet the brief; a least-bad candidate is not a pass.
 When a runtime packet includes a design target, compare their defining
 qualities at the same viewing size. Check subject separation, control
 silhouettes, edges, type hierarchy and state emphasis where they carry the
@@ -106,6 +116,17 @@ Recheck identity after readability and fit repairs. A repair that replaces the
 game's material and type hierarchy with an unrelated utility panel can fix
 contrast while creating a visual regression. Judge both outcomes in the new
 capture; an appropriate quiet tool can retain its plain surfaces.
+
+For runtime device fit, require the declared minimum safe viewport in each
+supported orientation, with measured dimensions and scale. A larger phone
+capture cannot clear a missing smaller one. Inspect opened dialogs and changed
+feedback as well as entry. Clipped essential text, action paint or focus
+outlines are `must` fixes with a `revise` verdict even when the button center
+is visible or clickable. A scroll container alone is not reachability proof;
+require evidence of revealing and activating the target. Record missing
+minimum captures, input routes or rotation-and-return evidence separately
+from the scores for supplied images. Do not call device fit complete until
+those gaps are closed on the final source.
 
 ## Scores
 

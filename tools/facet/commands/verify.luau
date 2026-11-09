@@ -16,7 +16,8 @@ local USAGE = [=[usage: lute run tools/facet verify [paths...] [--project FILE] 
     [--report [--device ID] [--rule ID] [--step ID] [--page N]]
 
 Runs strict types, usage lint and a Rojo build. One Studio session supplies
-both the audit and preview screenshots on all five devices. Prints an expected
+both the audit and preview screenshots on all registered devices, including
+small and notched phones in both orientations. Prints an expected
 duration, capture directories, findings and verdict. --static skips Studio.
 --dump audits saved evidence instead of starting Studio; it needs one device.
 UTF-8 BOMs in application Luau files are removed before engine tools read them.

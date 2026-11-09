@@ -21,9 +21,17 @@ translation, check the packet's required states and supported sizes. A selected
 capture and a separate focused capture do not prove the combined state. Name
 missing evidence explicitly; do not let a high idle-screen score imply that
 the representative task has cleared review.
+Require the declared minimum safe viewport in each supported orientation;
+a larger phone preset does not cover it. Check complete painted actions and
+dialog edges, not only visible centers. Keep input and rotation evidence
+separate from the visual verdict.
 Judge the product's own direction and level of craft, not how closely it copies
 a reference. If the packet is a design target, assess its visual proposal and
 record runtime and input behavior as unverified.
+When alternatives are supplied, compare their composition, type and rendering
+approach; palette swaps do not establish exploration. When recent interfaces
+are supplied for a new identity, identify repeated visual structure that the
+brief does not justify. Coherence alone does not establish distinction.
 Apply the same requested visual finish to a design target: a colored wireframe
 does not pass merely because it is recognizable and the controls are readable.
 

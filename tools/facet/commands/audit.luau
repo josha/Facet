@@ -32,8 +32,9 @@ lute run tools/facet docs Review.
 
 Each rule prints its fix once per run. Every screen keeps its score and findings.
 
-  --device ID     desktop, phone-portrait, phone-landscape, tablet or console.
-                  Repeat it. The default is desktop, phone-portrait and console.
+  --device ID     desktop, phone-portrait, phone-landscape, phone-small-portrait,
+                  phone-small-landscape, tablet or console. Repeat it.
+                  The default checks all registered devices.
   --tap TEXT      Tap the control that shows TEXT, then audit the next screen.
   --all           Print low-severity findings too.
   --dump FILE     Audit a saved dump for one --device only. No Studio starts.
@@ -148,7 +149,7 @@ local function run(invocation: Cli.Invocation): number
 		print(USAGE)
 		return 2
 	end
-	local devices: { string } = invocation.repeated.device or { "desktop", "phone-portrait", "console" }
+	local devices: { string } = invocation.repeated.device or Look.DEVICES
 	for _, device in devices do
 		if table.find(Look.DEVICES, device) == nil then
 			print(("facet audit: unknown device %s; use %s"):format(device, table.concat(Look.DEVICES, ", ")))

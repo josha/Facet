@@ -71,6 +71,13 @@ Aim for 30 cases first, then add as you find disagreements.
 
 ## Run the calibration
 
+Cases used to change the guidance belong in `development-cases/`, separate
+from unseen evaluation. The [Moon Market case](development-cases/moon-market-coherent-bland/case.json)
+records the owner's blandness judgment after the prior review credited its
+coherent theme. Its verdict and tag can calibrate that false positive; the
+owner supplied no numeric scores, so none are inferred. Reusing this case
+cannot establish that the revised guidance transfers to a new task.
+
 ```sh
 lute run tools/facet critique cases --cases eval/critic/cases --out artifacts/critic-cal/<run>
 ```
@@ -105,3 +112,4 @@ keep the score line of each run in this file.
 | Date | Rubric | Cases | Verdict | Recall | Score error | Pairs | Notes |
 |---|---|---|---|---|---|---|---|
 | 2026-10-27 | first | 5 draft | 100% | 59% | 0.28 | n/a | The reviewer files joined text under `numbers-buried`, and it raised a missing commit on four screens that the draft labels missed. |
+| 2026-11-09 | visual-range revision | 1 development | 100% | 100% | n/a | n/a | Fresh gpt-6.1-sol at medium rated Moon Market revise, with visuals and identity 3. It also raised preview recognition and lead issues. This known case checks calibration only; it does not measure unseen transfer. |
