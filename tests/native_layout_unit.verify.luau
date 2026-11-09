@@ -17,6 +17,41 @@ return function(verifyHarness: Verify.Harness)
 
 	local PREVIEW = 0.62
 
+	verifyHarness:case("segmented picker measurements survive initially unmeasured hidden layout children", function(check)
+		for _, factor in { 1, 1.25 } do
+			local measured: Facet.ReadOnlyValue<Vector2>? = nil
+			local world = worlds.new(function(UI, _Host)
+				local picker = UI.Picker "ScaledChoices" {
+					style = "segmented",
+					selected = Compose.cell("first"),
+					options = {
+						{ value = "first", label = "First" },
+						{ value = "second", label = "Second" },
+					},
+				}
+				measured = UI.environment().layoutSize(picker)
+				return picker
+			end)
+			check:defer(world.stop)
+			local picker = world.find("ScaledChoices")
+			for _, node in picker:GetDescendants() do
+				if node.Name == "LayoutUnit" or node.Name == "Unit" then
+					local parent = node.Parent
+					local excluded = parent:IsA("ScrollingFrame")
+						and parent:FindFirstChildWhichIsA("UIListLayout") ~= nil
+					local unit = if excluded then 0 else factor
+					world.resize(node, node.Size.X.Offset * unit, node.Size.Y.Offset * unit)
+				end
+			end
+			world.resize(picker, 400 * factor, 48 * factor)
+			world.engine.environment.poke(picker, "AbsoluteWindowSize", world.V2(400 * factor, 48 * factor))
+			Verify.expect(assert(measured):peek().X):toBe(400)
+			Verify.expect(picker.CanvasSize.X.Offset):toBe(400)
+			local first = world.find("first", picker)
+			Verify.expect(first:FindFirstChildWhichIsA("UISizeConstraint").MaxSize.X):toBe(394)
+		end
+	end)
+
 	local function scaleProbes(world: any, factor: number)
 		for _, node in world.screen:GetDescendants() do
 			if node.Name == "LayoutUnit" then
