@@ -30,6 +30,44 @@ sizes. Scale the evidence to the change; there is no fixed time per screen.
 
 Use the full loop when independent review would add useful evidence.
 
+## Review a design target
+
+When a separate concept guides an expressive game, review it before translation.
+For a native graphic prototype, the first Studio screen can supply both the
+direction and the runtime evidence; it does not need a duplicate concept round.
+Use the loop below for a separate concept with a packet labeled
+`design target`: the original brief, prototype images, inspected references
+and the states the design proposes. Static representative data is sufficient.
+Do not require a runtime dump or input proof at this stage. Judge visual
+quality, readability, composition and state treatment; mark runtime and input
+as unverified. Resolve visual `must` fixes before implementation.
+
+Use the next fresh round on the first representative Studio screen, before
+functional routes and repeated layouts. Label the packet `runtime translation`
+and include the target beside the actual capture at a similar viewing size.
+Show the choice, action and opened control where the task has them. Include
+selection with focus on that item, selection after focus moves to a peer,
+pressed paint, and any changing feedback before and after acceptance. Do not
+infer these combinations from separate idle images. For multi-device work,
+include a wide view and the supported narrow and short layouts in
+this early packet. For phones supporting both orientations, require portrait
+and landscape evidence; neither proves the other. Check actual target sizes
+and text, not the device's nominal resolution. View enlarged phone captures at their recorded camera width
+for readability, and use the full-resolution image for painted-edge inspection.
+Static task data is
+sufficient; these must be real controls with live labels. Judge whether their
+visible shapes, type and state treatment carry the target's direction.
+Successful image loading and a matching palette do not establish that.
+List the image paths actually viewed. Identify missing required state or
+viewport captures in the verdict; a visual score for the supplied images
+does not clear that missing evidence.
+Resolve visual `must` fixes and inspect the repair before extending the game.
+
+Review the completed task with its actual states, sizes and input evidence.
+Keep the loop's three-round limit across target, runtime translation and final
+task; changing the packet label does not start a new review budget. If no
+fresh round remains, use a separate self-review and report that limit.
+
 ## The loop
 
 1. **Collect evidence.** With a shell and a Rojo project:
@@ -43,6 +81,16 @@ Use the full loop when independent review would add useful evidence.
    With Studio tools only, follow [Studio only](references/studio-only.md).
    The brief states the task, audience, supported contexts and intended visual
    direction. Include the owner's constraints, not the author's proposed fixes.
+   Include the original request. When references informed the direction or the
+   requested comparison, include those images or links. The reviewer must view
+   their pixels before judging that gap; a search result does not show them.
+   References calibrate craft and clarity. They are not templates to copy.
+   Include the visual study when one guided the implementation. Label it as
+   a design target so the reviewer can compare it with the actual capture.
+   Include the states needed to judge the task. For a choice, show selection
+   and focus together. For changing feedback, show before and after the action
+   so the reviewer can judge readability and placement. A single idle capture
+   cannot establish those properties.
 
 2. **Assess rule findings.** design.txt lists heuristic findings, including
    joined facts, number emphasis and missing visuals. A compact label, text
@@ -58,7 +106,10 @@ Use the full loop when independent review would add useful evidence.
 4. **Act on the verdict.** Apply the top one to three `must` fixes. Keep what
    the verdict lists under `keep`. For each fix, use the matching use-facet
    recipe: [information display](../use-facet/references/information-display.md)
-   for stats, records, ranks and progress.
+   for stats, records, ranks and progress. Check the control contract before
+   implementing a proposed visual change. Fix the observed problem; the
+   critic's proposed move is not an API requirement or evidence that the
+   existing control's behavior must be replaced.
 
 5. **Compare.** Build the next packet into a new folder, then:
 
@@ -68,13 +119,22 @@ Use the full loop when independent review would add useful evidence.
 
    Look at the side-by-side images. Check that the task improved and useful
    behavior survived. Investigate new findings; their count alone is not quality.
+   Reassess the whole composition against the brief and visual target. Adding
+   each suggested ornament does not prove that a generic composition improved.
 
-6. **Stop** when every screen passes, or after three rounds. Report the scores
-   and the open fixes. Do not call a screen passed without a verdict.
+6. **Stop fresh review rounds** when every screen passes, or after three rounds.
+   This limit ends independent scoring, not repair work. Fix known `must`
+   defects, then capture and test the affected states again. Report unresolved
+   blockers and do not describe that result as finished. Report the scores and
+   open fixes; do not claim a fresh pass without a verdict on the final capture.
 
 ## Rules
 
 - The reviewer sees only the packet: captures, renders, design.txt, brief.
+- Include visual references when they informed the direction or requested
+  comparison. A deliberate native or text-led direction does not need an image
+  hunt to qualify for critique. Keep the author's self-assessment and proposed
+  fixes out of the packet.
 - One fresh reviewer per round. Do not reuse a reviewer that saw an earlier
   round; it anchors on its first view.
 - Follow the owner's stated direction when a reviewer prefers another style.

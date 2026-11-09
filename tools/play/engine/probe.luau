@@ -1528,6 +1528,7 @@ handlers.dump = function(request)
 		table.insert(rootList, root)
 	end
 	local dump = Collect.collect({
+		game = game,
 		roots = rootList,
 		device = if type(request.device) == "string" then request.device :: string else nil,
 		scale = 1,

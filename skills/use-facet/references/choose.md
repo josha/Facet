@@ -14,7 +14,7 @@ visual system and image-based surfaces, use [game themes](game-themes.md).
 | Player task | Starting choice and distinction |
 | --- | --- |
 | Act immediately | Button; SplitButton when one primary action has alternatives |
-| Reveal secondary commands | Menu for a readable list; RadialMenu for a short spatial set; keep urgent actions direct |
+| Reveal secondary commands | Menu for a readable list; RadialMenu when direction or a learned spatial arrangement helps selection; keep urgent actions direct |
 | Monitor during play | Composition with ranked Region forms; WorldMarker for a world target |
 | Learn the current action | Callout at its source or a small guide; StepIndicator for stages; ButtonGuide for bindings |
 | Move among peer destinations | TabView; NavigationStack for deeper destinations and return |

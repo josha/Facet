@@ -1928,6 +1928,10 @@ interactive(
 				last ~= nil and whole(t, last),
 				last and { t.rect(last), t.clipped(last), t.rect(value.room) }
 			)
+			if last then
+				local clearance = t.rect(value.room).b - t.rect(last).b
+				t.check("the last action has room below its focus paint", clearance >= 10, clearance)
+			end
 		end,
 	}
 )

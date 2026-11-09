@@ -111,7 +111,10 @@ local SUITES: { { id: string, cases: { string }, controller: boolean?, touch: bo
 		id = "classb_themes",
 		cases = {
 			"authored-metric-native-stroke",
+			"button-leading-glyph-keeps-icon-size-inside-chrome",
 			"chip-pill-near-and-ten-foot",
+			"dialog-default-action-uses-dark-on-accent-selected-art",
+			"dialog-panel-art-fades-outside-content-clip",
 			"explicit-gradient-wins-across-swap",
 			"selection-corners-follow-control",
 			"skeleton-band-contained",

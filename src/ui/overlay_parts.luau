@@ -399,7 +399,8 @@ function parts.room(
 	natural: (ComposeTypes.Use) -> number,
 	maximum: (ComposeTypes.Use) -> number,
 	fill: boolean | ComposeTypes.ReadOnlyValue<boolean>,
-	unit: ComposeTypes.ReadOnlyValue<number>?
+	unit: ComposeTypes.ReadOnlyValue<number>?,
+	insets: { padding: UIPadding, verticalInset: (ComposeTypes.Use) -> number }?
 ): Room
 	local Compose, Host, E, D2 = ctx.Compose, ctx.Host, ctx.types.Enum, ctx.types.UDim2
 	local gap = 8
@@ -448,6 +449,7 @@ function parts.room(
 			end,
 		})
 	end
+	local layout = Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, gap) }
 	local props: Types.ScrollingFrameProps = {
 		Name = "Room",
 		BackgroundTransparency = 1,
@@ -461,23 +463,45 @@ function parts.room(
 			return if filling(use) or use(tight) then E.AutomaticSize.None else E.AutomaticSize.Y
 		end,
 		Size = function(use: ComposeTypes.Use)
-			return if filling(use) or use(tight) then D2.new(1, 0, 0, maximum(use)) else D2.new(1, 0, 0, 0)
+			if filling(use) or use(tight) then
+				return D2.new(1, 0, 0, maximum(use) + (if insets then insets.verticalInset(use) else 0))
+			end
+			return D2.new(1, 0, 0, 0)
 		end,
-		Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder, Padding = ctx.types.UDim.new(0, gap) },
 	}
 	for index, region in regions do
 		ctx.runtime.decorate(region, { LayoutOrder = index })
-		props[#props + 1] = region
+	end
+	if insets then
+		props[#props + 1] = Host.Frame "Regions" {
+			BackgroundTransparency = 1,
+			Size = D2.new(1, 0, 0, 0),
+			AutomaticSize = E.AutomaticSize.Y,
+			layout,
+			insets.padding,
+			table.unpack(regions),
+		}
+	else
+		props[#props + 1] = layout
+		for _, region in regions do
+			props[#props + 1] = region
+		end
 	end
 	props.Selectable = false
 	props.SelectionGroup = false
 	local frame = Host.ScrollingFrame(props)
 	scrollLock.own(frame, ctx)
-	parts.reach(ctx, frame, tight)
+	parts.reach(ctx, frame, tight, if insets then insets.padding else nil, unit)
 	return { frame = frame, pinned = pinned, tight = tight, bodyHeight = bodyHeight, overflowing = overflowing }
 end
 
-function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: ComposeTypes.ReadOnlyValue<boolean>)
+function parts.reach(
+	ctx: Types.Context,
+	scroller: ScrollingFrame,
+	active: ComposeTypes.ReadOnlyValue<boolean>,
+	padding: UIPadding?,
+	unit: ComposeTypes.ReadOnlyValue<number>?
+)
 	local Compose, V2 = ctx.Compose, ctx.types.Vector2
 	local gui = ctx.config.guiService
 	local input = ctx.config.userInputService
@@ -529,11 +553,18 @@ function parts.reach(ctx: Types.Context, scroller: ScrollingFrame, active: Compo
 		local at, size = node.AbsolutePosition.Y, node.AbsoluteSize.Y
 		local canvas = scroller.CanvasPosition
 		local limit = math.max(0, scroller.AbsoluteCanvasSize.Y - height)
+		local top, bottom = window, window + height
+		if padding then
+			local spare = math.max(0, (height - size) / 2)
+			local scale = if unit then unit:peek() else 1
+			top += math.min(spare, padding.PaddingTop.Offset * scale)
+			bottom -= math.min(spare, padding.PaddingBottom.Offset * scale)
+		end
 		local shift = 0
-		if at + size > window + height then
-			shift = at + size - (window + height)
-		elseif at < window then
-			shift = at - window
+		if at + size > bottom then
+			shift = at + size - bottom
+		elseif at < top then
+			shift = at - top
 		end
 		scroller.CanvasPosition = V2.new(canvas.X, math.clamp(canvas.Y + shift, 0, limit))
 	end

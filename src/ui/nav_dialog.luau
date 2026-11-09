@@ -221,8 +221,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 						local function available(use: ComposeTypes.Use): number
 							return math.max(0, use(extent).Y - keyboard(use))
 						end
+						local function panelInset(
+							side: "top" | "bottom" | "left" | "right",
+							use: ComposeTypes.Use
+						): number
+							return surfaces.inset(16, side, "panel", use)
+						end
 						local function padded(use: ComposeTypes.Use): number
-							return surfaces.inset(16, "top", "panel", use) + surfaces.inset(16, "bottom", "panel", use)
+							return panelInset("top", use) + panelInset("bottom", use)
 						end
 						local function roomPx(use: ComposeTypes.Use): number
 							if inset(use) or (spec.bodyHeight ~= nil and not use(covering)) then
@@ -252,7 +258,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								Visible = function(use: ComposeTypes.Use)
 									return not blank(readText(title, use)) and not use(plaqued)
 								end,
-								Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+								if closeButton then Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill } else nil,
 							})
 							ctx.textRole(heading, "heading")
 							table.insert(header, heading)
@@ -352,6 +358,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 								and spec.bodyHeight == nil
 							then ctx.layoutSize(bodyContent, unit)
 							else Compose.cell(V2.zero)
+						local function horizontalInset(use: ComposeTypes.Use, side: "left" | "right"): UDim
+							local base = panelInset(side, use)
+							local spare = if use(covering) then math.max(0, use(extent).X - widthPx(use)) else 0
+							local half = math.floor(spare / 2)
+							return ctx.types.UDim.new(0, base + (if side == "left" then half else spare - half))
+						end
 						local room = parts.room(
 							ctx,
 							regions,
@@ -369,7 +381,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 							Compose.formula(function(use: ComposeTypes.Use): boolean
 								return use(covering) or requestedHeight(use) == "fill"
 							end),
-							unit
+							unit,
+							{
+								padding = Host.UIPadding {
+									PaddingTop = function(use: ComposeTypes.Use)
+										return ctx.types.UDim.new(0, panelInset("top", use))
+									end,
+									PaddingBottom = function(use: ComposeTypes.Use)
+										return ctx.types.UDim.new(0, panelInset("bottom", use))
+									end,
+									PaddingLeft = function(use: ComposeTypes.Use)
+										return horizontalInset(use, "left")
+									end,
+									PaddingRight = function(use: ComposeTypes.Use)
+										return horizontalInset(use, "right")
+									end,
+								},
+								verticalInset = padded,
+							}
 						)
 						if body and spec.bodyHeight ~= nil then
 							runtime.decorate(body, {
@@ -462,22 +491,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 									return 1 - shown.opacity(use)
 								end,
 								room.frame,
-								ctx.padding(16, 16),
 								ctx.corner(),
 							}
 							local panel = ctx.styled(ctx.fade(panelProps, true), "dialog")
 							ctx.styled(panel, "panel")
 							sizes = surfaces.atRest(shown.travel, settled, { panel })
 							surfaces.skin(panel, "panel", {
-								reserve = function(name: string, use: ComposeTypes.Use): number
-									if not use(covering) or (name ~= "left" and name ~= "right") then
-										return 0
-									end
-									local spare = math.max(0, use(extent).X - widthPx(use))
-									return if name == "left"
-										then math.floor(spare / 2)
-										else spare - math.floor(spare / 2)
-								end,
+								fullPanelArtFade = true,
+								padding = false,
 								title = spec.title,
 								onCaption = function(on: boolean)
 									plaqued:set(on)

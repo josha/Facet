@@ -181,7 +181,7 @@ return function(harness: Verify.Harness)
 			t:expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
 			w.size(w.screen, 844, 160)
 			t:expect(room.ScrollingEnabled):toBe(true)
-			t:expect(room.Size.Y.Offset):toBe(64)
+			t:expect(room.Size.Y.Offset):toBe(128)
 			t:expect(body.ScrollingEnabled):toBe(false)
 			t:expect(panel.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
 		end,

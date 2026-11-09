@@ -112,6 +112,244 @@ add("chip-pill-near-and-ten-foot", {}, function(t)
 	check("ten-foot")
 end)
 
+add("button-leading-glyph-keeps-icon-size-inside-chrome", {}, function(t)
+	local themes = t.Facet.themes
+	local package = themes.neutralPackage()
+	package.chrome = { control = { kind = "fill", contentInsets = { left = 7, right = 7 } } }
+	local compact = assert(package.metrics.controlSizes.compact)
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
+		return Host.Frame {
+			Size = UDim2.fromScale(1, 1),
+			UI.Button "Choice" {
+				label = "Create",
+				controlSize = "compact",
+				glyph = function()
+					return Host.ImageLabel "ChoiceGlyph" { BackgroundTransparency = 1 }
+				end,
+			},
+			UI.Button "IconOnly" {
+				name = "Close",
+				icon = "close",
+				controlSize = "compact",
+				Position = UDim2.fromOffset(0, 60),
+				Size = UDim2.fromOffset(64, 36),
+				AutomaticSize = Enum.AutomaticSize.None,
+			},
+		}
+	end, { theme = assert(themes.define(package)), size = Vector2.new(320, 200) })
+	local glyph = t.find(stage, "ChoiceGlyph")
+	local wrapper = t.find(stage, "LeadingGlyph")
+	t.near("the leading glyph keeps its metric width", glyph.AbsoluteSize.X, compact.iconSize, 0.01)
+	t.near("the leading glyph keeps its metric height", glyph.AbsoluteSize.Y, compact.iconSize, 0.01)
+	t.near("the leading glyph starts at its wrapper edge", glyph.AbsolutePosition.X, wrapper.AbsolutePosition.X, 0.01)
+	local iconOnly = t.find(stage, "IconOnly")
+	local padding = iconOnly:GetStyled("PaddingLeft", "::UIPadding")
+	t.near("the icon-only button keeps its chrome inset", padding.Offset, 7, 0.01)
+end)
+
+add("dialog-panel-art-fades-outside-content-clip", {}, function(t)
+	local themes = t.Facet.themes
+	local native = themes.neutralPackage()
+	native.chrome = { panel = { kind = "native", shadow = "raised" } }
+	local painted = assert(themes.define({
+		base = native,
+		assets = { panel = themeNamed(t, "fantasy_parchment").assets.parchment_panel },
+		chrome = {
+			panel = {
+				kind = "nineSlice",
+				asset = "panel",
+				shadow = "raised",
+				contentInsets = { left = 24, right = 24, top = 18, bottom = 18 },
+			},
+		},
+		rules = {
+			{ selector = ".facet-skin-art-panel", properties = { ImageTransparency = 0.25 } },
+			{ selector = ".facet-skin-art-panel::UIGradient", properties = { Rotation = 37 } },
+		},
+	}))
+	local selected: ThemeCell
+	local open: BooleanCell
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule, env)
+		selected, open = env.theme, Compose.cell(true)
+		return UI.Dialog {
+			isPresented = open,
+			onPresentedChange = function(value)
+				open:set(value)
+			end,
+			closeButton = false,
+			actions = { { id = "Confirm", label = "Confirm", onActivate = function() end } },
+			content = function()
+				return Host.Frame { Size = UDim2.fromOffset(120, 50), BackgroundTransparency = 1 }
+			end,
+		}
+	end, { theme = native, size = Vector2.new(375, 600), motionLevel = "normal", frames = 24 })
+	local panel = t.find(stage, "Panel")
+	local fade = t.find(panel, "Fade")
+	local room = t.find(panel, "Room")
+	t.check("the native panel has no art group", panel:FindFirstChild("ArtFade", true) == nil)
+	selected:set(painted)
+	t.settle(12)
+	local art = t.find(panel, "panel1")
+	local artFade = art:FindFirstAncestorWhichIsA("CanvasGroup")
+	local shadow = t.find(panel, "ChromeShadow")
+	local shadowRest = shadow.Transparency
+	t.check("the panel owns the shadow outside the art fade", shadow.Parent == panel)
+	t.check("content stays in its original fade group", room:IsDescendantOf(fade))
+	t.check("art has a separate fade group outside the content clip", artFade ~= nil and artFade ~= fade)
+	t.inside("art covers the full panel", panel, artFade, 1)
+	t.inside("the art fade stays within the full panel", artFade, panel, 1)
+	local body = t.find(room, "Body")
+	local action = t.find(room, "Confirm")
+	t.near(
+		"body keeps its left content inset within the scroller",
+		body.AbsolutePosition.X - room.AbsolutePosition.X,
+		24,
+		1
+	)
+	t.near(
+		"body keeps its top content inset within the scroller",
+		body.AbsolutePosition.Y - room.AbsolutePosition.Y,
+		18,
+		1
+	)
+	t.near(
+		"action paint has left clearance from the scroller",
+		action.AbsolutePosition.X - room.AbsolutePosition.X,
+		24,
+		1
+	)
+	t.near(
+		"action paint has bottom clearance from the scroller",
+		room.AbsolutePosition.Y + room.AbsoluteSize.Y - action.AbsolutePosition.Y - action.AbsoluteSize.Y,
+		18,
+		1
+	)
+	t.inside("content fade covers the scroller", room, fade, 1)
+	open:set(false)
+	local partial = false
+	for _ = 1, 24 do
+		t.settle(1)
+		if art.Parent and fade.GroupTransparency > 0 and fade.GroupTransparency < 1 then
+			partial = true
+			t.near("art and content fade together", artFade.GroupTransparency, fade.GroupTransparency, 0.01)
+			t.near(
+				"the shadow fades once",
+				shadow.Transparency,
+				1 - (1 - shadowRest) * (1 - fade.GroupTransparency),
+				0.01
+			)
+			t.near("authored image opacity remains in effect", art:GetStyled("ImageTransparency"), 0.25, 0.01)
+			t.near("authored gradient remains in effect", art:GetStyled("Rotation", "::UIGradient"), 37, 0.01)
+			break
+		end
+	end
+	t.check("the exit exercises a partial fade", partial)
+	t.settle(24)
+	t.check("the panel detaches after exit", panel.Parent == nil)
+	t.cleanup()
+	t.check("the skin art is disposed with the app", art.Parent == nil)
+end)
+
+add("dialog-default-action-uses-dark-on-accent-selected-art", {}, function(t)
+	local themes = t.Facet.themes
+	local base = themes.neutralPackage()
+	local palette = base.style.themes[1]
+	local accent = { r = 249 / 255, g = 123 / 255, b = 75 / 255 }
+	local ink = { r = 15 / 255, g = 39 / 255, b = 39 / 255 }
+	palette.colors.accent = accent
+	palette.colors.onAccent = ink
+	palette.extra.controlSelected = accent
+	palette.extra.onSelected = ink
+	base.style.themes[2].colors.accent = ink
+	base.style.themes[2].colors.onAccent = { r = 1, g = 1, b = 1 }
+	local ticket = "rbxassetid://89947611687983"
+	local action = "rbxassetid://121348733499485"
+	local function define(package)
+		return assert(themes.define({
+			base = package,
+			style = { themes = package.style.themes },
+			assets = {
+				ticket = { contentId = ticket },
+				action = { contentId = action, sliceCenter = { x0 = 4, y0 = 4, x1 = 16, y1 = 16 }, sliceScale = 0.5 },
+			},
+			chrome = {
+				control = {
+					kind = "fill",
+					asset = {
+						default = "ticket",
+						selected = { asset = "action", rotation = 180, tint = { r = 1, g = 0.75, b = 0.5 } },
+					},
+				},
+			},
+		}))
+	end
+	local theme = define(base)
+	local inverse = themes.neutralPackage()
+	for _, entry in inverse.style.themes do
+		entry.colors.accent = ink
+		entry.colors.onAccent = { r = 1, g = 1, b = 1 }
+	end
+	local selected: ThemeCell
+	local activePalette: StringCell
+	local enabled: BooleanCell
+	local stage = t.mount(function(UI: FacetControls, _: RobloxHost, Compose: ComposeModule, env)
+		selected, activePalette, enabled = env.theme, env.palette, Compose.cell(true)
+		return UI.Dialog {
+			isPresented = Compose.cell(true),
+			onPresentedChange = function() end,
+			title = "Set sail?",
+			actions = {
+				{ id = "Cancel", role = "cancel", label = "Cancel", onActivate = function() end },
+				{
+					id = "SetSail",
+					role = "default",
+					label = "Set sail",
+					enabled = enabled,
+					onActivate = function() end,
+				},
+			},
+		}
+	end, { theme = theme, size = Vector2.new(480, 320), frames = 12 })
+	local primary, cancel = t.find(stage, "SetSail"), t.find(stage, "Cancel")
+	local primaryArt, cancelArt = t.find(primary, "control1"), t.find(cancel, "control1")
+	t.check(
+		"stock default action is skinned emphasis",
+		primary:HasTag("facet-accent") and primary:HasTag("facet-skinned")
+	)
+	t.check("cancel still uses the ticket", cancelArt:GetStyled("Image") == ticket, cancelArt:GetStyled("Image"))
+	t.check(
+		"the default action uses selected artwork",
+		primaryArt:GetStyled("Image") == action,
+		primaryArt:GetStyled("Image")
+	)
+	t.check("emphasis leaves semantic selection clear", not primary:HasTag("facet-selected"))
+	t.check("the selected asset keeps its rotation", primaryArt:GetStyled("Rotation") == 180)
+	t.check(
+		"the selected asset keeps its tint",
+		sameColor(primaryArt:GetStyled("ImageColor3"), Color3.new(1, 0.75, 0.5))
+	)
+	t.check("the selected asset keeps its own slicing", primaryArt.SliceCenter == Rect.new(4, 4, 16, 16))
+	activePalette:set(base.style.themes[2].name)
+	t.settle(3)
+	t.check("emphasis uses selected art in every palette of the package", primaryArt:GetStyled("Image") == action)
+	local inverseTheme = define(inverse)
+	selected:set(inverseTheme)
+	t.settle(3)
+	t.check("a package without dark-on-accent returns to default art", primaryArt:GetStyled("Image") == ticket, {
+		image = primaryArt.Image,
+		styled = primaryArt:GetStyled("Image"),
+		current = t.find(primary, "control1").Image,
+	})
+	selected:set(theme)
+	t.settle(3)
+	t.check("restoring dark-on-accent updates the same art instance", t.find(primary, "control1") == primaryArt)
+	t.check("restored theme uses selected artwork again", primaryArt:GetStyled("Image") == action)
+	enabled:set(false)
+	t.settle(3)
+	t.check("disabled still removes interaction and focus", not primary.Interactable and not primary.Selectable)
+	t.check("disabling does not change the emphasis artwork", primaryArt:GetStyled("Image") == action)
+end)
+
 add("skeleton-circle-round-sweep", {}, function(t)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return Host.Frame "Holder" {

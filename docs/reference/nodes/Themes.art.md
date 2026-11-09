@@ -8,12 +8,15 @@ Do not call the runtime skin helper for each control.
 
 ## Assets
 
-An asset record has `contentId` (or `content`), optional `assetName`, `tintRole`,
+An asset record takes a string `contentId` (or `content`) for native `Image`.
+Upload authored art and icons through [Open Cloud](../../guide/themes.md#upload-original-art);
+use asset IDs. EditableImage can render a player's drawing canvas.
+Other fields are optional `assetName`, `tintRole`,
 `sliceCenter = {x0, y0, x1, y1}`, `sliceScale`, `resample`, `preload` and `fallback`.
 Use the real image's slice coordinates. `resample` is `"default"` or `"pixelated"`.
 StyleSheets preload package assets except those marked `preload = "lazy"`.
 The experience must have access to each asset; schema validation does not prove
-availability or readable text over its artwork.
+loading or readable labels.
 
 An asset reference is a name or
 `{asset = name, rotation = 180, tint = {r = 1, g = 1, b = 1}}`.
@@ -22,9 +25,9 @@ map can supply `default`, `hover`, `pressed`, `selected` and `disabled` referenc
 
 ## Icons
 
-An `icons` entry is image content, an asset name, an asset record or a font
-glyph `{ font, codepoint, tintRole? }` (`font` is a `Font` or a font spec). A
-state map can mix image and glyph entries.
+An `icons` entry is an asset ID string, asset name, asset record or glyph
+`{ font, codepoint, tintRole? }` (`font` is a `Font` or font spec).
+A state map can mix image and glyph entries.
 
 A glyph icon is the `facet-icon` ImageLabel with an empty `Image` and a
 `Glyph` TextLabel (`facet-icon-glyph`). Its `TextSize` is the short side of the
@@ -47,9 +50,7 @@ Recipes use `asset`, not native `Image`, `ImageColor3` or `SliceCenter` fields.
 from the artwork. See the installed `ThemeDefinition`/`SkinLayerPatch` declaration
 for each recipe's fields. Focus recipes are described in [Themes.chrome](Themes.chrome.md).
 
-Supply `ownedPanelAsset` with a real, accessible content ID. The slice numbers
-below demonstrate a 12-pixel border on a 64-pixel image; replace them with the
-coordinates from the actual source image:
+Here, `ownedPanelAsset` is an accessible image ID. Use your asset's slice coordinates:
 
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)

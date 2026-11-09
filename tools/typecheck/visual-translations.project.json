@@ -1,0 +1,20 @@
+{
+  "name": "FacetVisualTranslations",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": { "$properties": { "UseNewLuauTypeSolver": "Enabled" } },
+    "ReplicatedStorage": {
+      "Packages": { "$className": "Folder", "Facet": { "$path": "../../src" } }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "FreshGuidanceExamples": {
+          "$path": "../../skills/use-facet/references/visual-translations/recipes/FreshGuidanceExamples.client.luau",
+          "Recipes": { "$path": "../../skills/use-facet/references/visual-translations/recipes/Recipes.luau" },
+          "Themes": { "$path": "../../skills/use-facet/references/visual-translations/recipes/Themes.luau" },
+          "Art": { "$path": "../../skills/use-facet/references/visual-translations/recipes/Art.luau" }
+        }
+      }
+    }
+  }
+}

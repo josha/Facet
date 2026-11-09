@@ -348,6 +348,8 @@ export type ThemeOptions = {
 }
 export type SkinOptions = {
 	types: Engine.RobloxTypes?,
+	artTransparency: Engine.ValueNumber?,
+	emphasisTheme: Engine.Input<ReadOnlyThemePackage>?,
 	shadowTransparency: Engine.ValueNumber?,
 	target: GuiObject?,
 	label: Engine.ValueString?,

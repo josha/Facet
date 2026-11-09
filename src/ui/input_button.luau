@@ -918,8 +918,9 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 
 		if not kit.unskinned[spec] then
-			local function skin()
+			local function skin(use: ComposeTypes.Use?)
 				ctx.skin(node, "control", {
+					emphasis = read(spec.appearance, use) == "emphasis",
 					selected = spec.selected,
 					disabled = function(use: ComposeTypes.Use)
 						return not isEnabled(use)
@@ -933,7 +934,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			if dynamic(spec.appearance) or dynamic(spec.BackgroundTransparency) then
 				Compose.watch(function(use: ComposeTypes.Use)
 					if plated(use) then
-						skin()
+						skin(use)
 					end
 				end)
 			elseif plated() then

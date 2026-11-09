@@ -30,3 +30,8 @@ launcher has a size, and with `launcher = false`, the `preset` sets the
 position. A full ring (`donut` or `circle`) then moves inward until its inner
 radius plus `ringWidth` (or 44 pixels) fits inside the presentation area. The
 ScreenGui keeps that area inside the safe area. Corner presets are not moved.
+
+With `launcher = false`, pass the custom opener as `anchor` when the ring should
+open around it. The menu cannot infer that relationship from the button that
+changed its open state. Safe-area adjustment can move the ring inward from
+the anchor; inspect its final placement at each supported viewport.

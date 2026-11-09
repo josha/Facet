@@ -13,6 +13,16 @@ you can build and check, give each a minimal working entry and result before
 deepening a route that already works. A missing route is not offset by polish
 elsewhere. Fix a defect that blocks later routes first.
 
+For a new visual direction, make the first route small enough to establish its
+composition, subject treatment, type hierarchy and action emphasis before
+repeating the layout. A representative screen can use static data while that
+direction is being resolved; it does not count as the accepted game effect.
+Inspect its wide, narrow and short layouts when those are supported
+before route expansion. A phone brief covering both orientations needs both
+portrait and landscape at this checkpoint; one compact preset cannot prove both.
+Do not postpone
+the theme until every route has been built with neutral placeholder styling.
+
 1. Read the required guidance and the task chapters for the first route. Resolve
    unfamiliar library options from their public contracts. Check unfamiliar
    native constructors, datatype operations and members with a small native
@@ -26,9 +36,9 @@ elsewhere. Fix a defect that blocks later routes first.
    at 1 by 1, report unavailable native rendering separately from game failures.
    Request a capture when rendering is ready. Inspect the returned image at its actual size.
    A text response, object bounds or an image from an earlier state does not
-   verify the current appearance. Test a short or narrow supported layout before
+   verify the current appearance. Test the narrow and short supported layouts before
    copying a layout pattern. When the host can change the viewport size or
-   emulate an input, check the first finished screen at one compact size and
+   emulate an input, check the first finished screen in those compact forms and
    with controller-only focus before reusing its layout. Skip this when the
    brief supports one form factor and one input. Keep a coherent visual language across the world
    and UI, with a composition suited to each task. Check the main subject, next

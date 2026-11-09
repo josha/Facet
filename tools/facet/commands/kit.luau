@@ -2,6 +2,7 @@
 local Verify = require("../../vendor/verify/src/core")
 
 local json = require("@std/json")
+local Path = require("@std/path")
 local Cli = require("../lib/cli")
 local DocsIndex = require("../lib/docs_index")
 local Props = require("../lib/docs_props")
@@ -10,6 +11,7 @@ local Hash = require("../lib/hash")
 local Json = require("../lib/json")
 local Run = require("../lib/run")
 local Lute = require("../../vendor/verify/src/lute")
+local Markdown = require("../lib/markdown")
 
 local USAGE = [[usage: lute run tools/facet kit --out DIR [--force] [--json]
 
@@ -24,6 +26,7 @@ agent can run the author commands there:
   tools/play/                      the Studio play host that preview and audit use
   tools/vendor/verify/             Verify (MIT), which the play host and audit use
   tools/typecheck/roblox.d.luau    the pinned Roblox definitions for lint --types
+  rokit.toml                      pinned tools, when no Rokit or Aftman manifest exists
   .agents/skills/                  the use-facet, compose and critique-ui skills
   StudioDocs/                      the documentation and skill source as native StringValues
 
@@ -37,6 +40,7 @@ definitions come from the cache that lute run tools/facet types writes.]]
 local AUTHOR_COMMANDS = { "info", "docs", "project", "lint", "preview", "audit", "critique", "verify" }
 local DEFINITIONS_LOCK = "tools/typecheck/roblox.lock.json"
 local DEFINITIONS_CACHE = "artifacts/verify/types/roblox.d.luau"
+local AUTHOR_MANIFEST = "tools/facet/rokit.toml"
 local OWNED = {
 	"StudioDocs",
 	"examples/themes",
@@ -193,6 +197,7 @@ local function plan(): Plan
 		)
 	end
 	result.writes["tools/facet/commands/init.luau"] = commandsInit(present)
+	result.copies[AUTHOR_MANIFEST] = "rokit.toml"
 	result.writes["tools/facet/README.md"] = [[# Facet author tools
 
 Start with `.agents/skills/use-facet/SKILL.md`. Choose one complete task and give
@@ -200,6 +205,10 @@ it the game's visual identity. Retrieve a card or option node only for a missing
 In Studio, read the same skill and example source under `ServerStorage.FacetDocs`.
 Theme builders are optional references to adapt to the game's existing app.
 Do not reread a node.
+Run the commands from the game root containing `tools/facet` and the Rojo project.
+The kit seeds `rokit.toml` when the destination has no Rokit or Aftman manifest.
+Keep an existing manifest and use the pins in `tools/facet/rokit.toml` for Lute,
+Rojo and luau-lsp. With Rokit, run `rokit install` from the game root.
 Use `lute run tools/facet project [directory]` to find application files.
 These commands need neither rg nor a Git checkout.
 Run `lute run tools/facet verify --tap TEXT...` for types, lint, build,
@@ -245,6 +254,34 @@ to have a fresh reviewer judge how a screen looks.
 	return result
 end
 
+local function relocatedLinks(contents: string, source: string, target: string, copies: { [string]: string }): string
+	local destinations: { [string]: string } = {}
+	for destination, original in copies do
+		destinations[Files.collapse(original)] = destination
+	end
+	local links = Markdown.links(contents)
+	for index = #links, 1, -1 do
+		local link = links[index]
+		local path, fragment = string.match(link.target, "^([^#]*)(.*)$")
+		if path == nil or path == "" or Markdown.isExternal(path) or string.sub(path, 1, 1) == "/" then
+			continue
+		end
+		local original = Files.collapse(Files.join(Files.parent(source), path))
+		local destination = destinations[original]
+		if destination then
+			local relative = Files.normalize(
+				Path.format(Path.relative(Files.absolute(Files.parent(target)), Files.absolute(destination)))
+			)
+			local start = assert((string.find(contents, link.target, link.start + #link.label + 2, true)))
+			contents = string.sub(contents, 1, start - 1)
+				.. relative
+				.. (fragment or "")
+				.. string.sub(contents, start + #link.target)
+		end
+	end
+	return contents
+end
+
 local function write(out: string, chosen: Plan, force: boolean): (boolean, { string })
 	if #chosen.problems > 0 then
 		return false, chosen.problems
@@ -263,11 +300,21 @@ local function write(out: string, chosen: Plan, force: boolean): (boolean, { str
 	end
 	local count = 0
 	for target, source in chosen.copies do
-		Files.copy(source, Files.join(out, target))
+		if Files.extension(source) == ".md" then
+			Files.write(Files.join(out, target), relocatedLinks(Files.read(source), source, target, chosen.copies))
+		else
+			Files.copy(source, Files.join(out, target))
+		end
 		count += 1
 	end
 	for target, contents in chosen.writes do
 		Files.write(Files.join(out, target), contents)
+		count += 1
+	end
+	local manifest = chosen.copies[AUTHOR_MANIFEST]
+	local rokit = Files.join(out, "rokit.toml")
+	if manifest and not Files.exists(rokit) and not Files.exists(Files.join(out, "aftman.toml")) then
+		Files.copy(manifest, rokit)
 		count += 1
 	end
 	return true, { ("facet kit: wrote %d file(s) into %s"):format(count, out) }
@@ -291,6 +338,39 @@ local function run(invocation: Cli.Invocation): number
 end
 
 local function register(harness: Verify.Harness, prefix: string): ()
+	harness:case(prefix .. "exported guides link to relocated skills and back", {
+		id = prefix .. "exported guides link to relocated skills and back",
+		run = function(test: Verify.Context)
+			local root = Files.temporaryDirectory("facet-kit-links")
+			test:defer(function()
+				Files.remove(root)
+			end)
+			local original = Files.join(root, "source")
+			local out = Files.join(root, "export")
+			local guide = "[Theme](../../skills/use-facet/SKILL.md#theme)\n"
+			local skill = "[Guide](../../docs/guide/themes.md#art) [Runtime](references/runtime.md)\n"
+				.. "[Web](https://example.com/skills/) [Here](#theme)\n`[Code](../../docs/guide/themes.md)`\n"
+			local copies = {
+				["docs/guide/themes.md"] = Files.join(original, "docs/guide/themes.md"),
+				[".agents/skills/use-facet/SKILL.md"] = Files.join(original, "skills/use-facet/SKILL.md"),
+				[".agents/skills/use-facet/references/runtime.md"] = Files.join(
+					original,
+					"skills/use-facet/references/runtime.md"
+				),
+			}
+			Files.write(copies["docs/guide/themes.md"], guide)
+			Files.write(copies[".agents/skills/use-facet/SKILL.md"], skill)
+			Files.write(copies[".agents/skills/use-facet/references/runtime.md"], "Runtime\n")
+			local ok = write(out, { copies = copies, writes = {}, problems = {} }, false)
+			Verify.expect(ok):toBe(true)
+			Verify.expect(Files.read(Files.join(out, "docs/guide/themes.md")))
+				:toBe("[Theme](../../.agents/skills/use-facet/SKILL.md#theme)\n")
+			Verify.expect(Files.read(Files.join(out, ".agents/skills/use-facet/SKILL.md"))):toBe(
+				"[Guide](../../../docs/guide/themes.md#art) [Runtime](references/runtime.md)\n"
+					.. "[Web](https://example.com/skills/) [Here](#theme)\n`[Code](../../docs/guide/themes.md)`\n"
+			)
+		end,
+	})
 	harness:case(
 		prefix .. "the plan holds the library, the author commands and their libraries, and no maintainer command",
 		{
@@ -369,10 +449,29 @@ local function register(harness: Verify.Harness, prefix: string): ()
 					error("the kit was not written: " .. table.concat(lines, "; "), 0)
 				end
 				local docs = Run.capture(
-					{ Run.lute(), "run", "tools/facet", "docs", "Button" },
+					{ "lute", "run", "tools/facet", "docs", "Button" },
 					{ cwd = out, timeout = 120 }
 				)
 				local help = Run.capture({ Run.lute(), "run", "tools/facet", "help" }, { cwd = out, timeout = 120 })
+				Verify.expect(Files.read(Files.join(out, "rokit.toml"))):toBe(Files.read("rokit.toml"))
+				Files.write(Files.join(out, "src/client/Probe.client.luau"), '--!strict\nprint("Ready")\n')
+				Files.write(
+					Files.join(out, "default.project.json"),
+					Json.pretty({
+						name = "KitProbe",
+						tree = {
+							["$className"] = "DataModel",
+							ReplicatedStorage = { Packages = { ["$path"] = "Packages" } },
+							StarterPlayer = { StarterPlayerScripts = { ["$path"] = "src/client" } },
+						},
+					})
+				)
+				local static = Run.capture(
+					{ "lute", "run", "tools/facet", "verify", "--static" },
+					{ cwd = out, timeout = 300 }
+				)
+				Verify.expect(static.ok):toBeTrueWith(static.stderr .. static.stdout)
+				Verify.expect(Files.isFile(Files.join(out, "artifacts/facet-verify/game.rbxlx"))):toBe(true)
 				local probeOk, probeProblem = pcall(function(): boolean
 					Lute.place.build({
 						output = Files.join(out, "probe.rbxlx"),
@@ -440,8 +539,12 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				end
 				for _, relative in Files.walk("skills/use-facet/references") do
 					local source = Files.join("skills/use-facet/references", relative)
-					local target = Files.join(out, ".agents/skills/use-facet/references", relative)
-					if not Files.isFile(target) or Files.read(target) ~= Files.read(source) then
+					local exported = Files.join(".agents/skills/use-facet/references", relative)
+					local target = Files.join(out, exported)
+					local expected = if Files.extension(source) == ".md"
+						then relocatedLinks(Files.read(source), source, exported, chosen.copies)
+						else Files.read(source)
+					if not Files.isFile(target) or Files.read(target) ~= expected then
 						table.insert(missingReferences, relative)
 					end
 				end
@@ -478,6 +581,27 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			end,
 		}
 	)
+	harness:case(prefix .. "a forced kit write preserves consumer tool manifests", {
+		id = prefix .. "a forced kit write preserves consumer tool manifests",
+		run = function(test: Verify.Context)
+			local root = Files.temporaryDirectory("facet-kit-toolchain")
+			test:defer(function()
+				Files.remove(root)
+			end)
+			local contents = '[tools]\nlute = "consumer/lute@0.0.0"\n'
+			for _, manifest in { "rokit.toml", "aftman.toml" } do
+				local out = Files.join(root, manifest)
+				local original = Files.join(out, manifest)
+				Files.write(original, contents)
+				local chosen = { copies = { [AUTHOR_MANIFEST] = "rokit.toml" }, writes = {}, problems = {} }
+				Verify.expect((write(out, chosen, false))):toBe(true)
+				Verify.expect((write(out, chosen, true))):toBe(true)
+				Verify.expect(Files.read(original)):toBe(contents)
+				Verify.expect(Files.read(Files.join(out, AUTHOR_MANIFEST))):toBe(Files.read("rokit.toml"))
+				Verify.expect(Files.isFile(Files.join(out, "rokit.toml"))):toBe(manifest == "rokit.toml")
+			end
+		end,
+	})
 end
 
 local command: Cli.Command = {

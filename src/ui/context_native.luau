@@ -8,7 +8,8 @@ return function(
 	config: Shared.Config,
 	services: Shared.Services,
 	themes: Theme.Themes,
-	observeStyled: (Instance, string) -> ComposeTypes.ReadOnlyValue<unknown>
+	observeStyled: (Instance, string) -> ComposeTypes.ReadOnlyValue<unknown>,
+	authoredTheme: Shared.Input<Theme.ReadOnlyThemePackage>?
 )
 	local Compose, runtime, types, Host = ctx.Compose, ctx.runtime, ctx.types, ctx.Host
 	local Enum = types.Enum
@@ -335,20 +336,30 @@ return function(
 			end
 		end
 		local stateOptions: Shared.SkinStateOptions = skinOptions or {}
+		local fade = fades[node]
+		local artTransparency = if stateOptions.fullPanelArtFade and fade then fade.transparency else nil
+		local function independent(art: Frame): Frame
+			if artTransparency then
+				art:AddTag("facet-independent-fade")
+			end
+			return art
+		end
 		local function createSkin(zIndex: number): Frame
 			local state = ctx.observe.GuiState(node)
 			local background = observeStyled(node, "BackgroundTransparency")
-			return themes.skin(runtime, config.theme, slot, {
+			return independent(themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
+				artTransparency = artTransparency,
+				emphasisTheme = if stateOptions.emphasis then authoredTheme else nil,
 				shadowTransparency = function(use: ComposeTypes.Use)
 					local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
 					local recipe = package and (package.chrome or {})[slot]
 					local fill = if recipe and recipe.kind == "native"
 						then math.clamp(use(background) :: number, 0, 1)
 						else 0
-					local fade = if fades[node] then fades[node].transparency(use) else 0
-					return 1 - (1 - fill) * (1 - fade)
+					local amount = if fade then fade.transparency(use) else 0
+					return 1 - (1 - fill) * (1 - amount)
 				end,
 				label = if stateOptions.label ~= nil
 					then stateOptions.label
@@ -375,7 +386,7 @@ return function(
 					return ctx.read(stateOptions.selected, use) == true
 				end,
 				ZIndex = zIndex,
-			})
+			}))
 		end
 		if node:FindFirstChildWhichIsA("UIPadding") == nil then
 			runtime.mount(function()
@@ -406,13 +417,13 @@ return function(
 		end
 		ctx.whenTheme("skin:" .. slot, skinned, function()
 			local _, art = runtime.mount(function()
-				return Host.Frame "SkinHost" {
+				return independent(Host.Frame "SkinHost" {
 					Size = types.UDim2.fromOffset(0, 0),
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
 					ZIndex = stateOptions.ZIndex or 0,
 					createSkin(0),
-				}
+				})
 			end, node)
 			place(art :: GuiObject)
 		end)

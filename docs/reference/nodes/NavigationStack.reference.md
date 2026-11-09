@@ -57,24 +57,8 @@ The navigation bar title is inset on both sides by the control's horizontal
 padding (`controlSizes.regular.paddingX`), so a root page's leading title
 lines up with the Back label of the pages above it.
 
-A push slides the new page in from the trailing edge. The covered page moves
-30 percent to the leading edge and dims. The covered page keeps its full
-width, so its controls do not change size. A pop plays the reverse. The popped
-page stays until motion completes, without input or selection. While a page
-moves, both pages are opaque. Each page
-gets the background color of the nearest opaque container of the stack. A
-separate black shade frame dims the covered page from 0 to 0.1 opacity. The page
-content does not change its transparency. At rest, the pages are transparent. A stack that fills its ScreenGui does not
-clip the moving pages, so a Screen `surface` stays on the glass while the page
-slides. The default motion is a critically damped Compose
-spring. `transition = { seconds, ease }` replaces the slide with a crossfade
-that uses those Compose tween options.
-`transition = false` disables motion. The pages that are present when the
-stack mounts show without motion.
-
-Set theme `metrics.motion.distances.parallax = 0` to keep covered pages still
-while the front page slides. It affects all default stacks in that theme.
-See [Tasks.theme](Tasks.theme.md).
-
-`transition = { scale = true }` zooms a plate behind the page, not its text.
-See [Custom-transitions](Custom-transitions.md) for `apply` and reduced motion.
+The default push slides the new page in; a pop reverses the slide.
+`transition = false` keeps history, Back and focus restoration without motion.
+A transition table uses a crossfade or the supplied custom effect.
+See [NavigationStack.motion](NavigationStack.motion.md) for transparent pages,
+parallax, timing and reduced motion.
