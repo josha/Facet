@@ -1,0 +1,18 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "history-screen-63",
+  "source": "forward-r27-avatar-customizer/parent/replay/phone-portrait-draft-374x666.jpg",
+  "labeler": "Parent visual and actual-input assessment, 2026-11-09; not an owner numeric rating.",
+  "capture": "capture.jpg",
+  "device": "phone portrait, 374×666 camera; capture enlarged to 607×1080",
+  "brief": "Create a distinctive, finished avatar accessory shop. The player has added owned Orbit Rims to an outfit draft. They must inspect the preview, understand the draft, and either review the outfit or discard it at the supported small portrait viewport.",
+  "label": {
+    "verdict": "revise",
+    "must": [
+      "commit-unclear",
+      "crowded"
+    ],
+    "should": [],
+    "notes": "Parent label: the draft action bar is outside the supplied visible viewport and feedback is cut at the bottom. Live replay separately found Review center y701 and failed Touch activation. The screenshot alone does not prove scrolling cannot recover it. Owner's broader blandness feedback belongs to the separate desktop calibration case."
+  }
+}

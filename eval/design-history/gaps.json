@@ -1,0 +1,30 @@
+{
+  "schema": "facet-design-gaps/1",
+  "gaps": [
+    {
+      "scope": "Owner's Tidekeepers cropped attachment",
+      "status": "The attached image was visible in the conversation, but its named Desktop file was unavailable when the corpus was collected.",
+      "preservedEvidence": "The original full-frame confirmation and before/after live captures are preserved under forward-r22-ab/build-03/directed-clipping-repair. The owner quote is in judgments.json. No replacement image is represented as the exact attachment."
+    },
+    {
+      "scope": "Complete runnable historical places",
+      "status": "Binary places, dependency trees and private temporary workspaces are not shipped in this design archive.",
+      "preservedEvidence": "Available authored source, frozen-kit metadata, patches and existing source/place hashes. The original local checkpoints were not changed. A hash does not imply the binary is included."
+    },
+    {
+      "scope": "Reference ownership and availability",
+      "status": "Some historical images have no recovered source URL or license. Recorded URLs were not refetched for curation.",
+      "preservedEvidence": "Original reference notes and local image bytes where available. No URL or license is invented."
+    },
+    {
+      "scope": "Historical timing, models and input",
+      "status": "Not every artifact proves when it was viewed, which model produced it, or whether a real input event occurred.",
+      "preservedEvidence": "Original protocol, reports and traces where available. Path-based labels are browsing aids, not proof. Early keyboard/focus proxies are not upgraded to native controller evidence."
+    },
+    {
+      "scope": "Gallery browser verification",
+      "status": "The browser tool rejected opening the local file URL. Curation uses static script-syntax and path-integrity checks; no browser-render verification is claimed.",
+      "preservedEvidence": "The self-contained HTML and all preview paths are checked. Original game screenshots are inspected through the local image viewer."
+    }
+  ]
+}

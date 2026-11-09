@@ -1,0 +1,42 @@
+# Drawing evaluation assessment
+
+The R19 known-task repeat used Sol medium with a frozen R18 kit. The owner
+reported short-landscape overlap before a first complete submission. The
+87-file in-progress snapshot and the later 182-file directed freeze are
+preserved separately. This is development evidence, not an uncoached success.
+All frozen files matched their hashes; all fourteen uploaded PNG files matched
+the asset manifest. The nine protected earlier demo objects retain their source.
+
+The parent viewed the design target, early runtime, the older R16 runtime,
+and repaired desktop, portrait, landscape and Xbox captures. Ink Picnic has
+more recognizable game identity than the R16 text-heavy editor: illustrated
+prompts and tools, warm grain, taped paper, printed disc choices, round display
+type and a coral Finish action. The actual player drawing remains the subject.
+
+The actual control treatment is still quieter than the concept. The target's
+large action typography, distinctive silhouettes and illustrated utility
+controls did not fully carry into the rail and finished-piece actions. The
+final independent review passed the prompt picker and rated six groups revise;
+subsequent repairs received self-review and parent inspection, not a new
+independent pass. The corrected landscape brush sample has a complete inset
+outline. Xbox equipped text fits on one row, focus is distinct, and controller
+instructions have separate badges. Portrait actions are readable. These
+repairs do not justify a blanket claim of target-quality first delivery.
+
+The final chooser is a custom Compose arrangement of Facet Buttons, not
+Facet.RadialMenu. That is a material limitation for the advanced-control
+part of the evaluation. A genuine library skin layering defect was separately
+reproduced and fixed with native Studio evidence and a regression test.
+An inside-token label layout also exceeded the existing caption contract;
+this alone did not require replacing the control's input behavior. R20 now
+makes that distinction and brings the constrained actual safe viewport into
+the early runtime review. Painted outlines, shadows and focus extents are
+explicitly included in fit checks.
+
+The normal LocalScript now creates the drawing canvas with the saved
+experience permission. Author input evidence covers mouse drawing and
+emulated Touch, distinct tools, history, clear cancellation/commit, brush and
+color drafts, finish/edit, new-round return, and pixel preservation during
+orientation changes. Gamepad-named MCP input and assigned focus are not
+native Controller Emulator evidence. Parent native controller checks remain
+pending while the Mac is locked.

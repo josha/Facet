@@ -1,0 +1,16 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "history-screen-42",
+  "source": "forward-r22-ab/build-03/directed-clipping-repair/after-footprint/captures/desktop/confirmation.png",
+  "labeler": "Parent visual assessment, 2026-11-09; not an owner score.",
+  "capture": "capture.png",
+  "device": "desktop, 1920×1079 camera",
+  "brief": "Tidekeepers is an illustrated underwater companion-selection game. The player chose Nori and is deciding whether to set sail or keep choosing. The confirmation must identify the selected companion and keep both actions readable and fully visible.",
+  "label": {
+    "verdict": "pass",
+    "must": [],
+    "should": [],
+    "notes": "Parent visual label for this desktop confirmation only: continuous rounded action corners, outlines and shadows now fit. The illustrated companion and both action labels remain legible. This is a directed shared-layout repair, not an unaided first-pass result or an owner endorsement of the full game. No input success is inferred from the image."
+  },
+  "betterThan": "history-screen-17"
+}

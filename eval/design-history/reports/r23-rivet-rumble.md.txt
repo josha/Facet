@@ -1,0 +1,40 @@
+# R23 visual starting-path evaluation
+
+## Current conclusion
+
+The new starting path has not demonstrated a consistent improvement in the first complete delivery. Pair 1 favored the new guidance at the shared early desktop and landscape checkpoint, but the blind reviewer preferred the older guidance in the final submission. Pair 2 favored the older guidance at both shared early checkpoints and the new guidance in the final submission. Both final preferences had moderate confidence. The result is mixed. Native-controller routes remain unverified.
+
+This is a supplied-art translation test with four fresh Sol-medium builders, two per arm. Both arms received the same original concept and uploaded assets, current runtime, task and early/final review opportunities. It does not test independent art direction. Two runs per arm cannot estimate a reliable success rate.
+
+## Pair 1
+
+The new-guidance build gave the robot and full thumbnail silhouettes more room. The older-guidance build had a more complete confirmation with the selected robot, and better grouped Ready and Clubhouse views. Both retained craft problems, including stretched or clipped surface details and small phone text. The new build still exposed a flat backing around its custom action in some input states. The Xbox comparison covered selection only on both sides; it does not establish the missing new-build Xbox routes.
+
+The blind review is in `blind/pair-01/review.md`. The parent viewed every current final capture and native-size phone copy before documenting its assessment. Original deliveries and their hashes are retained separately from subsequent corrections.
+
+## Pair 2
+
+The new-guidance build led narrowly on final desktop and portrait, and more clearly in short landscape. Its subject was larger, the separate focus and selection marks were clearer, and the compact landscape confirmation preserved more of the scene. The older-guidance build led narrowly on Xbox, with more substantial side-by-side confirmation buttons. Both still fell short of the concept's layered emblem and nameplate, sculpted controls, and integration with the counter. See `blind/pair-02/review.md`.
+
+The parent viewed all 21 current Build 04 captures and ten native-size copies. Its thumbnails crop through robot silhouettes, some status plaques are large for their content, and the console modal has shallow stretched buttons. No settled full-frame clipping or focus/check intersection was visible. The critic's Xbox safe-edge concern is conditional on mapping screenshot coordinates directly to the reported safe canvas; it is not a confirmed clipping defect. A real controller mode may change target heights and remains unverified.
+
+Both blind reviewers actually emitted the complete supplied image inventories: 79 images in Pair 1 and 78 in Pair 2, including concepts and native-size viewing copies. Their traces confirm Sol-medium configuration. All assigned kit hashes are unchanged. Build 04's first checkpoint hash is also unchanged.
+
+## Follow-up outside the frozen treatment
+
+The canonical guidance now gives the custom-art primary action an explicit transparent Button base, separates the short verified asset catalog from upload provenance, and requires reviewing phone type at the recorded camera width. Ordinary utility buttons retain their normal state fill. The user's later player-list report also added contextual platform-shortcut checks and restoration of temporarily hidden CoreGui. These corrections are not in the frozen A/B kits, and Rivet Rumble is now development evidence for them.
+
+Build 04's first checkpoint used incorrect slice coordinates after a combined tool read truncated the manifest before its verified delivered-image values. This does not establish that the builder read and rejected those values. The same manifest was supplied to both arms. The truncated read is preserved in the audit.
+
+## Decision rule
+
+The protocol requires a consistent visible final-delivery improvement in both pairs without worse device fit or serious functional regressions. Pair 1 does not meet that criterion, so the conditional own-art game and quiet mail transfer runs are not triggered. A revised candidate needs a new independent task after the observed causes are addressed.
+
+## Native evidence and remaining limits
+
+- The corrected Bakery and Drone custom-action states passed actual pointer press/cancel/accept/disabled checks; Drone also passed a held Touch press and acceptance at the short landscape viewport. The action and feedback bounds stayed stable. Quiet Export kept its native styling and stable action after acceptance. See `../guidance-r23/followup/`.
+- The earlier directed companion repair completed a keyboard route using Return for acceptance, with zero overlapping visible route layers in 18 changed frame samples. Its player list now hides only for the full-screen menu and restores on disposal. Space did not activate the focused Sail action in this mixed-input session; the observation is preserved.
+- Unchanged Build 03 was observed through actual pointer Back, re-entry and acceptance. Among 90 changed frame samples, 84 had two visible navigation layers, but all those layers were opaque. There were zero transparent overlapping route samples. This does not reproduce the earlier transparent ghosting defect; no repair was applied to the frozen build.
+- Native Controller Emulator routes for the four final builds and earlier companion repair remain incomplete. A user click reached Gamepad1 ButtonL3, but CUA could not activate the controller canvas and a held mapped number key reached the game as Keyboard Three. This is an input-delivery limitation, not a controller pass or proof the games fail controller use.
+
+Repository checks and native checks have separate scopes; a passing static gate does not prove these input or visual results.

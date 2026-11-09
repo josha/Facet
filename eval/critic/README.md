@@ -78,6 +78,16 @@ coherent theme. Its verdict and tag can calibrate that false positive; the
 owner supplied no numeric scores, so none are inferred. Reusing this case
 cannot establish that the revised guidance transfers to a new task.
 
+The [design history set](../design-history/README.md) preserves the references,
+concepts, runtime iterations and original reviews behind these judgments.
+Development cases also include Tidekeepers' clipped and repaired confirmation
+and Moon Market's small-phone draft before and after its fixed action bar.
+These labels identify owner reports and parent interpretations separately.
+The repaired phone still has a visual-distinction gap; improved fit is not an
+automatic pass. Pair preference concerns the stated repair and does not prove
+that every dimension improved. No new blind-calibration result is claimed for
+these additions until a reviewer run is recorded.
+
 ```sh
 lute run tools/facet critique cases --cases eval/critic/cases --out artifacts/critic-cal/<run>
 ```

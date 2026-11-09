@@ -1,0 +1,77 @@
+# First-pass UI investigation
+
+The evidence supports protecting a designed first screen before route expansion. It does not support replacing the craft guidance with a shorter native-styling recipe. The existing Facet guidance produced a coherent, playful result when the author could use a focused brief, read needed contracts, and inspect its first screen. The experimental simplification saved some tokens but lost visual quality in this pilot, so its reduced creative workflow was not adopted.
+
+## What was tested
+
+Three fresh Sol 6.1 medium authors built the same Coastal Courier UI prototype: three native seaplanes, aircraft-specific missions, cancellation, accepted-flight summary, return and text size. Each had 12 minutes and the same Studio-only tools. Current and Candidate used byte-identical Facet packages. Native used Roblox directly. All had the same first-screen evidence requirement. No author received operator design advice or repairs.
+
+Two fresh reviewers saw anonymous screenshot packets with different labels and reversed presentation order. Each opened all 42 supplied image files, including originals and landscape views at their actual camera width. The root reviewer separately viewed the final desktop and landscape captures. The test concerns native graphic UI; it does not establish the quality of an illustrated-art generation and upload workflow.
+
+| Comparison | Reviewer one | Reviewer two |
+| --- | --- | --- |
+| Native versus existing Facet guidance | Native, small difference | Facet, small difference |
+| Existing versus simplified Facet guidance | Existing, substantial difference | Existing, substantial difference |
+| Native versus simplified Facet guidance | Native, substantial difference | Native, substantial difference |
+
+The existing Facet build connected its rounded display type, plane portraits, bearing marks, perforated dispatch ticket and receipt. The native build had strong type, livery-linked selection and a route map that changed with acceptance. The simplified candidate had readable bold actions and appealing aircraft, but its centered rectangular choices and near-identical confirmation/receipt treatment were less specific to the game. It also exposed only the selected mission's cargo and duration; the other two made both alternatives directly comparable. These judgments concern one output per arm, not a measured probability of success.
+
+[Reviewer one](eval/blind/one/review.md) · [Reviewer two](eval/blind/two/review.md) · [Label key](eval/blind/assignment-key.json)
+
+## Behavior and device evidence
+
+Independent input checks passed the main pointer and 666 × 374 landscape-touch flows for all three. Cancel and Return preserved aircraft, mission and text size. Single activation displayed an accepted result. Current's rapid second press dismissed its receipt without recording another flight; Native and Candidate left their receipts visible.
+
+Both Facet builds preserved live controller focus through confirmation and return. Native needed repeated View-button focus re-entry after screen reconstruction. Native Gamepad B reached each build but did not cancel; visible Cancel remained reachable through controller activation. No focus assignment or direct callback replaced normal input in these tests.
+
+Portrait was an extra diagnostic outside the two-device author brief. All three completed the touch flow but failed fit: Native reduced important targets to about 23 pixels, and both Facet builds clipped or overlapped content in fixed two-column layouts. These are not all-device-ready releases. The presence of proper controls does not make a desktop composition automatically responsive.
+
+Candidate's author Studio closed at suite cleanup, so its independent tests used a disposable reconstruction from the exact frozen base and exported source. Base and all final script hashes verified after testing. This pilot preserves executable UI source and images, not a complete native saved game's custody.
+
+[Native behavior](behavior/native.md) · [Current behavior](behavior/current.md) · [Candidate behavior](behavior/candidate.md)
+
+## Effort
+
+| Author | Total tokens | Uncached input + output | Author elapsed |
+| --- | ---: | ---: | ---: |
+| Native Roblox | 1,496,296 | 99,560 | 9m 11s |
+| Existing Facet guidance | 2,926,095 | 174,479 | 10m 59s |
+| Simplified Facet candidate | 2,330,977 | 167,137 | 8m 36s |
+
+Candidate used 20.3% fewer total tokens than Current, but only 4.2% fewer uncached input plus output tokens. Most of the raw reduction was cached context. Candidate still used 67.9% more uncached input plus output than Native. These are token measures, not dollar costs. Repository verification ran during Native's author turn, so elapsed time is descriptive and not a controlled speed comparison. [Full audit](eval/attempt-1/author-workflow.md)
+
+Candidate captured its early landscape state by replaying preserved early source after route expansion. That verifies the appearance of that source, not an early compact review. This failure is retained in the process evidence; no later screenshot can establish that the checkpoint happened on time.
+
+## What remains in the repository
+
+- Retained the existing craft and visual-translation guidance. Restored the detailed creative workflow after the simplified candidate lost both blind comparisons. Native graphic work can combine target and runtime review, while illustrated work retains original art and Open Cloud delivery.
+- Put product composition before the component lookup route and explicitly make the first mounted screen the checkpoint for repeating a layout. Keep its wide/compact and state evidence early.
+- Corrected control-factory advice: app code uses `app.UI`; portable components can inherit with `Facet.controls(runtime)` inside the provider. Calling it outside that context creates a separate factory and can lose configured metrics and chrome.
+- Added a typed, runnable Proof Press wiring example. Its role is explicitly a small type-led contract demonstration, not a visual target or template for image-rich games. It passed live desktop, landscape and emulated focus checks.
+- Removed the full-game evaluator's arbitrary pre-module documentation-call cap and ban on complete examples. Aligned its shared workflow so visual direction is established before repeated route layout, without treating static UI as real server behavior.
+- Replaced advice encouraging repeated whole-module rewrites with focused patches and concise diagnostics. Kept quiet tools and text-led games valid, scoped reference requirements, and used real-host verification language for plugins.
+
+The final retained combination is not identical to the frozen experimental Candidate and has not received a new independent author trial. The technical wiring fixes were verified separately. Do not describe this pilot as proving the shorter rewrite or guaranteeing future first-pass quality.
+
+## Why a cold start looked better
+
+The historical native racing author established its display hierarchy and emphatic action in the first client write. The historical Facet author started with neutral controls, expanded routes, and later mostly changed their colors. That observable sequencing is stronger evidence than speculation about model creativity. The full-game harness also restricted the very examples the skill used to teach theming and pushed functional breadth early.
+
+This new pilot shows that Facet can produce a comparable visual result with the existing design guidance and an explicit early checkpoint. It does not isolate context length, every instruction, task scope or stochastic variation. The practical correction is to make design decisions early and give the agent the complete implementation path, then retain evidence that the first screen was actually inspected before expansion. A longer checklist or a universally decorative default does not substitute for that work.
+
+## Repository validation
+
+Pinned tools and type definitions were prepared. The final documentation checks passed: links, node budgets, style and 91 strict Luau samples. Full repository type analysis passed on 1,395 targets with zero blocking diagnostics, and all 190 negative API probes were rejected as expected. The final full-tier invocation passed its 41 executed producers, while deferring reference-host timing and the complete native-Studio suite; it explicitly reports narrowed evidence rather than a full gate. The separate benchmark then passed. Package build and status completed; no package was published. Current package status retains pre-existing publish drift and does not claim full release attestation.
+
+The final prose adjustments were checked again after the gate began. The new executable example was unchanged from its independently typechecked and live-tested version. The earlier recipe-check regression and sandbox permission failure are recorded in [post-freeze corrections](post-freeze-corrections.md), with failed logs retained.
+
+[Final doc checks](final-doc-checks.log) · [Full-tier invocation](gate-full-final.log) · [Benchmark](bench.log) · [Package status](package-status.log)
+
+## Captures
+
+- [Native final desktop](eval/attempt-1/runs/coastal-courier/native/codex-sol/seed-1/ui-archive/captures/item_43.jpg)
+- [Existing Facet guidance, final desktop](eval/attempt-1/runs/coastal-courier/current/codex-sol/seed-1/ui-archive/captures/item_105.jpg)
+- [Simplified candidate, final desktop](eval/attempt-1/runs/coastal-courier/candidate/codex-sol/seed-1/ui-archive/captures/item_81.jpg)
+- [Native landscape at camera width](native-landscape-camera-width.jpg)
+- [Existing Facet landscape at camera width](current-landscape-camera-width.jpg)
+- The anonymous packets contain every matched final confirmation, accepted result and large-text departure, with image-view lists in both reviews.

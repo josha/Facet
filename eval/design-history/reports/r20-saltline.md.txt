@@ -1,0 +1,21 @@
+# R20 first complete submission
+
+The fresh builder and all three fresh critics used GPT-6.1 Sol with medium reasoning. The builder used the frozen R20 kit, its own original art and public references. Parent supplied environment help, not visual coaching before the complete freeze. Internal critic rounds and author repairs are part of this first delivery. The manifest SHA-256 is `6672b6bd446509bb18abc08b81fe26b514a70f9fdd09f33b68ccf3dd434e6286`; 102 files were independently hash-checked and preserved under `first-complete/`.
+
+Parent personally inspected the original design target and all 16 final garage, race, pause and result captures across desktop, phone portrait, short landscape and Xbox. The garage has a clear car-led composition, recognizable vehicle choices, retained paint selection, a distinct cream commitment and separate cream focus brackets. Mobile composition keeps the choice and action visible; the road remains clear between the live HUD and touch controls. Final pause removes the inactive driving controls, and full-viewport backing removes the bright unsafe-area frame seen in the independent review packet.
+
+The implementation still falls below its concept's visual finish. The live geometric cars and realistic backdrop have different levels of detail; their contact and lighting remain less convincing than the study. The title and supporting data are small in the wide layout, while the upper background is relatively empty. Pause and results use more ordinary rectangular composition than the study's racing-board shapes. The result's record message remains a quiet utility line. These are visible gaps, not proof that a particular photorealistic style is required.
+
+There is also a concrete portrait fit defect: the Resume caption nearly touches the shaped cream face edge. The preserved first submission retains it. A separate parent-directed repair has been requested after the freeze; it must not be counted as uncoached evaluation success.
+
+The last independent verdict scored all four groups `revise`, before final author repairs; visual scores were 3/5. The final repaired captures have parent inspection and author self-review, not a new independent passing score. This result supports improved first-delivery layout and clearer control hierarchy. It does not establish reliably target-quality first-prompt design.
+
+The source uses Facet Button, Dialog, ProgressView, Stage, focus sections and safe layout. The custom cream Button face keeps Facet activation and focus and responds to native GuiState. Driving uses native InputActions in a game-owned context, with held-input rearming. It is an arcade track-following trial with player lane steering, speed, braking and off-road penalties, not free vehicle physics. Ordered gates and three laps determine the actual clock result; reset preserves progress and elapsed time.
+
+The author recorded actual keyboard/mouse and emulated Touch routes, including real results, slower-run best retention, pause freeze, reset and live rotation. Parent reviewed those records and source; parent did not personally replay those routes. Xbox captures and programmatically assigned focus are visual diagnostics only. The Mac remains locked and keyboard-driven native Controller Emulator testing is pending for both this game and the preserved drawing game.
+
+R21 documents the reusable painted-content fit, backing extent and mixed-media translation causes. It is a development revision based on this case and has no new unseen behavioral result yet.
+
+## Directed portrait repair
+
+The follow-up repair uses the existing Facet xsmall padding on portrait Resume only. Its 19 px caption and 90.7 × 46 px hit area stay unchanged; the usable cream face expands to give 11.6 px clearance per side. Parent inspected all four repaired pause captures and the portrait pressed state; the author also tested actual emulated Touch Resume, Restart and Garage. The separate packet is in directed-repair/. This repair is excluded from first-delivery scoring. Parent verified all eight directed source entries in the local place and current Studio Server clone. All eight earlier protected scripts and all eight frozen drawing source entries remain byte-for-byte unchanged.

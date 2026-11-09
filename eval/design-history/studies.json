@@ -1,0 +1,342 @@
+{
+  "schema": "facet-design-history/1",
+  "date": "2026-11-09",
+  "guidanceBaseline": "b8f1e664ee3ddd3e328feb696fe766b71e25f5f2",
+  "studies": [
+    {
+      "id": "early-three",
+      "title": "Moonseed, Ricochet and Post",
+      "prefixes": [
+        "round1",
+        "round3",
+        "submissions-r1",
+        "submissions-final",
+        "submissions-r3-final",
+        "captures-r1",
+        "manual-r1",
+        "manual-r2",
+        "final",
+        "final-input-check"
+      ],
+      "summary": "Early initial builds, internal critiques and parent-directed art/layout/input repairs. Quiet professional mail is a counterexample to compulsory expressive styling. Early keyboard selection proxies must not be relabeled as native controller evidence.",
+      "report": "evaluation-r4.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "evaluation-r4.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r3-cloudline",
+      "title": "Cloudline sky-rail",
+      "prefixes": [
+        "forward-r3"
+      ],
+      "summary": "Frozen R3 first delivery failed visual specificity, landscape fit and console type. Used to revise later guidance; no longer unseen.",
+      "report": "evaluation-r4.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "evaluation-r4.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r4-frostbite",
+      "title": "Frostbite snowboarding",
+      "prefixes": [
+        "forward-r4"
+      ],
+      "summary": "Content-appropriate first delivery after three revise verdicts and local repairs; no fourth independent pass. Later parent input checks are separate.",
+      "report": "evaluation-r4.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "evaluation-r4.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r8-bubble-band",
+      "title": "Bubble Band",
+      "prefixes": [
+        "forward-r8"
+      ],
+      "summary": "Fresh historical game trial with inspected game references, preserved submission and subsequent assessment. Read the original packet for model and input scope.",
+      "report": "forward-r8/evaluation.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r8/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r9-comet-courier",
+      "title": "Comet Courier",
+      "prefixes": [
+        "forward-r9"
+      ],
+      "summary": "Three review rounds ended in pass, but parent judged generic controls, sparse composition and weak visual finish. A reviewer pass is retained as a disagreement, not accepted ground truth.",
+      "report": "forward-r9/evaluation.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r9/evaluation.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r10-casino",
+      "title": "Velvet Jack R10",
+      "prefixes": [
+        "forward-r10-casino"
+      ],
+      "summary": "Blackjack guidance trial. Preserve the initial target, runtime and repairs as separate checkpoints; later same-family tasks are related development evidence.",
+      "report": "forward-r10-casino/evaluation.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r10-casino/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r11-casino",
+      "title": "Velvet Jack R11",
+      "prefixes": [
+        "forward-r11-casino"
+      ],
+      "summary": "Blackjack follow-up under frozen R11 guidance. Repeated task family; not an independent new genre.",
+      "report": "forward-r11-casino/prompt.txt",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r11-casino/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r12-casino",
+      "title": "Velvet Jack R12",
+      "prefixes": [
+        "forward-r12-casino"
+      ],
+      "summary": "Blackjack follow-up and saved checkpoint under R12. Read original status for completion and input limits.",
+      "report": "forward-r12-casino/checkpoint/CHECKPOINT.md",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r12-casino/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "parent-art-study",
+      "title": "Parent Velvet Jack art study",
+      "prefixes": [
+        "art-direction-study"
+      ],
+      "summary": "Parent-generated concept-only experiment. Not given to the fresh R13 builder, not runtime or author performance.",
+      "report": "art-direction-study/provenance.json",
+      "split": "development-exposed"
+    },
+    {
+      "id": "r13-casino",
+      "title": "Velvet Jack R13",
+      "prefixes": [
+        "forward-r13-casino"
+      ],
+      "summary": "Blackjack reference study, two target versions and runtime review iterations. Reference pixels are comparison evidence, not original game assets.",
+      "report": "forward-r13-casino/evaluation.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r13-casino/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r14-casino",
+      "title": "Velvet Jack R14",
+      "prefixes": [
+        "forward-r14-casino"
+      ],
+      "summary": "Detailed historical blackjack trial with target and references; same task family as prior rounds.",
+      "report": "forward-r14-casino/evaluation.json",
+      "split": "development-exposed",
+      "model": "gpt-6-sol",
+      "modelEvidence": "forward-r14-casino/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r14-default-casino",
+      "title": "Velvet Jack minimal brief",
+      "prefixes": [
+        "forward-r14-default-casino"
+      ],
+      "summary": "Default-workflow blackjack trial. Keep its shorter task and supplied frozen kit separate from more prescribed casino prompts.",
+      "report": "forward-r14-default-casino/prompt.txt",
+      "split": "development-exposed",
+      "model": "Parent-inherited default; no model override",
+      "modelEvidence": "forward-r14-default-casino/candidate.json",
+      "reasoning": "Parent-inherited default"
+    },
+    {
+      "id": "r15-moth-mortar",
+      "title": "Moth & Mortar shop",
+      "prefixes": [
+        "forward-r15-fantasy-shop-sol"
+      ],
+      "summary": "Fantasy shop under Sol 6.1 medium. Original illustration, shipped-game references and three review iterations. Historical development case.",
+      "report": "forward-r15-fantasy-shop-sol/submission/DELIVERY.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r15-fantasy-shop-sol/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r16-drawing",
+      "title": "Drawing R16",
+      "prefixes": [
+        "forward-r16-drawing-game-sol"
+      ],
+      "summary": "Uncoached baseline, owner-feedback checkpoint and directed refinement are explicitly separate. The brief constrained a hold/point/release chooser; not an unconstrained control-choice test.",
+      "report": "forward-r16-drawing-game-sol/directed-refinement/DELIVERY.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r16-drawing-game-sol/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r18-drawing",
+      "title": "Ink Orbit asset conversion R18",
+      "prefixes": [
+        "forward-r18-drawing-game-sol"
+      ],
+      "summary": "Directed conversion of the existing drawing game to uploaded authored art. This is continuation and asset-delivery development evidence, not a fresh unseen drawing trial. See guidance-r18/revision.json.",
+      "report": "guidance-r18/revision.json",
+      "split": "development-exposed"
+    },
+    {
+      "id": "r19-drawing",
+      "title": "Drawing R19",
+      "prefixes": [
+        "forward-r19-drawing-game-sol"
+      ],
+      "summary": "Initial work, owner-feedback stage and directed final with reviews. Mario Paint and Colors Live are craft references; later repairs do not retroactively improve unaided output.",
+      "report": "forward-r19-drawing-game-sol/parent-final-assessment.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r19-drawing-game-sol/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r20-saltline",
+      "title": "Saltline time trial",
+      "prefixes": [
+        "forward-r20-racing-game-sol"
+      ],
+      "summary": "Facet racing study and directed repair. This collection archives existing evidence; the old non-Facet racing baseline was not rerun.",
+      "report": "forward-r20-racing-game-sol/parent-assessment.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r20-racing-game-sol/candidate.json",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r22-tidekeepers",
+      "title": "Tidekeepers supplied-art A/B",
+      "prefixes": [
+        "forward-r22-ab"
+      ],
+      "summary": "Four supplied-art translations, blind comparisons and subsequent directed repairs. Shared dialog paint clipping and the owner's report are separate from frozen first deliveries.",
+      "report": "forward-r22-ab/results.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r22-ab/protocol.md",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r23-rivet-rumble",
+      "title": "Rivet Rumble supplied-art A/B",
+      "prefixes": [
+        "forward-r23-visual-workflow"
+      ],
+      "summary": "Four builders; mixed pairwise results, not consistent improvement. Supplied art tests translation rather than independent direction. Native-controller routes remained unverified.",
+      "report": "forward-r23-visual-workflow/results.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r23-visual-workflow/protocol.md",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r24-coastal-courier",
+      "title": "Coastal Courier three-arm pilot",
+      "prefixes": [
+        "forward-r24-native-direction"
+      ],
+      "summary": "Existing Facet, simplified candidate and native Roblox arms. Simplified guidance lost both blind comparisons. Portrait was diagnostic and failed fit in all three; source replay is not timely early review.",
+      "report": "forward-r24-native-direction/results.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r24-native-direction/eval/protocol.md",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r25-postmark-night-heron",
+      "title": "Postmark and Night Heron",
+      "prefixes": [
+        "forward-r25-drawing-casino"
+      ],
+      "summary": "Frozen originals, internal reviews, owner-directed slider spacing and parent repairs. Drawing brief required RadialMenu. Final Gamepad2 B failures remain failures even where visible A Back works.",
+      "report": "forward-r25-drawing-casino/EVALUATION.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r25-drawing-casino/protocol.md",
+      "reasoning": "medium"
+    },
+    {
+      "id": "r27-moon-market",
+      "title": "Moon Market avatar shop",
+      "prefixes": [
+        "forward-r27-avatar-customizer"
+      ],
+      "summary": "Three author review rounds, first delivery and separate minimum-phone repair. Owner later called it bland. Preserve that judgment alongside the earlier favorable visual assessment.",
+      "report": "forward-r27-avatar-customizer/EVALUATION.md",
+      "split": "development-exposed",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r27-avatar-customizer/PROTOCOL.md",
+      "reasoning": "medium"
+    },
+    {
+      "id": "visual-variety",
+      "title": "Avatar shop visual alternatives",
+      "prefixes": [
+        "visual-variety-concepts"
+      ],
+      "summary": "Parent discussion concepts: streetwear editorial, outfitter cabinet and future atelier. They informed the new guidance. Concept-only, with no device/input proof.",
+      "report": "visual-variety-concepts/PROVENANCE.md",
+      "split": "development-exposed"
+    },
+    {
+      "id": "guidance-development",
+      "title": "Guidance, examples and isolated repairs",
+      "prefixes": [
+        "guidance-",
+        "portrait-guidance-followup",
+        "radial-skin-fix",
+        "radial-reopen-fix",
+        "render-probe",
+        "render-input-probe"
+      ],
+      "summary": "Guidance patches, calibration and targeted Bakery/Drone/quiet-tool/painted-bound experiments. These are development/supporting evidence, not fresh game trials.",
+      "report": "guidance-r26-publication/ASSESSMENT.md",
+      "split": "development-exposed"
+    },
+    {
+      "id": "provenance",
+      "title": "Cross-study provenance",
+      "prefixes": [],
+      "summary": "Original evaluation reports and manifests. Historical assertions keep their original dates and limits; later notes do not overwrite them.",
+      "report": "evaluation.json",
+      "split": "development-exposed"
+    },
+    {
+      "id": "r28-poker",
+      "title": "High Desert Open poker",
+      "prefixes": [
+        "forward-r28-poker"
+      ],
+      "summary": "Fresh Sol 6.1 medium trial of frozen b8f1e664 guidance. Distinctive world and three different concepts, but first delivery had small console ledger text and reduced target fidelity. Owner-directed ledger repair independently replayed. Now development evidence after two narrow guidance clarifications; not a success-rate estimate.",
+      "report": "forward-r28-poker/EVALUATION.md",
+      "split": "development-after-prospective-related-family-trial",
+      "model": "gpt-6.1-sol",
+      "modelEvidence": "forward-r28-poker/PROTOCOL.md",
+      "reasoning": "medium"
+    }
+  ]
+}

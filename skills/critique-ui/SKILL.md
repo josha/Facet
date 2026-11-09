@@ -67,6 +67,9 @@ Static task data is
 sufficient; these must be real controls with live labels. Judge whether their
 visible shapes, type and state treatment carry the target's direction.
 Successful image loading and a matching palette do not establish that.
+Name the most important quality lost in translation, if any, even when the
+runtime looks coherent on its own. Check the author's preservation claims
+against the images; correct behavior does not offset missing visual craft.
 List the image paths actually viewed. Identify missing required state or
 viewport captures in the verdict; a visual score for the supplied images
 does not clear that missing evidence.

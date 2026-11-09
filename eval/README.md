@@ -2,6 +2,10 @@
 
 See the [latest evidence and pass readout](latest/README.md).
 
+The separate [UI design history set](design-history/README.md) preserves the
+theme studies, references, design iterations and reviewer disagreements. It
+has its own frozen poker trial and does not rerun this full-game baseline.
+
 Build one complete Roblox game from a blank place in **30 minutes**.
 Compare Plain Roblox with Facet using the same brief, model, tools, deadline,
 and device requirements. There are no smaller modes or follow-up author turns.

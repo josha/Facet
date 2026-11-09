@@ -141,6 +141,13 @@ pixel dimensions can differ from the space the UI actually has. Measure after
 insets, headers, padding, actions and native target floors are applied.
 Check both sides of a responsive boundary changed by the implementation.
 
+For supported console use, also record the resolved viewing-distance context
+and effective styled text sizes. Inspect opened details, history and dialogs at
+the same viewing scale as the main screen. A console preset, controller focus
+or large button target does not establish readable text. Keep near-view desktop
+typography when a controller is attached at a desk; a desktop-only tool does
+not need a television layout.
+
 At each minimum, open the task normally and inspect its initial view, longest
 supported content, opened controls or confirmation, changing feedback and
 return. Include the largest supported text preference. Check the complete

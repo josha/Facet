@@ -1,0 +1,19 @@
+{
+  "candidate": "R14",
+  "model": "Sol/medium",
+  "status": "Unfinished failed checkpoint, not successful first delivery",
+  "sourceSha256": "2765a8037bd013613fbb922e4fa780a3dc3824d0bcafac7be6b1cee9aa81c4fc",
+  "userFeedback": "mac is unlocked. the casino design is just bad. the dealer text is hard to read. it is visually unappealing.",
+  "parentAssessment": "The actual short-landscape capture remains a flat diagram with rectangular cards, a text strip and standard control blocks. It loses the original concept material finish. The user also rejected Dealer readability.",
+  "processEvidence": "Early observation captured complete gameplay source with no asset binding while runtime-art proof and review packet were still pending. Builder CHECKPOINT.md lists a cleaner order, but the parent timestamped source snapshot is retained and does not establish that the prescribed order was followed.",
+  "limits": "Stopped before an independent runtime review or complete final-source device/input verification. Only final portrait capture represents final source; earlier short/console captures are labeled as such. No native controller test was performed on this rejected checkpoint.",
+  "method": "Same-task development test, no prior designs or parent visual fixes supplied before user rejection. Exact selected public references supplied as environment assistance.",
+  "evidence": {
+    "checkpoint": "checkpoint/CHECKPOINT.md",
+    "earlyObservation": "early-observation/observation.json",
+    "firstReview": "checkpoint/evidence/review-r1/verdict.json",
+    "assistance": "environment-assistance.json"
+  },
+  "recordedAt": "2026-11-08T06:35:49.517078+00:00",
+  "exactStudioSourceMatchVerifiedByParent": true
+}

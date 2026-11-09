@@ -1,0 +1,17 @@
+{
+  "schema": "facet-design-evidence-bundle/1",
+  "release": "https://github.com/josha/Facet/releases/tag/ui-eval-2026-11-09",
+  "file": "facet-ui-design-history-2026-11-09.tar.gz",
+  "url": "https://github.com/josha/Facet/releases/download/ui-eval-2026-11-09/facet-ui-design-history-2026-11-09.tar.gz",
+  "bytes": 953225924,
+  "sha256": "6bb66b441a3d15f039795911864212ced0fc2f264bb96d47ba74e2dc0e799055",
+  "manifestSha256": "def311e4ca5a72390131dc32b2c56241749e023a5316ff4c567e6123e5274280",
+  "studies": 26,
+  "records": 7980,
+  "uniqueImages": 2902,
+  "uniqueTextOrSourceRecords": 2367,
+  "browsingPreviews": 2562,
+  "excludedInventoriedRecords": 439,
+  "scope": "Original-byte design evidence. Binary places, redundant kits, private sessions and general operational logs excluded; see README.md and exclusions.json.",
+  "selfHashNote": "This file is outside the archive so the archive hash is not self-referential."
+}

@@ -61,7 +61,8 @@ For a new expressive game, complete these steps within the initial request:
    [design-target review](../critique-ui/SKILL.md#review-a-design-target).
    Choose for character, craft, task clarity and feasible runtime production.
    If every candidate is generic, revise the concepts before building routes.
-   Record the few visible qualities the implementation must preserve. Then
+   Record the few visible qualities the implementation must preserve and how
+   each will appear in live controls, type or artwork. Then
    inspect the [worked translations](references/visual-translations/guide.md)
    for implementation techniques relevant to that target. Their layouts and
    materials are examples, not a style to choose by default. Resolve visual
@@ -90,8 +91,11 @@ For a new expressive game, complete these steps within the initial request:
    after acceptance. Test cancellation and return while the task is still small.
    Use the [tested state patterns](references/visual-translations/guide.md#keep-the-task-stable-through-state-changes)
    for label clearance, separate focus and selection, and stable action space.
-   Compare runtime and target at the same viewing size. Loaded art alone does
-   not preserve subject separation, material depth or hierarchy. Use the next
+   Compare runtime and target at the same viewing size. For each defining
+   quality, record what the capture preserves, weakens or replaces, and why.
+   Repair a lost defining quality or revise the target into a coherent finish
+   the runtime can deliver. Loaded art alone does not preserve subject
+   separation, material depth or hierarchy. Use the next
    fresh critique round here; include these state captures. Resolve visual
    `must` fixes and inspect the repaired screen before adding routes or
    repeating its skin. Check proposed repairs against control contracts;

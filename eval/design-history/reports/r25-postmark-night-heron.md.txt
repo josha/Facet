@@ -1,0 +1,73 @@
+# Facet drawing and casino evaluation
+
+This continues the frozen r25 builds. It is not a new cold-start trial. No racing baseline was rerun. The frozen guidance and original checkpoints remain intact. All continuation implementers and independent reviewers used gpt-6.1-sol at medium reasoning. The parent performed separate visual and native input checks.
+
+## Conclusion
+
+The guidance produced two recognizable, original directions: Postmark's airmail drawing desk and Night Heron's Art Deco blackjack table. It has not demonstrated dependable finished UI on the first request. Both builds needed substantial internal repair; Postmark also needed explicit user feedback and parent-discovered repairs. Good artwork, a matching palette and correct control names did not prevent clipping, weak selected states, detached controls or failed native controller actions. The evaluation is complete with the limitations below; the builds do not earn an unrestricted all-input release pass.
+
+These are two development genres already used during guidance work, not an unseen benchmark or a general success rate. A first complete delivery may include the frozen workflow's own reviews, but later user and parent intervention must not be credited to an unaided result.
+
+## Provenance
+
+| Stage | Drawing | Casino |
+| --- | --- | --- |
+| Original checkpoint | Original pigeon, postcard composition, real canvas and radial tool; first critic found missing opener glyph, missing phone ink cue and noisy hub. | Original table, card/chip/heron atlas; initial mounting and phone overlap repaired; first critic found weak focus, material and state treatment. |
+| Internal continuation | Tablet fit, phone header clearance, full route checks, review-led ink/receipt finish. | Felt/plaque artwork, pressed and hover paint, balanced Hit/Stand, result hierarchy, Settings selection and device checks. |
+| User-directed | Size label/value padding; later question exposed the missing picker anchor. Before-feedback sources and screenshots remain preserved. | No equivalent direct visual instruction. |
+| Parent-discovered | Short-landscape Marker truncation, failed Gamepad2 canvas drawing, TV sizing and returned-focus collision. | TV sizing and native B failure; independent review subsequently found focus spacing and TV Settings defects. |
+| Separate user-directed library repair | Tidekeepers clipping is a shared Dialog repair, tested separately. It was not injected into the frozen r25 game kits. | Same frozen-kit separation. |
+
+The [original protocol](protocol.md), [intervention log](interventions.md), [parent evidence](parent/continuation-observations.md), and per-game packets preserve this separation.
+
+## Design findings
+
+Postmark's player's drawing leads on warm stock. Its original courier, lettering, postage tab and striped paper edge give it character. The controls and radial treatment are less distinctive than the illustration; this is a stronger identity than a recolored utility screen, but the craft was uneven. A ring was explicitly required by the evaluation brief, so this trial cannot establish that a radial is the best brush chooser. The custom opener originally omitted its anchor, which explains the centered popup. The repair follows the opener and allows safe inward fitting. The label-only Ink submenu initially used a fitted list in short landscape; the later swatch version fits as a ring at all four tested sizes. Earlier list screenshots are preserved as earlier evidence, not presented as the final state.
+
+Night Heron has the more integrated finished composition. Cards, chip rings, felt, brass actions and restrained type belong together. The result now reads clearly while Next hand stays in its established action area. Selected stake and navigational focus have separate visible treatments. Desktop secondary text remains modest, and the Rules focus curl has a close optical approach to the final paragraph. These are craft reservations, not evidence that the main task is obstructed.
+
+## Input and device evidence
+
+The parent personally inspected desktop, portrait phone, short landscape and console screenshots, including painted focus edges. Phone screenshots were also viewed at their measured camera widths. Simulator labels were not substituted for camera measurements.
+
+| Game | Verified evidence | Remaining limitation |
+| --- | --- | --- |
+| Postmark | Actual mouse drawing; emulated Touch drawing, size/ink changes, clear and undo/redo, mail/edit/reset, retained draft through rotation; native keyboard-driven Gamepad2 prompt selection, trigger/stick drawing, B exit from drawing, mail/edit return, clear cancellation/acceptance/undo, brush/Ink selection and slider adjustment. Parent independently reached the slider normally and changed 12 to 14. Size and number have 10 px outer padding; full Marker label fits short landscape. | Actual Gamepad2 B leaves the Ink wheel open; A on a choice or the visible hub still works. Clean desktop slider dragging with the virtual controller disconnected and Largest native text were not established while the Mac was locked. |
+| Night Heron | Actual MouseButton1 stake/Deal/hover/press; Touch stake and Large text, rotation and overlay return; native Gamepad2 entry, stake selection, peer focus, Deal, Hit, Stand, Settings, Rules and Next hand. 1,000 seeded model hands passed accounting/aces/outcomes. | Actual Gamepad2 B leaves the Facet overlay open. The visible Back action works with A. Portrait Rules has a state readback but no final screenshot. Physical gamepad and television viewing were not tested. |
+
+A failed or missing input route is not cleared by assigning SelectedObject or by a screenshot. Native emulator proof records actual Gamepad2 events generated from keyboard keys. Desktop drawing still received MouseButton1 events while Studio's connected virtual controller affected preferred-input mode. That does not establish a clean pointer-only slider result.
+
+## Tidekeepers clipping
+
+The reported cut left and bottom edges were a shared Dialog layout defect. Insets sat outside a clipping boundary, so button borders and shadows met the boundary and were cut. The repair moves the spacing inside the clipped content and clears inherited shell padding that otherwise narrows the inner area. It also reserves painted clearance when scrolling a focused action into view.
+
+Desktop and both phone orientations show complete button outlines and shadows, with 24 px left clearance and 19 px below the actions. Actual pointer/Touch open, cancel, accept and return routes passed. Live controller focus was not established for this separate place; an engine-double regression checks focused paint clearance. The original saved Studio and original checkpoint were preserved. See the [repair evidence](../forward-r22-ab/build-03/directed-clipping-repair/README.md).
+
+## Implications for first-pass guidance
+
+1. Require an explicit intended experience and a complete initial composition. Judge subject, choices, action and feedback together. A strong hero illustration does not establish the rest of the interface.
+2. Separate a control-contract exercise from a design-choice evaluation. Requiring RadialMenu answers whether the agent can use it; it cannot answer whether a nearby popup would serve the task better. If a radial is chosen, its anchor, inward fit and list fallback are part of the interaction design.
+3. Make painted bounds a library invariant. Focus rings, shadows and styled borders need clearance inside clipping surfaces. This belongs in shared layout and regression coverage, rather than repeated instructions to individual game authors to add padding.
+4. Inspect the first real screen with meaningful selected/focused states, long live labels and both phone orientations. The Size and Marker regressions show why default labels and element rectangles are insufficient.
+5. Exercise complete native input routes early. Actual trigger/stick drawing and controller Back exposed failures that static checks and assigned focus missed. Keep state through rotation and return, and record when the simulator changes input mode.
+6. Calibrate critique to the owner's quality bar. Independent scoring helped find defects, but cannot prove delight or substitute for the parent's visual judgment. Preserve quiet conventional interfaces where they fit the product; do not turn these findings into a universal demand for more art or ornament.
+
+No guidance change was made during this evaluation. The report and final captures must be frozen before a subsequent guidance revision.
+
+## Final receipts
+
+Night Heron's third and final independent review passed all 35 supplied states, with no mandatory visual repair. This is a visual verdict for those captures, not a clean release verdict for the B-input failure or missing evidence. [Scored verdict](casino/evidence/round3/critique/verdict.json) · [Review](casino/evidence/round3/critique/review.md) · [Device screenshot board](final-screens/casino-devices.png) · [Input, source and verification receipt](casino/evidence/round3/VERIFICATION.md).
+
+Postmark's third and final independent review passed editor, brush, clear and mailed screen families and requested revision for the Ink wheel. It found the red swatch blending into highlighted red paint and a nearly invisible name preview. The final consumer theme repair gives Ink candidates a pale mint surface and corrects preview text color and stacking. The parent personally viewed desktop hover, 374 px portrait Touch hold, 666 px landscape Touch hold, console focused Poppy, and Poppy selected with focus moved to Midnight. The red swatch and navy name are readable and the painted edges fit. Targeted actual input and exact-source static checks passed. This is a post-review parent verification, not a fourth fresh score. The see-through wheel hole still exposes background labels and remains a craft reservation. [Scored pre-repair verdict](drawing/evidence/final/critique-round3/verdict.json) · [Review](drawing/evidence/final/critique-round3/review.md) · [Final task packet](drawing/evidence/final/PACKET.md) · [Device screenshot board](final-screens/drawing-devices.png).
+
+The two screenshot boards use the last full task captures for the unchanged closed editor/table surfaces. The final drawing packet adds the later, source-matched Ink repair captures. The casino packet distinguishes the final TV-only spacing source from the desktop/phone source. This separation avoids relabeling earlier screenshots as new evidence.
+
+The Tidekeepers shared repair's exact-source full gate exited 0: 41 producers passed, two were explicitly deferred to their required hosts (reference-host benchmark and full native Studio suite), and three release-only producers were outside the selected tier. Local benchmark, package build/status, focused regressions and the actual game routes passed. The final desktop recheck is pixel-identical across the dialog to the repaired comparison; phone geometry was verified before the invisible title-flex footprint reduction. One earlier capture had dark action faces before a later successful capture with more settle time; its cause is unconfirmed and the diagnostic remains preserved. [Repaired place](../forward-r22-ab/build-03/directed-clipping-repair/TidekeepersDialogRepaired.rbxl) · [Before/after crop](../forward-r22-ab/build-03/directed-clipping-repair/button-clearance-comparison.png).
+
+The [final hash audit](parent/frozen-input-final-audit.json) passed all 2,012 files in the original frozen input and both installed game kits. Source snapshots, original checkpoints and pre-repair packets remain preserved. Final Studio inventory contains only the user's saved `ui tests` place; all owned disposable game instances closed. No package or place was published.
+
+## Available usage
+
+The snapshot at 2026-11-09 07:14 UTC records **2,448,470 uncached input**, **291,327,232 cached input**, and **477,737 output** tokens across the original authors, continuation authors, all six critics, current parent and separate Tidekeepers repair. The current parent has a small amount of additional work after its last token event. The original parent chat spans other work and is excluded. Cached input is repeated context, not additional unique content. Reasoning is already included in output. No remaining budget or dollar cost is exposed.
+
+Original authors alone used 479,446 uncached input, 43,920,640 cached input and 102,671 output. Continuation authors used 854,980 uncached input, 146,670,848 cached input and 192,513 output. All implementation agents and critics were Sol medium; the coordinating parent was Astra xhigh. [Scope-by-scope table](parent/USAGE.md) · [Per-trace audit](parent/usage-audit.json).

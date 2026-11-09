@@ -1,0 +1,17 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "history-screen-17",
+  "source": "forward-r22-ab/build-03/directed-clipping-repair/before/captures/desktop/confirmation.png",
+  "labeler": "Owner clipping report; crowded tag and exact image mapping by parent, 2026-11-09.",
+  "capture": "capture.png",
+  "device": "desktop, 1920×1079 camera",
+  "brief": "Tidekeepers is an illustrated underwater companion-selection game. The player chose Nori and is deciding whether to set sail or keep choosing. The confirmation must identify the selected companion and keep both actions readable and fully visible.",
+  "label": {
+    "verdict": "revise",
+    "must": [
+      "crowded"
+    ],
+    "should": [],
+    "notes": "Owner reported left and bottom clipping. Parent inspected this original full frame and reproduced zero paint clearance. The left edge and lower corners of the confirmation actions are cut by the clipping boundary. This label covers the supplied confirmation image; it is not a whole-game input verdict."
+  }
+}

@@ -1,0 +1,78 @@
+# Ink Orbit
+
+Ink Orbit is a local drawing challenge for mouse, touch, and controller. Pick one of three missions, draw on a blank sheet, and finish the actual drawing as a print. Edit returns to the same sheet and keeps the tool, ink, brush, history, and canvas view. Starting over asks before replacing the sheet.
+
+Open `InkOrbit.rbxlx` in Studio and press Play. The four Luau files and `default.project.json` are the source for the playable Rojo build. Studio's final Xbox Play session starts on the mission chooser. The native-controller route is D-pad and A for UI, right stick for the on-paper cursor, RT to draw, and LB with left stick to select a tool on release. B cancels the chooser. Touch can tap the equipped-tool tile and a choice, or hold the tile and drag. Mouse uses the same tile and supports wheel zoom and right-drag pan.
+
+## Source and control contracts
+
+| Component | Job and integration |
+|---|---|
+| Facet app, Screen, theme and Compose | Own the full-screen UI, native presentations, theme paint and interaction states. Screen extends the desk behind safe-area insets. Responsive composition measures the safe area and uses Facet's viewing-distance fact. Durable model cells live outside dialog bodies. |
+| Facet Button | Mission selection, fixed actions, palette and navigation between editor and finished print. The preset ink wells add native disks and a check on the active ink, and keep Facet's selected, focused, pressed and disabled states. Four immediate choices fit the compact dock. |
+| Facet RadialMenu and native InputAction | Six exclusive choices bind directly to the equipped-tool cell. The built-in launcher handles pointer and touch, and a native LB Bool action drives the hold route. Button sectors retain full labels where the wedge trial truncated them. The menu sets completion to close because a stateful choice stays open by default. A neutral hold release dismisses the menu after Facet has resolved any aimed candidate. |
+| Facet ColorPicker | The custom well opens a spectrum and readout. Its draft contract applies custom color and restores the opening color on cancel. The modal blocks the drawing surface while the preview tracks draft proposals. |
+| Facet Slider and Dialog | Brush size and opacity sliders update an independent preview draft. Apply writes the accepted settings. A view dialog adjusts zoom and offers Reset view. Clear and New round are separate confirmations with a cancel action. |
+| Native EditableImage and custom canvas input | The kit's Stage contract is for a scene and camera around 3D content. The drawing sheet needs a persistent 2D pixel buffer, brush-specific rasterization, and input-to-paper coordinates after zoom and pan. One EditableImage is used for both editor and finished print. Zoom and bounded pan change the image's view transform only. The native RT action and right-stick state move and paint with the cursor. |
+
+`InkCanvas.luau` implements per-stroke coverage and dirty rectangles. Pencil is thin and textured. Marker has a chisel footprint. Soft brush feathers opacity. Spray emits a dispersed grain as a gesture moves or holds. Stamp places one four-point star per press. Eraser restores the paper color with the selected opacity. Completed raster changes enter a 28-operation undo history. Clearing a round is reversible with Undo until the player deliberately starts a new round.
+
+## Design and original art
+
+Ink Orbit uses a screen-printed space art kit as the visual direction. Warm paper, a plum desk, teal registration tabs, orange display ink, and a lime commitment action carry through the routes. The cover art is made from original vector coordinates in `InkArt.luau`, rasterized locally in Studio with EditableImage. The shipped drawing surface begins blank. The sample robot in runtime captures was drawn with actual Studio pointer events and stamped via emulated Touch.
+
+- The ImageGen design target and verdict are in `evidence/reviews/target`. The image was used for concept exploration. No generated raster was embedded in gameplay.
+- `evidence/art-proof.jpg` is the early static Studio proof. `evidence/art-proof.client.luau` preserves its separate source. It proved the in-engine artwork, paper, theme and selected Button before the gameplay routes were built.
+- The Mario Paint reference is preserved at `evidence/references/mario-paint.jpg`. Its large, clean canvas and marginal tool placements informed the hierarchy. [Nintendo Life screenshot source](https://www.nintendolife.com/news/2015/09/mario-memories-getting-creative-with-mario-paint)
+- Independent review rounds used the author's GPT-6.1 Sol model and medium reasoning settings. Both reviewers were launched with `fork_turns=none` and received only their packet path and the critic brief. The target review requested a smaller masthead and Finish action, a visible prompt, a combined mark preview, and clearer ink selection. Those changes went into the working design. The runtime packet, its screenshot derivatives, findings and verdict are under `evidence/reviews/runtime`.
+
+## Verified scope
+
+| Evidence | Observation |
+|---|---|
+| Desktop mouse | Chose a mission, opened the ring, cancelled with the center control, and held the launcher, aimed at Marker, and released to equip and close. Swatches changed the equipped ink. A 13-stroke robot was drawn with mouse drags. Undo changed 13 marks to 12 and Redo returned to 13. |
+| Clear and Finish | Cancel preserved the 13 strokes, tool and color. Finish showed the same robot and its mission. Edit returned to the same 13 strokes, Marker and Rocket ink. See `desktop-final-state.json`. |
+| Custom ink and brush | In the prior Play pass, a spectrum proposal changed `#DE4D28` to `#302624`, then Cancel restored `#DE4D28`. Apply on a subsequent draft kept `#000000`. Brush Apply changed size 12 to 30 and opacity 100% to 45%. The adjusted preview was captured before applying. |
+| View | Pan entered at 150%, and mouse drag kept 13 completed marks. Reset returned to 100% and draw mode with the same marks. |
+| iPhone portrait Touch | Studio input was observed as `UserInputType.Touch`. The first tap opened the ring at 13 marks, the second equipped Stamp at 13, and a canvas tap increased marks to 14. See `phone-touch-state.json`. An earlier emulated touch drag also produced a completed stroke. |
+| Four Studio forms | Desktop, iPhone 17 Pro portrait, iPhone short landscape (740 × 330 device override, 615 × 309 safe viewport), and Xbox (1920 × 1079 viewport). All were viewed as Studio captures. `desktop-ring-focus.jpg` depicts programmatic focus on Marker with Pencil equipped. Xbox shows the cursor and controller hints using Device Simulator facts. |
+| Raster check | The Studio Client command in `evidence/canvas-check.luau` independently compared raster bytes for all six tools, undo, redo, and clear. The test does not inject state into the playable app. |
+| Static and build | `lute run tools/facet verify DrawingGame.client.luau InkStyle.luau InkArt.luau InkCanvas.luau --static --out evidence/static` checked strict types, usage lint and Rojo build. The console output records any warnings. The art palette and typography are intentional. Native corner and stroke decoration lives under its owning Host frame. Actual Studio captures and state checks cover the live side separately. |
+
+Controller input remains unverified by the author. No native Controller Emulator or CUA input was used. Programmatic focus and the Xbox preset establish appearance and entry state only. The Touch telemetry listeners used the Studio Client command tool and disappear at the end of Play. The game's ordinary state attributes are read-only observations of actual route state and contain no test input injection.
+
+The leased secondary Studio is the only instance used. The only change to pre-existing content was setting FantasyShop.Enabled to false. No FantasyShop source or unrelated scripts, art, package or docs files were read or altered. The final Edit scripts are the same text as the local source. The local build uses the neutral project mapping plus the three companion modules.
+
+## Uncoached baseline and directed refinement
+
+The owner reported that the theme felt very bland compared with the reference before the first complete delivery freeze. The preserved uncoached evidence is at `evidence/pre-owner-feedback/FREEZE.json`. It records the R2-capture source and build separately from the R2-only local patch that had not yet entered Studio. The final result is the directed refinement. Its original assets include the die-cut paper and graphite nine-slice plates, orbit seal and six individual tool illustrations. The full-width illustrated tool key uses a Facet Path chevron. The wheel retains complete names, with separate lime equipped and cream-and-teal focus treatments. Reworked proportions fit the physical desk to the drawing area.
+
+I did not inspect ZoomView before choosing the initial custom camera. I inspected its contract during refinement. It provides stable two-dimensional content, zoom and fit, but its selected-view right stick pans and its bumpers zoom. Its capture and camera lock integrate with child drags, while this app owns a separate draw gesture and cursor and uses LB for the tool ring. The existing explicit zoom and pan mode avoids competing for those inputs.
+
+The runtime verdict requested a more compact physical desk, readable focus, more explicit Mix and brush controls, a stronger cursor, and a distinct printed result frame. The directed third review uses the same GPT-6.1 Sol model and medium reasoning with `fork_turns=none`, and received only its packet and critic brief. It is preserved under `evidence/reviews/refinement`.
+
+The original illustrations are runtime EditableImage Content objects. The documented RadialMenu icon registry accepts string content IDs and font glyphs, with separate icon and label presentation. It cannot use these local objects as registered tool icons. The wheel keeps complete, readable text labels, and the equipped-tool key shows the matching original art beside its text. This local build uses no uploaded image IDs.
+
+### Compact control evidence and open input finding
+
+The final short-landscape wheel has six distinct visible choices inside the safe viewport. The measured minimum distance between neighboring circular plates is 3.5 pixels. The short color picker and brush dialog also open with visible cancellation and acceptance actions. The latest desktop drawing and return capture show 14 completed marks preserved. The earlier independent 13-mark pass remains useful for Undo, Redo, camera and draft comparisons.
+
+The instrumented short-landscape Stamp tap equipped Eraser on two attempts even though Touch began and ended at the center of Stamp and its native button received InputBegan. The canvas retained its mark count. See `evidence/SHORT_TOUCH_REPRO.md` and `evidence/short-touch-repro.json`. This is an open shared-control integration finding. The app leaves the frozen Facet library and its input path intact. Author evidence does not establish that every short-landscape touch choice maps to the displayed tool.
+
+### Third review and final checks
+
+| Screen | Lead | Numbers | Visuals | Identity | Economy | Verdict |
+|---|---:|---:|---:|---:|---:|---|
+| Missions | 4 | 4 | 4 | 4 | 4 | Pass |
+| Press | 3 | 4 | 4 | 4 | 3 | Revise |
+| Tools | 2 | 4 | 3 | 3 | 3 | Revise |
+| Finish | 4 | 4 | 3 | 3 | 4 | Revise |
+| Settings | 3 | 4 | 4 | 3 | 3 | Revise |
+
+The remaining review items include the short-landscape tool mismatch, more paper area at that aspect ratio, fuller use of the print treatment in the settings and result shells, and in-wheel tool illustrations. The local-image registry limit leaves the wheel text-led. The compact color panel uses the Facet control's own bounded scrolling rather than a different picker layout. The cursor, Mix label, brush value fit and compact wheel geometry are visible in the final captures. The final press audit had two advisory findings for adjacent brush values and the controller legend. Both fit at the Xbox viewport.
+
+The current-source mouse pass confirmed Clear (9 marks to 0), Undo of Clear (0 to 9), New round cancellation (9 retained), and New round confirmation (0 marks, 0 history, mission chooser). `evidence/final-clear-new-round.json` has the observed state sequence. The current-source portrait Touch input equipped Stamp from its visible disc. Desktop programmatic focus remains visual evidence only.
+
+A follow-up trace narrowed the short touch issue to changing simulator forms during an active Play session. Stamp's native begin saw the expected short position, then the attached wheel hub and choices jumped to a desktop-sized position during the same contact. The final chosen tool did not change on that traced attempt. In a fresh short-device Play, Touch selected both the longest checked label, Soft brush, and Stamp correctly. Soft brush measured 118 pixels and all six plates retained at least a 3.5-pixel gap. The tested orientation transition remains open. Physical rotation and native controller behavior were not exercised.
+
+The final local scripts matched the Edit data model and the playable build byte-for-byte. The corresponding checks are `evidence/studio-edit-exact-source.json` and `evidence/build-exact-source.json`. The author left the leased secondary Studio in a new Xbox Play session at the mission chooser, with zero marks and no test inputs sent to that session. `evidence/xbox-ready-state.json` and `evidence/xbox-fresh-ready.jpg` preserve that starting state.

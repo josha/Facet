@@ -1,0 +1,73 @@
+{
+  "question": "Does resolving a whole-screen visual target before functional routes improve the first delivery?",
+  "candidate": "candidate.json",
+  "prompt": "prompt.txt",
+  "model": "gpt-6-sol",
+  "reasoning": "medium",
+  "status": "submitted; independent reviewer passed, parent visual assessment below requested quality",
+  "scopeChecks": {
+    "professionalMail": "Quiet familiar surfaces remain appropriate; separate visual exploration not required.",
+    "textLedGame": "Styled native shapes and typography can resolve the whole visual target; generated art is not required.",
+    "smallEstablishedEdit": "Existing suitable screen supplies the visual target; no redesign process.",
+    "passiveHUD": "No invented choices or actions; plan only the states the requested task uses."
+  },
+  "distribution": {
+    "consumerFilesMatchingBothExports": [
+      "docs/guide/getting-started.md",
+      "docs/guide/themes.md",
+      "docs/reference/nodes/Design.guide.md",
+      "docs/reference/nodes/Tasks.theme.md",
+      "skills/critique-ui/SKILL.md",
+      "skills/critique-ui/references/critic-brief.md",
+      "skills/critique-ui/references/rubric.md",
+      "skills/critique-ui/references/studio-only.md",
+      "skills/use-facet/SKILL.md",
+      "skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md",
+      "skills/use-facet/references/game-themes.md",
+      "skills/use-facet/references/runtime.md"
+    ],
+    "installedSkill": "Symlink points to repository skill."
+  },
+  "validation": {
+    "skills": "Both skill validators PASS",
+    "docStyle": "PASS, zero findings",
+    "full": "41 selected producers passed. NARROWED: reference-host benchmark and recorded native-Studio host deferred; three special tiers unselected. Separate benchmark PASS; package build/status complete. Exact 14-file hashes match the frozen candidate.",
+    "logs": [
+      "validation.log",
+      "benchmark.log",
+      "package.log"
+    ],
+    "published": false
+  },
+  "limits": [
+    "One unseen task cannot establish a general success rate.",
+    "A visual study is not a delivered runtime UI.",
+    "A first delivery may include internal drafts, critique and repairs."
+  ],
+  "progress": [
+    "Created native planet artwork and a styled prototype, with design notes.",
+    "Initial device checks found short-landscape clipping and small Xbox text; builder repaired these before first independent review.",
+    "Pointer and keyboard routes pass according to builder, including focus transfer.",
+    "Actual emulator captures cover desktop, iPhone 17 Pro portrait/landscape, and Xbox.",
+    "First independent review marked all eight views revise: parcel-delivery character and payoff are too dependent on text. Builder is repairing and recapturing with no parent visual feedback."
+  ],
+  "operationalAssistance": [
+    "Copied the existing pinned rokit.toml to resolve tools in the isolated kit.",
+    "Held secondary Studio until the earlier submission was frozen, then released it.",
+    "Offered a parent native-controller check on unchanged frozen source after submission."
+  ],
+  "submission": "submission-comet-courier/submission.json",
+  "reviewOutcome": "Three independent rounds. First two rejected all submitted views on identity. Third passed all ten final views at 4/4/5/4/4. Parent disagrees that this establishes the requested visual finish.",
+  "parentAssessment": {
+    "visual": "Clearer and more specific than the first draft, with a tiny alien, parcel and destination and an illustrated state change. Still a large generic button bank beside/under simple artwork; sparse composition and ordinary control surfaces do not reach the requested level. Reviewer pass is retained but not adopted as proof.",
+    "referenceLimit": "Only the kit rank-card design exercise was inspected as an image. Public game-reference pixels were unavailable to the builder. This is weaker than the task-relevant shipped-game comparison required by the guidance.",
+    "studyLimit": "DESIGN.md describes a native implementation as the styled study pending Studio captures; there is no separate inspected whole-screen mockup before functional implementation.",
+    "controls": "Facet selection/action buttons and native drawings, with explicit focus transfer. Parent native gamepad route passed, including automatic focus after dispatch/return and no hold-A cascade.",
+    "copy": "The pre-dispatch Mars helper says A oversized hat; a minor copy defect remains in the frozen source.",
+    "devices": "Actual desktop/iPhone 17 Pro portrait and landscape/Xbox simulator captures. Parent native Xbox controller check on frozen source; hardware touch not claimed.",
+    "inputEvidence": "parent-assessment/controller.json",
+    "sourceChangedByParent": false,
+    "qualityConclusion": "This supports functional and responsive progress, not a broad claim that first deliveries reach the requested game-art quality."
+  },
+  "nextRevision": "../guidance-r10/revision.json"
+}

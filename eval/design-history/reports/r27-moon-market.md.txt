@@ -1,0 +1,75 @@
+# Moon Market — R27 unseen Facet trial
+
+The new guidance produced a distinctive, coherent avatar shop within one author request, including its internal review workflow. It did **not** produce a fully finished first delivery across the phone range: the parent's smaller-phone replay found an off-screen outfit action in portrait and clipped button bottoms in landscape. Those failures are repaired in a separately preserved final build. Parent replay and visual inspection passed on desktop, both smaller-phone orientations and console after that repair.
+
+[Final playable Studio place](author/parent-repair/MoonMarket.rbxl) · [Author delivery](author/DELIVERY.md) · [Parent-directed repair](author/parent-repair/REPAIR.md) · [Personal findings](parent/PERSONAL-FINDINGS.md) · [Usage](parent/USAGE.md)
+
+## What was built
+
+Moon Market is a fitting room for low-gravity streetwear. Nine original native 3D accessories span Caps, Visors and Packs. The catalog and avatar share the same geometry. Players inspect and try on products, buy with demo credits, add or remove owned accessories, review and apply an outfit, or discard a draft while retaining purchases. A Turn action exposes rear equipment. This is a complete local demonstration, not a production commerce system.
+
+The brief prescribed outcomes, supported inputs and art constraints. It did not prescribe a radial menu, popup, catalog control, screen layout or theme. The author chose category buttons, merchandise tiles, an adjacent live preview, item actions, a stable outfit bar and confirmation dialogs. No original UI bitmap assets or uploads were needed for the chosen graphic/3D direction.
+
+## Evidence custody and review history
+
+The kit was frozen at main `80ffa1e5c621225939dff571036f4412ae19bfb7`, before authoring. A fresh `gpt-6.1-sol` author at medium reasoning received the brief and frozen kit without earlier games, reports or screenshots. All three fresh reviewers also used Sol at medium. Parent assistance before delivery was operational: disposable Studio launch, existing upload authorization and native input transport. It did not supply a design or product repair.
+
+| Cohort | Result | Preserved evidence |
+|---|---|---|
+| First attempted mount | Runtime module lookup failed despite passing static types; no UI. The live tool detected the failure. | `author/round-1/kit-desktop/` |
+| First representative screen | A strong vinyl avatar and orbital stage, but generic control surfaces, covered portrait prices and a landscape badge touching the cap. All three forms were revise. | `author/round-1/source/`, `first/`, `packet/` |
+| Internal review repairs | Connected merchandise/actions with ticket edges; repaired metadata clearance, inactive contrast, visor framing and console entry cues. | `author/round-1/repair-source/`, `author/round-2/` |
+| Third fresh review | Desktop and console passed, with all dimensions scored 4. Phone portrait and landscape were revise for misleading unavailable-trial copy and an Apply action on an already applied outfit. | `author/round-3/final-packet/verdict.json` |
+| First complete delivery | Author repaired those two states and rechecked them without a fourth fresh review. Five-device Facet sweep and actual pointer/Touch/controller routes passed at the author's selected phone sizes. | `author/final/`, `parent/first-delivery/` |
+| Parent-directed repair | Parent found and requested the smaller-phone footer repair. Final source reserves the outfit bar outside the scrollable fitting room and budgets the remaining space for the subject and shelf. | `author/parent-repair/`, `parent/final-replay/` |
+
+There was no new user-directed visual patch in this trial. The small-phone repair is parent-directed, separate from the first delivery and its internal reviews. It must not be credited as an unaided success. No additional fresh critic scored the final parent-repaired build.
+
+First delivery place SHA256: `d00053d2438de7c52dd281ac35ab93e5cf7a1538abe3dcb45fed6bb89c89e9b7`.
+
+Final repaired place SHA256: `7c2dc67d43fc125f429133a8344c564a58e16d6ceafb272f23ccb96389a854a4`.
+
+Both 2,007-file kit copies and both eight-file delivery manifests pass the final hash audit: [integrity record](parent/final-integrity.json). No Facet library or guidance source changed during this trial. The old racing baseline was not run. All owned Studios closed; the user's saved `ui tests` Studio was left alone.
+
+## Personal device and input findings
+
+| Context | First delivery | Final repaired result personally inspected/tested |
+|---|---|---|
+| Desktop, 1920 × 1079 | Pointer purchase, owned item add, Turn, Review and cancellation passed. | Same route passed; avatar/product consistency, readable item facts and clear dialog/button boundaries. |
+| Phone portrait, 374 × 666 | Draft survived rotation, but Review outfit's center was y=701, below the viewport. A direct Touch at that position did not open review. Scrolling to reveal it was not tested. | Review/Discard centers y=641 with full 44 px targets visible. Review/apply, unaffordable trial and return passed. No clipped labels or painted edges observed in inspected states. |
+| Short phone landscape, 666 × 374 | Buttons centered y=361 extended to y=383. Their centers activated, but their bottoms were visibly clipped. | Centers y=345; full targets and outlines fit. Discard cancellation/confirmation, owned status after discard, rejected purchase and rotation back passed. |
+| Console, 1920 × 1079 | Actual Gamepad1 D-pad/A/B selected, bought, opened review, returned, applied and returned from Current outfit. Selection stayed separate from peer focus. | The changed footer remains reachable from the shelf. Parent repeated actual Gamepad1 purchase, navigation to the footer, B return, A apply and focus restoration. The final focus outline clears the footer. |
+
+The parent deliberately bought Mini Boost before a cap, added an owned visor, reviewed and returned, rotated the same draft, applied it, bought Sunskipper, cancelled and confirmed discard, checked retained ownership, attempted an unaffordable Halo Crown and rotated back. Geometry, balances and state were checked after these actions. The 125-credit and 45-credit states were retained as expected.
+
+MouseButton1 and Touch were observed from native virtual-input delivery. Console proof used keyboard keys through Studio's native Controller Emulator and recorded Gamepad1 events; parent did not assign focus or invoke application callbacks to establish navigation/activation. These are Studio input tests, not physical touchscreen/controller hardware tests. The author also retained larger-phone checks at 389 × 762 and 749 × 389, a native desktop pointer check at 1300 × 1047, and the five-device kit sweep.
+
+Final parent captures were viewed at full resolution for painted-edge clearance. The unnotched phone captures were also resized to recorded camera width for readability. Earlier notched-phone screenshot dimensions included inset space beyond the logged camera dimensions, so those width-only reductions were conservative rather than exact physical-size calibration.
+
+## Quality judgment and remaining limits
+
+The avatar is a convincing original toy-like subject, with a face, controlled highlights, costume seams, badge and pedestal. The same accessory silhouettes appear on the merchandise tickets and avatar. The orbital booth, slanted title, plum/lilac tickets and lime action treatment create an identity beyond a palette swap. The result is pleasant and coherent, and the controls support the actual inspection/purchase/outfit decisions.
+
+The first representative screen was not finished: the review loop materially improved both its control treatment and device fit. The final confirmation panels are still quieter and more generic than the shop; their styling is the weakest part of the visual direction. Small product models in short landscape and secondary console text leave less visual margin than the desktop subject. Physical TV/couch readability is unverified. This is good game-prototype craft, not evidence of universal production polish.
+
+Desktop keyboard navigation remains **unverified**. Both Studio MCP and direct engine VirtualInput delivered zero Keyboard events for ordinary letters, arrows, Tab and Return, including after simulation stopped and GamepadEnabled became false. The same host delivered pointer events. No keyboard success is inferred from assigned focus or controller navigation.
+
+Studio also logged an asset-type mismatch for asset 203785492 and occasional invalid-selection warnings. The game source does not reference that asset. No missing authored UI asset or failing return focus was observed in the tested routes; these warnings remain disclosed rather than called resolved. There are no remaining blocking pointer, Touch or Gamepad1 failures observed in the final tested routes.
+
+## What this implies for guidance
+
+Keep the composition-first direction and the separate fresh-review workflow. This case transferred to an unseen UI-heavy task and produced an original subject, coherent merchandise treatment and appropriate controls without forcing a menu type. Three reviews were useful and caught real defects; they were not proof of complete device coverage.
+
+Do not claim a reliable first-delivery finish yet. A named phone preset and a clean default sweep missed a smaller safe viewport. The parent found an ordinary minimum-height budgeting failure after the author had declared delivery. The existing compact-composition guidance already explains reserving the task body after header/footer allocation and explicitly warns that a minimum body can exceed the available height. Adding more visual prose would repeat an existing rule.
+
+The strongest next improvement is verification coverage: declare the minimum supported safe viewport and exercise it early, including the whole painted bounds and reachability of the decision actions. Keep a notched-phone case too. Improve the default device/evidence coverage before adding another style checklist. This evaluation leaves the frozen design guidance unchanged; no new guidance revision or publication is claimed from this trial.
+
+One fresh avatar trial is directional evidence, not a general success-rate estimate.
+
+## Final images
+
+![Desktop](/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/desktop.jpg)
+
+![Phone portrait and short landscape](/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/phones.png)
+
+![Console with restored focus](/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/console.jpg)
