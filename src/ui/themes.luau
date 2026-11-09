@@ -410,13 +410,6 @@ local function rulesFor(
 			PaddingBottom = side(vertical, inset.bottom),
 		})
 	end
-	local noInset = types.UDim.new(0, 0)
-	rule(".facet-panel.facet-dialog::UIPadding", {
-		PaddingLeft = noInset,
-		PaddingRight = noInset,
-		PaddingTop = noInset,
-		PaddingBottom = noInset,
-	})
 	local chrome: { read [string]: ThemeTypes.SkinLayer? } = package.chrome or {}
 	local control = chrome.control
 	local buttonInsets: ThemeTypes.Insets = if control then control.contentInsets or {} else {}
@@ -1319,6 +1312,13 @@ local function rulesFor(
 			)
 		end
 	end
+	local noInset = types.UDim.new(0, 0)
+	rule(".facet-panel.facet-dialog::UIPadding", {
+		PaddingLeft = noInset,
+		PaddingRight = noInset,
+		PaddingTop = noInset,
+		PaddingBottom = noInset,
+	})
 	return kit.finish()
 end
 
