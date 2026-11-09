@@ -1,0 +1,78 @@
+# Guidance decision after drawing, casino and Tidekeepers
+
+The evaluation is complete enough to revise the guidance, but it does not
+establish reliable unaided first-pass quality. The frozen r25 report and its
+12-file final manifest remain unchanged. The original game checkpoints and
+the frozen author kits remain development evidence.
+
+## Decision
+
+Publish the tested authoring, example and runtime work with a small final
+refinement. Stop adding rules from these same games. A future unseen task is
+the appropriate next behavioral test of the revised candidate.
+
+The existing guidance already asks for product intent, original composition,
+whole-screen craft, early compact layouts and separate focus/selection. The
+remaining gap is often execution of that advice, not a missing paragraph for
+each observed defect. The refinement therefore changes decisions and timing:
+
+- Choose a radial control when direction or a learned spatial arrangement
+  helps the task. Use readable contextual choices where labels matter. Supply
+  the actual custom opener as the anchor and inspect safe-area adjustment.
+- Test normal entry, changed and longest supported labels, acceptance,
+  cancellation and return in the first representative screen.
+- Preserve the information in color/pattern previews under state paint.
+- Record actual client input independently from the device preview. A virtual
+  controller can remain preferred and need not occupy the first gamepad slot.
+- Tie captures and input results to the source tested. A late patch does not
+  inherit an earlier visual pass.
+- Keep prescribed-control tests separate from tests of author control choice.
+  Keep unaided output, internal repairs and user feedback separate.
+
+Tidekeepers' left/bottom clipping was a shared layout defect. The publication
+includes the tested dialog inset/fade repair and regression coverage. It does
+not teach game authors to compensate with arbitrary extra padding.
+
+## Generalization review
+
+This is a manual review of applicability, not an independent author trial.
+
+| Different task | What the guidance permits or requires |
+| --- | --- |
+| Practiced equipment commands during action | A stable spatial wheel can be appropriate; frequent urgent actions can remain direct. |
+| Astronomy chart with labeled object commands | A contextual menu/popover can retain the source relationship without a ring. |
+| Color or pattern customization | The chosen visual remains recognizable while selection and focus use separate cues. |
+| Dense Studio data tool | Quiet tables, native controls and focused affected-state review; no compulsory illustration or game composition. |
+| Passive timing HUD | Readable state and supported viewport checks; no invented choices, confirmation or return route. |
+
+The advice does not require one genre, palette, page helper, fixed inset or
+universal control. Small edits retain the existing design. A native prototype
+can be the visual target when the intended style is graphic or text-led.
+
+## Evidence limits
+
+The drawing brief prescribed RadialMenu. Its use is not evidence that the
+author chose the best surface. The missing custom anchor explains its earlier
+detached opening. User-directed drawing repairs began before a clean unaided
+completion, and both games received internal review repairs.
+
+The new candidate has not had a fresh unseen game build. It should be judged
+as a better specified authoring process, not as proven first-pass reliability.
+Known virtual-controller Back failures and missing physical-device/largest-text
+coverage remain in the r25 report. The final publication does not relabel them
+as passed. No old non-Facet racing baseline was rerun.
+
+The publication receipt records the final source, integrated checks and merge.
+
+## Publication repair
+
+The first GitHub performance comparison found a repeatable 26% slowdown in
+image-theme switching. The early dialog padding override compacted differently
+between flat and image themes, changing the priorities of many later rules.
+The final correction shares the existing zero shell-padding rule between card
+bodies and dialogs. This preserves the clipping behavior without destabilizing
+rule priorities or palette-only metrics. A separate late override passed the
+local paired comparison but failed the palette-only metric contract; that
+intermediate evidence is retained and is not the final candidate's proof.
+This is a publication-time runtime repair, separate from the frozen game
+evaluation. The final receipt records full validation and the GitHub result.

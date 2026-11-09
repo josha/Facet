@@ -1,0 +1,63 @@
+# High Desert Open — frozen-guidance poker trial
+
+The new guidance produced a recognizable poker world and three materially different concepts. The delivered runtime is more distinctive than the recent generic shop interfaces, but this is **not a finished first-pass success**. The first complete delivery had console ledger text that was too small. The owner's observation was reproduced by the parent and repaired in a separate cohort. The final runtime also loses some of the selected concept's typography, depth and tactile detail.
+
+## Protocol and custody
+
+- Author: fresh **gpt-6.1-sol, medium**. Frozen guidance base: `b8f1e664ee3ddd3e328feb696fe766b71e25f5f2`. See `BRIEF.md`, `PROTOCOL.md` and `input/FREEZE.json`.
+- This is one new task in a related casino family. The author could not read the historical set or earlier solutions. It is not a controlled estimate of improvement or genre-independent success.
+- Three independent Sol-medium reviews covered alternatives, first runtime translation and the final candidate. The author made internal repairs after review. The third reviewer asked for revision; there was no fourth independent approval of the exact first delivery.
+- `author/delivery/` is the frozen first complete delivery. Its `delivered-*` captures belong to that source. Earlier `final-*` captures are an earlier candidate, not the exact delivery.
+- The owner's ledger feedback arrived during the final replay. The parent told the author only that feedback existed and to finish the already planned replay and freeze. This operational notification supplied no element, remedy or score. The exact feedback was withheld until the first delivery was frozen.
+- `parent/first-replay/` and `parent/FIRST-REPLAY.md` reproduce the first-delivery defect. `author/owner-ledger-repair/` is the separate owner-directed repair. `parent/final-replay/` is the parent's independent replay of that repaired place. No original checkpoint was overwritten.
+- Original uploaded artwork uses normal Roblox image assets. No authored UI art uses EditableImage. The poker model uses local demo chips, without real-money purchases or networking.
+
+## Visual assessment
+
+The alternatives were not palette swaps: Night Service used a glossy train/Art Deco setting, High Desert Open used a printed desert poster and paper ticket, and The Cut used a sharp graphic treatment. The selected desert composition gives the game a specific adult-oriented, stylized world. Portraits, the observatory backdrop, parchment ledger and bordered cards support that world. Real labels and state remain live UI.
+
+The runtime retains the selected world's composition and materials, but the concept has stronger headline craft, richer card/chip depth and more deliberate control shapes. The wide ticket has excess empty space, and the repeated flat opponent cards are less expressive than the target. Those are remaining quality limits, not clipping bugs. The result is promising and clearly identifiable; it does not establish that the guidance reliably produces delightful, finished UI on the first request. The concepts themselves are not runnable or device-tested interfaces.
+
+## Parent verification of the repaired build
+
+The parent personally inspected the exact repaired screenshots on desktop, smallest phone portrait, short landscape, notched portrait/landscape and console. Phone images were also viewed at the measured camera size rather than only enlarged captures. No action overlap, clipped action outline or text-bound overflow was observed in these tested states. Scrollable history intentionally clips partial rows at its viewport; Back remains outside the scroll area and fully visible.
+
+| Form | Measured camera / task body | Actual input and result |
+| --- | --- | --- |
+| Desktop | 1920×1079 / 1920×1021; Medium display context | Mouse opened the game, called, edited a wager through native text input, rejected 9999 without changing the hand, accepted 55, opened/returned from the ledger, completed showdown and dealt hand 2. The commit button kept the same bounds between invalid and valid values. |
+| Small phone portrait | 374×666 / 374×608 | Received Touch events; joined, called and selected a 100-chip draft. Primary actions and the complete ticket remained visible. |
+| Short landscape | 666×374 / 666×316 | Rotated with the ledger open, scrolled history with received Touch input to about 147 px, returned with the same draft, rotated back, committed and dealt hand 2. |
+| Notched phone | 389×762 / 389×704; landscape 749×389 / 749×331 | Received Touch events. Opened ledger over the draft, rotated, returned and rotated back with hand, pot, stack and draft preserved. |
+| Console | 1920×1079 / 1920×992 | Keyboard drove Studio's native Controller Emulator. An independent input observer recorded Gamepad1 D-pad/A/B events. Opened the ledger, paged Earlier to 355 px, used Latest to return to 0, pressed B and restored Hand log focus with draft 100, pot 80 and stack 440. A committed the wager and reached the 520-stack result. |
+
+Persistent Pot-size selection and the current Hand log focus were visually distinct. Controller navigation was not inferred from assigned focus or direct callback invocation. The parent closed only the owned Verify Studio process; the user's saved Studio remained open. Cleanup is recorded in `parent/final-replay/closed.json`.
+
+## Ledger defect and repair
+
+The first console ledger was 360×560 in a 1920-wide view. Effective styled sizes were heading 26, metadata 13, history 17 and Back 18 px. Those small secondary labels were not acceptable console evidence. Raw `TextSize` on a styled object is not its effective rendered size and was not used for this comparison.
+
+The owner-directed repair uses a bounded 840×720 console sheet with effective heading 39, metadata 28, history 29 and Back 30 px. Earlier/Latest provide controller paging. The parent replay confirms the new sizes, readable screenshot and return behavior. Desktop remains 360×560 with near-view typography. The repair also reserves the enlarged console wager-button heights so rows remain at least 8 px apart after return.
+
+The application selects its authored TV context only when the native display reports both Large and ten-foot signals. Facet's existing conservative inference deliberately avoids treating a desktop mouse/controller setup as a TV. This trial does not establish a shared-library inference bug, so the shared runtime was not changed. Physical TV behavior of those host signals remains unverified.
+
+## Remaining limits
+
+- Physical phone ergonomics, actual TV viewing distance/overscan, larger text preferences and native mobile keyboard coverage remain unverified. Medium text preference and Studio emulation are the tested scope. Small opponent status labels are still a density/readability risk, especially at TV distance.
+- Keyboard-driven **controller** input passed; keyboard-only Tab navigation did not deliver usable evidence in the author run. Do not equate the two.
+- The author reports passing focused Cards/Composition checks and a 960-hand rules replay covering ranking, ties, invalid amounts, side pots, short all-ins, refunds and chip conservation. Five application modules still lack strict headers and there are application warnings. A standalone language-server compatibility failure prevented a clean full-application static claim. Facet's separate repository gate does not clear those application limits.
+- Known native engine asset/selection warnings were recorded. The tested art loaded and observed return routes passed. A Facet diagnostic attempt produced no usable report; screenshots, geometry and actual events carry the observed evidence.
+- Neither the exact first delivery nor the later owner repair received a new independent art verdict after the final internal repair. The parent assessment is identified as such.
+
+## Guidance decision
+
+Keep the new visual-direction workflow: choose a game-appropriate world and composition, explore materially different alternatives when the brief is open, and compare the actual runtime with the target. Do not prescribe desert paper, rounded controls, photographic detail or any other universal skin. A cozy illustrated game, a pixel game, an adult stylized game and a quiet text-led tool need different fidelity choices.
+
+After this evaluation, tighten the existing target comparison into an observable record: name what each defining quality becomes in live UI, then state what the actual capture preserves, weakens or replaces and why. The critic should name the largest lost quality even if the runtime is coherent in isolation. This does not add another concept or review round. It applies to a pixel silhouette, a cozy rounded material, an adult stylized composition or a quiet tool's type hierarchy without requiring the same decoration. Small edits retain their established scope.
+
+Also add a narrow verification clarification: for supported console use, record the resolved viewing-distance context and effective styled typography, then inspect opened secondary surfaces at the same scale as the main screen. A console preset and enlarged button targets do not establish readable labels. This applies to a game ledger, an inventory detail or a result dialog; a desktop-only dense plugin does not need TV styling. No task-specific dimension or type-size threshold is added to consumer guidance.
+
+The minimum-phone procedure already caught a meaningful earlier failure and the poker's tested minima now fit. Its unverified larger-text/physical-device routes remain explicit gaps. More aesthetic rules are not justified by this one run. The next independent trial should use a different game family and remain outside this now-exposed development set.
+
+## Available usage
+
+The account usage tool reported 84% of the weekly window used and 16% remaining on 2026-11-09. This is shared account usage, not a poker or author token count. Per-trial token totals were unavailable and are not estimated.

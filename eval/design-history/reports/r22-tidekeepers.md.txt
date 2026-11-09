@@ -1,0 +1,52 @@
+# R22 supplied-art comparison result
+
+The new worked examples and recipes did not show consistent improvement in
+this small comparison. Four fresh Sol-medium builders completed the same
+supplied-art task, two with each frozen guidance kit. All submissions remain
+frozen; later user-directed repairs are separate.
+
+| Blind pair | Desktop | Portrait | Short landscape | Xbox | Overall |
+| --- | --- | --- | --- | --- | --- |
+| Coral: older 01 versus new 02 | Older | New | Older | Older | Older, high confidence |
+| Kelp: older 03 versus new 04 | New | New | New | Tie | New, moderate confidence |
+
+The prewritten success criterion required improvement across both pairs without
+worse behavior or fit. It was not met. Conditional own-art and professional-app
+transfer runs were therefore not triggered. Two runs per arm are directional
+evidence, not a success-rate estimate. Neither pair proves first-prompt quality
+for independent art direction because all builders received the same art target.
+
+The parent inspected all four submissions: 21, 19, 22 and 23 captures. Fresh
+blind reviewers saw anonymized original capture packets. They preferred the
+older build's material depth and stronger dialog in the first pair, and the new
+build's scalloped choices and consistent action surfaces in the second. Both
+preferred the new portrait compositions. Console focus evidence is incomplete
+in the frozen packets. Build03's combined focus/check collision is a confirmed
+visual defect, subsequently reported by the user and repaired separately.
+
+All builders report working pointer, keyboard and both phone Touch routes.
+Parent native Controller Emulator checks passed the full Build02 route after
+freeze. Builds 01, 03 and 04 remain unverified with that input because native
+computer control became unavailable and later reported the Mac locked. Keyboard
+focus at an Xbox resolution does not replace native controller evidence.
+
+All four author runs failed to start the kit's static verifier. The kit lacked
+root tool pins and the evaluation nested it under the project command root.
+Identical post-freeze checks using the original kits in a flattened writable
+root found strict-mode/type defects in every submission. Source hashes remained
+unchanged. These are supplementary assessment, not checks completed by authors.
+See postfreeze-static.md. Each original freeze manifest passed its final check.
+
+Both new-guidance builders read the worked-example prose and code without
+opening its linked images. Later canonical guidance explicitly requires a
+relevant concept/first/corrected image comparison using an image viewer. Other
+later changes cover motion choice and combined focus/selection spacing. The
+library's emphasized action artwork and exported tool pins are also repaired.
+These maintenance changes are archived separately in kits/final-maintenance;
+the comparison did not evaluate them.
+
+The appropriate next independent experiment is a fresh supplied-art translation
+using that frozen maintenance kit, with working static tools and observed image
+inspection. Do not repeat this underwater task as an unseen test or treat a
+parent-repaired capture as the original builder's delivery. Further examples
+alone are not yet supported as the solution.

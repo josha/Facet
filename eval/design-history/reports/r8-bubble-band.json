@@ -1,0 +1,78 @@
+{
+  "question": "Will the guidance produce content-appropriate, compelling UI in the first delivery from one user prompt?",
+  "priorEvidence": "Moonseed, Ricochet and Post are development examples. R4 Frostbite was a promising independent delivery with internal repairs and remaining review limits. These do not establish a general success rate.",
+  "changes": [
+    "Entrypoint says the initial request includes theme, needed artwork, internal review and repair; explicit wireframes and functional spikes retain their narrower scope.",
+    "Moves live-text areas, selection/focus and stable action/status space into planning before illustrated UI construction.",
+    "Makes selected-and-focused captures plus before/after feedback evidence part of first-delivery review.",
+    "Resolves shell-first vs prove-one-complete-task sequencing and optional-vs-required game review wording.",
+    "Reviewer score 4 now needs positive visual evidence that the brief is met; functional but generic is not sufficient for an expressive game.",
+    "Three review rounds cap independent scoring, not fixing known must defects; unresolved blockers cannot be presented as finished."
+  ],
+  "scopeChecks": {
+    "professionalMail": "Quiet surfaces, familiar navigation and strong reading hierarchy remain valid; extra artwork is not required.",
+    "textLedWordPuzzle": "Typography, letter composition and response can provide character without generated imagery.",
+    "smallPluginEdit": "Preserve the existing direction and inspect affected states; no new visual direction or full critique loop is required.",
+    "passiveHUD": "Readability and changing-state checks still apply, but the guidance explicitly forbids inventing choices/actions to satisfy the process."
+  },
+  "distribution": "Installed use-facet is a symlink to this repo. Exported a fresh author kit and verified the changed consumer guides/skills match both filesystem and StudioDocs text. The kit intentionally excludes the maintainer-only device-verification guide; consumer runtime guidance contains input requirements. Final wording also exported independently to /private/tmp/facet-first-delivery-final, with both distributions checked. Frozen test kit is unchanged.",
+  "forwardTest": {
+    "task": "Bubble Band underwater rhythm-game song selection and ready state",
+    "model": "gpt-6-sol",
+    "reasoning": "medium",
+    "workingKit": "/private/tmp/facet-first-delivery-r8",
+    "candidate": "candidate.json",
+    "prompt": "prompt.txt",
+    "method": "Fresh context, no previous examples or parent visual coaching. Skill-required internal draft/review/repair is allowed before first delivery. Freeze submission before parent judgment.",
+    "status": "submitted; parent assessment below target",
+    "progress": [
+      "Inspected shipped reference images.",
+      "Generated performer art without parent visual coaching.",
+      "Implemented three acts, mode selection, ready result and return.",
+      "Caught and repaired initial contrast and sprite-crop issues in its own preview.",
+      "Verified Eel Electric -> Remix -> Start through pointer input; device checks and critique in progress.",
+      "First independent critique marked all five submitted views revise, including weak stage identity, unclear console focus, and clipped short-landscape action.",
+      "Builder is repairing and recapturing independently; no parent visual feedback.",
+      "Second independent critique still marked all five views revise: first repairs improved fit and focus, but surrounding controls and ready-state staging remained generic; builder continues internal repair."
+    ],
+    "submission": "submission-bubble-band/submission.json",
+    "reviewOutcome": "Three independent rounds. Final verdict passed phone-ready only; four views remained revise. Builder repaired short-landscape clipping after the last verdict, without another independent verdict. Console scale concerns remained."
+  },
+  "validation": {
+    "status": "Complete: 41 selected producers passed; full-gate command reports NARROWED (two deferred, three unselected). Separate local benchmark PASS; package build and status complete.",
+    "logs": [
+      "validation-final.log",
+      "benchmark-final.log",
+      "package-final.log"
+    ],
+    "firstRun": "40 selected passes; doc-style failed on two overlong instructions. Fixed and fully rerun; failure retained in validation-first-run.log.",
+    "skillValidators": "use-facet and critique-ui PASS on final wording",
+    "package": "0.12.0; 423 instances, 412 modules. Unchanged package bytes. Nothing published.",
+    "gateLimits": "Reference-host benchmark and recorded native-Studio host producers are deferred. run-comparison, prove-perf-gate and prove-retained-memory were not selected.",
+    "testedTree": "All 14 modified tracked files match the validated working copy by SHA-256."
+  },
+  "limits": [
+    "One held-out task cannot establish a broad first-delivery success rate.",
+    "First delivery after internal iteration is not the first generated draft.",
+    "Existing exported kits need refreshed guidance; no package publication is part of this task."
+  ],
+  "postFreezeClarification": {
+    "patch": "guidance-final.patch",
+    "sha256": "5ebf6de7e8793ee354aae42be7296848d804c2fa4760c7d8a23d0aff05ccf5ba",
+    "changes": [
+      "Scope choice/action checks to tasks that contain them, preserving passive HUDs.",
+      "Align Studio-only capture and stopping instructions with the main critique loop.",
+      "Split two overlong numbered instructions to satisfy the documentation style check."
+    ],
+    "evidence": "Counterexample and documentation-consistency review. The independent builder keeps the frozen R8 candidate; these later wording clarifications are not claimed as independently forward-tested."
+  },
+  "parentAssessment": {
+    "visual": "Below the intended first-delivery quality. Charming performer art and distinct act colors sit within a largely generic menu. The broad banner, small comparison text and unused lower half weaken desktop/console composition.",
+    "controls": "Facet buttons provide act/mode selection and actions. Pointer/keyboard routes were reported by builder. Parent verified native D-pad/A route and exact Claw Clap / Remix accepted result; conditional pages fail to transfer focus automatically. Existing runtime guidance already requires this.",
+    "devices": "Builder phone sizes were simulated root bounds and environment overrides, not a native device-emulator test. Parent console capture used the actual Xbox simulator with an attached native virtual controller.",
+    "evidence": "parent-assessment/controller.json",
+    "sourceChangedByParent": false,
+    "firstPromptConclusion": "This R8 test does not support a claim that the earlier guidance reliably reaches the desired visual finish. It motivated the separately frozen R9 whole-composition-study revision."
+  },
+  "nextRevision": "../forward-r9/candidate.json"
+}

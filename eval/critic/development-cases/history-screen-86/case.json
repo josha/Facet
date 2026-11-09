@@ -1,0 +1,18 @@
+{
+  "schema": "facet-critic-case/1",
+  "id": "history-screen-86",
+  "source": "forward-r27-avatar-customizer/parent/final-replay/phone-portrait-draft-374x666.jpg",
+  "labeler": "Parent visual assessment, 2026-11-09; owner blandness comment retained separately.",
+  "capture": "capture.jpg",
+  "device": "phone portrait, 374×666 camera; capture enlarged to 607×1080",
+  "brief": "Create a distinctive, finished avatar accessory shop. The player has added owned Orbit Rims to an outfit draft. They must inspect the preview, understand the draft, and either review the outfit or discard it at the supported small portrait viewport.",
+  "label": {
+    "verdict": "revise",
+    "must": [
+      "generic-identity"
+    ],
+    "should": [],
+    "notes": "Parent label: fixed draft actions and feedback now fit with reduced stage height; actual replay is separate evidence. This improves task fit, but rectangular shelf/product/action surfaces still fall short of the brief's distinctive finish. The owner's later blandness statement informs development context, but this per-image interpretation is the parent's. BetterThan denotes the same-state fit improvement, not new owner preference or universal score improvement."
+  },
+  "betterThan": "history-screen-63"
+}

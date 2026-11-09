@@ -1,0 +1,24 @@
+{
+  "recordedAtUtc": "2026-11-08T16:08:04.890763+00:00",
+  "scope": "Upload authored game art and icons through Open Cloud, bind returned IDs, verify real controls; do not use EditableImage or packed pixel substitutes for asset delivery.",
+  "authorization": "Explicit user instruction to upload game art including icons using Open Cloud and avoid EditableImage.",
+  "files": {
+    "docs/guide/device-verification.md": "ed350a972c06948b6731b42249fc634bbb3be868b1e59ccd22d225e284b801a6",
+    "docs/guide/getting-started.md": "f75b2cbd2f529f0c09c25d8930eb04c6cc2aab63418b697a57a4d14931ee77f2",
+    "docs/guide/themes.md": "defbb5cc6cf9978665c057de7845fdf49eb778e29dc7e89782ad7ea91ef3c18d",
+    "docs/reference/nodes/Design.guide.md": "78acfb1e4e1f6b739104b1458f0955bc1a54df0b72621804cd099ff2ae0df0df",
+    "docs/reference/nodes/Tasks.theme.md": "a25a54a5cbdc51a0a0cb7404010c5594ab0fb768c3cdb216d90c86ee408ea729",
+    "docs/reference/nodes/Themes.art.md": "bf55b9c550ef4a493543521c02c9326624f33c56d53e4757d50ea49ca23fa4d0",
+    "skills/critique-ui/SKILL.md": "df1e1414cf51d5e5a92b2d4b7056e5905a312332bc1f72add7e372077adaf6e2",
+    "skills/critique-ui/references/critic-brief.md": "b5d31327c42343bff0a7dcbb46a1ea4ca2918294dc7715101e60b4cd143ec077",
+    "skills/critique-ui/references/rubric.md": "a3bda44e955467f0811987d6b815c96c975cf6d4f95a279ff35754ee1f481d6f",
+    "skills/critique-ui/references/studio-only.md": "8ae8cf30fa53f075d495619b9046ce057a0c3672cd2c0c2dea965a03278d61a6",
+    "skills/use-facet/SKILL.md": "521516eb07516b7795ff6df1de7a162eb933e6b3dc504f019b2eefc8443ee72c",
+    "skills/use-facet/references/GAME_UI_DESIGN_GUIDE.md": "2a2f53b7bf39d12d3b524a859563da39575655e1165b836fdf60858db5592dff",
+    "skills/use-facet/references/asset-upload.md": "741380b328eb45afc08286d39279e262ca8f5b2b3f489c0778919744413aedbe",
+    "skills/use-facet/references/game-themes.md": "ed92a47741250932996ff44b01c54db893965343922319c25efbce6aff3b5ec5",
+    "skills/use-facet/references/runtime.md": "48e30e94f0600fb4378392e542cf48ca720f6f981d3aec6b962f046a023bd00f",
+    "tools/play/engine/probe.luau": "2185ca7a3f48ff123c3a0dcd485e1b6741ca36d19392911c5c218817b42d110c"
+  },
+  "behavioralEvidence": "Current Ink Orbit conversion is directed development evidence, not an unseen first-prompt test."
+}

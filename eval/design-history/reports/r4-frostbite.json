@@ -1,0 +1,238 @@
+{
+  "date": "2026-11-07",
+  "guidanceCandidate": "guidance-r4-candidate.patch",
+  "guidanceSha256": "c7800de09be1600e41f32fccc955472a8e997582cc0abc9d8dc08af5ad60fda7",
+  "models": "Builders and fresh reviewers: gpt-6-sol, medium reasoning",
+  "mainExamples": {
+    "method": "Development evidence with parent art direction and three fresh visual review rounds, not independent first-pass validation",
+    "games": [
+      "Moonseed",
+      "Ricochet"
+    ],
+    "quietCounterexample": "Post professional mail",
+    "lastIndependentReviews": {
+      "moonseed-desktop": {
+        "round": 1,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 5,
+          "identity": 5,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "moonseed-portrait": {
+        "round": 1,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 5,
+          "identity": 5,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "moonseed-landscape": {
+        "round": 3,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 4,
+          "identity": 5,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "moonseed-console": {
+        "round": 2,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 5,
+          "identity": 5,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "ricochet-desktop": {
+        "round": 2,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 5,
+          "identity": 5,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "ricochet-portrait": {
+        "round": 3,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 3,
+          "identity": 4,
+          "economy": 4
+        },
+        "verdict": "revise"
+      },
+      "ricochet-landscape": {
+        "round": 3,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 3,
+          "identity": 4,
+          "economy": 3
+        },
+        "verdict": "revise"
+      },
+      "ricochet-console": {
+        "round": 3,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 3,
+          "identity": 4,
+          "economy": 3
+        },
+        "verdict": "revise"
+      },
+      "mail-desktop": {
+        "round": 1,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 4,
+          "identity": 4,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "mail-portrait": {
+        "round": 1,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 4,
+          "identity": 4,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "mail-landscape": {
+        "round": 2,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 4,
+          "identity": 4,
+          "economy": 4
+        },
+        "verdict": "pass"
+      },
+      "mail-console": {
+        "round": 1,
+        "scores": {
+          "lead": 4,
+          "numbers": 4,
+          "visuals": 4,
+          "identity": 4,
+          "economy": 4
+        },
+        "verdict": "pass"
+      }
+    },
+    "postReviewRepairs": "After third independent review, parent replaced all Ricochet accepted layouts with a table launch tableau, secondary monster marker and broad console composition. Parent inspected four captures and tested select/launch/return on all four forms. No fourth independent verdict.",
+    "remainingSuggestions": [
+      "Moonseed: stronger sprout visibility and selected mark near packet seal",
+      "Ricochet: use more of initial short-landscape field"
+    ],
+    "reviewEvidenceLimit": "Third reviewer could not inspect exact linked reference-image pixels; parent did inspect the references directly."
+  },
+  "independentTests": [
+    {
+      "task": "Cloudline sky-rail puzzle",
+      "candidate": "R3",
+      "result": "Failed initial delivery: generic interaction surfaces, clipped landscape content, small console text. Agent did not inspect actual reference pixels. Used to revise guidance; not independent evidence for R4.",
+      "submission": "forward-r3/submission-cloudline"
+    },
+    {
+      "task": "Frostbite snowboarding results and trail choice",
+      "candidate": "R4",
+      "result": "Promising content-appropriate first delivery after internal critique. Three independent REVISE verdicts preceded final local repairs; no fourth pass score. Parent supplied no visual feedback before freezing.",
+      "submission": "forward-r4/submission-frostbite",
+      "parentInputs": "Unchanged source: Black Glacier select/start/back confirmed in portrait, short landscape and console keyboard-selection proxy. Builder proved desktop pointer route and replay."
+    }
+  ],
+  "guidanceReasoning": [
+    "Problem: selecting the neutral package before art direction made unrelated game tasks look like the same generic app.",
+    "New game direction: inspect reference pixels, decide composition/material/type/subject/control/state treatment, build one complete task, obtain appropriate art, compare captures and get a fresh critique before first delivery.",
+    "Images are optional where native graphic art, text-led design or deliberate restraint fits. Post professional mail is a valid quiet counterexample; the guidance preserves existing style for small edits and does not prescribe genre skins.",
+    "Keep examples and scoring tasks in evaluation artifacts. Consumer guidance states the reusable causes and exact Facet contracts, without imposing these screen inventories or assets.",
+    "The one-line probe change passes game explicitly to Verify collection so live Studio evidence does not fall back to a restricted environment lookup."
+  ],
+  "validation": {
+    "gate": "41 selected producers passed; NARROWED, not complete gate. Reference-host and recorded Studio-host producers deferred; three special tiers not selected.",
+    "localBenchmark": "PASS",
+    "package": "Build and status complete; source library unchanged; nothing published",
+    "skills": "use-facet and critique-ui quick validation passed",
+    "prototypes": "Main three static verification and Rojo place builds passed; actual Studio captures and input checks recorded separately"
+  },
+  "limits": [
+    "UI prototypes use local simulated state; no gameplay server or mail service",
+    "Phone simulator input, not physical hardware",
+    "Physical console hardware and its on-screen keyboard remain untested; actual virtual-controller navigation and activation were verified in R6.",
+    "A single fresh R4 task cannot establish a general first-delivery success rate",
+    "Visual judgments depend on the brief and reviewer; final owner preference remains the deciding evidence"
+  ],
+  "sourceHashes": {
+    "submissions-r3-final/mail/Post.client.luau": "da04055a8f3771af137658752085a92ab6842fb2642d22a9801aa70e495d7283",
+    "submissions-r3-final/mail/PostTheme.luau": "2a0517f38ee7222476eb6455901b8156f53a9e6af60bc11e6363d60b5df69bcb",
+    "submissions-r3-final/ricochet/Ricochet.client.luau": "aa6e5c752e158aa08f2c77d07c9b28bf3c8d857b482d400e416ffc3882427459",
+    "submissions-r3-final/moonseed/client/Moonseed/Theme.luau": "cb180be4ad92d34a42dc82aea377d31171b0d2c1fd107740fd3550508052f1f7",
+    "submissions-r3-final/moonseed/client/Moonseed/init.client.luau": "ef161ad103e96f2767476bc0569e2f2b78d796c1272c4f0e98d99521561d2e57"
+  },
+  "gallery": "RESULTS-R4.html",
+  "followupLayoutVerification": {
+    "report": "final-input-check/RESULTS.json",
+    "repairs": [
+      "Moonseed console label separation",
+      "Mail remaining-height list sizing",
+      "Mail reactive compact header"
+    ],
+    "controllerStatus": "Completed with actual Studio Controller Emulator keyboard mappings; see R6 follow-up. Physical console keyboard remains untested.",
+    "guidanceAddendum": "Remaining-height layout, rendered bounds and genuine virtual-controller evidence were clarified after the frozen R4 style evaluation. R4 transfer results apply to the frozen patch, not this later addendum.",
+    "validation": {
+      "prototypeStatic": "Moonseed and Post pass",
+      "placeBuilds": "Moonseed and Post pass",
+      "localBenchmark": "PASS",
+      "guidanceGate": "Full run: 39 selected producers passed; types and one of 1412 tool-spec cases failed because the execution environment denied refreshing ~/.lute/typedefs/1.0.1/.luaurc. A fresh focused retry of the types producer and that tool-spec case with cache access passed. The original full failed result is retained; no second full gate is claimed.",
+      "package": "Build and status complete; unpublished"
+    }
+  },
+  "followupInteractionVerification": {
+    "report": "final-input-check/RESULTS-R6.json",
+    "guidancePatch": "guidance-r6-followup.patch",
+    "evidenceKind": "Development repair evidence, not independent R6 transfer evidence",
+    "repairs": [
+      "Moonseed CHOSEN backing and fixed feedback/action position",
+      "Post remaining-width reading pane and reachable reply composition",
+      "Frostbite stable floor/spawn in working preview fixture"
+    ],
+    "validation": "Full-gate command: 41 selected producers passed, NARROWED (2 deferred, 3 not selected); benchmark, package build/status, skill validators and saved-place builds pass."
+  },
+  "followupVisualRepair": {
+    "report": "final-input-check/RESULTS-R7.json",
+    "guidancePatch": "guidance-r7-followup.patch",
+    "evidenceKind": "Development repair; not independent transfer evidence",
+    "repairs": [
+      "Preserve game identity in a contrast repair",
+      "Center short status text as a group",
+      "Use fitted paper art after screenshot review exposed slicing seams"
+    ],
+    "controllerStatus": "Completed in final R7 source using Studio Controller Emulator keyboard mappings: choose, plant, hold protection, prepare another bed and return to choices. Gamepad1 and PreferredInput.Gamepad verified. See R7 report.",
+    "validation": "41 producers passed; NARROWED with 2 deferred and 3 not selected. Separate benchmark, package build/status, skill validation, static check and saved-place build passed."
+  }
+}

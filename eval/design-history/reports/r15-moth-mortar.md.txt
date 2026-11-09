@@ -1,0 +1,34 @@
+# Moth & Mortar
+
+Moth & Mortar is a local, single-player demo of a traveling apothecary on the Lantern Road. The shelf has six illustrated goods, and the selected item appears in a botanical alcove beside its inspection and purchase docket. The session starts with 160 coins.
+
+- The Rojo mapping includes the persistent client script and its companion artwork folder. [Client script](FantasyShop.client.luau) · [Packed artwork](FantasyShopArt)
+- Open the local build in Roblox Studio and press Play. The live lease place kept its existing Facet package, floor, spawn and archives. Its prior VelvetJack LocalScript was disabled without inspecting its source. [MothAndMortar.rbxlx](evidence/MothAndMortar.rbxlx)
+- [Artwork provenance and rebuild](art/PROVENANCE.md) · [Desktop visual study](evidence/r1/target.png) · [Reference inspection](evidence/references/INSPECTION.md)
+- [Desktop](evidence/captures/desktop-freeze.jpg) · [Desktop after purchase](evidence/captures/desktop-freeze-purchased.jpg) · [Portrait](evidence/captures/portrait-freeze.jpg) · [Short landscape](evidence/captures/landscape-freeze.jpg) · [Xbox shelf focus](evidence/captures/xbox-delivery.jpg) · [Xbox Buy focus](evidence/captures/xbox-delivery-buy.jpg)
+
+## Verified routes
+
+| Context | Actual result |
+| --- | --- |
+| Desktop Play, 1428 × 989 safe root | Studio mouse input inspected the charm and got an 80-coin shortfall with 160 coins, stock 1 and owned 0. Lantern purchase changed 160/1/0 to 70/0/1. Sold-out retry left all three values unchanged. Two bread purchases left 40 coins with stock 2 and owned 2. Arrows purchase left 20 coins with stock 4 and owned 1. Tonic failed at 20 coins. Leaving and reopening kept tonic selected, 20 coins, two loaves and the sold-out lantern. The Buy control position stayed 989, 743.5 across that route on the pre-review layout. The final compacted docket was retested with the lantern purchase and shows the same 70/0/1 result. [Route evidence](evidence/desktop-route.json) |
+| iPhone 17 Pro portrait, 874 × 402 preset, 401 × 719 safe root | Actual emulated Touch events selected arrows, bought one bundle from a carried balance of 145 and left 125 coins with arrows stock 4 and owned 1. Touch closed and reopened the counter with those facts and selection retained. [Touch evidence](evidence/portrait-input-confirmed.json) |
+| Galaxy A06 landscape, 800 × 360 preset, 705 × 280 safe root | Actual emulated Touch events selected and bought bread. Coins went from 160 to 145, stock from 4 to 3, and owned from 0 to 1. The full shelf and Buy remained in view at 53-pixel item targets and a 44-pixel Buy target. [Touch evidence](evidence/landscape-input-final.json) |
+| Xbox One, 1920 × 1080 preset, 1920 × 992 safe root | Fresh Play opened at 160 coins with tonic selected and focused. The screenshot shows the selected copper plate and separate visible focus outline. Studio's virtual keyboard Gamepad codes changed PreferredInput to KeyboardAndMouse, so this author pass does not establish native D-pad or A/B activation. The parent reserved native input testing for after the freeze. A programmatic focus probe checked the context guide and restored tonic focus. [Focus probe](evidence/xbox-focus-probe.json) · [Fresh Play probe](evidence/xbox-freeze-start.json) |
+
+Stock is computed from the fixed opening quantity minus owned count. Each accepted purchase replaces the wallet and owned snapshot together. Insufficient funds and zero stock return before the update. Shop state persists across Leave and Reopen within one Play session.
+
+## Review and checks
+
+- Round 1 reviewed the rendered design target before the static Studio art proof or purchase implementation. [Independent verdict](evidence/r1/verdict.json).
+- Round 2 reviewed actual captures from all four forms. [Packet](evidence/r2/PACKET.md) and [independent verdict](evidence/r2/verdict.json).
+- Round 3 passed desktop, portrait and landscape. Xbox met the visual scores and called for an explicit route from shelf focus to Buy. The final guide now names D-pad Right from the shelf and D-pad Left from Buy. Both prompts were checked in Studio through programmatic focus. The three-round limit ended independent scoring before this focused repair. [Round 3 verdict](evidence/r3/verdict.json) · [Post-review Xbox probe](evidence/xbox-focus-probe.json)
+- All three review agents were spawned with `fork_turns="none"` and no model override. They inherited the author's GPT‑6.1 Sol configuration. Each received the critic brief and its packet path.
+- Studio exposed a 200,000-character Source limit and required an explicit Zstd frame size. The local art was split into three focused modules and packed with known frame lengths.
+- `lute run tools/facet verify FantasyShop.client.luau --static` passed strict types, usage lint and the Rojo build. Lint flags explicit paint and fonts used for the custom art, plus the engine TV distance fallback that keeps a large layout after pointer input. [Static evidence](evidence/static-verify.txt).
+- Facet's live design review ran on each form. Its hollow-plate heuristic missed the editable texture on the item display. The joined-facts heuristic flagged the unit-price purchase caption and a console control guide. The purchase caption keeps the quantity and cost together beside separate stock and ownership values. [Runtime review evidence](evidence/r3) · [Post-review Xbox rules](evidence/xbox-post-r3-design.txt).
+- The live session used the Studio Device Simulator. Its console output includes an asset-type warning for `rbxassetid://203785492` also seen before this storefront mounted. The local shop artwork uses editable textures. The output also records two `Setting GuiService.SelectedObject to invalid GuiObject` warnings. The fresh session nevertheless reported `InspectTonic` as the active selection and the capture shows its outline. [Output](evidence/xbox-freeze-output.txt)
+
+## Freeze
+
+[Freeze manifest](FREEZE.json) and [persistent Edit-source hashes](evidence/edit-verified-hashes.json).

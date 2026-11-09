@@ -1,0 +1,26 @@
+{
+  "schema": "facet-design-supplemental-sources/1",
+  "copies": [
+    {
+      "source": "artifacts/theme-guidance/planning-trial.md",
+      "collectedAs": "planning-trial.md",
+      "sha256": "831ae90bffffcfa0ee5268c603074f9bc725cb18aa8e7b340cc3d5c7bb442cf7"
+    },
+    {
+      "source": "~/.codex/generated_images/01a1bee8-ee9a-7042-a5c4-e5e4b5af612d/exec-b47b48e9-bbf3-4e52-8753-19266a39c454.png",
+      "collectedAs": "visual-variety-concepts/streetwear-editorial.png",
+      "sha256": "600365ecf32765253a99dd73b8767e2801255d4c052100be5d28b882494b0b90"
+    },
+    {
+      "source": "~/.codex/generated_images/01a1bee8-ee9a-7042-a5c4-e5e4b5af612d/exec-520fdb32-3d9e-42a5-9b47-094eb737c810.png",
+      "collectedAs": "visual-variety-concepts/outfitter-cabinet.png",
+      "sha256": "2196e7e9378202da1e942ac6a79c386247810dc3edc2af92ace09f66b5e7fb79"
+    },
+    {
+      "source": "~/.codex/generated_images/01a1bee8-ee9a-7042-a5c4-e5e4b5af612d/exec-fdbdbbfd-39dd-489d-8b5c-35f8e64d8145.png",
+      "collectedAs": "visual-variety-concepts/future-atelier.png",
+      "sha256": "2802e004a8f0a5e88b2224671a82d2487478b5102200fa0ae362353f592ebfd2"
+    }
+  ],
+  "notes": "These are byte-identical copies collected from outside artifacts/theme-evaluation. Their originals were not changed. Concept prompts were recovered from the current conversation's saved tool inputs."
+}

@@ -1,0 +1,2200 @@
+{
+  "records": [
+    {
+      "reason": "redundant exported kit",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "author-kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "author-kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "author-kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "author-kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "author-kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "author-kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "author-kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "author-kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "author-kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "author-kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "author-kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "author-kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "author-kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "author-kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "author-kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "author-kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "author-kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "author-kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "author-kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "author-kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "author-kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "author-kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "author-kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "author-kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant exported kit",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "author-kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "fc80a022fe047004969082f8d2dc0388f1885a32cf39ce77f2c2f9db84f0e3cc",
+      "source": "forward-r14-default-casino/studio-lease.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "fffcc76ca471547c4fd472eb57186070b2e8546e9e8f528893c4e6e3715d27e0",
+      "source": "forward-r16-drawing-game-sol/studio-before-shop.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "8d283dbf3c3248565401e56774a29b694d1a58e1fcf2b3d455ec4a84c9179f1c",
+      "source": "forward-r18-drawing-game-sol/protected-shop-current.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "b4796981ce0df17c9963142dcf00c930186ea956d182d2421f8c016b2e269b28",
+      "source": "forward-r18-drawing-game-sol/protected-shop-verification.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "07a3ed596e92473524702452be5e06f200ad46678c780c03db3321ffe26245b7",
+      "source": "forward-r18-drawing-game-sol/upload-operations/control-pressed.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "e200672ef1f64cc6c7a4ce202b90d97da279e71848288c44fd4365a4cbaa9ef1",
+      "source": "forward-r18-drawing-game-sol/upload-operations/control-selected.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "06342010f86b7a962ae3dfed58bd7fd21de67ed8b69f938d3c469164a84f89cf",
+      "source": "forward-r18-drawing-game-sol/upload-operations/control-standard.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "2cc7a5112b8a16b3b979868d070f1980cf77e00c1b2255728fb06ef78457d251",
+      "source": "forward-r18-drawing-game-sol/upload-operations/graphite-tray.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "17c221720bb2f4e99362d7249523d98c278d1fc3e69dfd7438f44f3f68c1c65f",
+      "source": "forward-r18-drawing-game-sol/upload-operations/mission-alien.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "a897623f85b22e8137611d15b36e5b28e5603987c02c4514529d04ec81ca3a3b",
+      "source": "forward-r18-drawing-game-sol/upload-operations/mission-bicycle.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "c5192f40137366364fd81f8979c4a34f945c160542ef116ca2846ed841a06fb9",
+      "source": "forward-r18-drawing-game-sol/upload-operations/mission-robot.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "47fde6fb27dba39cead9a94d94ef5bb54a96c707c230e9e45658429c6eb7d584",
+      "source": "forward-r18-drawing-game-sol/upload-operations/orbit-seal.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "9a0604e2c632f1a4ab85f54f4cff89e400ef11c53adc94139fd7819e4dd4e9bd",
+      "source": "forward-r18-drawing-game-sol/upload-operations/paper-registration.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "b7a5652d68511fb238f05b83afe502d37dc472e27a198b4cc9a56b15164573d7",
+      "source": "forward-r18-drawing-game-sol/upload-operations/paper-stock.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "ba2a5e1331d94dbcbf61d47a5f7f534df155e6ac3ee15abe29003aea4e962a45",
+      "source": "forward-r18-drawing-game-sol/upload-operations/tool-eraser.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "f159126b20ac3666cf515fa4bf6a746f23235f8fa09e1d0c11df6da95643be53",
+      "source": "forward-r18-drawing-game-sol/upload-operations/tool-marker.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "c7d27ecaadf5bb03907515a2d5245bff59a35233ec9e1d09ffc8dd96d69ca784",
+      "source": "forward-r18-drawing-game-sol/upload-operations/tool-pencil.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "028ec803f9cfa9cc70b605f1026aa072a920940501563a9b57e5183b7b513e06",
+      "source": "forward-r18-drawing-game-sol/upload-operations/tool-soft-brush.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "828684b605d538b723b8409cfc7e5e8e359899ccd69de0e6cf856f8322e9846e",
+      "source": "forward-r18-drawing-game-sol/upload-operations/tool-spray.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "bd72f7f3a2eb69cb24298343f4bf304b20dfc74e54b61de351116163f6cb54f9",
+      "source": "forward-r18-drawing-game-sol/upload-operations/tool-stamp.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "e924ca217c69a7f0a07213f2b8cd2ec589a3872a210679c393bf1cfdaf7dc009",
+      "source": "forward-r18-drawing-game-sol/upload-results/control-pressed.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "a855f92773f85629388cee3516032459579426225d30eb001b911f65bfb80058",
+      "source": "forward-r18-drawing-game-sol/upload-results/control-selected.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "dbecec54645ad63ca28e70c784ba9385f0fdfd71c76e3d9150af9c5c080cba7d",
+      "source": "forward-r18-drawing-game-sol/upload-results/control-standard.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "d6d3daf7e2dcf9cabff512769dceb5308133b8f74734cc5f32cb2a3fc8980ec2",
+      "source": "forward-r18-drawing-game-sol/upload-results/graphite-tray.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "63d4dfe07af085da435fa3e6185f166baf2a1e4c8ffe24bcf94aaaf2a8056737",
+      "source": "forward-r18-drawing-game-sol/upload-results/mission-alien.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "6047a857f544f9c49b4ee2f57f48e4004e6711c3013966d354acc86e6228b203",
+      "source": "forward-r18-drawing-game-sol/upload-results/mission-bicycle.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "1ab633234415defddde5b630784b985f6f684c762cba6cc6b7b00d8177ed1534",
+      "source": "forward-r18-drawing-game-sol/upload-results/mission-robot.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "4ece320bf33a2811eac5ddbf77894dc98ca52a414dc7940dbc0775ef7fbece7f",
+      "source": "forward-r18-drawing-game-sol/upload-results/orbit-seal.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "be5a9e46b2a5ad2ae0a5d2f90bc92fb686f428c4d9026060af0c86e4740322de",
+      "source": "forward-r18-drawing-game-sol/upload-results/paper-registration.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "526dd3125445f2f4e35bb1594e412cfebb44c7402be7a0f5b6fb8d3538916304",
+      "source": "forward-r18-drawing-game-sol/upload-results/paper-stock.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "8152a91b75bf566ee250f8d234130a7cb3c68307a124ccbb9cfd84b2d5b437d5",
+      "source": "forward-r18-drawing-game-sol/upload-results/tool-eraser.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "bbff35f6fa17809bc7adb804b3ed29c993eecb24c06abe60440ede934ce1f4ac",
+      "source": "forward-r18-drawing-game-sol/upload-results/tool-marker.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "f80e3d858657f1da1aa24d7cbf6233cdc0c274bec478a40030963e2c2730fd50",
+      "source": "forward-r18-drawing-game-sol/upload-results/tool-pencil.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "76bbbc66383d77ae8cec553fa3d4664c886a012e7ec7f728c2f55250c513c4b0",
+      "source": "forward-r18-drawing-game-sol/upload-results/tool-soft-brush.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "4a2026a2ab8e80a5d108d1ee53ffef57c92088e2f3f8430ebd36ad02a23567ad",
+      "source": "forward-r18-drawing-game-sol/upload-results/tool-spray.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "ae0f692446fcd14ac46add7704ee216571086d8c8338805dc157d0018bf6e379",
+      "source": "forward-r18-drawing-game-sol/upload-results/tool-stamp.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "3019238fb9afcd60e7f50659066389bb31641b42ffc5686f1801322dafc4ed91",
+      "source": "forward-r19-drawing-game-sol/directed-final/uploads/token-receipts.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "3019238fb9afcd60e7f50659066389bb31641b42ffc5686f1801322dafc4ed91",
+      "source": "forward-r19-drawing-game-sol/owner-feedback-stage/uploads/token-receipts.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "9126b9b0374a2299f41ba4c138d4f0d3e0ef2902f770bcdc45abae8994b34dc8",
+      "source": "forward-r19-drawing-game-sol/protected-source-check.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "b37373000178097f2d0c7490439e11a5c6426761c38f59a7f6886c28c93ee268",
+      "source": "forward-r19-drawing-game-sol/studio-before-drawing.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "30f9e93e31dfaeaf0d64d827449d6878973f3ed0c5e9078fa8fb86356ea6f985",
+      "source": "forward-r19-drawing-game-sol/studio-before-hashes.json"
+    },
+    {
+      "reason": "unmodified user-Studio custody snapshot outside the authored design evidence",
+      "sha256": "bba1dd45ac87eaad5b9dab3746419efa9733c83714a646ebeb8446b82cc9939c",
+      "source": "forward-r19-drawing-game-sol/studio-before-other.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/build-01/kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/build-01/kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/build-02/kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/build-02/kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/build-03/kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/build-03/kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/kits/arm-a/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/kits/arm-a/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/kits/arm-b/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/kits/arm-b/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/kits/final-maintenance/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r22-ab/kits/typed-maintenance/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "48804f81d8ef889af6588ec1ca523dd1b95afacf16724a71051774d81686e269",
+      "source": "forward-r23-visual-workflow/kits/a-sha256.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r23-visual-workflow/kits/a/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r23-visual-workflow/kits/a/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "64f1fa2e9db7b26e52fbd2c477a06c58e4618fd7cd87ce0187811f4a2bdaa440",
+      "source": "forward-r23-visual-workflow/kits/b-sha256.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r23-visual-workflow/kits/b/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r23-visual-workflow/kits/b/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "249acf26213e7aaf364c83a47da3008bdfb6cfa0987708b8076dd3d180370187",
+      "source": "forward-r23-visual-workflow/kits/comparison.json"
+    },
+    {
+      "reason": "host model or session metadata",
+      "sha256": "fd7e96b8c60e7a19fa6b17f27eb3de83d646af5f7dde22a5356a97f16904bde0",
+      "source": "forward-r24-native-direction/eval/attempt-1/runs/coastal-courier/candidate/codex-sol/seed-1/workspace/.codex-model-catalog.json"
+    },
+    {
+      "reason": "host model or session metadata",
+      "sha256": "fd7e96b8c60e7a19fa6b17f27eb3de83d646af5f7dde22a5356a97f16904bde0",
+      "source": "forward-r24-native-direction/eval/attempt-1/runs/coastal-courier/current/codex-sol/seed-1/workspace/.codex-model-catalog.json"
+    },
+    {
+      "reason": "host model or session metadata",
+      "sha256": "fd7e96b8c60e7a19fa6b17f27eb3de83d646af5f7dde22a5356a97f16904bde0",
+      "source": "forward-r24-native-direction/eval/attempt-1/runs/coastal-courier/native/codex-sol/seed-1/workspace/.codex-model-catalog.json"
+    },
+    {
+      "reason": "host model or session metadata",
+      "sha256": "fd7e96b8c60e7a19fa6b17f27eb3de83d646af5f7dde22a5356a97f16904bde0",
+      "source": "forward-r24-native-direction/eval/input/common/.codex-model-catalog.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r25-drawing-casino/input/kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r25-drawing-casino/input/kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "655c9e5120561756371b56a85d394764d14304ddc6a1613f884adaeab2b6980c",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/capture-review/console/console-1-start-5-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "8f7c6990dbcad402544e5f9b10b63db43ca6c0172b7a810d7e8ab7081c9d9780",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/capture-review/desktop/desktop-1-start-1-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "74ad28fcf177e03e7b65af3bbf66101e5c27bd45476fa4d4dbf386dcd5e749e7",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/capture-review/phone-landscape/phone-landscape-1-start-3-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e28fdb5322cd42302cf48f30b45d6a00e12adf552f130a80a60fe7158c948923",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/capture-review/phone-portrait/phone-portrait-1-start-2-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "b347cc4d81d0f8e70482aa7327f4d38a34bb1cb2849623a274d6dd3c4432425a",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/capture-review/tablet/tablet-1-start-4-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "655c9e5120561756371b56a85d394764d14304ddc6a1613f884adaeab2b6980c",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/captures/console/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "8f7c6990dbcad402544e5f9b10b63db43ca6c0172b7a810d7e8ab7081c9d9780",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/captures/desktop/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "74ad28fcf177e03e7b65af3bbf66101e5c27bd45476fa4d4dbf386dcd5e749e7",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/captures/phone-landscape/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e28fdb5322cd42302cf48f30b45d6a00e12adf552f130a80a60fe7158c948923",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/captures/phone-portrait/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "b347cc4d81d0f8e70482aa7327f4d38a34bb1cb2849623a274d6dd3c4432425a",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/captures/tablet/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "6cc449e4b3f48f09be0aadfddb608c690f948f235876891ecd748fdb757f9f57",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/dumps/console/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "74a25854f0e3ff8c047b84079d52bdb2498fe9bceabe634608be2a7778432b4d",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/dumps/desktop/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "cc87fb97de84162cd531a66f82b7690ecf035a5dafb3c2ee717e68da8b1c33a8",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/dumps/phone-landscape/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7a0ec82af6169c1d7fe2f3343b60b430b318569cfc1d8fc3d4b5ec89c0cd2448",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/dumps/phone-portrait/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9315cb27463e1740a413acb1a9ab69eb859419b38ea2afe04aeab17b273c1bfc",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/dumps/tablet/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "f6905067574176ab1bc5391548922b1259fb873c19311b9349eaa034d25281e8",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/raw-captures/console-1-start-5-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "49f658dbe91884a0b07fe4c6f5eb109ab56bc2fa53d589efc75f6ec4e5bc76e4",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/raw-captures/desktop-1-start-1-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9cea9a3633b8ce9e317dfad3f1c03db0dd8800b27fc3daf33796f2c021dd3d5a",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/raw-captures/phone-landscape-1-start-3-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "49785575c01239bffc110b54ba98e235401e0c29f6026d186134cef66974418f",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/raw-captures/phone-portrait-1-start-2-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1a1246e2190153c0c2854ea1ad805a7bb7e0358538677b8dd18c3720e159b8f3",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/raw-captures/tablet-1-start-4-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "82b3651a89f9dfb1bde57472d3da3531ba29cac2f21a7ed85b3e6061593878fb",
+      "source": "forward-r27-avatar-customizer/author/final/kit/live/timings.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "a829aa5f695d2eeebaf77434e13dc9075d54fe73e179b73e9e17aa04a5fa7abd",
+      "source": "forward-r27-avatar-customizer/author/final/kit/report.txt"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "db174c0f48bbab4aef1ba60c33e76b58d4b373bacbf9a640529e607820262fa5",
+      "source": "forward-r27-avatar-customizer/author/final/kit/timings.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1fd66f4bc3843ac45ae9e2959657295c7b9cd6f007f69cef95f420e1581d368a",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/capture-review/console/console-1-start-5-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "10213c208892dd5072757882b0414b3179c22d1121b4e8cf251e3ab38059c6ba",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/capture-review/desktop/desktop-1-start-1-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "8a1921899fc4000814844f1e716d0c03a16b815740ba46168b0244ddac145ae2",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/capture-review/phone-landscape/phone-landscape-1-start-3-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "a61071d8e3d6bc8daf0d99bb7144a5916efdea2b33abf40ef06a31023761aa79",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/capture-review/phone-portrait/phone-portrait-1-start-2-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "3d9af414f1ac824702f56415054de129471a004f65c58f63246cdc7181218486",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/capture-review/tablet/tablet-1-start-4-1.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1fd66f4bc3843ac45ae9e2959657295c7b9cd6f007f69cef95f420e1581d368a",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/captures/console/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "10213c208892dd5072757882b0414b3179c22d1121b4e8cf251e3ab38059c6ba",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/captures/desktop/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "8a1921899fc4000814844f1e716d0c03a16b815740ba46168b0244ddac145ae2",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/captures/phone-landscape/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "a61071d8e3d6bc8daf0d99bb7144a5916efdea2b33abf40ef06a31023761aa79",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/captures/phone-portrait/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "3d9af414f1ac824702f56415054de129471a004f65c58f63246cdc7181218486",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/captures/tablet/1-start.png"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "3d6bda2703d03f9086684cc243a87e0d1e4889f0f8e29fb056a18072b3b36108",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/dumps/console/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "6560dc2ea28f9c433ff2f484181f2f28963bb278eb7857ab0f1679ba0379cbe2",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/dumps/desktop/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "3eaa0fd681841adfe86f57796404f21982a991171c752ac35e6637c7c13452d9",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/dumps/phone-landscape/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "296d2c68f4dd09c4afa01b0e5b6a797d859b13cb77ec52de3126342d15d9de7d",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/dumps/phone-portrait/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "3b79e07cb0ffaa56db17f734561303e207769c3c1c6b401dbccdd7bf853afc60",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/dumps/tablet/1-start.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "5f2c13f428e4b4ec0499d73283db3d8b8650004e9117467db82236c3b5ac5978",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/raw-captures/console-1-start-5-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "6e78656f033b913ecbae3f81d6ec7fc2e94a8d2d152bf85b85871ebb3b632bdf",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/raw-captures/desktop-1-start-1-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "3eacf765c63a607c1e30f9669d3449f9e3050335fd012e84be8483b05c40bae5",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/raw-captures/phone-landscape-1-start-3-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "5b7dd9850822521af909862b46851649248992720aef210ca56ba544ca7bab41",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/raw-captures/phone-portrait-1-start-2-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "b6f93000c84629bc2bc9b320ca7a9f0a22e2ea79ba167c7d422779de898feeda",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/raw-captures/tablet-1-start-4-1.jpg"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "ae7643403d7eb1424726938a1f02eb7a2b339267507b55ea1e76613db45b4112",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/live/timings.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "f6684c6a43a3abb5f58bd5aed39efccd2a119df2105ca362a78a0085ee937ed0",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/report.txt"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "736ed895b3df31937899321d5202d934a15318640b1b889416458f6b27b12c3c",
+      "source": "forward-r27-avatar-customizer/author/parent-repair/kit/timings.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r27-avatar-customizer/input/kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "e802a04d1aea486b569164373022c54bf532017f7dc5882af2c2cddbd68d6afd",
+      "source": "forward-r27-avatar-customizer/parent/final-replay/lease.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "437b4786c1640647a81fbc36cc66fa86049ba52f6bc4dfe43fbc0386c384a9ed",
+      "source": "forward-r27-avatar-customizer/parent/first-delivery-rest/lease.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "92d47d0f7399fe69521709c4f510c326abbe9f515754b5deeb6f786cd5c0dff7",
+      "source": "forward-r28-poker/author/art/open-cloud-operations.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "01302fe59170624bd7e06fdb543a4ee82cdf3b0105666ffbc484101116aad666",
+      "source": "forward-r28-poker/author/art/open-cloud-stamp.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "9047bd1aa6e0f79105a47980d52aaffd1d3eb2bae017256d5cd9ad017285ddae",
+      "source": "forward-r28-poker/author/delivery/first-delivery-session.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "2e6c55982fb01e2becf47c484ee2cae6bbe50ba1d1b9524066f57143d06bb502",
+      "source": "forward-r28-poker/author/delivery/review-session.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "5979f709ab84c9f5fa8eaa84ac2092355b521c545e0b260bb2fa7c9d932c58f1",
+      "source": "forward-r28-poker/author/delivery/session-control.txt"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "81fa5f643084fc216971aa3bfc28c507602e98c13ad9e9add4b4b4df0034306a",
+      "source": "forward-r28-poker/author/owner-ledger-repair/studio-session.json"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "a61f89a106c5ab07545546be08661aa2b560757d58c294d82f7040dc44cefd2c",
+      "source": "forward-r28-poker/author/runtime-translation/session-control.txt"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "21d48703f0b37d7ff5883ecfadfc0c70e093484d215a4db4d7930de31eb69a87",
+      "source": "forward-r28-poker/input/kit/examples/blocks/README.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e926117ca57541b5904f0f6fb7714baf0e7e77de5c884265a924ee621bae1149",
+      "source": "forward-r28-poker/input/kit/examples/blocks/category_tabs.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1aaacd8587d36e30777cd835b8dc426df5b0d7e179885dac8458ad664ef93b9f",
+      "source": "forward-r28-poker/input/kit/examples/blocks/code_redeem.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2e3a11c0516ff2e8afd213debf588f0b88c93eedbbe6c1e0434574a4f8eb9bd2",
+      "source": "forward-r28-poker/input/kit/examples/blocks/dialogue_box.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "949dd0fb6f8b9db85901a23bdb3942976b9cdb54a0811492463eeab74d3e6881",
+      "source": "forward-r28-poker/input/kit/examples/blocks/hud_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e88b477626216c7f37acb926ea8662a3883ba781aa756ed05b6af4e31e1cf79b",
+      "source": "forward-r28-poker/input/kit/examples/blocks/inventory_grid.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "36e89bf4afd225c8a5bbf425976bdae21d6c1708aa4f106d87907a682cddfa2f",
+      "source": "forward-r28-poker/input/kit/examples/blocks/item_store.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "1640587ee7b09df1228f88876180fb001cf73bc7774d7b3a9ac7d2f8906b3557",
+      "source": "forward-r28-poker/input/kit/examples/blocks/navigable_dialog.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e1b84e5f61fc95510813147d647e07b189d89e340000d5716abbeb9ab137c6e4",
+      "source": "forward-r28-poker/input/kit/examples/blocks/navigable_dialog_design.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "d0c2954385cbc5f31af4dc24e285a832d8d7ae589ed80a74b7fba7d23db26f5d",
+      "source": "forward-r28-poker/input/kit/examples/blocks/round_hud.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "80ec33d0effdea13cc42012c7ae8bedc1a28a60ae9c3826e41237c89e1dd2778",
+      "source": "forward-r28-poker/input/kit/examples/blocks/scoreboard_table.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2146bebf5251cfe343d84cfc8f1cfbe1ad70aaa426469ef98e95767ac4c0edb8",
+      "source": "forward-r28-poker/input/kit/examples/blocks/settings_panel.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "2cb96ec70ea2e5c51813ae477b238a55f0eb22df8d75b3bbe88ecf493311b4ce",
+      "source": "forward-r28-poker/input/kit/examples/themes/classic_desktop.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "badc3a42808c2635a7bd7e356352983f62ef9c7de8a7521bc2c3fac38f8f9875",
+      "source": "forward-r28-poker/input/kit/examples/themes/compact_pointer.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "e9abbbb8c0fe71bf010bf81d95140dd911a2e9aed260b34ea747cf0324fefeed",
+      "source": "forward-r28-poker/input/kit/examples/themes/content_alias_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "236ddd1887c422a1ca52803a2f9518bc071cb7532177d27270815a855d9e2d46",
+      "source": "forward-r28-poker/input/kit/examples/themes/custom_control.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "0020daeaeb0003ec24f2ab15617a17b28bf168a405c3a20480067fa876308a25",
+      "source": "forward-r28-poker/input/kit/examples/themes/fantasy_ornate.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "afd646d71ad0ff2a7211abd32fcfac06e0f58e8b5014763dbe85fe1aa18830ed",
+      "source": "forward-r28-poker/input/kit/examples/themes/fantasy_parchment.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7522d3f0d04598713ad90c9636601c6ea0b82f0e5a981bd69362b770a6a5981c",
+      "source": "forward-r28-poker/input/kit/examples/themes/fantasy_parchment_stub.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "83f934ed2317b678cbe4393716da8489356da05120049bc09d737a76879559ec",
+      "source": "forward-r28-poker/input/kit/examples/themes/glossy_mobile.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "941d84ee95612171135ffcf2384d5187325da32696c14afb6825b41f66c16a81",
+      "source": "forward-r28-poker/input/kit/examples/themes/glossy_touch.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7ff984d88ee18442b95a6c4add64aae99c2f83d84fe0114a658ccf24fab1e3ce",
+      "source": "forward-r28-poker/input/kit/examples/themes/layered_test.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "9a344962f25c1b2d943418158725b31a84e2028e166db18f6ab22bb381a605d9",
+      "source": "forward-r28-poker/input/kit/examples/themes/ornate_gauge.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "7f2ebc4fb90df4765d4716b05f5961b2ad8722bd7a0f91182a7f133194cf1509",
+      "source": "forward-r28-poker/input/kit/examples/themes/pixel_quest.luau"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "08b2581196e7cb60f144876c2d0d4007c9adc2876f884b0dcfe0ed2d3b1d778b",
+      "source": "forward-r28-poker/input/kit/examples/themes/scifi_hud.luau"
+    },
+    {
+      "reason": "operational transport or credential-adjacent record",
+      "sha256": "f3ff82e25ea3154d71612ba423227aa5963248b775cadf9c66b23ee195561474",
+      "source": "guidance-r22/illustrated-examples/evidence/open-cloud-receipts.json"
+    },
+    {
+      "reason": "large raw machine report; authored assessment retained",
+      "sha256": "c4e0e9306b4eff2cdd3dd8d3e37bf8fbf5a335457102e2d7cc43794d18f0bfda",
+      "source": "guidance-r22/validation/final-full/outcome.json"
+    },
+    {
+      "reason": "large raw machine report; authored assessment retained",
+      "sha256": "152902b10532719a220855b43827349224a541590c73fc2b10031ae565f90866",
+      "source": "guidance-r22/validation/initial-full/outcome.json"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "c5af9def25e05f23d1fe8fec07940a1e1bd57c581f16c4677f74a7e91e9aa334",
+      "source": "guidance-r23/followup/before/skills/critique-ui/SKILL.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "4033063936adb223ae9cfbb5bec42bc31f64e991d90ed6ee7e7f14d34600a252",
+      "source": "guidance-r23/followup/before/skills/use-facet/SKILL.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "47a5d83c7e9421daad0e51b380f9bc08b26f9b37e45b9e07b0c76814be10b2d9",
+      "source": "guidance-r23/followup/before/skills/use-facet/references/asset-upload.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "eeabff0b955095d2356afdc6e9dc7831dac340643a0ea8808341960ee8a24b9a",
+      "source": "guidance-r23/followup/before/skills/use-facet/references/visual-translations/guide.md"
+    },
+    {
+      "reason": "redundant library or consumer guidance copy; freeze metadata retained",
+      "sha256": "792a08a9dc6fb3f3565b68ff5bb9fded56c6f5359dd3977e5d5049f82849a2d3",
+      "source": "guidance-r23/followup/before/skills/use-facet/references/visual-translations/recipes/Recipes.luau"
+    },
+    {
+      "reason": "large raw machine report; authored assessment retained",
+      "sha256": "9f40cb6ea7e488b264614d1d4ed62551d8c9f3628aff640724b5f1eb772c9635",
+      "source": "guidance-r26-publication/final-gate-outcome.json"
+    },
+    {
+      "reason": "large raw machine report; authored assessment retained",
+      "sha256": "53db9e41093fc5e30e4aabdcf9951bf5fc4f560f98575954f86c2fb3f288bcb4",
+      "source": "guidance-r26-publication/gate-outcome.json"
+    }
+  ],
+  "schema": "facet-design-exclusions/1"
+}

@@ -1,0 +1,23 @@
+{
+  "guidanceRevision": "R13",
+  "outcome": "Failed visual development checkpoint; stopped by parent after third independent review rejected all nine runtime captures. Not a completed successful first delivery.",
+  "sourceSha256": "837bab6b80a86bfc9c1f17fb3b8de8b4e6caa3288a55adf9449d4a7c8316e1b6",
+  "exactStudioSourceMatch": true,
+  "parentAssessment": {
+    "concept": "Original generated whole-screen target had materially stronger fabric, metal, card and control finish than earlier primitive studies.",
+    "runtime": "Actual desktop, portrait result, short-landscape hand and console hand captures were personally inspected. Flat crosshatch, elementary card marks and flat pills still lose the generated target finish. Full-viewport framing improved.",
+    "readabilityAndFit": "Ranks, suit marks and totals are legible in inspected hand captures. Inset button drawing extends into adjacent control space; several labels have heavy gold outlines. Long-hand layout and selected/focused states are not established by these captures.",
+    "review": "Third reviewer correctly marked all nine views revise, with visuals/identity 3/5. The R2 portrait result capture lacks the player hand, despite the builder dismissing that finding; R3 result visibly includes both hands.",
+    "input": "Builder tests are in checkpoint/CHECKPOINT.md. Parent did not retest frozen input; native virtual-controller input remains blocked by locked Mac.",
+    "method": "Same-task development probe, not unseen validation. Parent procedural reminders are recorded separately; no parent visual fix or prior concept was supplied to builder before freeze."
+  },
+  "causeForNextRevision": "The author generated a strong concept but replaced the artwork with native primitives. Final review caught the loss too late. R14 makes reusable runtime art and a real Studio comparison explicit before functional implementation.",
+  "evidence": {
+    "checkpoint": "checkpoint/CHECKPOINT.md",
+    "manifest": "checkpoint/checkpoint.json",
+    "finalVerdict": "checkpoint/review/runtime-r3/verdict.json",
+    "refinedTarget": "checkpoint/study/visual-target-refined.png",
+    "assistance": "environment-assistance.json"
+  },
+  "recordedAt": "2026-11-08T06:15:44.938049+00:00"
+}

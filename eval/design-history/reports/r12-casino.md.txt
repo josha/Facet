@@ -1,0 +1,28 @@
+# Velvet Jack development checkpoint
+
+Stage: **paused at rejected design checkpoint** by the parent. This is not a finished runtime delivery.
+
+## Preserved work
+
+- Persistent source: `VelvetJack.client.luau`, SHA-256 `5a05094155fefbe59cb1c11f28780e862a315883e47870bf26c18892a6b1ae17`, 14,194 bytes. The identical source length was confirmed in the leased Studio Edit script after synchronization.
+- Visual studies: `artifacts/study/bet.png`, `play.png`, `result.png` and their `render.py` authoring source.
+- Inspected reference pixels: `artifacts/references/reference-1.jpg` and `reference-2.jpg`; provenance and URLs are in `artifacts/review/design-r1/PACKET.md`.
+- Independent design target review: `artifacts/review/design-r1/verdict.json` (all three states marked `revise`).
+
+## Exact Studio state
+
+- Only secondary Studio `73f7a00a-82a2-4fe8-8b37-efb1ea61dd48` was used. The preexisting `VelvetJack` script was renamed `ArchivedVelvetJackDemo` and disabled without reading its source. The new persistent `VelvetJack` LocalScript was installed in `StarterPlayer.StarterPlayerScripts`.
+- Play was stopped. Device simulation was stopped and `GetDeviceAsync()` returned `default`; viewport was 1428 × 1047 in Edit.
+- The primary Studio `89213c1e-40fd-4ff4-95af-f5bb8194c02c` was not touched.
+
+## Checks performed before pause
+
+- Facet static type lint found 0 errors and 4 style warnings (literal paint/font in custom art elements) before the final two-line visual patch. The final source was synchronized but not retested after the pause request.
+- Desktop Play was viewed in bet, active hand and result states. A real pointer click on Deal deducted 25 from 500; a real pointer click on Stand completed a dealer bust and showed settled balance 525 and win +25.
+- iPhone 17 Pro portrait was actually emulated. The initial touch controls obscured the action area; the subsequent source hid them and a new portrait capture showed the action area clear. Phone pointer injection did not trigger Deal, so touch hand flow is unverified.
+- Short landscape, console, focus traversal, exhaustive outcome branches and final critique were not tested.
+- Studio runtime captures were visually inspected through the tool but were not written as image files in this kit before the checkpoint.
+
+## Known design gap
+
+The independent reviewer found the study too schematic compared with the inspected references: flat table material, insufficient chip-choice prominence in the bet study, rules overlapping cards in the play study, and an incorrect/unexplained result mockup. The source has some provisional repairs, but no fresh review or complete device verification. Resume from this checkpoint with a renewed visual study and review before calling the game finished.

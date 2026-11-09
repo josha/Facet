@@ -1,0 +1,31 @@
+{
+  "candidate": "R10",
+  "method": "Fresh-context Sol/medium builder on a new casino task, frozen guidance and kit. No parent visual feedback before frozen delivery. Parent retrieved only builder-selected reference images after environment access failed. User rejected an interim draft; that feedback was not sent to this builder.",
+  "sourceSha256": "f99c519b8d92e16e763d39949a5423d9fae06990d1a7876f079d3c8aa9010893",
+  "studioSourceEqualityVerifiedByParent": true,
+  "parentVerdict": "Below the requested visual finish; failed style test.",
+  "parentInspected": [
+    "submission-velvet-jack/artifacts/critique/r3/desktop-active.jpg",
+    "submission-velvet-jack/artifacts/critique/r3/portrait-idle.jpg",
+    "submission-velvet-jack/artifacts/critique/r3/short-idle-postreview.jpg",
+    "submission-velvet-jack/artifacts/critique/r3/console-active.jpg"
+  ],
+  "visualFindings": [
+    "Cards, wager controls and actions now share a green, burgundy and gold vocabulary, but the surface treatment remains a flat diagram.",
+    "Large empty table shapes dominate desktop and portrait. The card faces lack the finish requested even though ranks and suits are readable.",
+    "The console hand is larger and readable, but the very broad table adds little useful visual interest or context.",
+    "The short-landscape idle labels were removed after review; the final capture keeps the wager and Deal visible.",
+    "Portrait's 50 chip and Deal surfaces visually touch. Do not describe this as a complete overflow/overlap pass without measured runtime evidence."
+  ],
+  "review": "Three fresh internal reviews. Final r3 marks all six captures revise, with visuals 3. The builder fixed the short-landscape idle-label defect afterward, but retained unresolved visual must fixes. There is no final visual pass.",
+  "processLimits": [
+    "The visual-study image was made from a running game after functional implementation, so it does not establish the prescribed earlier design step.",
+    "The initial custom theme failed selected-text contrast validation and fell back to Neutral. Parent independently reproduced the exact validation error in Studio; see parent-theme-validation.json.",
+    "The build is frozen as a failed evaluation artifact, not a completed result at the user's visual quality bar."
+  ],
+  "input": {
+    "builderReported": "Desktop pointer exercised wager, Deal, Hit, Stand and Next Hand; win, loss, bust and push were observed. Temporary data seeds checked reset and affordability. Console simulator mouse activated Deal.",
+    "limits": "Phone simulator mouse activation and native virtual-controller activation remain unverified. Actual emulator captures establish visual states, not hardware behavior. The Mac was locked. The parent did not add another runtime input pass to this rejected visual candidate."
+  },
+  "guidanceUse": "This task was unseen for frozen R10. It informed later R11/R12 changes; retests on this task are development evidence and cannot establish an unseen-task success rate."
+}

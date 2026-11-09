@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-07",
+  "models": [
+    "gpt-6-sol medium",
+    "gpt-6-sol medium",
+    "gpt-6-sol medium"
+  ],
+  "initialGuidance": "guidance-r1.patch",
+  "finalGuidance": "guidance-final.patch",
+  "method": "Frozen initial agent builds followed by parent screenshot review and iterative repairs; development evidence, not an independent test of final guidance.",
+  "screenshots": "RESULTS.html",
+  "validation": {
+    "fullGateCommand": "41 producers passed; bench reference-host and studio-live evidence deferred; command reports NARROWED, not a complete gate",
+    "finalDocumentation": "doc-style, docs-nodes, links and skill validation passed; final focus-lifecycle prose checked after the gate",
+    "benchmark": "local benchmark PASS",
+    "package": "local build and status completed; dirty tree not published and gate does not attest release readiness",
+    "prototypeStatic": "all three agents report static verify passing; final Rojo place builds pass"
+  },
+  "limitations": [
+    "UI prototypes use local simulated state; no real mail is sent",
+    "Console preview forces ten-foot metrics because Studio preferred input remained keyboard/mouse",
+    "Console uses Tab entry, arrows and Return; no physical controller certification",
+    "Phone simulator pointer events and swipes tested, no hardware phone or mobile keyboard",
+    "First drafts failed and required review feedback; fresh independent tasks needed to measure guidance reliability"
+  ],
+  "files": {
+    "submissions-final/ricochet-src/Ricochet.client.luau": "8593c34fbe90f88768104d03a585966950855dccfb000326b3fb4adbf02f8649",
+    "submissions-final/mail-src/Post.client.luau": "6b9ea85ee48d1e99c428fb096a71ea7e6f343ea323e22d6bdf5ba368280b725f",
+    "submissions-final/mail-src/PostTheme.luau": "2a0517f38ee7222476eb6455901b8156f53a9e6af60bc11e6363d60b5df69bcb",
+    "submissions-final/moonseed-src/client/Moonseed/Theme.luau": "dc26292ece2086f5604f9ae4d3d19afbf36331f5a818dbea4f88fe2fdd9c0af6",
+    "submissions-final/moonseed-src/client/Moonseed/init.client.luau": "a335b8b8521f01a098a43220eda4ffe0a703dad067ad58b7ba0e30c4f303d8ca"
+  }
+}

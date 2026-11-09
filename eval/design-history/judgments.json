@@ -1,0 +1,127 @@
+{
+  "schema": "facet-design-judgments/1",
+  "notes": "Later judgments supplement, rather than overwrite, original reports. Only direct owner wording is attributed to the owner; agent mappings are identified. No owner numeric scores are inferred.",
+  "judgments": [
+    {
+      "id": "moon-market-owner-bland",
+      "study": "r27-moon-market",
+      "origin": "owner",
+      "date": "2026-11-09",
+      "quote": "That’s kind of bland still. I’ve noticed stylistically all of the demos were producing are similar.",
+      "dimensions": [
+        "visual-distinction"
+      ],
+      "assessment": "revise",
+      "earlierEvidence": "forward-r27-avatar-customizer/EVALUATION.md",
+      "calibrationCase": "../critic/development-cases/moon-market-coherent-bland/case.json",
+      "interpretation": "The agent maps this to generic-identity. It does not turn every other historical screen into an owner-labeled failure."
+    },
+    {
+      "id": "postmark-size-padding",
+      "study": "r25-postmark-night-heron",
+      "origin": "owner-directed",
+      "date": "2026-11-09",
+      "quote": "the drawing game’s “Size” label and number need padding from the slider panel’s edges",
+      "dimensions": [
+        "spacing",
+        "short-landscape-fit"
+      ],
+      "assessment": "revise at feedback stage",
+      "evidence": "forward-r25-drawing-casino/drawing/evidence/directed-slider/README.md",
+      "interpretation": "The padding change exposed short-landscape truncation. Wider layout and anchor repairs belong to later directed stages, not original first-pass success."
+    },
+    {
+      "id": "tidekeepers-clipped-paint",
+      "study": "r22-tidekeepers",
+      "origin": "owner",
+      "date": "2026-11-09",
+      "quote": "this alert in the screenshot has a cutoff content around the left and the bottom. that shouldn't be possible.",
+      "dimensions": [
+        "painted-bounds"
+      ],
+      "assessment": "revise at feedback stage",
+      "evidence": "forward-r22-ab/build-03/directed-clipping-repair/README.md",
+      "interpretation": "Parent reproduced missing left/bottom clearance and repaired the shared Dialog inset/fade layout. Target rectangles alone had not protected visible corners, borders and shadows."
+    },
+    {
+      "id": "comet-review-disagreement",
+      "study": "r9-comet-courier",
+      "origin": "parent",
+      "dimensions": [
+        "visual-distinction",
+        "reference-inspection"
+      ],
+      "assessment": "below requested visual finish despite reviewer pass",
+      "evidence": "forward-r9/evaluation.json",
+      "interpretation": "Preserve the independent pass and parent disagreement. Do not use the pass as confirmed owner preference."
+    },
+    {
+      "id": "r23-mixed-ab",
+      "study": "r23-rivet-rumble",
+      "origin": "parent-and-blind-reviewers",
+      "dimensions": [
+        "target-translation",
+        "device-fit"
+      ],
+      "assessment": "mixed; criterion for consistent improvement not met",
+      "evidence": "forward-r23-visual-workflow/results.md",
+      "interpretation": "Early and final preferences differ. Supplied art, two runs per arm, and missing native-controller routes limit the conclusion."
+    },
+    {
+      "id": "r24-simplification-rejected",
+      "study": "r24-coastal-courier",
+      "origin": "parent-and-blind-reviewers",
+      "dimensions": [
+        "visual-quality",
+        "phone-fit"
+      ],
+      "assessment": "simplified candidate not adopted",
+      "evidence": "forward-r24-native-direction/results.md",
+      "interpretation": "Both blind comparisons preferred existing guidance over simplification. All three arms failed diagnostic portrait fit; no all-device-ready claim."
+    },
+    {
+      "id": "r25-input-limit",
+      "study": "r25-postmark-night-heron",
+      "origin": "parent-actual-input",
+      "dimensions": [
+        "native-controller"
+      ],
+      "assessment": "remaining failure",
+      "evidence": "forward-r25-drawing-casino/EVALUATION.md",
+      "interpretation": "Gamepad2 B did not dismiss the final drawing Ink wheel or casino overlay. Reachable visible A Back and successful screenshots do not clear this failure."
+    },
+    {
+      "id": "moon-market-minimum-fit",
+      "study": "r27-moon-market",
+      "origin": "parent-actual-input",
+      "dimensions": [
+        "minimum-viewport",
+        "rotation",
+        "stable-actions"
+      ],
+      "assessment": "first delivery failed; separate repair verified",
+      "evidence": "forward-r27-avatar-customizer/author/parent-repair/REPAIR.md",
+      "interpretation": "374×666 portrait placed Review center at y701; 666×374 landscape cut outfit controls. The later fixed action bar centers at y641/y345 and actual replay are separate repair evidence."
+    },
+    {
+      "id": "poker-console-ledger",
+      "study": "r28-poker",
+      "origin": "owner-and-parent-actual-input",
+      "date": "2026-11-09",
+      "quote": "the hand ledger popup text might be hard to read on console--looks small",
+      "dimensions": ["console-legibility", "viewing-distance", "secondary-surfaces"],
+      "assessment": "first delivery failed; separate owner-directed repair verified in Studio",
+      "evidence": "forward-r28-poker/EVALUATION.md",
+      "interpretation": "Effective history type grew from 17 to 29 px; metadata from 13 to 28. Parent independently paged with the native Controller Emulator and used B to return with draft preserved. Physical TV distance and larger text remain unverified."
+    },
+    {
+      "id": "poker-target-fidelity",
+      "study": "r28-poker",
+      "origin": "parent",
+      "dimensions": ["visual-distinction", "target-translation"],
+      "assessment": "promising identity; below concept craft and not a finished first-pass success",
+      "evidence": "forward-r28-poker/EVALUATION.md",
+      "interpretation": "Three materially different alternatives and a recognizable desert world. Runtime lost some strong typography, depth and tactile control craft. Keep this finding distinct from the owner's specific ledger feedback."
+    }
+  ]
+}
