@@ -26,6 +26,16 @@ audience can also enjoy a colorful cozy or pixel game; age alone does not
 choose the rendering style. These are starting tendencies, not genre rules.
 The user's direction and the actual game art take precedence.
 
+When runtime fonts cannot reproduce the target, preserve its hierarchy with
+available type, scale, spacing and placement. Record the substitution.
+For an expressive game, put the remaining craft into subject presentation,
+composition, control silhouettes, materials, edges, layering, icons and state
+feedback. Carry the chosen finish into the actual choices and actions.
+For illustrated or tactile directions, create the assets those surfaces need;
+a finished background alone does not establish finished interactive UI.
+Choose the relevant qualities for the game's language, not more effects on
+every surface. Quiet tools and small edits retain their existing scope.
+
 ### Inspect references before choosing the composition
 
 For a new game direction, inspect screenshots of shipped games with a related
