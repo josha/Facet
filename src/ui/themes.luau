@@ -20,7 +20,7 @@ export type Themes = ThemeTypes.Themes
 type NativeRule = ruleKit.NativeRule
 
 local themes = {}
-local contrast, copy, merge = support.contrast, support.copy, support.merge
+local contrast, copy = support.contrast, support.copy
 themes.SCHEMA = "facet-theme/2"
 themes.TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control", "strong", "numeral" })
 themes.REQUIRED_TYPE_ROLES = themes.TYPE_ROLES
@@ -429,12 +429,16 @@ local function rulesFor(
 		PaddingTop = types.UDim.new(0, 0),
 	})
 
-	rule(".facet-panel.facet-card-body::UIPadding", {
-		PaddingLeft = types.UDim.new(0, 0),
-		PaddingRight = types.UDim.new(0, 0),
-		PaddingTop = types.UDim.new(0, 0),
-		PaddingBottom = types.UDim.new(0, 0),
-	})
+	rule(
+		".facet-panel.facet-card-body::UIPadding, .facet-panel.facet-card-body > UIPadding, "
+			.. ".facet-panel.facet-dialog::UIPadding, .facet-panel.facet-dialog > UIPadding",
+		{
+			PaddingLeft = types.UDim.new(0, 0),
+			PaddingRight = types.UDim.new(0, 0),
+			PaddingTop = types.UDim.new(0, 0),
+			PaddingBottom = types.UDim.new(0, 0),
+		}
+	)
 
 	for _, pair in
 		{ { "tablehead", "tableHeader" }, { "tablerow", "tableRow" }, { "tablerow-alternate", "tableRowAlternate" } }
@@ -500,7 +504,7 @@ local function rulesFor(
 		Position = types.UDim2.fromOffset(cellLeft, 0),
 		Size = types.UDim2.new(1, -(cellLeft + cellRight), 1, 0),
 	})
-	rule(".facet-button-glyph::UIPadding", {
+	rule(".facet-button.facet-button-glyph::UIPadding", {
 		PaddingLeft = types.UDim.new(0, buttonInsets.left or 0),
 		PaddingRight = types.UDim.new(0, buttonInsets.right or 0),
 	})
@@ -1183,37 +1187,9 @@ local function rulesFor(
 			{ ImageColor3 = types.Color3.new(1, 1, 1) }
 		)
 	end
-	local plate = chrome.control
-	local selectedArt: ThemeTypes.AssetLink? = nil
-	local selectedLayer = 0
-	local plateLayers: { ThemeTypes.SkinLayer } = if plate == nil
-		then {}
-		elseif plate.kind == "layered" then plate.layers or {}
-		else { plate }
-	for index, layer in plateLayers do
-		local asset = layer.asset
-		local variants: { read selected: ThemeTypes.AssetLink? }? = if type(asset) == "table" then asset else nil
-		local link = if variants then variants.selected else nil
-		if link ~= nil and selectedArt == nil then
-			selectedArt = link :: ThemeTypes.AssetLink
-			selectedLayer = index
-		end
-	end
-	local selectedLink: { asset: string, rotation: number?, tint: ThemeTypes.RGB? }? = if type(selectedArt)
-			== "string"
-		then { asset = selectedArt }
-		else selectedArt
+	local selectedLink, _, pressedEmphasis = support.controlSelectedArtwork(package, neutral, types, paint)
+	local selectedArt = selectedLink ~= nil
 	local white, black = types.Color3.new(1, 1, 1), types.Color3.new(0, 0, 0)
-	local assets: { read [string]: ThemeTypes.Asset? } = package.assets or {}
-	local art = if selectedLink then assets[selectedLink.asset] else nil
-	local pressedEmphasis = false
-	for _, theme in package.style.themes do
-		local swatch = merge(support.neutralBase(neutral, theme.colors).colors, theme.colors)
-		local fill, ink = color(types, swatch.accent), color(types, swatch.onAccent)
-		if art and fill and ink and contrast(ink, black) <= contrast(fill, black) then
-			pressedEmphasis = true
-		end
-	end
 	for _, entry in { { ".facet-role-destructive", "danger", "onDanger" }, { ".facet-accent", "accent", "onAccent" } } do
 		local selector, fill, ink = entry[1], assert(resolved(entry[2])), assert(resolved(entry[3]))
 		local pressed = pressedEmphasis and entry[2] == "accent"
@@ -1224,22 +1200,9 @@ local function rulesFor(
 			TextColor3 = if pressed then onSelected else nil,
 		})
 		rule(selector .. " > #SkinBoundary", { Visible = tinted or pressed })
-		local swapped = pressed and selectedLink ~= nil and art ~= nil
-		rule(
-			selector .. " > #SkinBoundary >> #control" .. math.max(selectedLayer, 1),
-			if swapped
-					and selectedLink
-					and art
-				then {
-					Image = art.content or art.contentId or "",
-					Rotation = selectedLink.rotation or 0,
-					ImageColor3 = color(types, selectedLink.tint) or white,
-				}
-				else {}
-		)
-		rule(selector .. ".facet-skinned >> .facet-button-caption", if swapped then { TextColor3 = onSelected } else {})
-		rule(selector .. ".facet-skinned >> .facet-text", if swapped then { TextColor3 = onSelected } else {})
-		rule(selector .. ".facet-skinned >> .facet-icon", if swapped then { ImageColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-button-caption", if pressed then { TextColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-text", if pressed then { TextColor3 = onSelected } else {})
+		rule(selector .. ".facet-skinned >> .facet-icon", if pressed then { ImageColor3 = onSelected } else {})
 	end
 	rule(".facet-toggle-checkbox.facet-skinned::UIStroke", { Transparency = 1 })
 	rule(".facet-menu.facet-skinned::UIStroke", { Transparency = 1 })
@@ -1309,7 +1272,7 @@ local function rulesFor(
 		end
 	end
 	do
-		local on = selectedArt ~= nil
+		local on = selectedArt
 		local tint = if selectedLink then selectedLink.tint else nil
 		rule(
 			".facet-skinned.facet-selected",

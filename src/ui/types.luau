@@ -240,6 +240,8 @@ export type ListRow = {
 	controlSize: Input<ControlSize?>?,
 }
 export type SkinStateOptions = {
+	fullPanelArtFade: boolean?,
+	emphasis: boolean?,
 	disabled: Engine.ValueBoolean?,
 	selected: Engine.ValueBoolean?,
 	label: Engine.ValueString?,

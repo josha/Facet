@@ -16,6 +16,7 @@ local sourceRead = require("./source_read")
 
 return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, options: Shared.Config?): Shared.Context
 	local config, types, services = resolveConfig(Compose, runtime, options)
+	local authoredTheme = config.theme
 	local Host = (runtime.constructors :: unknown) :: Shared.Host
 	local themes = bindThemes(Compose)
 	local fields = {
@@ -41,7 +42,7 @@ return function(Compose: Shared.ComposeModule, runtime: ComposeTypes.Runtime, op
 	local observation = installObservation(ctx, config, services)
 	installEnvironment(ctx, config, themes, observation.preview, themeMetrics.metricAt, themeMetrics.setDistance)
 	installContent(ctx, config, services, themes, live)
-	installNative(ctx, config, services, themes, observation.observeStyled)
+	installNative(ctx, config, services, themes, observation.observeStyled, authoredTheme)
 	installActions(ctx, config)
 	local selected = selection(ctx)
 	ctx.responder, ctx.spaceActivates = selected.responder, selected.spaceActivates

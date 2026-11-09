@@ -7,6 +7,9 @@ Share a visual language without forcing them into one template. Read the section
 relevant to the task, then use the skill's task table for the API route.
 The brief and established art direction set the target. These principles guide
 tradeoffs; examples and automated design advice do not prescribe a house style.
+For a new interface or visual redesign, [choose the theme direction](game-themes.md#choose-a-direction)
+before building screens. Establish its feeling and concrete visual cues, then
+prove them in one complete task before repeating the treatment.
 
 ## Principles
 
@@ -41,8 +44,11 @@ Trace entry, orientation, choice, commitment, feedback and return, including
 cancellation and rejection. Preparing equipment ends with accepted equipment
 in play; opening the collection alone does not complete the task.
 
-Choose references with a similar task, pace, input and viewing context. Transfer
-the grouping or navigation that helps the decision, not just its appearance.
+Choose references with a similar task, pace, input and viewing context. Inspect
+the actual images for principles of clarity and craft, then create this game's
+own visual treatment from its brief. Review the first representative Studio screen before repeating a new expressive
+direction. Use a separate concept when the chosen art needs it. See
+[theme direction](game-themes.md#inspect-references-before-choosing-the-composition).
 
 ## Organize interaction
 
@@ -68,6 +74,14 @@ Keep a short choice near its source when it fits. Give a sustained task a page
 or in-world station with enough room and a clear return. Replace unrelated HUD
 groups; retain needed context, such as balance beside cost.
 
+Use a radial choice when direction or a learned spatial arrangement helps the
+player choose from a short set. A readable menu or anchored popover often fits
+labeled alternatives better. A circle is not inherently more playful or more
+usable with a controller. For a custom opener, supply the control's actual
+anchor; a hidden built-in launcher cannot locate that opener. Inspect the open
+state near screen edges and after rotation. Allow safe-area adjustment or a
+compact fallback while keeping its relationship to the source understandable.
+
 Use a Sheet when the task needs modal focus over the game. Keep HUD context
 visible when it helps the decision. A Sheet can contain a NavigationStack for
 child steps; the task root has Close and no Back. Use a page when entering a
@@ -89,8 +103,17 @@ before adding decoration.
 Choose a coherent palette, type hierarchy, spacing, surfaces, icons and motion.
 Express shared values through the theme. Derive the dominant subject, framing,
 material, type contrast and accent from this game's objects and tone.
+Aim for an engaging expression of this game, beyond recoloring neutral panels.
+Use image-based control surfaces when the art direction benefits from them;
+keep standard labels, input, state and focus behavior in the controls.
 Carry that visual language through HUD, decisions and results. Recipe labels,
 sample art and dimensions show a contract; they do not define the game's identity.
+
+Art direction also sets composition. A subject staged beside a choice, objects
+arranged on a surface and a chart with contextual commands need different
+bodies. Do not first build a generic card page and then add an illustration
+above it as the entire game treatment. Standard controls can have custom
+artwork and silhouettes while retaining their behavior.
 
 Choose the page body before making a shared page helper. Share navigation,
 input lifetime and visual roles; let each body arrange its decision. A full-width
@@ -118,7 +141,9 @@ every background and is not the only signal.
 
 Give objects meaningful artwork or well-framed Stage previews. Show the actual
 subject and its distinguishing details. Show a color as a swatch and a pattern
-as a preview. Pair unfamiliar glyphs with labels. Test text over busy gameplay
+as a preview. Keep that preview recognizable when selected or focused; put the
+state cue around it instead of replacing the fact it communicates. Pair
+unfamiliar glyphs with labels. Test text over busy gameplay
 and bright effects; use a backing surface when contrast otherwise fails.
 
 Comparison needs enough candidates and facts in view; action needs brief
@@ -210,19 +235,23 @@ action with Skip and replay. Time or a finished animation does not prove progres
 ## Correct the composition before repeating it
 
 Build one complete task with representative labels, art and data. Capture it
-with gameplay at the intended viewing size, including its most constrained
-supported context. Identify the dominant subject, the next useful action and
+with gameplay at the intended viewing size, including the supported narrow and
+short layouts. Identify the dominant subject, the next useful action and
 the facts needed to choose it. If these are hard to find, change the grouping,
 space or hierarchy before adding more pages. A larger title or another accent
 does not repair an unclear relationship.
 
-Compare the capture with the task: can the player recognize the object, compare
+Compare the capture with the task and visual references before delivery. Do
+not wait for the user to request the first visual critique. Functional checks
+and readable text do not establish the quality of the art direction.
+Can the player recognize the object, compare
 the decisive facts and see the action and return route together? If a preview
 is small, reallocate the body around it. If routine status competes with the
 decision, move or quiet it. If every destination looks alike, revise the body
 for its task. Capture the revised result before copying the structure.
 
-Have an unfamiliar player locate the task, predict the action, complete it and
+When usability testing with players is available, have an unfamiliar player
+locate the task, predict the action, complete it and
 explain the result without coaching. Observe hesitation, wrong turns, repeated
 input and missed feedback. Fix the cause, then repeat the affected task.
 An agent walkthrough can find gaps; it does not establish player preference.
@@ -252,6 +281,6 @@ reading route.
 These sources explain the reasoning. Use the Facet API nodes for implementation.
 
 - Celia Hodent's [game UX practice](https://celiahodent.com/ux-practices-epic-games/) distinguishes intended challenge from interface difficulty. Her [cognitive psychology guide](https://celiahodent.com/cognitive-psychology-applied-to-user-experience-in-video-games/) explains attention, memory and player testing.
-- Edd Coates's [Animex talk abstract](https://animex.tees.ac.uk/speaker_page.cfm?speaker=950&year=32) explains why reference analysis must identify design rationale. His [The Game UI Bible](https://www.lostincult.co.uk/shop/p/gameui) is further reading.
+- Edd Coates's [Animex talk abstract](https://animex.tees.ac.uk/speaker_page.cfm?speaker=950&year=32) explains why reference analysis must identify design rationale. His [Game UI Database](https://www.gameuidatabase.com/) supplies screen references; [The Game UI Bible](https://www.lostincult.co.uk/shop/p/gameui) is further reading. [Interface In Game](https://interfaceingame.com/) is another visual archive.
 - Xbox Accessibility Guidelines cover [navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112) and [context and consequences](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/114). Apply the principles without treating Xbox button labels as universal.
 - Valve's [handheld recommendations](https://partner.steamgames.com/doc/steamhardware/recommendations) and [compatibility guidance](https://partner.steamgames.com/doc/steamhardware/compat) separate controller access and physical readability from resolution. They inform cross-platform review; they are not Roblox requirements.

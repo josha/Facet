@@ -156,6 +156,7 @@ return function(
 	end
 	type CompiledLayers = {
 		package: ThemeTypes.ReadOnlyThemePackage,
+		emphasis: ThemeTypes.ReadOnlyThemePackage?,
 		state: ThemeTypes.SkinState,
 		selected: boolean,
 		direction: string?,
@@ -172,6 +173,9 @@ return function(
 			return {}
 		end
 		local state = read<<ThemeTypes.SkinState?>>(settings.state, use) or "default"
+		local emphasis = if slot == "control"
+			then read<<ThemeTypes.ReadOnlyThemePackage?>>(settings.emphasisTheme, use)
+			else nil
 		local selected = read<<boolean?>>(settings.selected, use) == true
 		local direction = if slot == "barCap"
 			then read<<"btt" | "ltr" | "rtl" | "ttb"?>>(settings.direction, use) or "ltr"
@@ -180,6 +184,7 @@ return function(
 		for _, cached in compiled do
 			if
 				cached.package == package
+				and cached.emphasis == emphasis
 				and cached.state == state
 				and cached.selected == selected
 				and cached.direction == direction
@@ -193,6 +198,7 @@ return function(
 			if deeplyFrozen(package, {}) then
 				local snapshot: CompiledLayers = {
 					package = package,
+					emphasis = emphasis,
 					state = state,
 					selected = selected,
 					direction = direction,
@@ -212,9 +218,10 @@ return function(
 			size: UDim2?,
 			position: UDim2?,
 			anchor: Vector2?,
-			source: ThemeTypes.AssetSource?
+			source: ThemeTypes.AssetSource?,
+			selectedFallback: boolean?
 		)
-			local assetName, link = variantAsset(source or layer.asset, state, selected)
+			local assetName, link = variantAsset(source or layer.asset, state, selected or selectedFallback == true)
 			local assets = package.assets
 			local asset: ThemeTypes.Asset? = if assetName and assets then assets[assetName] else nil
 			if not asset then
@@ -284,8 +291,16 @@ return function(
 		local definitions: { ThemeTypes.SkinLayer } = if recipe.kind == "layered"
 			then recipe.layers or {}
 			else { recipe }
+		local emphasisLayer: number?
+		if emphasis then
+			local _, index, useSelected = support.controlSelectedArtwork(emphasis, neutral, types, paint)
+			if useSelected then
+				emphasisLayer = index
+			end
+		end
 		for index, layer in definitions do
 			local name = slot .. tostring(index)
+			local selectedFallback = index == emphasisLayer
 			if layer.kind == "corners" then
 				local size = if type(layer.size) == "number" then layer.size else 16
 				local corners: { [string]: Vector2 } = {
@@ -309,7 +324,8 @@ return function(
 							D2.fromOffset(size, size),
 							D2.fromScale(point.X, point.Y),
 							point,
-							asset
+							asset,
+							selectedFallback and asset == nil
 						)
 					end
 				end
@@ -329,7 +345,7 @@ return function(
 					local anchor = if horizontal
 						then V2.new(0, if endPoint then 1 else 0)
 						else V2.new(if endPoint then 1 else 0, 0)
-					image(layer, name .. edge, size, position, anchor)
+					image(layer, name .. edge, size, position, anchor, nil, selectedFallback)
 				end
 			elseif layer.kind == "plaque" then
 				local size = if type(layer.size) == "table" then layer.size else { w = 120, h = 30 }
@@ -342,9 +358,9 @@ return function(
 				local position = if horizontal
 					then D2.new(0.5, 0, if endPoint then 1 else 0, offset)
 					else D2.new(if endPoint then 1 else 0, offset, 0.5, 0)
-				image(layer, name, D2.fromOffset(size.w, size.h), position, V2.new(0.5, 0.5))
+				image(layer, name, D2.fromOffset(size.w, size.h), position, V2.new(0.5, 0.5), nil, selectedFallback)
 			else
-				image(layer, name)
+				image(layer, name, nil, nil, nil, nil, selectedFallback)
 			end
 		end
 		return finish()
@@ -488,6 +504,19 @@ return function(
 	local boundary: GuiObject? = nil
 	local slots: ComposeTypes.Value<{ number }> = Compose.cell({})
 	local mounted: { [number]: MountedImage } = {}
+	local images = Compose.keyed({
+		from = slots,
+		render = function(current: ComposeTypes.ReadOnlyValue<number>)
+			local index = current:peek()
+			local record = createImage(activeLayers[index])
+			mounted[index] = record
+			Compose.cleanup(function()
+				mounted[index] = nil
+			end)
+			return record.node
+		end,
+	})
+	local artTransparency = settings.artTransparency
 	local root = Host.Frame "Skin" {
 		Size = settings.Size or D2.fromScale(1, 1),
 		AnchorPoint = settings.AnchorPoint or V2.new(0, 0),
@@ -495,18 +524,19 @@ return function(
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = settings.ZIndex or 0,
-		Compose.keyed({
-			from = slots,
-			render = function(current: ComposeTypes.ReadOnlyValue<number>)
-				local index = current:peek()
-				local record = createImage(activeLayers[index])
-				mounted[index] = record
-				Compose.cleanup(function()
-					mounted[index] = nil
-				end)
-				return record.node
-			end,
-		}),
+		if artTransparency
+			then Compose.show(function(use: ComposeTypes.Use)
+				return #use(slots) > 0
+			end, function()
+				return Host.CanvasGroup "ArtFade" {
+					Size = D2.fromScale(1, 1),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					GroupTransparency = artTransparency,
+					images,
+				}
+			end)
+			else images,
 	}
 	Compose.watch(function(use: ComposeTypes.Use)
 		local active = buildLayers(use)

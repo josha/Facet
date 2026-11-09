@@ -5,14 +5,66 @@ and optional artwork. Facet compiles the theme package into native StyleRules.
 A StyleLink applies those rules to the target tree. To change the look, change
 the theme package. Do not add repeated paint overrides to each screen.
 
+## Choose the visual direction
+
+Choose the screen's composition, subject treatment, type hierarchy and action
+emphasis before building a shared panel helper. A game's UI should express its
+world and tone beyond an accent-color change. A professional mail app or Studio
+tool can use quiet, familiar styling. Keep standard control behavior in both.
+
+Follow the skill's [direction and first-screen workflow](../../skills/use-facet/SKILL.md#choose-the-visual-direction-before-building-screens).
+A finished native prototype can establish a graphic style. When illustration
+or material detail carries the direction, explore the whole composition and
+produce original runtime art. References teach craft; do not copy their screens
+or images. See [theme direction](../../skills/use-facet/references/game-themes.md#choose-a-direction)
+and [rich skinning](skinning.md) for those routes.
+
+Inspect one representative Studio screen at wide and constrained sizes before
+repeating its treatment. Include the choice, action and relevant states.
+Compare with the intended direction: loaded art and a matching palette do not
+prove that subject scale, control shapes or type hierarchy survived. Repair
+the largest visible gap and view the repair. The skill scopes critique to the
+task and keeps target, first-screen and final review within three rounds.
+
+## Upload original art
+
+For authored illustrations, icons and theme surfaces, follow the
+[asset upload route](../../skills/use-facet/references/asset-upload.md).
+Create and inspect ordinary image files, upload them through the connected
+Studio's Open Cloud tools, then bind the returned IDs to Facet's assets, icons
+and chrome. Verify actual loading and control states before repeating the skin.
+Do not use EditableImage or packed pixels to avoid this delivery step. A denied
+permission or failed upload is a blocker to report, not a reason to omit the
+artwork or call a placeholder complete. Native text and paths can remain native.
+EditableImage remains suitable for dynamic player-created pixels, such as a
+drawing canvas and its live brush preview. The upload rule concerns UI assets.
+
 ## Define and validate
 
-1. Start from the neutral theme package.
-2. Change the named values.
-3. Validate the complete definition.
+Plan one complete task and its visual states. Reserve quiet live-text areas
+and stable space for changing status within its visual direction. Include
+choices, actions and return paths when the task uses them.
+
+1. Choose a base package that supports the direction, or use the neutral package for its complete defaults.
+2. Implement the type, control surfaces, state treatment and needed artwork.
+3. Validate the complete definition, then build that task in Studio.
+4. Inspect and repair its rendered states before applying the theme across more screens or making the first delivery.
+
+Check its initial and accepted states at the supported device sizes, including
+short landscape layouts. A valid definition cannot prove that art loads,
+controls build, or the composition fits. Compare the actual capture with the
+visual references before delivery. A palette and hero illustration alone do
+not prove that the controls and composition express the game.
+For choices, inspect selection and focus together. For actions, compare
+placement before and after feedback. Preserve the chosen materials and type
+hierarchy during repairs.
+The [first-delivery workflow](../../skills/use-facet/SKILL.md#choose-the-visual-direction-before-building-screens)
+includes these checks in the initial build; the user should not need to request
+a separate polish pass.
 
 RGB values in a theme package use normalized channel tables. Native code still
 uses Roblox datatypes for explicit properties.
+This small example shows the definition contract, not a finished visual direction.
 
 ```luau
 local definition = Facet.themes.neutralPackage()
@@ -25,13 +77,20 @@ assert(report.ok, "Invalid game theme")
 ```
 
 `report.advice` names type roles that are too close to `body` to lead, such
-as a `numeral` that reads as body text. The definition stays valid; fix the
-sizes before the theme ships.
+as a `numeral` that reads as body text. The definition stays valid.
+Inspect those roles against the task and chosen direction. A dense table can
+use a restrained scale; a deciding value can need stronger emphasis.
 
 If validation fails, `define` returns `nil` and a report. It validates the RGB
 channels and the semantic foreground and background contrast pairs. A
+neutral-package fallback can hide a rejected custom theme. Repair the report
+instead, then verify the intended paint on actual controls. A
 successful numeric contrast check does not prove that every image background or
 selected state is readable. Examine the actual controls in Studio.
+For labels over artwork, [protect the text area](../../skills/use-facet/references/game-themes.md#protect-labels-from-artwork)
+with a quiet region or a stable backing. Inspect selection and focus together
+at the smallest supported presentation; do not infer readability from a clean
+geometry report or a successful palette check.
 
 A theme package contains these fields:
 
@@ -228,8 +287,9 @@ See [rich skinning](skinning.md) for artwork.
 `Facet.themes.neutralPackage()` supplies the built-in neutral package. Game-owned
 packages live in `examples/themes`: Classic Desktop, Glossy Mobile, Fantasy
 Parchment, Pixel Quest and Sci-fi HUD provide different visual systems.
-Choose one for the game's character, then inspect its semantic states and art
-in the running experience.
+Use these as implementation references. Adapt a package when it fits the chosen
+direction, or define another. The catalog does not limit possible styles.
+Inspect semantic states and art in the running experience.
 
 A package derived from Facet Neutral receives its Dark palette. Declare other
 palettes explicitly. Check each module's builder contract before using it;

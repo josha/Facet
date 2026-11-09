@@ -21,7 +21,7 @@ For design principles and tradeoffs, use the
 | Own a bounded interruption | Dialog or Sheet. |
 | Explain something at its source | Popover or Callout. |
 | Expand optional facts in the flow | DisclosureGroup. |
-| Expose secondary commands | Menu or RadialMenu. |
+| Expose secondary commands | Menu for readable labels; RadialMenu when a short spatial arrangement helps selection. |
 | Show progress, time or acknowledgement | ProgressView, Timer or Toast. |
 | Inspect a 3D object | Stage. |
 | Preserve a spatial map | ZoomView and Path. |

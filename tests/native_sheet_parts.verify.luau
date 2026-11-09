@@ -2398,7 +2398,7 @@ return function(verifyHarness: Verify.Harness)
 						},
 					}
 				end, { theme = theme })
-				local dialog = w.find("Panel")
+				local dialog = w.find("Regions")
 				local popover = w.find("PopLine")
 				while popover.Name ~= "Panel" do
 					popover = popover.Parent

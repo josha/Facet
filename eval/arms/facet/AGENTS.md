@@ -9,11 +9,11 @@ read `FacetDocs.skills["use-facet"]["SKILL.md"].Value` and
 Your first call reads only `SKILL.md` and `references/runtime.md`. After that,
 search instead of reading: in Edit,
 `return loadstring(game.ServerStorage.FacetDocs["search.luau"].Value)()("hud standings")`
-returns only the matching sections of every guide, route, example and reference
-page. Before your first module, make at most two more documentation calls, each
-a batch of searches. After that, search for a control just before the call that
-first writes code using it. Do not read the
-`Controls` index, whole examples, or batches of control pages: everything read
-stays in context and is resent with every later call. Studio MCP is the only
-tool.
+returns matching sections of guides, examples and reference pages. Read the
+exact contract or one relevant complete example when needed to implement the
+first screen correctly; search results are not always the complete contract.
+Retrieve later controls when you need them. Batch related queries and avoid
+dumping the whole control index or unrelated examples. Studio MCP is the only
+tool; report unavailable art or review tools and use the skill's supported
+native route when it fits the brief.
 Use this installed library; do not add another UI library.

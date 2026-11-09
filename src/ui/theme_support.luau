@@ -9,13 +9,14 @@ export type Paint = {
 	white: (Engine.RobloxTypes) -> Color3,
 }
 
-local function contrast(first: Color3, second: Color3): number
-	local function luminance(value: Color3): number
-		local function linear(channel: number): number
-			return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
-		end
-		return 0.2126 * linear(value.R) + 0.7152 * linear(value.G) + 0.0722 * linear(value.B)
+local function luminance(value: Color3): number
+	local function linear(channel: number): number
+		return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
 	end
+	return 0.2126 * linear(value.R) + 0.7152 * linear(value.G) + 0.0722 * linear(value.B)
+end
+
+local function contrast(first: Color3, second: Color3): number
 	local a, b = luminance(first), luminance(second)
 	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
 end
@@ -308,6 +309,41 @@ local function neutralBase(
 	return base
 end
 
+local function controlSelectedArtwork(
+	package: ThemeTypes.ReadOnlyThemePackage,
+	neutral: ThemeTypes.ReadOnlyThemePackage,
+	types: Engine.RobloxTypes,
+	paint: Paint
+): ({ asset: string, rotation: number?, tint: ThemeTypes.RGB? }?, number?, boolean)
+	local plate = if package.chrome then package.chrome.control else nil
+	local layers: { ThemeTypes.SkinLayer } = if plate == nil
+		then {}
+		elseif plate.kind == "layered" then plate.layers or {}
+		else { plate }
+	for index, layer in layers do
+		local variants: { read selected: ThemeTypes.AssetLink? }? = if type(layer.asset) == "table"
+			then layer.asset
+			else nil
+		local link = if variants then variants.selected else nil
+		if link then
+			local selected: { asset: string, rotation: number?, tint: ThemeTypes.RGB? } = if type(link) == "string"
+				then { asset = link }
+				else link
+			if package.assets and package.assets[selected.asset] then
+				for _, theme in package.style.themes do
+					local swatch = merge(neutralBase(neutral, theme.colors).colors, theme.colors)
+					local fill, ink = paint.color(types, swatch.accent), paint.color(types, swatch.onAccent)
+					if fill and ink and luminance(ink) <= luminance(fill) then
+						return selected, index, true
+					end
+				end
+			end
+			return selected, index, false
+		end
+	end
+	return nil, nil, false
+end
+
 local function plateReach(package: ThemeTypes.ReadOnlyThemePackage?): number
 	if package == nil then
 		return 0
@@ -347,6 +383,7 @@ end
 
 return {
 	neutralBase = neutralBase,
+	controlSelectedArtwork = controlSelectedArtwork,
 	contrast = contrast,
 	readableTransparency = readableTransparency,
 	copy = copy,

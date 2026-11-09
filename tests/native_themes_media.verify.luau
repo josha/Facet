@@ -123,6 +123,117 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native themes and media", function()
+		it("keeps authored Button chrome states over emphasis artwork", {
+			id = "native_themes_media::emphasis-chrome-state-precedence",
+			run = function()
+				local engine, runtime = setup()
+				local package = themes.neutralPackage()
+				local palette = package.style.themes[1]
+				palette.colors.accent = { r = 1, g = 0.7, b = 0.4 }
+				palette.colors.onAccent = { r = 0, g = 0, b = 0 }
+				package.assets = {
+					rest = { contentId = "rbxassetid://100" },
+					selected = { contentId = "rbxassetid://101" },
+					hover = { contentId = "rbxassetid://102" },
+					pressed = { contentId = "rbxassetid://103" },
+					disabled = { contentId = "rbxassetid://104" },
+				}
+				local hover: FixtureThemeTypes.AssetLink = { asset = "hover", tint = { r = 0.75, g = 0.5, b = 0.25 } }
+				local variants: FixtureThemeTypes.AssetVariants = {
+					default = "rest",
+					selected = "selected",
+					hover = hover,
+					pressed = "pressed",
+					disabled = "disabled",
+				}
+				assert(package.chrome).control = { kind = "fill", asset = variants }
+				local UI =
+					controls(Compose, runtime, { types = engine.types, theme = assert((themes.define(package))) })
+				local enabled = Compose.cell(true)
+				local stop, node = runtime.mount(function()
+					return UI.Button { label = "Continue", appearance = "emphasis", enabled = enabled }
+				end, engine.new("ScreenGui"))
+				local button = node :: TextButton
+				local art = assert(button:FindFirstChild("control1", true)) :: ImageLabel
+				local target = FixtureRoblox.assertInstance(button)
+				local guiState = engine.types.Enum.GuiState
+				expect(art.Image):toBe("rbxassetid://101")
+				engine.environment.poke(target, "GuiState", guiState.Hover)
+				expect(art.Image):toBe("rbxassetid://102")
+				expect(art.ImageColor3):toBe(engine.types.Color3.new(0.75, 0.5, 0.25))
+				engine.environment.poke(target, "GuiState", guiState.Press)
+				expect(art.Image):toBe("rbxassetid://103")
+				enabled:set(false)
+				expect(art.Image):toBe("rbxassetid://104")
+				enabled:set(true)
+				engine.environment.poke(target, "GuiState", guiState.Idle)
+				expect(art.Image):toBe("rbxassetid://101")
+				expect(button:HasTag("facet-selected")):toBe(false)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		it("uses emphasis fallback on edges and inherited corners", {
+			id = "native_themes_media::emphasis-multipart-chrome",
+			run = function()
+				local engine, runtime = setup()
+				local package = themes.neutralPackage()
+				local palette = package.style.themes[1]
+				palette.colors.accent = { r = 1, g = 0.7, b = 0.4 }
+				palette.colors.onAccent = { r = 0, g = 0, b = 0 }
+				package.assets = {
+					rest = { contentId = "rbxassetid://100" },
+					selected = { contentId = "rbxassetid://101" },
+					hover = { contentId = "rbxassetid://102" },
+					corner = { contentId = "rbxassetid://103" },
+					cornerHover = { contentId = "rbxassetid://104" },
+				}
+				local layerArt: FixtureThemeTypes.AssetVariants =
+					{ default = "rest", selected = "selected", hover = "hover" }
+				local cornerArt: FixtureThemeTypes.AssetVariants = {
+					default = "corner",
+					selected = "selected",
+					hover = "cornerHover",
+				}
+				local recipes: { FixtureThemeTypes.SkinLayer } = {
+					{ kind = "edges", asset = layerArt },
+					{ kind = "corners", asset = layerArt, topRight = cornerArt },
+				}
+				for _, recipe in recipes do
+					assert(package.chrome).control = recipe
+					local UI =
+						controls(Compose, runtime, { types = engine.types, theme = assert((themes.define(package))) })
+					local stop, node = runtime.mount(function()
+						return UI.Button { label = "Continue", appearance = "emphasis" }
+					end, engine.new("ScreenGui"))
+					local button = node :: TextButton
+					local corners = recipe.kind == "corners"
+					local inherited = assert(
+						button:FindFirstChild(if corners then "control1topLeft" else "control1top", true)
+					) :: ImageLabel
+					local explicit = if corners
+						then assert(button:FindFirstChild("control1topRight", true)) :: ImageLabel
+						else nil
+					expect(inherited.Image):toBe("rbxassetid://101")
+					if explicit then
+						expect(explicit.Image):toBe("rbxassetid://103")
+					end
+					engine.environment.poke(
+						FixtureRoblox.assertInstance(button),
+						"GuiState",
+						engine.types.Enum.GuiState.Hover
+					)
+					expect(inherited.Image):toBe("rbxassetid://102")
+					if explicit then
+						expect(explicit.Image):toBe("rbxassetid://104")
+					end
+					stop()
+				end
+				runtime:dispose()
+			end,
+		})
+
 		it("updates a row icon's art across button states beside a static trailing icon", {
 			id = "native_themes_media::row-icon-button-states",
 			run = function()

@@ -363,7 +363,7 @@ return function<V>(ctx: Types.Context, surfaces: Navigation.Surfaces, spec: Radi
 			Host.ImageLabel "RadialSkin" {
 				Size = D2.fromScale(1, 1),
 				BackgroundTransparency = 1,
-				ZIndex = node.ZIndex - 1,
+				ZIndex = 0,
 				Image = function(use: ComposeTypes.Use)
 					local state = use(guiState)
 					return (

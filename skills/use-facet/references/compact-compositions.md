@@ -47,6 +47,19 @@ tool or a plugin can keep persistent facts when users need them.
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains
 after navigation, insets, padding and actions. Width alone cannot establish fit.
 
+Keep side-by-side panes only while both can hold their required content at the
+chosen text scale and input target size. Their minimum usable widths plus the
+gap must fit the body; their required heights must fit or have useful scrolling.
+If that relationship fails, reflow into a vertical sequence or a separate
+detail step using the same selection and draft. Choose the boundary from these
+content needs, not a fixed desktop aspect ratio or a device name. A narrow
+table or tool can retain columns when they remain readable and usable.
+
+Plan the compact header and body separately. A wrapping title must not run
+under a fixed settings button, and a shorter preview must still show the
+subject's distinguishing details. Reuse the visual language across forms;
+the portrait form need not keep the desktop panel arrangement.
+
 For example, a 390-unit-high area with 72 units of top chrome, 56 of actions and
 32 of spacing leaves 230 for the task body. A 410-high minimum body cannot fit.
 These are not constants to copy. Reallocate structure before reducing text or
@@ -115,6 +128,10 @@ below the fold. Keep accepted state and a clear route back to the main decision.
 Apply the skill's capture correction loop to portrait and short height separately,
 on entry and after rotation. The first useful item, recognizable subject and
 action with its consequence must survive the smaller form.
+Check the task's changed layouts as well as its opening view, including any
+confirmation, accepted feedback and return at the largest supported text size.
+Check these forms before copying the composition into other tasks. A later
+capture of the old source does not establish an early compact review.
 
 Use actual Touch and controller input to confirm native-control clearance,
 hold/release/cancel, focus/Back, large text, and rejection. Rotation preserves

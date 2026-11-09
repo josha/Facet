@@ -1,5 +1,9 @@
 # Getting started
 
+This counter checks installation and mounting. Its default theme is not a
+finished design for every product. For product UI, [choose a visual direction](../../skills/use-facet/references/game-themes.md#choose-a-direction)
+before building screens, then pass its theme to `Facet.app`.
+
 1. Put the Facet package in ReplicatedStorage.
 2. Set `Workspace.PlayerScriptsUseInputActionSystem` to true in the place.
 3. Make a LocalScript in StarterPlayerScripts with this content.

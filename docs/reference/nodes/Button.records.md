@@ -21,7 +21,10 @@ hugging child to fill its width.
 
 Selection marks the current record; focus marks the next input target. Keep
 both visible without giving every row primary-action emphasis. Let the theme
-supply these states. Use [RowActions](RowActions.card.md) for separate contextual
+supply these states. For custom record content, reserve space between its
+selection mark and the focus ring, including the ring's stroke, halo and
+rounded corners. Inspect selected and focused together; the ring must not
+cross the mark or its label. Use [RowActions](RowActions.card.md) for separate contextual
 commands; opening a record is not a purchase or another commitment.
 
 For a collection that owns selection and activation, render record content and

@@ -138,6 +138,30 @@ return function(verifyHarness: Verify.Harness)
 		}
 	end
 	describe("radial label fit", function()
+		it("keeps opaque skins behind button content", {
+			id = "native_radial_controls::radial label fit::keeps opaque skins behind button content",
+			run = function()
+				local world = setup({
+					appearance = "buttons",
+					buttonSurface = "none",
+					items = {
+						action({ id = "look", label = "Look", icon = "facet:search", onSelect = function() end }),
+					},
+					skin = {
+						item = { default = "rbxassetid://1" },
+						center = { default = "rbxassetid://2" },
+						launcher = { default = "rbxassetid://3" },
+					},
+				})
+				for _, name in { "look", "Center", "Launcher" } do
+					local button = world.find(name)
+					local skin = assert(button:FindFirstChild("RadialSkin"))
+					local content = assert(button:FindFirstChild("Content"))
+					expect(skin.ZIndex < content.ZIndex):toBe(true)
+				end
+				world.stop()
+			end,
+		})
 		it("keeps selected tool surfaces visible in the native list fallback", {
 			id = "native_radial_controls::radial label fit::keeps selected tool surfaces visible in the native list fallback",
 			run = function()
@@ -1086,6 +1110,38 @@ return function(verifyHarness: Verify.Harness)
 				expect(world.find("N").Position.X.Offset):toBe(400)
 				anchor:set({ x = 400, y = 240, visible = false })
 				expect((world.opened:peek())):toBe(false)
+				world.stop()
+			end,
+		})
+		it("reopened idle-follow ring freezes its current anchor for touch", {
+			id = "native_radial_controls::native radial interaction policies::reopened idle-follow ring freezes its current anchor for touch",
+			run = function()
+				local anchor = Compose.cell({ x = 320, y = 240 } :: Radial.Anchor)
+				local selected = ""
+				local world = setup({
+					anchor = anchor,
+					distribution = "compass",
+					items = compass(function(value)
+						selected = value
+					end),
+				})
+				for _, x in { 400, 260 } do
+					world.opened:set(false)
+					anchor:set({ x = x, y = 240 })
+					world.opened:set(true)
+					local north = world.find("N")
+					local position = north.Position
+					expect(position.X.Offset):toBe(x)
+					local touch = pointer(world, position.X.Offset, position.Y.Offset)
+					world.find("RadialPanel").InputBegan:Fire(touch)
+					expect(north.Position.X.Offset):toBe(x)
+					anchor:set({ x = x + 20, y = 240 })
+					expect(north.Position.X.Offset):toBe(x)
+					world.input.InputEnded:Fire(touch)
+					expect(selected):toBe("N")
+					expect(north.Position.X.Offset):toBe(x + 20)
+					selected = ""
+				end
 				world.stop()
 			end,
 		})

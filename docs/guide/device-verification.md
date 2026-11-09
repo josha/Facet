@@ -11,6 +11,19 @@ Width, height, physical readability, input and player preferences can change
 independently. Test combinations that expose different failure modes; one
 phone preset and one desktop preset do not cover them.
 
+Choose supported contexts from the brief and product configuration. Phone
+support includes both orientations unless the product deliberately restricts
+them. A test brief that samples only landscape leaves portrait unverified;
+it does not establish an orientation restriction in the product.
+
+For a new multi-device composition, inspect a wide view and the supported
+narrow and short layouts in the first runtime prototype, before
+extending the screen's routes. Portrait and landscape expose different limits;
+there is no single phone viewport that proves both. Record the mounted safe
+area after insets and control scaling.
+Check actual button and text bounds: minimum touch targets can exceed authored
+heights. Recompose content that cannot fit instead of compressing a fixed stack.
+
 | Context | Evidence to collect |
 | --- | --- |
 | Wide desktop with pointer, keyboard only, then gamepad | Useful comparison detail, complete command routes, stable task during input changes |
@@ -30,6 +43,12 @@ localized content and reduced motion. Check bright and busy gameplay as well
 as quiet backgrounds. Keep theme, input and device settings available during
 the review. Use Facet environment previews for controlled comparisons; they
 do not change the physical input device or prove hardware behavior.
+
+Check each materially different layout state the task uses, not only its
+opening screen. For example, confirmation terms and accepted feedback can
+need more room than a choice list. At larger text, check labels, painted edges,
+target sizes and reachable exits in each supported phone orientation. Rotate
+the open task and verify that the selection, draft and next action remain usable.
 
 ## Exercise complete tasks
 
@@ -52,6 +71,26 @@ exit. A held input or layout change must not activate a new target. Check that
 UI input does not also reach gameplay and that gameplay input returns when
 the task ends. Inspect the game behind the UI; idle surfaces must settle
 without moving targets.
+
+Exercise platform shortcuts while a full-screen game menu is open. Check for
+unrelated player lists, movement controls or other platform UI covering its
+choices. The game may temporarily hide a specific optional CoreGui surface
+that conflicts with that task. Preserve its previous enabled state and restore
+it when the menu is disposed. Keep useful platform UI available; do not hide
+all CoreGui as a default design fix.
+
+Watch the middle of each changed transition, not only its settled screens.
+Check forward, Back and interruption for doubled text or subjects, exposed
+covered pages, clipped paint and moving action targets. Confirm that the motion
+fits the change: entering a deeper page can justify a slide; accepting an action
+does not by itself require one. Repeat with reduced motion.
+
+Compare the main action's bounds before activation and after pending, error
+and success feedback appears. Within the same task, added or wrapped status
+text should not move the action. Check the longest supported message and text
+scale without clipping the feedback. Keep the pointer in place and test the
+controller focus through the transition. A replacement command needs a fresh
+activation; holding or releasing the previous input must not activate it.
 
 Maximize the owned Studio on one monitor and verify its actual camera viewport.
 A responding Model Context Protocol (MCP) session with a tiny viewport is not ready. Verify
@@ -87,6 +126,18 @@ For native input paths, use Studio MCP user input or the live runner's documente
 interactive path. Setting SelectedObject alone does not prove traversal, and
 calling a callback does not prove hit testing.
 
+For emulated gamepad input, open Studio's Controller Emulator and use its
+displayed keyboard mappings. Confirm that the client receives gamepad input
+and that selection, activation and return work. Plain Tab, arrow and Return
+navigation checks the keyboard path; it does not prove the virtual controller
+path. Device Simulator alone changes the device preview, not the input source.
+
+Record the input the client actually receives. An attached virtual controller
+can remain the preferred input after switching to a desktop or phone preview.
+Test pointer and touch delivery as well as the controller, and verify that
+changing input preserves the task. Do not infer the active input from a device
+label or assume the virtual controller always uses the first gamepad slot.
+
 ## Record the result
 
 Record source revision, device, viewport, input, viewing distance, player
@@ -95,6 +146,8 @@ supporting captures. Distinguish automated assertions, observed Studio behavior
 and physical-device observations. If a device was not tested, name that gap
 instead of inferring a pass from its resolution or input profile.
 
-Recheck a repaired state and adjacent layouts. A screenshot does not establish
-operation; a passing subset is not full evidence. Keep generated reports in
-artifacts, not dated guide chapters.
+Recheck a repaired state and adjacent layouts. Associate each capture and input
+result with the source it tested; a late patch does not inherit an earlier
+visual pass. Retain earlier evidence for unaffected states and name any gaps.
+A screenshot does not establish operation; a passing subset is not full evidence.
+Keep generated reports in artifacts, not dated guide chapters.

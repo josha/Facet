@@ -20,9 +20,11 @@ chapters as reference, not as a second required reading path.
   Put a standalone program that runs Facet in the native engine double in
   `tools/engine`, and load Facet there through `tests/lib/loader.luau`.
 
-- Get controls with `Facet.controls(runtime)`. Name the runtime's constructor
-  table `Host` (`local Host = runtime.constructors`) and use it for Roblox
-  objects.
+- Use `app.UI` when building on `Facet.app`. A portable component can call
+  `Facet.controls(runtime)` within its mounted owner to inherit the app's
+  controls. For a direct Compose mount, configure the controls for that host.
+  Name the runtime's constructor table `Host`
+  (`local Host = runtime.constructors`) and use it for Roblox objects.
 - Mount a screen with `Facet.app` or with Compose directly. Use Compose to
   branch, portal, animate and own resources. Do not add another application
   facade or a second scene graph.
@@ -114,6 +116,12 @@ Record that reasoning in the change description. For behavioral evaluation,
 use tasks not used to write the guidance, freeze the candidate before running,
 and report failures as well as successes. A task used to revise guidance is
 development evidence, not an independent test of the revised guidance.
+
+When evaluating control choice, describe the player task and constraints
+without prescribing a control. A brief that requires a particular control
+tests its implementation and fit; it does not test whether the author would
+choose it. Keep unaided output, internal review repairs and user-directed
+changes distinct in the evidence.
 
 ## Internal showcase review
 

@@ -3,6 +3,12 @@
 Use this workflow only when the project uses saved source files and shell tools.
 Keep the project's sync path. Do not transfer the same source through a second path.
 
+Run the commands from the game root containing `tools/facet` and the Rojo
+project. The author kit includes a `rokit.toml` when the destination has no
+Rokit or Aftman manifest. With Rokit, run `rokit install` from that root before
+using the commands. If the project already has a manifest, keep it and check
+the Lute, Rojo and luau-lsp pins against `tools/facet/rokit.toml`.
+
 Use `lute run tools/facet docs Map` to open the reference map.
 Use `docs <path>` for one node and `docs --search TEXT` to find paths and
 one-line summaries. Use `project [directory]` for file discovery.

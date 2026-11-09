@@ -18,8 +18,9 @@ Button.appearance option values and behavior.
   label (`onDanger` or `onAccent`) is lighter than the fill (`danger` or
   `accent`), the art is tinted with the fill. When `onAccent` is darker than
   `accent` in any palette and the `control` slot has `selected` art, every
-  `emphasis` plate of that package shows the selected art with an
-  `onSelected` label instead (Pixel Quest, Fantasy Ornate, Fantasy Parchment).
+  `emphasis` plate uses selected art as the fallback for the first eligible
+  layer, with an `onSelected` label (Pixel Quest, Fantasy Ornate, Fantasy
+  Parchment). Explicit hover, pressed and disabled art takes priority.
   Only a package without selected art falls back to the flat fill, so the
   label always meets its palette contrast. Skin images have the
   `facet-skin-art` tag.
