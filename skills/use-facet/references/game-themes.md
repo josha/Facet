@@ -26,8 +26,10 @@ audience can also enjoy a colorful cozy or pixel game; age alone does not
 choose the rendering style. These are starting tendencies, not genre rules.
 The user's direction and the actual game art take precedence.
 
-When runtime fonts cannot reproduce the target, preserve its hierarchy with
-available type, scale, spacing and placement. Record the substitution.
+When runtime fonts cannot reproduce an agent-chosen target, preserve its
+hierarchy with available type, scale, spacing and placement. Record the
+substitution. For a user specification, follow the target contract below
+before making a material visual substitution.
 For an expressive game, put the remaining craft into subject presentation,
 composition, control silhouettes, materials, edges, layering, icons and state
 feedback. Carry the chosen finish into the actual choices and actions.
@@ -57,8 +59,9 @@ an image viewer or capture it in a browser before calling it inspected. Keep
 the reference link and a concrete observation from the visible image in the
 working notes. Do not claim to have inspected pixels that the tool did not show.
 
-Identify the principles that make the references work, then design this
-product's own treatment:
+For agent-found inspiration, identify the principles that make the references
+work, then design this product's own treatment. A user-provided specification
+instead follows [the target contract](#commit-to-the-visual-target).
 
 | Inspect | Turn the observation into a decision |
 | --- | --- |
@@ -70,9 +73,9 @@ product's own treatment:
 Record a short direction in working notes, with the reference links and the
 reasons for the choices. Describe visible decisions, such as an illustrated
 item on a paper label, rather than adjectives such as "fun" or "premium".
-Use references to judge clarity, material quality, subject scale and control
-craft. Create the composition, assets and visual motifs for the current brief;
-do not reproduce a reference screen with changed labels. An original direction
+Use agent-found inspiration to judge clarity, material quality, subject scale
+and control craft. Create the composition, assets and visual motifs for the
+current brief; do not reproduce that inspiration with changed labels. An original direction
 can retain familiar genre arrangements and standard controls. It need not
 invent new interaction conventions. Choose a base theme after this decision.
 
@@ -121,6 +124,57 @@ for example, object scale, a type relationship, a surface treatment and an
 action response. These qualities come from this design, not a fixed checklist
 of decorations. Keep the alternatives as evidence of the choice.
 
+### Commit to the visual target
+
+An agent-chosen concept is a **90% visual lock**. Preserve the dominant
+composition, relative scale, type hierarchy, materials, depth and control
+shapes. Allow limited refinements that improve the result, including ideas
+from other concepts, while keeping this design recognizable. Record each
+visible change and its reason beside the original target. The percentage is
+a design commitment, not a pixel-similarity score or permission to replace
+one defining quality with a different design.
+
+A user-provided reference is a **100% visual specification**, unless the user
+explicitly calls it inspiration or limits it to particular qualities. Follow
+its specified composition and finish. Do not substitute a preferred style or
+blend other concepts into it. Implement live content and behavior in that
+design. If a technical or usability constraint requires a material visual
+departure, identify the conflict and obtain the user's direction instead of
+silently redesigning it. An external reference found by the agent is
+inspiration, not this specification.
+
+A sketch or wireframe presented as "roughly this" or "kind of what I want"
+is a directional reference. Preserve its intended content, relationships and
+behavior, plus any details the user marks as fixed. Develop its unspecified
+styling, proportions, typography and finish; do not treat placeholder colors,
+rough strokes or incidental spacing as an exact visual specification. Review
+and commit to the developed concept under the 90% rule, keeping the sketch's
+intended constraints alongside it. A polished image can also be directional,
+and a hand-drawn image can be an exact specification. Use the user's wording
+and task context to determine its role, not appearance alone. If that role
+remains materially ambiguous, clarify the intended fidelity before committing
+to a visual target.
+
+Record the target image, its aspect ratio and the visible relationships to
+preserve: positions and relative sizes of major regions, type roles, layering,
+material edges, choice treatment and action treatment. Map those relationships
+to native layout, live text, controls and required artwork. Keep this short
+and specific to the image; a mood description does not constrain the build.
+For a quiet or text-led target, these relationships can be entirely type,
+alignment, spacing and state treatment. No illustration is required.
+
+A concept or specification may omit supporting indicators, opened controls,
+feedback or interaction states. Design those gaps from its visual language:
+material, shape, type, edge treatment, depth and relative emphasis. A default
+badge or panel that shares only an accent color may still look unrelated.
+Keep supporting information quieter when its role calls for that, while
+preserving the target's finish. Record inferred treatments and inspect them
+with the specified elements in actual states. A 100% specification fixes what
+it shows; missing details inherit that design rather than authorizing changes
+to its specified parts.
+
+### Translate the selected screen
+
 For a new expressive game direction, make and review a visual study before
 building functional routes. It can use static representative data. Resolve the subject, type hierarchy, control surfaces,
 state marks and use of space together. Use a styled native prototype, a drawn
@@ -147,7 +201,9 @@ objects. A colored layout diagram is a wireframe even when it uses the right
 genre colors. A named cloth, wood or metal surface needs visible material
 treatment; a plain fill does not supply it. A deliberately graphic direction
 can instead achieve its finish through shape, type and composition.
-Generate a new composition for the brief, not a reskin of a reference image.
+For open exploration, generate an original composition from the brief and
+agent-found inspiration. For a selected concept or user-provided specification,
+preserve the committed design instead of starting another exploration.
 Then derive separate runtime assets with quiet live-text regions; do not
 flatten the controls, labels or focus behavior into a screenshot.
 For a new expressive game with no established art direction, use available
@@ -155,12 +211,16 @@ image generation for these whole-screen alternatives by default. Calling the
 first idea "graphic" does not exempt an open brief from this exploration.
 Graphic concepts are welcome among the alternatives. Give the art workflow the
 brief, player task, representative content, intended finish, readable text
-areas and relevant states. Ask for a new composition and artwork, without
-passing a reference screen to be reskinned. Review the resulting image as a
+areas and relevant states. Review the resulting image as a
 design target; generation alone does not prove its quality or correctness.
 Derive the needed background, subject and control-surface assets from the
-reviewed direction. For an illustrated or material-led target, generate or
-author the reusable runtime artwork, [upload it through Open Cloud](asset-upload.md)
+reviewed direction. Use the target image in the asset editing workflow so
+lighting, perspective, edges and material detail remain consistent. Separate
+static scenery from movable subjects, distinct interactive surfaces and live
+text regions. One generic plate repeated across every control does not
+reproduce a target with different surface shapes and materials. For an
+illustrated or material-led target, generate or author the reusable runtime
+artwork, [upload it through Open Cloud](asset-upload.md)
 and verify that it loads before
 building functional routes. Keep dynamic facts and controls live in Studio.
 Use the theme's [chrome contracts](#three-ways-to-use-images) for control artwork.
@@ -177,24 +237,25 @@ arrangements need a reason in the current task. Do not force difference within
 an established product. Use the [early critique](../../critique-ui/SKILL.md#review-a-design-target)
 before translating the study into functional routes. Resolve its visual
 `must` fixes here, while the composition is still inexpensive to change.
-Then mount one representative screen in Studio with the intended artwork,
-live labels and real controls. Static data is sufficient for this first runtime
-check. For multi-device work, include the [minimum supported narrow and short layouts](compact-compositions.md#verify-the-minimum-viewport)
-as well as a wide view. Phones supporting both orientations need portrait
-and landscape checks. Resolve these compact forms before functional routes;
-changing device scale does not make a fixed desktop control stack fit.
-Compare the actual capture with the target at the same viewing size.
-Identify the few visible qualities that make the target work, then check each
-in the runtime capture. These can include a subject separated from its
-background, a distinctive control silhouette, consistent edges and depth, or
-a strong result treatment. Choose these qualities from this design; they are
-not a required style. Imported textures do not preserve them automatically.
+Then mount one representative screen in Studio at the target's aspect ratio
+with the intended artwork, live labels and real controls. Static data is
+sufficient. Keep this stage focused on reproducing that screen before adding
+routes, deeper game logic or a broad device sweep. An explicitly limited
+first-screen request can end here after its states and input are checked.
+
+Compare target and capture at equal viewing sizes with the same content where
+possible. Use an aligned overlay to inspect region bounds, subject scale and
+type placement. Use paired crops to inspect material, edges, depth and control
+paint. Inspect the whole screen again; correct isolated details can still form
+a different composition. Record each defining relationship as preserved,
+changed within the target contract, or missing. Explain changes against the
+image. Generic identity scores cannot clear a missing relationship.
 If a control becomes an ordinary rectangle, the subject blends into its
 backdrop, or important state feedback becomes a small text line, inspect what
 the translation lost. Fix the relevant asset, crop, surface or type treatment.
-Adapt composition for each device while preserving these qualities. Correct
-generated details and functional mistakes; the concept is not a pixel-perfect
-specification or a reason to retain an unreadable or incorrect design.
+Correct generated factual errors and implement real state without changing
+the visual direction. Apply the target contract to visual changes; correctness
+does not justify an unrelated control skin or a wholesale layout replacement.
 Inspect the subject, materials, edges, depth, type and action surfaces. A flat
 fill with a line pattern does not reproduce a textile; a character glyph does
 not reproduce illustrated subject art. Native drawing is valid when
@@ -207,10 +268,20 @@ or report, not a reason to silently replace finished art with placeholders.
 Prove the hardest visual relationship in this early runtime screen. When a
 live 3D subject shares a scene with an image backdrop, check their perspective,
 lighting, ground contact and level of detail together. If the chosen runtime
-medium cannot carry the study's finish, revise the direction into a coherent
-treatment it can deliver before extending the game.
+medium cannot carry the study's finish, report the unmet target and the
+specific limitation. Do not silently lower the target and call the result a
+successful translation.
 Keep the target beside the runtime captures through later device and state
 repairs. A mockup is a design target, not runtime or input proof.
+
+After the reference-size screen preserves the target, adapt the composition
+for the other supported forms. For multi-device work, include the
+[minimum supported narrow and short layouts](compact-compositions.md#verify-the-minimum-viewport).
+Phones supporting both orientations need portrait and landscape checks.
+Resolve those compact forms before adding routes or repeating the treatment.
+Preserve the target's materials and hierarchy through reflow; changing device
+scale does not make a fixed desktop control stack fit. Report a first-screen
+or single-viewport study as that limited scope, not full device coverage.
 
 Spend the next fresh [critique round](../../critique-ui/SKILL.md#review-a-design-target)
 on this first Studio screen before functional routes or repeated layouts.

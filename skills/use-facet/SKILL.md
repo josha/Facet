@@ -57,25 +57,43 @@ For a new expressive game, complete these steps within the initial request:
    not waive exploration. An established direction or an explicitly minimal,
    text-led or prototype brief can use a focused native study instead. Follow
    [visual study](references/game-themes.md#resolve-the-whole-composition).
+   A user-provided visual specification or already selected concept skips
+   open exploration and proceeds directly to the target contract below.
 2. **Review and commit to a target.** Compare the directions together in one
    [design-target review](../critique-ui/SKILL.md#review-a-design-target).
    Choose for character, craft, task clarity and feasible runtime production.
    If every candidate is generic, revise the concepts before building routes.
-   Record the few visible qualities the implementation must preserve and how
-   each will appear in live controls, type or artwork. Then
+   Treat an agent-chosen concept as a **90% visual lock**: preserve its defining
+   composition and finish, with limited, documented improvements or ideas from
+   other concepts. A user-provided reference is a **100% visual specification**
+   unless the user gives it a narrower role. A sketch presented as "roughly
+   this" constrains the intended structure and behavior, not its provisional
+   styling or exact proportions. Develop the unspecified visual design while
+   retaining those constraints. Determine the reference's role from the user's
+   wording and task, not its apparent polish. Do not reopen an
+   established target through new alternatives. Record the target's visible
+   relationships and their runtime treatment using the
+   [target contract](references/game-themes.md#commit-to-the-visual-target). Then
    inspect the [worked translations](references/visual-translations/guide.md)
    for implementation techniques relevant to that target. Their layouts and
    materials are examples, not a style to choose by default. Resolve visual
    `must` fixes before functional routes. This is an internal choice, not a
    user approval step.
-3. **Prove one real screen before expanding.** Create the reusable artwork
-   needed to preserve that target's finish. Upload original UI art and icons
+3. **Prove one real screen before expanding.** First reproduce the target at
+   its reference aspect ratio with representative data, live labels and real
+   controls. Keep work on this screen until its composition and finish survive
+   translation. Derive the needed backdrop, subject and distinct control
+   surfaces from the target itself. Upload original UI art and icons
    through [Open Cloud](references/asset-upload.md), bind the returned IDs and
    verify loading. Do not use EditableImage or packed pixels for UI assets.
    A dynamic player drawing canvas can use EditableImage. Use Facet's theme
    and chrome contracts, live labels and standard control behavior.
    Build a representative choice, primary action and opened control where
-   the task has them. Use static data if useful. Capture a wide view, then the
+   the task has them. Compare equal-size target and runtime images, aligned
+   overlays for layout, and detail crops for type, surfaces and action paint.
+   Correct the largest visual losses before adding routes or a broad device
+   sweep. A matching subject and palette do not clear this checkpoint.
+   After the reference-size screen holds, capture the
    minimum supported narrow and short layouts after insets and control scaling.
    For phones supporting both orientations, check portrait and landscape here;
    neither substitutes for the other. Include the notched safe-area case too
@@ -93,8 +111,9 @@ For a new expressive game, complete these steps within the initial request:
    for label clearance, separate focus and selection, and stable action space.
    Compare runtime and target at the same viewing size. For each defining
    quality, record what the capture preserves, weakens or replaces, and why.
-   Repair a lost defining quality or revise the target into a coherent finish
-   the runtime can deliver. Loaded art alone does not preserve subject
+   Repair a lost defining quality; do not lower the target to fit a simpler
+   implementation. Record permitted refinements against the original target.
+   Loaded art alone does not preserve subject
    separation, material depth or hierarchy. Use the next
    fresh critique round here; include these state captures. Resolve visual
    `must` fixes and inspect the repaired screen before adding routes or

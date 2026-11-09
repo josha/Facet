@@ -25,9 +25,26 @@ Require the declared minimum safe viewport in each supported orientation;
 a larger phone preset does not cover it. Check complete painted actions and
 dialog edges, not only visible centers. Keep input and rotation evidence
 separate from the visual verdict.
-Judge the product's own direction and level of craft, not how closely it copies
-a reference. If the packet is a design target, assess its visual proposal and
-record runtime and input behavior as unverified.
+Distinguish external inspiration from the committed target. Agent-found
+inspiration calibrates craft without requiring imitation. An agent-chosen
+concept is a 90% visual lock, allowing limited, documented improvements or
+ideas from the other concepts while preserving its defining design. A
+user-provided reference is a 100% visual specification unless the user
+explicitly limits its role. Judge the runtime's fidelity to that commitment.
+A sketch presented as approximate constrains its intended content,
+relationships and behavior, plus any details the user marks as fixed. Judge
+visual finish against the developed concept, not the sketch's rough strokes
+or placeholder styling. Determine reference authority from the user's wording
+and task context; polished appearance does not make an image a specification,
+and hand-drawn appearance does not make it provisional.
+Do not pass a different but coherent design because its controls work.
+Compare the equal-size pair, layout overlay and detail crops. Identify losses
+in composition, relative scale, type, materials, depth and control shapes.
+Mark a lost defining quality as a must fix even if general identity is strong.
+If the packet is a design target, assess its visual proposal and record runtime
+and input behavior as unverified. Respect an explicitly limited first-screen
+or reference-viewport checkpoint; do not expand its scope to other routes or
+devices.
 When alternatives are supplied, compare their composition, type and rendering
 approach within the game's visual constraints; palette swaps do not establish
 exploration. Judge finish within its world, tone, audience and art style, not
