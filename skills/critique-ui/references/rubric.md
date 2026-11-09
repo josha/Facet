@@ -7,6 +7,13 @@ deliberate choice and miss a real problem.
 Judge the requested visual direction, including restrained, familiar or
 text-led designs. Do not penalize an appropriate design for lacking an example's
 art, large numerals, borders, exposed world or screen structure.
+Calibrate finish to the game's world, tone, audience and art style. A cozy
+game can earn high scores with colorful rounded forms; a pixel game with
+precise pixel craft; an adult-oriented world with detailed or strongly
+stylized treatment. Judge execution within the appropriate language.
+Realism, texture density and geometric complexity do not raise scores by
+themselves. Age alone does not require realism or a dark palette. An elaborate
+UI that clashes with the game can fail identity despite its technical detail.
 
 ## Answer these for each screen
 
@@ -88,7 +95,9 @@ For a packet labeled `design target`, judge the proposed visual states and
 record runtime, device and input behavior as unverified. Do not treat a visual
 pass on that prototype as a release verdict for the implementation.
 When a design-target packet contains alternatives, assess each and compare
-their visual range. Palette swaps on the same structure need revision before
+their visual range within the game's art constraints. Preserve required style
+traits, such as pixel rendering, while varying the decisions left open.
+Palette swaps on the same structure need revision before
 implementation. Recommend a direction only if its craft and task clarity
 meet the brief; a least-bad candidate is not a pass.
 When a runtime packet includes a design target, compare their defining

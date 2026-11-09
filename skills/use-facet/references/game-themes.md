@@ -8,6 +8,24 @@ Facet supplies familiar controls; the product supplies their visual character.
 The neutral package is a technical base and a possible professional style.
 It does not decide how every game should look.
 
+### Match the finish to the game
+
+Choose the kind and level of detail from the game's world, art, tone, pace
+and intended audience. Record those constraints before exploring alternatives.
+Polish means deliberate, consistent execution within that visual language.
+Crisp pixel art, simple rounded forms, expressive illustration and detailed
+materials can all be finished. More texture, realism or geometry alone does
+not make the UI better.
+
+For a cozy game, usually start with inviting color, softer or rounded shapes
+and gentle feedback when these fit its world. For a pixel game, carry its pixel
+grid, silhouettes, edge treatment and readable type into the UI. For an
+immersive game aimed at adults, consider more refined typography, controlled
+detail and materials or strong stylization that match the world. An adult
+audience can also enjoy a colorful cozy or pixel game; age alone does not
+choose the rendering style. These are starting tendencies, not genre rules.
+The user's direction and the actual game art take precedence.
+
 ### Inspect references before choosing the composition
 
 For a new game direction, inspect screenshots of shipped games with a related
@@ -54,8 +72,9 @@ or requirements for their genres:
 | Product and intended feeling | Possible visual direction |
 | --- | --- |
 | Toy racing game: playful speed | Bold readable display type, toy-plastic plates, track markings, car portraits and a brief finish-line flourish |
-| Handcrafted bakery game: warm and tactile | Recipe-paper surfaces, stamped headings, illustrated pastries and a soft response when an order completes |
-| Abandoned research station: quiet tension | Instrument labels, spare angular frames, subdued phosphor colors and a restrained warning pulse |
+| Cozy garden game: friendly and restful | Inviting colors, rounded silhouettes, soft illustrated plants and gentle completion feedback |
+| Pixel dungeon: crisp and expressive | Consistent pixel scale, stepped frames, readable pixel type and carefully drawn item silhouettes |
+| Abandoned research station for adults: immersive tension | Refined instrument typography, precise material detail or deliberate graphic stylization, controlled contrast and a restrained warning pulse |
 | Professional mail app: calm and efficient | Neutral surfaces, clear message hierarchy, familiar icons, aligned rows and subtle selection feedback |
 
 Games in the same genre can have different identities. Derive the choices from
@@ -73,7 +92,9 @@ Keep the requested game systems and task; a premise does not authorize new ones.
 
 Before choosing a direction, render three alternatives with the same task,
 facts and representative states. Change the composition, typography and
-rendering approach across them. Also consider light and dark balance, density,
+rendering approach where the game's visual constraints leave room. A pixel
+world does not need a realistic alternative to prove variety. Also consider
+light and dark balance, density,
 camera framing, materials and motion. They should remain visibly different
 when viewed small or in grayscale. Different colors, titles or mascots on the
 same panel arrangement are not three directions. This exploration applies to

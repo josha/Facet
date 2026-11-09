@@ -29,7 +29,9 @@ Judge the product's own direction and level of craft, not how closely it copies
 a reference. If the packet is a design target, assess its visual proposal and
 record runtime and input behavior as unverified.
 When alternatives are supplied, compare their composition, type and rendering
-approach; palette swaps do not establish exploration. When recent interfaces
+approach within the game's visual constraints; palette swaps do not establish
+exploration. Judge finish within its world, tone, audience and art style, not
+by realism or detail alone. When recent interfaces
 are supplied for a new identity, identify repeated visual structure that the
 brief does not justify. Coherence alone does not establish distinction.
 Apply the same requested visual finish to a design target: a colored wireframe
