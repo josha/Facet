@@ -429,12 +429,16 @@ local function rulesFor(
 		PaddingTop = types.UDim.new(0, 0),
 	})
 
-	rule(".facet-panel.facet-card-body::UIPadding", {
-		PaddingLeft = types.UDim.new(0, 0),
-		PaddingRight = types.UDim.new(0, 0),
-		PaddingTop = types.UDim.new(0, 0),
-		PaddingBottom = types.UDim.new(0, 0),
-	})
+	rule(
+		".facet-panel.facet-card-body::UIPadding, .facet-panel.facet-card-body > UIPadding, "
+			.. ".facet-panel.facet-dialog::UIPadding, .facet-panel.facet-dialog > UIPadding",
+		{
+			PaddingLeft = types.UDim.new(0, 0),
+			PaddingRight = types.UDim.new(0, 0),
+			PaddingTop = types.UDim.new(0, 0),
+			PaddingBottom = types.UDim.new(0, 0),
+		}
+	)
 
 	for _, pair in
 		{ { "tablehead", "tableHeader" }, { "tablerow", "tableRow" }, { "tablerow-alternate", "tableRowAlternate" } }
@@ -1312,13 +1316,6 @@ local function rulesFor(
 			)
 		end
 	end
-	local noInset = types.UDim.new(0, 0)
-	rule(".facet-panel.facet-dialog::UIPadding", {
-		PaddingLeft = noInset,
-		PaddingRight = noInset,
-		PaddingTop = noInset,
-		PaddingBottom = noInset,
-	})
 	return kit.finish()
 end
 
