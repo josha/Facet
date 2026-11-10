@@ -13,12 +13,13 @@ For `floating-text`, an image that covers a quarter of the screen or more,
 such as a Screen `ground`, counts as a plate.
 
 For an image, the rules use its painted bounds: the smallest rectangle that
-holds its opaque pixels (alpha 0.6 or more). `paintRect` on `UI.Image`
-declares them. Without it, `review.collect` reads the pixels in Studio, one
-time for each asset, and can yield. Studio reads only an image that the
-Studio user or the experience owner can load. For other images, and outside
-Studio, the rules use the rectangle of the part; declare `paintRect` there.
-An image with no opaque pixel is not a cover or a backing.
+holds its pixels of alpha 0.1 or more. `paintRect` on `UI.Image` declares
+them. Without it, `review.collect` reads the pixels in Studio, one time for
+each asset, and can yield. Studio reads only an image that the Studio user or
+the experience owner can load. For other images, and outside Studio, the
+rules use the rectangle of the part; declare `paintRect` there. An image with
+no such pixel is not a cover or a backing. An image as large as 35% of the
+screen is a ground or an overlay whatever its paint.
 
 A text sits on the paint when half or more of its glyphs are over the painted
 bounds. `escaped-text` then uses the edge of the paint. A text that is mostly

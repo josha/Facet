@@ -92,6 +92,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				"Facet UI.Image: paintRect = { x0, y0, x1, y1, width, height } is the rectangle of the paint, "
 					.. "inside an image of width by height source pixels"
 			)
+			assert(
+				not Compose.isValue(spec.image) and type(spec.image) ~= "function",
+				"Facet UI.Image: paintRect belongs to one image; author image as a static string with it"
+			)
 		end
 		assert(
 			spec.shape == nil or spec.shape == "rect" or spec.shape == "circle",

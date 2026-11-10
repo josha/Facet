@@ -106,10 +106,13 @@ type PaintJob = {
 	node: unknown,
 	rect: Rules.ReviewRect,
 	quarter: number,
+	mode: string,
+	slice: Paint.Slice,
 }
 type PaintCrop = { key: string, offset: unknown, extent: unknown, width: number, height: number }
 type PaintSource = { content: unknown, crops: { PaintCrop } }
 
+local PAINT_READERS = 8
 local measured: { [string]: Paint.Box | false } = {}
 
 local function declaredPaint(node: unknown): Paint.Box?
@@ -139,7 +142,7 @@ local function paintCrop(node: unknown): PaintCrop?
 		return nil
 	end
 	return {
-		key = ("%s|%d,%d,%d,%d"):format(image, x, y, width, height),
+		key = ("%s|%g,%g,%g,%g"):format(image, x, y, width, height),
 		offset = offset,
 		extent = extent,
 		width = width,
@@ -207,27 +210,28 @@ local function measurePaint(game: unknown, jobs: { PaintJob }): { [PaintJob]: st
 	if not known or inStudio ~= true or not found or assets == nil or not coroutine.isyieldable() then
 		return keys
 	end
-	local spawn = if task then task.spawn else nil
-	if spawn == nil then
+	local scheduler = if task then task else nil
+	if scheduler == nil then
 		for _, source in order do
 			readPaint(assets, source)
 		end
 		return keys
 	end
-	local caller = coroutine.running()
-	local pending, parked = #order, false
-	for _, source in order do
-		spawn(function()
-			readPaint(assets, source)
-			pending -= 1
-			if pending == 0 and parked then
-				spawn(caller)
-			end
-		end)
+	local nextSource, working = 1, 0
+	local function work()
+		while nextSource <= #order do
+			local source = order[nextSource]
+			nextSource += 1
+			pcall(readPaint, assets, source)
+		end
+		working -= 1
 	end
-	if pending > 0 then
-		parked = true
-		coroutine.yield()
+	for _ = 1, math.min(PAINT_READERS, #order) do
+		working += 1
+		scheduler.spawn(work)
+	end
+	while working > 0 do
+		scheduler.wait()
 	end
 	return keys
 end
@@ -250,17 +254,7 @@ local function paint(game: unknown, jobs: { PaintJob })
 		end
 	end
 	for job, box in boxes do
-		local node = job.node
-		local center = read(node, "SliceCenter")
-		local x0, y0 = vector(read(center, "Min"))
-		local x1, y1 = vector(read(center, "Max"))
-		job.element.paint = Paint.place(
-			job.rect,
-			box,
-			text(read(read(node, "ScaleType"), "Name")) or "Stretch",
-			{ x0 = x0, y0 = y0, x1 = x1, y1 = y1, scale = number(read(node, "SliceScale"), 1) },
-			job.quarter
-		)
+		job.element.paint = Paint.place(job.rect, box, job.mode, job.slice, job.quarter)
 	end
 end
 
@@ -312,7 +306,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				local turn = math.min(spin, 180 - spin)
 				local unturned: Rules.ReviewRect = { x = x, y = y, width = w, height = h }
 				local lettered = isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox")
-				if turn > 89 and not lettered and math.abs(number(read(child, "Rotation"), 0) % 180 - spin) < 1 then
+				local turned = turn > 89
+					and not lettered
+					and math.abs(number(read(child, "Rotation"), 0) % 180 - spin) < 1
+				if turned then
 					x, y, w, h, turn = x + (w - h) / 2, y + (h - w) / 2, h, w, 0
 				end
 				local tagged, marked = call(child, "HasTag", "facet-icon-glyph")
@@ -357,15 +354,32 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				local pictured = (isA(child, "ImageLabel") or isA(child, "ImageButton")) and element.image
 				local quarter = math.floor(rotation / 90 + 0.5)
 				local inherited = (rotation - number(read(child, "Rotation"), 0)) % 360
+				local upright = quarter % 2 == 0 and math.abs(rotation - quarter * 90) <= 10
 				if
 					pictured
 					and visible
 					and w > 0
 					and h > 0
-					and math.abs(rotation - quarter * 90) <= 10
+					and (upright or turned)
 					and (inherited < 1 or inherited > 359)
 				then
-					table.insert(paintJobs, { element = element, node = child, rect = unturned, quarter = quarter })
+					local center = read(child, "SliceCenter")
+					local sliceX0, sliceY0 = vector(read(center, "Min"))
+					local sliceX1, sliceY1 = vector(read(center, "Max"))
+					table.insert(paintJobs, {
+						element = element,
+						node = child,
+						rect = unturned,
+						quarter = quarter,
+						mode = text(read(read(child, "ScaleType"), "Name")) or "Stretch",
+						slice = {
+							x0 = sliceX0,
+							y0 = sliceY0,
+							x1 = sliceX1,
+							y1 = sliceY1,
+							scale = number(read(child, "SliceScale"), 1),
+						},
+					})
 				end
 				local hasUnfit, unfit = call(child, "GetAttribute", "FacetUnfit")
 				if hasUnfit and unfit == true then

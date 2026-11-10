@@ -679,9 +679,9 @@ return function(harness: Verify.Harness)
 				end
 			end
 		end
-		fill(20, 10, 160, 80, 255)
-		fill(20, 80, 180, 95, 90)
-		fill(190, 2, 191, 3, 255)
+		fill(20, 10, 160, 60, 255)
+		fill(20, 60, 160, 80, 140)
+		fill(20, 80, 180, 95, 20)
 		local box = Paint.measure(pixels, width, height)
 		t:expect(box):toEqual({ x0 = 20, y0 = 10, x1 = 160, y1 = 80, width = 200, height = 100 })
 		local empty = Paint.measure(buffer.create(16 * 4), 4, 4)
@@ -697,6 +697,43 @@ return function(harness: Verify.Harness)
 		local upright = { x = 100, y = 50, width = 200, height = 100 }
 		t:expect(Paint.place(upright, box, "Stretch", nil, 1)):toEqual({ x = 170, y = 20, width = 70, height = 140 })
 		t:expect(Paint.place(upright, box, "Stretch", nil, 2)):toEqual({ x = 140, y = 70, width = 140, height = 70 })
+		t:expect(Paint.place(upright, box, "Stretch", nil, 3)):toEqual({ x = 160, y = 40, width = 70, height = 140 })
+		t:expect(Paint.place(upright, box, "Stretch", nil, -1)):toEqual(Paint.place(upright, box, "Stretch", nil, 3))
+	end)
+
+	harness:case("a screen-size image stays out of the cover and backing checks whatever its paint", function(t)
+		local banner = { x = 600, y = 270, width = 700, height = 400 }
+		local function overlay(paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local hud = add(page, "Frame", 0, 0, 1920, 1080)
+			add(hud, "TextLabel", 700, 300, 300, 40, {
+				text = "Lap 2 of 3",
+				size = 28,
+				ink = { x = 700, y = 300, width = 160, height = 34 },
+			})
+			local layer = add(page, "Frame", 0, 0, 1920, 1080)
+			add(layer, "ImageLabel", 0, 0, 1920, 1080, { image = true, paint = paint })
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(overlay(nil)["covered-text"]):toBe(nil)
+		t:expect(overlay(banner)["covered-text"]):toBe(nil)
+		local function button(paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080)
+			add(page, "ImageLabel", 0, 0, 1920, 1080, { image = true, paint = paint })
+			add(page, "TextButton", 800, 400, 120, 40, {
+				opaque = true,
+				fill = PANEL,
+				interactive = true,
+				text = "Deal again",
+				size = 20,
+				ink = { x = 790, y = 405, width = 160, height = 28 },
+			})
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(button(nil)["escaped-text"]):toBe(1)
+		t:expect(button(banner)["escaped-text"]):toBe(1)
 	end)
 
 	harness:case("collect takes painted bounds from paintRect, then from the pixels in Studio", function(t)
@@ -768,14 +805,14 @@ return function(harness: Verify.Harness)
 			end
 			return made
 		end
-		local function image(name: string, uri: string, attributes: Fake?): Fake
+		local function image(name: string, uri: string, attributes: Fake?, crop: { Fake }?): Fake
 			return node("ImageLabel", name, {
 				AbsolutePosition = vector(258, 18),
 				AbsoluteSize = vector(200, 62),
 				Image = uri,
 				ImageContent = if uri == "rbxassetid://locked" then "locked" else uri,
-				ImageRectOffset = vector(0, 0),
-				ImageRectSize = vector(0, 0),
+				ImageRectOffset = if crop then crop[1] else vector(0, 0),
+				ImageRectSize = if crop then crop[2] else vector(0, 0),
 				ScaleType = { Name = "Stretch" },
 				GetAttribute = function(_: Fake, key: string): unknown
 					return if attributes then attributes[key] else nil
@@ -816,6 +853,22 @@ return function(harness: Verify.Harness)
 			})
 		)
 		t:expect(declared):toEqual({ x = 308, y = 18, width = 100, height = 62 })
+		local declaredInStudio = paintOf(
+			studio,
+			image("DeclaredCard", "rbxassetid://card", {
+				FacetPaintRect = { Min = vector(98, 0), Max = vector(294, 182) },
+				FacetSourceSize = vector(392, 182),
+			})
+		)
+		t:expect(declaredInStudio):toEqual(declared)
+		local cropped =
+			paintOf(studio, image("Cropped", "rbxassetid://sheet", nil, { vector(196, 91), vector(196, 91) }))
+		t:expect(cropped ~= nil):toBe(true)
+		local part = cropped :: Rules.ReviewRect
+		t:expect(math.abs(part.x - 258) < 0.01):toBe(true)
+		t:expect(math.abs(part.width - 180 * 200 / 196) < 0.01):toBe(true)
+		t:expect(math.abs(part.y - 18) < 0.01):toBe(true)
+		t:expect(math.abs(part.height - 75 * 62 / 91) < 0.01):toBe(true)
 	end)
 
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)

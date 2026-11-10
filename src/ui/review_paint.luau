@@ -5,44 +5,28 @@ type Rect = Rules.ReviewRect
 export type Box = { x0: number, y0: number, x1: number, y1: number, width: number, height: number }
 export type Slice = { x0: number, y0: number, x1: number, y1: number, scale: number }
 
-local OPAQUE_ALPHA = 153
-local STRAY_SHARE = 0.001
-
-local function span(counts: { number }, stray: number): (number, number)
-	local first, last = 0, #counts
-	local passed = 0
-	while first < last and passed + counts[first + 1] <= stray do
-		passed += counts[first + 1]
-		first += 1
-	end
-	passed = 0
-	while last > first and passed + counts[last] <= stray do
-		passed += counts[last]
-		last -= 1
-	end
-	return first, last
-end
+local PAINT_ALPHA = 26
 
 local function measure(pixels: buffer, width: number, height: number): Box
-	local rows = table.create(height, 0)
-	local columns = table.create(width, 0)
-	local total = 0
+	local x0: number, y0: number, x1: number, y1: number = width, height, 0, 0
 	for y = 0, height - 1 do
 		local alpha = y * width * 4 + 3
-		local count = 0
-		for x = 1, width do
-			if buffer.readu8(pixels, alpha) >= OPAQUE_ALPHA then
-				count += 1
-				columns[x] += 1
+		for x = 0, width - 1 do
+			if buffer.readu8(pixels, alpha) >= PAINT_ALPHA then
+				if x < x0 then
+					x0 = x
+				end
+				if x >= x1 then
+					x1 = x + 1
+				end
+				if y < y0 then
+					y0 = y
+				end
+				y1 = y + 1
 			end
 			alpha += 4
 		end
-		rows[y + 1] = count
-		total += count
 	end
-	local stray = math.floor(total * STRAY_SHARE)
-	local x0, x1 = span(columns, stray)
-	local y0, y1 = span(rows, stray)
 	if x1 <= x0 or y1 <= y0 then
 		x0, y0, x1, y1 = 0, 0, 0, 0
 	end

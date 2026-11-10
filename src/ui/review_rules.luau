@@ -960,7 +960,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				or cover.parent == element.parent
 				or table.find(entry.chain, cover) ~= nil
 				or not solid(cover)
-				or area(face(cover)) >= limit
+				or area(cover.rect) >= limit
 				or (cover.turn or 0) > 10
 				or not shown(cover, snapshot.width, snapshot.height)
 			then
@@ -1120,7 +1120,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 					continue
 				end
 				local edge = edgeOf(backing, ink)
-				if area(edge) < limit and not past(ink, edge, text.size) then
+				if area(backing.rect) < limit and not past(ink, edge, text.size) then
 					held = true
 				end
 				if nearest == nil or beneath(nearest, backing) then
@@ -1132,7 +1132,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			continue
 		end
 		local edge = edgeOf(nearest, ink)
-		if area(edge) >= limit or not past(ink, edge, text.size) then
+		if area(nearest.rect) >= limit or not past(ink, edge, text.size) then
 			continue
 		end
 		if nearest ~= element and not isPlate(nearest) then

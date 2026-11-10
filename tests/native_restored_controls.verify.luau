@@ -314,6 +314,13 @@ return function(verifyHarness: Verify.Harness)
 						fragment = "rectangle of the paint",
 					},
 					{
+						spec = {
+							image = Compose.cell("rbxassetid://1"),
+							paintRect = { x0 = 16, y0 = 16, x1 = 376, y1 = 166, width = 392, height = 182 },
+						},
+						fragment = "paintRect belongs to one image",
+					},
+					{
 						spec = { shape = "circle" :: "circle", aspectRatio = 2 },
 						fragment = "circle has its own aspect ratio",
 					},

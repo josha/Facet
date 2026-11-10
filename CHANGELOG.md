@@ -19,7 +19,7 @@ is read at its turned rectangle.
 
 `Facet.review` reads where an image is painted. `covered-text`,
 `escaped-text` and the backing check of `overlapping-text` use the painted
-bounds of an image: the smallest rectangle that holds its opaque pixels. An
+bounds of an image: the smallest rectangle that holds its visible pixels. An
 image with a transparent margin no longer covers a text that its paint does
 not reach, and a label that runs over the edge of a shape painted inside its
 image is found. In Studio, `review.collect` reads the pixels one time for
