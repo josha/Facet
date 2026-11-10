@@ -14,6 +14,12 @@ type Options = {
 	interactive: boolean?,
 	image: boolean?,
 	visible: boolean?,
+	ink: Rules.ReviewRect?,
+	clips: boolean?,
+	fan: boolean?,
+	z: number?,
+	turn: number?,
+	native: boolean?,
 }
 
 local DARK = { r = 0.08, g = 0.09, b = 0.12 }
@@ -43,6 +49,10 @@ local function scene()
 			fill = given.fill or DARK,
 			fillTransparency = if given.opaque then 0 else 1,
 			image = given.image == true,
+			clips = given.clips,
+			fan = given.fan,
+			z = given.z,
+			turn = given.turn,
 		}
 		if given.text ~= nil then
 			element.text = {
@@ -52,6 +62,8 @@ local function scene()
 				font = given.font or "BuilderSans",
 				color = WHITE,
 				transparency = 0,
+				ink = given.ink,
+				native = given.native,
 			}
 		end
 		table.insert(elements, element)
@@ -382,6 +394,198 @@ return function(harness: Verify.Harness)
 		add2(plate, "TextLabel", 16, 60, 200, 20, { text = "Level 7", size = 16 })
 		add2(plate, "TextLabel", 16, 84, 200, 20, { text = "Pit zone", size = 16 })
 		t:expect(rules(Rules.analyze(snapshot2()))["floating-text"]):toBe(nil)
+	end)
+
+	harness:case(
+		"two texts drawn over each other are overlapping text; a card of a fan that backs one is not",
+		function(t)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			add(
+				page,
+				"TextLabel",
+				100,
+				100,
+				200,
+				30,
+				{ text = "Bank", ink = { x = 100, y = 100, width = 200, height = 30 } }
+			)
+			add(
+				page,
+				"TextLabel",
+				150,
+				110,
+				200,
+				30,
+				{ text = "Stake", ink = { x = 150, y = 110, width = 200, height = 30 } }
+			)
+			local report = Rules.analyze(snapshot())
+			t:expect(rules(report)["overlapping-text"]):toBe(1)
+			t:expect(report.findings[1].severity):toBe("high")
+			local add2, snapshot2 = scene()
+			local page2 = add2(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local hand = add2(page2, "Frame", 100, 90, 400, 60, { fan = true })
+			local first = add2(hand, "Frame", 100, 90, 220, 60, { opaque = true, fill = PANEL })
+			add2(
+				first,
+				"TextLabel",
+				100,
+				100,
+				200,
+				30,
+				{ text = "Ace", ink = { x = 100, y = 100, width = 200, height = 30 } }
+			)
+			local second = add2(hand, "Frame", 140, 90, 220, 60, { opaque = true, fill = PANEL })
+			add2(
+				second,
+				"TextLabel",
+				150,
+				110,
+				200,
+				30,
+				{ text = "King", ink = { x = 150, y = 110, width = 200, height = 30 } }
+			)
+			t:expect(rules(Rules.analyze(snapshot2()))["overlapping-text"]):toBe(nil)
+			local add3, snapshot3 = scene()
+			local page3 = add3(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			add3(
+				page3,
+				"TextLabel",
+				100,
+				100,
+				200,
+				30,
+				{ text = "Ready", ink = { x = 100, y = 100, width = 200, height = 30 } }
+			)
+			add3(
+				page3,
+				"TextLabel",
+				100,
+				100,
+				200,
+				30,
+				{ text = "Ready", ink = { x = 100, y = 100, width = 200, height = 30 } }
+			)
+			t:expect(rules(Rules.analyze(snapshot3()))["overlapping-text"]):toBe(nil)
+		end
+	)
+
+	harness:case("a text under a plate from another part is covered text", function(t)
+		local function build(options: { fan: boolean?, z: number?, turn: number?, labels: number? })
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local row = add(page, "Frame", 80, 90, 400, 200, { fan = options.fan })
+			local group = add(row, "Frame", 100, 100, 200, 160, { z = options.z })
+			for index = 1, options.labels or 1 do
+				local y = 100 + (index - 1) * 50
+				add(group, "TextLabel", 100, y, 200, 30, {
+					text = "Total " .. index,
+					ink = { x = 100, y = y, width = 200, height = 30 },
+				})
+			end
+			add(row, "Frame", 80, 90, 400, 200, { opaque = true, fill = PANEL, turn = options.turn })
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(build({})["covered-text"]):toBe(1)
+		t:expect(build({ fan = true })["covered-text"]):toBe(nil)
+		t:expect(build({ z = 2 })["covered-text"]):toBe(nil)
+		t:expect(build({ turn = 30 })["covered-text"]):toBe(nil)
+		t:expect(build({ labels = 3 })["covered-text"]):toBe(nil)
+	end)
+
+	harness:case("three native labels are native text", function(t)
+		local function build(count: number)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			for index = 1, count do
+				add(page, "TextLabel", 40, 40 * index, 300, 24, { text = "Line " .. index, native = true })
+			end
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(build(3)["native-text"]):toBe(1)
+		t:expect(build(2)["native-text"]):toBe(nil)
+	end)
+
+	harness:case("a ground image backs the texts that sit on it", function(t)
+		local add, snapshot = scene()
+		local hud = add(nil, "Frame", 0, 0, 1920, 1080)
+		add(hud, "ImageLabel", 0, 0, 1920, 1080, { image = true })
+		add(hud, "TextLabel", 16, 16, 200, 40, { text = "ION", size = 36 })
+		add(hud, "TextLabel", 16, 60, 200, 20, { text = "Level 7", size = 16 })
+		add(hud, "TextLabel", 16, 84, 200, 20, { text = "Pit zone", size = 16 })
+		t:expect(rules(Rules.analyze(snapshot()))["floating-text"]):toBe(nil)
+	end)
+
+	harness:case("a text that runs past its plate or is cut by a clip is escaped text", function(t)
+		local wide = { x = 120, y = 120, width = 220, height = 24 }
+		local function build(options: {
+			ink: Rules.ReviewRect?,
+			clips: boolean?,
+			class: string?,
+			panel: boolean?,
+			turn: number?,
+		})
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local holder = page
+			if options.panel then
+				holder = add(page, "Frame", 60, 60, 600, 300, { opaque = true, fill = PANEL })
+			end
+			local card = add(holder, options.class or "Frame", 100, 100, 200, 80, {
+				opaque = not options.panel,
+				image = options.panel,
+				fill = PANEL,
+				clips = options.clips,
+			})
+			add(card, "TextLabel", 120, 120, 160, 24, {
+				text = "Secret word",
+				size = 20,
+				ink = options.ink or wide,
+				turn = options.turn,
+			})
+			return Rules.analyze(snapshot())
+		end
+		local past = build({})
+		t:expect(rules(past)["escaped-text"]):toBe(1)
+		t:expect(string.find(past.text, "runs past the edge of", 1, true) ~= nil):toBe(true)
+		t:expect(rules(build({ ink = { x = 120, y = 120, width = 160, height = 24 } }))["escaped-text"]):toBe(nil)
+		local cut = build({ clips = true })
+		t:expect(rules(cut)["escaped-text"]):toBe(1)
+		t:expect(string.find(cut.text, "is cut by", 1, true) ~= nil):toBe(true)
+		t:expect(rules(build({ clips = true, class = "ScrollingFrame" }))["escaped-text"]):toBe(nil)
+		t:expect(rules(build({ panel = true }))["escaped-text"]):toBe(nil)
+		t:expect(rules(build({ turn = 6 }))["escaped-text"]):toBe(nil)
+	end)
+
+	harness:case("escaped text counts an image only when it is built beside the text", function(t)
+		local ink = { x = 120, y = 120, width = 220, height = 24 }
+		local add, snapshot = scene()
+		local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+		local note = add(page, "Frame", 100, 100, 200, 80)
+		add(note, "ImageLabel", 100, 100, 200, 80, { image = true })
+		local lines = add(note, "Frame", 100, 100, 200, 80)
+		add(lines, "TextLabel", 120, 120, 160, 24, { text = "Guesses land here", size = 18, ink = ink })
+		t:expect(rules(Rules.analyze(snapshot()))["escaped-text"]):toBe(1)
+		local add2, snapshot2 = scene()
+		local page2 = add2(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+		add2(page2, "ImageLabel", 100, 100, 200, 80, { image = true })
+		local deep = page2
+		for _ = 1, 4 do
+			deep = add2(deep, "Frame", 100, 100, 300, 80)
+		end
+		add2(deep, "TextLabel", 120, 120, 160, 24, { text = "Guesses land here", size = 18, ink = ink })
+		t:expect(rules(Rules.analyze(snapshot2()))["escaped-text"]):toBe(nil)
+		local add3, snapshot3 = scene()
+		local page3 = add3(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+		add3(page3, "TextButton", 100, 100, 120, 40, {
+			opaque = true,
+			fill = PANEL,
+			interactive = true,
+			text = "Deal again",
+			size = 20,
+			ink = { x = 80, y = 108, width = 160, height = 24 },
+		})
+		t:expect(rules(Rules.analyze(snapshot3()))["escaped-text"]):toBe(1)
 	end)
 
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)

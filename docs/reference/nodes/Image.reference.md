@@ -6,6 +6,14 @@
 can be bound. It can be empty. The default size is a square of the regular
 control height. A native `Size` replaces it.
 
+- `width` and `height` are `"fill"` or a number of pixels. They can be bound.
+  An axis without a value keeps the regular control height.
+- `aspectRatio` is width divided by height, a number above zero. With `width`
+  or with `height`, the other axis follows: `width = "fill", aspectRatio = 2`
+  is as wide as the parent and half as tall. Alone, it uses the regular
+  control height. With `width` and `height` together, the image fits inside
+  that box. A circle has its own ratio.
+
 - `tint` sets `ImageColor3`.
 - `scaleMode` is `fit`, `fill`, `crop`, `stretch`, `tile` or `slice`, and
   sets `ScaleType`. `fill` and `crop` both give `Crop`. It can be bound, but a

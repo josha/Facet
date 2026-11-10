@@ -125,68 +125,30 @@ below the fold. Keep accepted state and a clear route back to the main decision.
 
 ## Verify the minimum viewport
 
-Before the first runtime review, record the supported width and height limits
-for each orientation. Use the product's existing limits when available. For
-unspecified phone support, test the smallest phone preset available in the
-host in both orientations, plus a notched preset when its insets impose a
-different constraint. Record these as provisional tested limits, not proof
-for every phone. If the host cannot reach the product's minimum, name the gap.
-Do not raise a support limit after a failure merely to make the test pass.
-For a resizable desktop or plugin, use its minimum supported container size;
-phone tests do not apply to a desktop-only tool.
+Use the product's declared limits when it has them. For unspecified phone
+support, check the smallest phone preset that the host offers in both
+orientations, and a notched preset when its insets change the result. The
+skill shows how to [switch the Studio device preview](../SKILL.md#3-make-one-build-fit-every-screen).
+A resizable desktop tool or a plugin uses its own minimum container size.
+Do not raise a limit after a failure to make the check pass.
 
-Record the actual camera viewport, mounted safe rectangle, task-body size,
-UI scale, text preference and received input. Preset names and screenshot
-pixel dimensions can differ from the space the UI actually has. Measure after
-insets, headers, padding, actions and native target floors are applied.
-Check both sides of a responsive boundary changed by the implementation.
+The room that the UI has differs from the preset's name and the screenshot's
+pixels. Measure after insets, headers, padding, actions and native target
+floors: read the camera `ViewportSize` and the task body's `AbsoluteSize`.
 
-For supported console use, also record the resolved viewing-distance context
-and effective styled text sizes. Inspect opened details, history and dialogs at
-the same viewing scale as the main screen. A console preset, controller focus
-or large button target does not establish readable text. Keep near-view desktop
-typography when a controller is attached at a desk; a desktop-only tool does
-not need a television layout.
+At each minimum, open the task the normal way and check these.
 
-At each minimum, open the task normally and inspect its initial view, longest
-supported content, opened controls or confirmation, changing feedback and
-return. Include the largest supported text preference. Check the complete
-painted bounds of labels, actions and focus/selection treatments, including
-the left and bottom edges of dialogs. A button center inside the viewport
-does not prove its target or outline fits. Account for clipping ancestors
-and art insets; separate object bounds can still overlap in their paint.
+- The first view shows the subject, the first useful item and the action.
+- The longest supported labels and the largest supported text size still fit.
+- Opened controls, confirmation and changing feedback stay inside the screen,
+  including the left and bottom edges of dialogs and the paint of focus rings.
+- The main action and the exit work with the real input. If a route needs
+  scrolling, scroll from entry, reveal the whole target and activate it.
+- Rotating the open task and rotating back keeps selection, drafts, accepted
+  state and useful scroll position.
 
-Activate the main action and exit with actual supported input. If a route
-depends on scrolling, perform the scroll from entry, reveal the whole target
-and its required terms, then activate it. Do not infer a reachable action from
-the existence of a ScrollView, assign focus as navigation proof, or call its
-callback. Keep commitment outside a long catalog when the task needs it
-continuously available. A deliberately scrolling detail step remains valid.
-An in-view center that accepts input does not excuse clipped content.
+For console use, check the text sizes at the ten-foot scale in opened details
+and dialogs as well as the main screen.
 
-Rotate the open task to its other supported orientation and back without
-remounting or resetting it. Verify the same selection, draft, accepted state
-and useful scroll context, then use the action and return route again. Check
-focus separately from persistent selection when controller input is supported.
-After a padding, text, footer or layout repair, repeat the affected states at
-both minima and the adjacent layout. Earlier captures do not verify new source.
-
-Missing minimum-size captures or real-input routes leave device fit unverified,
-even when larger presets and static checks pass. Report exact tested limits
-and remaining gaps. Studio emulation does not prove physical-device readability
-or touch ergonomics.
-
-## Correct the actual view
-
-Apply the skill's capture correction loop to portrait and short height separately,
-on entry and after rotation. The first useful item, recognizable subject and
-action with its consequence must survive the smaller form.
-Check the task's changed layouts as well as its opening view, including any
-confirmation, accepted feedback and return at the largest supported text size.
-Check these forms before copying the composition into other tasks. A later
-capture of the old source does not establish an early compact review.
-
-Use actual Touch and controller input to confirm native-control clearance,
-hold/release/cancel, focus/Back, large text, and rejection. Rotation preserves
-selection, drafts and accepted state; unrelated tasks must not inherit scroll
-position. Captures do not establish behavior or retained-memory performance.
+Report the sizes and inputs that you checked. Studio emulation does not show
+physical readability or touch ergonomics, so name that gap when it matters.

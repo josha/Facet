@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "note": "A task that informed a guidance change is development material. Choose a test task from the unseen list, or write a new one in a family that is not listed here, and move it to used when a run starts.",
+  "used": [
+    {
+      "id": "blackjack",
+      "family": "casino table",
+      "exposure": "development",
+      "since": "candidate v1",
+      "request": "Build a blackjack game UI with Facet. One player against the dealer: place a bet, deal, hit, stand or double, see the result and play again."
+    },
+    {
+      "id": "honey",
+      "family": "shop stall",
+      "exposure": "development",
+      "since": "v3.1 (its blind review informed kit-b27)",
+      "request": "Build the honey stall screen for my cozy beekeeping game with Facet. The player picks jars from today's harvest, chooses how many to sell, sells them and sees their coins go up."
+    },
+    {
+      "id": "mail",
+      "family": "productivity app",
+      "exposure": "development",
+      "since": "phase 1 (its shared faults were reported as library gaps)",
+      "request": "Build a mail app UI with Facet: mailboxes, a message list, reading a message and writing a reply. Use sample data."
+    },
+    {
+      "id": "draw",
+      "family": "party game canvas",
+      "exposure": "development",
+      "since": "v3.4 (the v3.3 first pass and its repair round informed kit-ee4)",
+      "request": "Build the drawing round of my draw-and-guess party game with Facet. The player gets a secret word, draws it on a canvas with a few colors and brush sizes, can undo and clear, sees the timer and the other players' guesses come in, and submits the drawing."
+    }
+  ],
+  "unseen": [
+    {
+      "id": "pet-care",
+      "family": "creature care",
+      "request": "Build the pet care screen of my creature-raising game with Facet. The player sees their pet and its mood, feeds it, plays with it, puts it to sleep and sees its needs change."
+    },
+    {
+      "id": "race-results",
+      "family": "results and rewards",
+      "request": "Build the race results screen for my kart racer with Facet. After a race the player sees the finishing order, their time against their best, what they earned, and chooses to race again or return to the garage."
+    },
+    {
+      "id": "quest-board",
+      "family": "browse and track",
+      "request": "Build the quest board for my adventure game with Facet. The player browses today's quests, reads one, accepts or abandons it, follows progress on accepted quests and claims a finished one."
+    },
+    {
+      "id": "fishing-hud",
+      "family": "in-play HUD over the world",
+      "request": "Build the fishing HUD for my island game with Facet. During play the player casts, sees a bite, reels against a tension meter, lands or loses the fish and sees it join the catch log."
+    },
+    {
+      "id": "rename-plugin",
+      "family": "quiet tool (the expressive advice must not apply)",
+      "request": "Build a Studio plugin panel with Facet that renames the selected instances in a batch: a pattern, a live preview of the new names, apply and undo."
+    }
+  ]
+}

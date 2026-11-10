@@ -393,6 +393,35 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		it("keeps the own text of a disabled captioned Button hidden under its caption", {
+			id = "native_themes_media::native themes and media::keeps the own text of a disabled captioned Button hidden under its caption",
+			run = function()
+				local engine = engineLib.new()
+				local runtime = Roblox.createRuntime(engine)
+				local stop, sheet = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themes.neutralPackage(), { types = engine.types })
+				end, engine.new("Folder"))
+				local styleRules = require("./lib/style_rules")
+				for _, role in
+					{ "facet-role-default", "facet-accent", "facet-role-destructive", "facet-appearance-inverse" }
+				do
+					local node = engine.new("TextButton")
+					node:AddTag("facet-button")
+					node:AddTag("facet-button-captioned")
+					node:AddTag(role)
+					expect(styleRules.resolve(sheet, node, "TextTransparency")):toBe(1)
+					node:AddTag("facet-disabled")
+					expect(styleRules.resolve(sheet, node, "TextTransparency")):toBe(1)
+				end
+				local bare = engine.new("TextButton")
+				bare:AddTag("facet-button")
+				bare:AddTag("facet-appearance-bare")
+				expect(styleRules.resolve(sheet, bare, "PaddingLeft", "UIPadding")):toBe(engine.types.UDim.new(0, 0))
+				expect(styleRules.resolve(sheet, bare, "PaddingTop", "UIPadding")):toBe(engine.types.UDim.new(0, 0))
+				stop()
+				runtime:dispose()
+			end,
+		})
 		it("installs motion tokens before a palette token starts a theme transition", {
 			id = "native_themes_media::native themes and media::installs motion tokens before a palette token starts a theme transition",
 			run = function()

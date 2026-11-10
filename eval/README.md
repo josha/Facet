@@ -6,6 +6,10 @@ The separate [UI design history set](design-history/README.md) preserves the
 theme studies, references, design iterations and reviewer disagreements. It
 has its own frozen poker trial and does not rerun this full-game baseline.
 
+The [guidance trials](guidance-trials/README.md) keep the small paired trials
+that changed the use-facet guidance: one screen, fresh authors and blind
+reviews of captures. They are development evidence, not this baseline.
+
 Build one complete Roblox game from a blank place in **30 minutes**.
 Compare Plain Roblox with Facet using the same brief, model, tools, deadline,
 and device requirements. There are no smaller modes or follow-up author turns.

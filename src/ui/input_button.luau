@@ -293,6 +293,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			AutomaticSize = E.AutomaticSize.XY,
 			AutoButtonColor = false,
 		}
+		local bare = spec.appearance == "bare"
+		if bare then
+			defaults.Size = D2.new()
+			defaults.BackgroundTransparency = 1
+		end
 		local authored = spec.Size
 		local function widthSet(size: UDim2): boolean
 			return size.X.Scale > 0 or size.X.Offset > 0
@@ -348,7 +353,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local circled = spec.shape == "circle" and (spec.icon ~= nil or spec.glyph ~= nil)
 		local hasText = kit.hasText
 		local function worded(use: ComposeTypes.Use?): boolean
-			if circled then
+			if circled or bare then
 				return false
 			end
 			local row = spec.row
@@ -929,7 +934,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			end
 			local function plated(use: ComposeTypes.Use?): boolean
 				local appearance = read<<string?>>(spec.appearance, use)
-				return appearance ~= "utility" and appearance ~= "link" and read(spec.BackgroundTransparency, use) ~= 1
+				return appearance ~= "utility"
+					and appearance ~= "link"
+					and appearance ~= "bare"
+					and read(spec.BackgroundTransparency, use) ~= 1
 			end
 			if dynamic(spec.appearance) or dynamic(spec.BackgroundTransparency) then
 				Compose.watch(function(use: ComposeTypes.Use)
@@ -1004,6 +1012,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				tag("facet-appearance-soft", appearance == "soft")
 				tag("facet-appearance-utility", appearance == "utility")
 				tag("facet-appearance-link", appearance == "link")
+				tag("facet-appearance-bare", appearance == "bare")
 				tag("facet-appearance-inverse", appearance == "inverse")
 			end
 			if roleChanged or appearanceChanged then

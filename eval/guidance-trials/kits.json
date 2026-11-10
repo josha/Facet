@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "b21bea8d81b87ea22d465f4b7aae053bbbdea142",
+  "note": "A kit is the consumer material an author can read: skills/, docs/ and examples/themes. Kits from v3 on need the library changes of the same pull request (Screen ground, Image size options, negative gap, bare Button, review rules).",
+  "kits": [
+    {
+      "id": "kit-7f3",
+      "version": "current",
+      "sha256": null,
+      "from": "main at the source commit",
+      "adds": "The guidance on main before this work."
+    },
+    {
+      "id": "kit-c21",
+      "version": "v1",
+      "sha256": "78cf7c8f00da9a6d2a71e1f92964c02d0aa27b60f92149361f997b988234281f",
+      "frozenBefore": [
+        "honey-2"
+      ],
+      "adds": "Pruned guidance; direction card and sketches; device preview command; ground to the glass."
+    },
+    {
+      "id": "kit-e58",
+      "version": "v2",
+      "sha256": "f7e60be6f958215571781e8a0be7fa1af2173cba08b70d4f3343c11b1ad5b23a",
+      "frozenBefore": [
+        "mail-2",
+        "honey-3"
+      ],
+      "adds": "The Facet-first rule."
+    },
+    {
+      "id": "kit-a94",
+      "version": "v3",
+      "sha256": "01cf50cb0a6f469eb616070ce975241c05e938bf33676058eb1d4548922abddb",
+      "frozenBefore": [
+        "honey-4",
+        "blackjack-3"
+      ],
+      "adds": "Facet scene mechanics: Screen ground, Image width, height and aspectRatio, negative gap; keep the picture."
+    },
+    {
+      "id": "kit-b27",
+      "version": "v3.1",
+      "sha256": "7f66d421b9aa0fd5fcc04265aa30b7f331ae2a59d7cbed8915970c0d141bc497",
+      "earlierSha256": "8f12527fc70ea6eb53d24d4a4d91ce15524062a0adda94d63e18a23852c568f3",
+      "frozenBefore": [
+        "blackjack-4 (earlier hash)",
+        "draw-2"
+      ],
+      "adds": "Edge-pinned ground layers, lead scale on wide screens, a reserved message place, controls on furniture, the scroll seam, art set checks; then the covered-text rule."
+    },
+    {
+      "id": "kit-c63",
+      "version": "v3.2",
+      "sha256": "0c7752ea478888ac05daaf51b424f8ee0c26e152c4894cd7c458f6506819e56b",
+      "frozenBefore": [
+        "blackjack-5"
+      ],
+      "adds": "The art detail standard, a Craft check, one independent art-director round, the sliced-image check."
+    },
+    {
+      "id": "kit-d08",
+      "version": "v3.3",
+      "sha256": "6aaa0c6c805494cfd1f93531c2d3d7a637fefd64f6495d8c4fd71c646946ce8e",
+      "frozenBefore": [
+        "draw-3"
+      ],
+      "adds": "The bare Button; checks for what first passes missed on blackjack; the review loop as a named step of up to two rounds."
+    },
+    {
+      "id": "kit-ee4",
+      "version": "v3.4",
+      "sha256": "e4efa8cac4c1fa23f585e2df806a6e62b560648268619691a5a81d0c2047926a",
+      "frozenBefore": [
+        "draw-5"
+      ],
+      "adds": "General causes from the drawing first pass and its repair; one view and one light in every image prompt; the escaped-text rule; a project component when Facet has no control."
+    }
+  ]
+}

@@ -9,6 +9,12 @@ Open the [content-detail comparison sheet](images/translation-detail-comparison.
 
 Use the comparison to understand a material, hierarchy or control treatment. Keep the current task's reviewed concept beside its runtime capture as the target; do not copy an example's composition into an unrelated game.
 
+The recipes arrange some of their art with native frames. In new work,
+arrange with `UI.ZStack`, stacks and `UI.Image`, as the skill's
+[Facet table](../../SKILL.md#build-with-facet-not-around-it) shows. Take the
+theme, shaped-action and Dialog techniques from the recipes, not their frame
+structure.
+
 These examples assume a bakery choice built around illustrated food, a dispatch choice built around industrial equipment, and a quiet export dialog. Their layouts, type sizes and materials belong to those tasks.
 
 ## Morning bun

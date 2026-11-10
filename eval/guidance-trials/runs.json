@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "place": "ui tests (placeId 99293534848467); each run is a disabled LocalScript in StarterPlayer.StarterPlayerScripts",
+  "runs": [
+    {
+      "id": "blackjack-1",
+      "task": "blackjack",
+      "kit": "kit-7f3",
+      "stage": "first pass",
+      "script": "Blackjack1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 31.0,
+      "tokensK": 442,
+      "generatedImages": 0,
+      "toolCalls": 231
+    },
+    {
+      "id": "blackjack-2",
+      "task": "blackjack",
+      "kit": null,
+      "stage": "first pass",
+      "script": "Blackjack2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 31,
+      "tokensK": 406,
+      "generatedImages": 0,
+      "note": "Candidate first draft, before it was frozen. A server restart stopped the author at 29 minutes and it was resumed, so the cost is approximate. Development only."
+    },
+    {
+      "id": "honey-1",
+      "task": "honey",
+      "kit": "kit-7f3",
+      "stage": "first pass",
+      "script": "HoneyStall1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 31.0,
+      "tokensK": 442,
+      "generatedImages": 0,
+      "toolCalls": 246
+    },
+    {
+      "id": "honey-2",
+      "task": "honey",
+      "kit": "kit-c21",
+      "stage": "first pass",
+      "script": "HoneyStall2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 18.4,
+      "tokensK": 300,
+      "generatedImages": 0,
+      "toolCalls": 167
+    },
+    {
+      "id": "honey-3",
+      "task": "honey",
+      "kit": "kit-e58",
+      "stage": "first pass",
+      "script": "HoneyStall3",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 21.0,
+      "tokensK": 335,
+      "generatedImages": 0,
+      "toolCalls": 210
+    },
+    {
+      "id": "mail-1",
+      "task": "mail",
+      "kit": "kit-7f3",
+      "stage": "first pass",
+      "script": "Mail1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 20.3,
+      "tokensK": 352,
+      "generatedImages": 0,
+      "toolCalls": 192
+    },
+    {
+      "id": "mail-2",
+      "task": "mail",
+      "kit": "kit-e58",
+      "stage": "first pass",
+      "script": "Mail2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 20.2,
+      "tokensK": 358,
+      "generatedImages": 0,
+      "toolCalls": 184
+    },
+    {
+      "id": "honey-4",
+      "task": "honey",
+      "kit": "kit-a94",
+      "stage": "first pass",
+      "script": "HoneyStall4",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 0,
+      "note": "Cost not recorded for this run. The v3.x first passes took 19 to 30 minutes and 284K to 381K tokens."
+    },
+    {
+      "id": "blackjack-3",
+      "task": "blackjack",
+      "kit": "kit-a94",
+      "stage": "first pass",
+      "script": "Blackjack3",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 0,
+      "note": "Cost not recorded for this run; see honey-4."
+    },
+    {
+      "id": "blackjack-4",
+      "task": "blackjack",
+      "kit": "kit-b27",
+      "stage": "first pass",
+      "script": "Blackjack4",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 0,
+      "note": "Ran on the earlier kit-b27 hash. Cost not recorded for this run; see honey-4."
+    },
+    {
+      "id": "draw-1",
+      "task": "draw",
+      "kit": "kit-7f3",
+      "stage": "first pass",
+      "script": "DrawRound1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 0,
+      "note": "Cost not recorded for this run. Current-guidance game builds took 27 to 31 minutes and 412K to 442K tokens."
+    },
+    {
+      "id": "draw-2",
+      "task": "draw",
+      "kit": "kit-b27",
+      "stage": "first pass",
+      "script": "DrawRound2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 0,
+      "note": "Cost not recorded for this run; see honey-4."
+    },
+    {
+      "id": "blackjack-5",
+      "task": "blackjack",
+      "kit": "kit-c63",
+      "stage": "first pass",
+      "script": "Blackjack5",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 0,
+      "note": "Cost not recorded for this run; see honey-4."
+    },
+    {
+      "id": "blackjack-6",
+      "task": "blackjack",
+      "kit": "kit-c63",
+      "stage": "first pass",
+      "script": "Blackjack6",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": null,
+      "tokensK": null,
+      "generatedImages": 14,
+      "note": "As blackjack-5, with an image model allowed. Cost not recorded for this run."
+    },
+    {
+      "id": "blackjack-7",
+      "task": "blackjack",
+      "kit": "kit-c63",
+      "stage": "repair round 1",
+      "script": "Blackjack7",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 34,
+      "tokensK": 372,
+      "generatedImages": 5,
+      "repairs": "blackjack-5"
+    },
+    {
+      "id": "blackjack-8",
+      "task": "blackjack",
+      "kit": "kit-c63",
+      "stage": "repair round 2",
+      "script": "Blackjack8",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 38,
+      "tokensK": 431,
+      "generatedImages": 1,
+      "repairs": "blackjack-7"
+    },
+    {
+      "id": "draw-3",
+      "task": "draw",
+      "kit": "kit-d08",
+      "stage": "first pass",
+      "script": "DrawRound3",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 30,
+      "tokensK": 355,
+      "generatedImages": 6,
+      "note": "Three of the six images were whole-screen concepts."
+    },
+    {
+      "id": "draw-4",
+      "task": "draw",
+      "kit": "kit-d08",
+      "stage": "repair round 1",
+      "script": "DrawRound4",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 27,
+      "tokensK": 331,
+      "generatedImages": 1,
+      "repairs": "draw-3"
+    },
+    {
+      "id": "draw-5",
+      "task": "draw",
+      "kit": "kit-ee4",
+      "stage": "first pass",
+      "script": "DrawRound5",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 30.7,
+      "tokensK": 392,
+      "generatedImages": 6,
+      "toolCalls": 214,
+      "note": "Drawing was development material for kit-ee4, so this run is not an independent test. One of the six image calls returned no image."
+    }
+  ]
+}

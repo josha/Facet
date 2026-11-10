@@ -1,5 +1,26 @@
 # Current package
 
+`UI.Screen` takes `ground`: one GuiObject, most often a `UI.Image` or a
+`UI.ZStack` of images, that Facet draws behind the content and continues to
+every edge of the glass, while the content stays in the safe area. `UI.Image`
+takes `width`, `height` (`"fill"` or pixels, also as a cell or a function) and
+`aspectRatio`. A stack `gap` can be a negative number of pixels, so that the
+children overlap. `UI.Button { appearance = "bare" }` is a Button that is its
+face: it has no plate, no padding and no label, and Facet still draws focus
+and keeps the touch target.
+
+`Facet.review` has four new rules. `overlapping-text` (high) finds two texts
+that are drawn over each other. `covered-text` finds a text under a plate or
+an image from another part. `escaped-text` finds a text that runs past the
+plate or the image that it sits on, or that a clip cuts. `native-text` finds
+labels that were not built with `UI.Text`. `floating-text` counts a large
+image, such as a ground, as a plate. A part that is turned by a quarter turn
+is read at its turned rectangle. The rules read rectangles, not pixels.
+
+A disabled Button of a skinned theme no longer draws its own text under its
+caption. The doubled text was hidden by opaque art and showed through
+translucent art.
+
 An `AdaptiveStack` without `axis` no longer flickers between a row and a
 column while its width changes, such as during a window resize. It measures
 its row the same way as a row and as a column: the widths of its children and

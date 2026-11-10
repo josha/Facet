@@ -315,7 +315,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 
 	UI.Screen = ctx.construct("Screen", function(spec: LayoutProps.ScreenProps): Frame
 		local properties, children =
-			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome", "surface" })
+			split(spec, { "gap", "padding", "align", "distribute", "width", "height", "chrome", "surface", "ground" })
 		local chrome = spec.chrome or "device"
 		assert(
 			chrome == "device" or chrome == "band" or chrome == "edge",
@@ -376,6 +376,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 		if plate then
 			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")
+		end
+		local art = spec.ground
+		if art ~= nil then
+			assert(
+				typeof(art) == "Instance" and art:IsA("GuiObject"),
+				"Facet UI.Screen: ground must be one GuiObject, such as a UI.Image"
+			)
+			glass.ground(ctx, frame, art)
 		end
 		local owner = assert(Compose.currentOwner())
 		local observing: ComposeTypes.Owner? = nil

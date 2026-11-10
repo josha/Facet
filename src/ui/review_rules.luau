@@ -9,6 +9,8 @@ export type ReviewText = {
 	role: string?,
 	color: ReviewColor,
 	transparency: number,
+	ink: ReviewRect?,
+	native: boolean?,
 }
 export type ReviewElement = {
 	index: number,
@@ -18,6 +20,10 @@ export type ReviewElement = {
 	rect: ReviewRect,
 	visible: boolean,
 	interactive: boolean,
+	clips: boolean?,
+	fan: boolean?,
+	z: number?,
+	turn: number?,
 	fill: ReviewColor,
 	fillTransparency: number,
 	image: boolean,
@@ -71,6 +77,10 @@ local fixes: { [string]: string } = {
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
+	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
+	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
+	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
+	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 }
 local FIXES = table.freeze(fixes)
@@ -820,6 +830,337 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 	end
 
+	local function overlap(first: ReviewRect, second: ReviewRect): ReviewRect?
+		local left, top = math.max(first.x, second.x), math.max(first.y, second.y)
+		local right = math.min(first.x + first.width, second.x + second.width)
+		local bottom = math.min(first.y + first.height, second.y + second.height)
+		if right <= left or bottom <= top then
+			return nil
+		end
+		return { x = left, y = top, width = right - left, height = bottom - top }
+	end
+	local function lineage(element: ReviewElement): { ReviewElement }
+		local chain: { ReviewElement } = {}
+		local parent = prepared.parentOf(element)
+		while parent ~= nil do
+			local ancestor = prepared.byIndex[parent]
+			if ancestor == nil then
+				break
+			end
+			table.insert(chain, ancestor)
+			parent = prepared.parentOf(ancestor)
+		end
+		return chain
+	end
+	local function inkOf(element: ReviewElement, chain: { ReviewElement }): ReviewRect?
+		local ink: ReviewRect? = textOf(element).ink
+		for _, ancestor in chain do
+			if ink == nil then
+				break
+			end
+			if ancestor.clips then
+				ink = overlap(ink, ancestor.rect)
+			end
+		end
+		return ink
+	end
+	local function backs(element: ReviewElement, shared: ReviewRect): boolean
+		if not (isPlate(element) or element.image) then
+			return false
+		end
+		local hidden = overlap(element.rect, shared)
+		return hidden ~= nil and area(hidden) >= area(shared) * 0.9
+	end
+	local function covered(chain: { ReviewElement }, other: { ReviewElement }, shared: ReviewRect): boolean
+		for _, ancestor in chain do
+			if table.find(other, ancestor) then
+				return false
+			end
+			if backs(ancestor, shared) then
+				return true
+			end
+			local group = prepared.children[ancestor.index]
+			if group ~= nil then
+				for _, child in group do
+					if backs(child, shared) then
+						return true
+					end
+				end
+			end
+		end
+		return false
+	end
+	local inked: { { element: ReviewElement, ink: ReviewRect, chain: { ReviewElement } } } = {}
+	for _, element in texts do
+		if textOf(element).size < 8 then
+			continue
+		end
+		local chain = lineage(element)
+		local ink = inkOf(element, chain)
+		if ink ~= nil and ink.width >= 4 and ink.height >= 4 then
+			table.insert(inked, { element = element, ink = ink, chain = chain })
+		end
+	end
+	local collisions = 0
+	for first = 1, #inked do
+		if collisions >= 3 then
+			break
+		end
+		local a = inked[first]
+		for second = first + 1, #inked do
+			local b = inked[second]
+			local shared = overlap(a.ink, b.ink)
+			if shared == nil or shared.width < 4 or shared.height < 4 then
+				continue
+			end
+			if area(shared) < 0.2 * math.min(area(a.ink), area(b.ink)) then
+				continue
+			end
+			if table.find(a.chain, b.element) or table.find(b.chain, a.element) then
+				continue
+			end
+			if clean(textOf(a.element).content) == clean(textOf(b.element).content) then
+				continue
+			end
+			if covered(a.chain, b.chain, shared) or covered(b.chain, a.chain, shared) then
+				continue
+			end
+			add(
+				"overlapping-text",
+				"high",
+				a.element,
+				("%s overlaps %s"):format(
+					quote(clean(textOf(a.element).content)),
+					quote(clean(textOf(b.element).content))
+				)
+			)
+			collisions += 1
+			break
+		end
+	end
+
+	local limit = snapshot.width * snapshot.height * 0.35
+	local buriedBy: { [number]: { ReviewElement } } = {}
+	local covers: { ReviewElement } = {}
+	for _, entry in inked do
+		local element = entry.element
+		for _, cover in snapshot.elements do
+			if
+				cover == element
+				or cover.parent == element.parent
+				or table.find(entry.chain, cover) ~= nil
+				or not (isPlate(cover) or cover.image)
+				or area(cover.rect) >= limit
+				or (cover.turn or 0) > 10
+				or not shown(cover, snapshot.width, snapshot.height)
+			then
+				continue
+			end
+			local hidden = overlap(cover.rect, entry.ink)
+			if hidden == nil or area(hidden) < area(entry.ink) * 0.5 then
+				continue
+			end
+			local coverChain = lineage(cover)
+			local held: ReviewElement? = nil
+			local mine = element
+			for _, ancestor in entry.chain do
+				if table.find(coverChain, ancestor) then
+					held = ancestor
+					break
+				end
+				mine = ancestor
+			end
+			if held == nil or held.fan then
+				continue
+			end
+			local theirs = cover
+			for _, ancestor in coverChain do
+				if ancestor == held then
+					break
+				end
+				theirs = ancestor
+			end
+			local low, high = mine.z or 1, theirs.z or 1
+			if low > high or (low == high and mine.index > theirs.index) then
+				continue
+			end
+			local list = buriedBy[cover.index]
+			if list == nil then
+				list = {}
+				buriedBy[cover.index] = list
+				table.insert(covers, cover)
+			end
+			table.insert(list, element)
+			break
+		end
+	end
+	local buried = 0
+	for _, cover in covers do
+		local list = buriedBy[cover.index]
+		if #list > 2 or buried >= 3 then
+			continue
+		end
+		add(
+			"covered-text",
+			"medium",
+			list[1],
+			("%s is under %s"):format(
+				quote(clean(textOf(list[1]).content)),
+				quote(string.match(cover.path, "[^%.]+$") or cover.class)
+			)
+		)
+		buried += 1
+	end
+
+	local chains: { [number]: { ReviewElement } } = {}
+	local function chainOf(element: ReviewElement): { ReviewElement }
+		local chain = chains[element.index]
+		if chain == nil then
+			chain = lineage(element)
+			chains[element.index] = chain
+		end
+		return chain
+	end
+	local function beneath(lower: ReviewElement, upper: ReviewElement): boolean
+		local lowerChain, upperChain = chainOf(lower), chainOf(upper)
+		if table.find(upperChain, lower) then
+			return true
+		end
+		if table.find(lowerChain, upper) then
+			return false
+		end
+		local mine = upper
+		for _, ancestor in upperChain do
+			if table.find(lowerChain, ancestor) then
+				local theirs = lower
+				for _, other in lowerChain do
+					if other == ancestor then
+						break
+					end
+					theirs = other
+				end
+				local low, high = theirs.z or 1, mine.z or 1
+				return low < high or (low == high and theirs.index < mine.index)
+			end
+			mine = ancestor
+		end
+		return false
+	end
+	local function leaf(element: ReviewElement): string
+		return quote(string.match(element.path, "[^%.]+$") or element.class)
+	end
+	local function past(ink: ReviewRect, rect: ReviewRect, size: number): boolean
+		local across = math.max(rect.x - ink.x, ink.x + ink.width - rect.x - rect.width)
+		local down = math.max(rect.y - ink.y, ink.y + ink.height - rect.y - rect.height)
+		return across >= math.max(4, 0.3 * size) or down >= math.max(3, 0.25 * size)
+	end
+	local function near(backing: ReviewElement, chain: { ReviewElement }): boolean
+		for depth, ancestor in chain do
+			if ancestor == backing or (depth <= 3 and ancestor.index == backing.parent) then
+				return true
+			end
+		end
+		return false
+	end
+	local escapes = 0
+	for _, entry in inked do
+		if escapes >= 3 then
+			break
+		end
+		local element = entry.element
+		if (element.turn or 0) > 1 then
+			continue
+		end
+		local text = textOf(element)
+		local whole = text.ink :: ReviewRect
+		local cutter: ReviewElement? = nil
+		local kept: ReviewRect? = whole
+		for _, ancestor in entry.chain do
+			if kept == nil then
+				break
+			end
+			if ancestor.clips then
+				local left = overlap(kept, ancestor.rect)
+				if cutter == nil and ancestor.class ~= "ScrollingFrame" and past(kept, ancestor.rect, text.size) then
+					cutter = ancestor
+				end
+				kept = left
+			end
+		end
+		if cutter ~= nil then
+			add("escaped-text", "medium", element, ("%s is cut by %s"):format(quote(clean(text.content)), leaf(cutter)))
+			escapes += 1
+			continue
+		end
+		local ink = entry.ink
+		local nearest: ReviewElement? = if isPlate(element) then element else nil
+		local held = false
+		if nearest == nil then
+			for _, backing in snapshot.elements do
+				if
+					backing == element
+					or not (isPlate(backing) or backing.image)
+					or not shown(backing, snapshot.width, snapshot.height)
+				then
+					continue
+				end
+				local shared = overlap(backing.rect, ink)
+				if shared == nil or area(shared) < 0.5 * area(ink) or not beneath(backing, element) then
+					continue
+				end
+				if area(backing.rect) < limit and not past(ink, backing.rect, text.size) then
+					held = true
+				end
+				if nearest == nil or beneath(nearest, backing) then
+					nearest = backing
+				end
+			end
+		end
+		if nearest == nil or (held and nearest ~= element) or (nearest.turn or 0) > 1 then
+			continue
+		end
+		if area(nearest.rect) >= limit or not past(ink, nearest.rect, text.size) then
+			continue
+		end
+		if nearest ~= element and not isPlate(nearest) then
+			local shared = overlap(nearest.rect, ink)
+			if shared == nil or area(shared) < 0.7 * area(ink) or not near(nearest, entry.chain) then
+				continue
+			end
+		end
+		add(
+			"escaped-text",
+			"medium",
+			element,
+			("%s runs past the edge of %s"):format(quote(clean(text.content)), leaf(nearest))
+		)
+		escapes += 1
+	end
+
+	local foreign: { ReviewElement } = {}
+	for _, element in texts do
+		if textOf(element).native == true and textOf(element).size >= 8 then
+			table.insert(foreign, element)
+		end
+	end
+	if #foreign >= 3 then
+		add(
+			"native-text",
+			"medium",
+			foreign[1],
+			("%d texts were not built with UI.Text, such as %s"):format(
+				#foreign,
+				quote(clean(textOf(foreign[1]).content))
+			)
+		)
+	end
+
+	local backdrops: { ReviewElement } = {}
+	for _, element in snapshot.elements do
+		if element.image and area(element.rect) >= snapshot.width * snapshot.height * 0.25 then
+			table.insert(backdrops, element)
+		end
+	end
 	local floating: { ReviewElement } = {}
 	for _, element in texts do
 		local text = textOf(element)
@@ -830,6 +1171,14 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if not backed then
 			for _, plate in prepared.plates do
 				if area(plate.rect) > area(element.rect) and within(plate.rect, element) then
+					backed = true
+					break
+				end
+			end
+		end
+		if not backed then
+			for _, art in backdrops do
+				if within(art.rect, element) then
 					backed = true
 					break
 				end

@@ -8,7 +8,7 @@ reference routes below, then read only the relevant contract and exported types.
 Before custom UI behavior, use this order: Facet controls/options/helpers,
 Compose, native Roblox, then custom code for a confirmed gap. For adaptive forms,
 richer navigation, editable collections or spatial/world UI, choose a task in
-[advanced compositions](advanced-compositions.md). For the game's
+[richer compositions](#richer-compositions). For the game's
 visual system and image-based surfaces, use [game themes](game-themes.md).
 
 | Player task | Starting choice and distinction |
@@ -70,3 +70,21 @@ making them prerequisites for an ordinary screen.
 For each unfamiliar control, resolve value ownership, callback/commit meaning,
 focus/Back, sizing, adaptation and disposal before copying it across the game.
 Retrieve missing options; do not invent props or infer behavior from a name.
+
+## Richer compositions
+
+Use a capability when it makes the player's task clearer or more direct. Read
+only the matching resource. This is not a feature checklist.
+
+| Player need | Design opportunity | Read next |
+| --- | --- | --- |
+| Keep play visible while offering commands | A compact launcher, contextual disclosure or radial; urgent actions stay direct | [Surfaces: disclosure and commands](advanced-surfaces.md#disclosure-and-commands) |
+| Complete a temporary task | A sheet beside the subject or above the lower edge, with clear acceptance and cancellation | [Surfaces: temporary tasks](advanced-surfaces.md#temporary-tasks) |
+| Browse, search and return | Navigation chrome follows the information structure; collection and detail can share room | [Surfaces: navigation](advanced-surfaces.md#navigation) |
+| Preserve the task in less room | Reflow first; then complete smaller forms with access to omitted detail | [Surfaces: adaptive forms](advanced-surfaces.md#adaptive-forms) |
+| Compare records or explore a hierarchy | Aligned attributes or expandable branches instead of repeated cards | [Data: comparison and hierarchy](advanced-data-and-space.md#comparison-and-hierarchy) |
+| Act on one record | Discoverable row commands, separate from selection and opening detail | [Data: row actions](advanced-data-and-space.md#row-actions) |
+| Edit, reorder, transfer or pack items | Durable drafts, direct manipulation and an equivalent selection path | [Data: editing and placement](advanced-data-and-space.md#editing-and-placement) |
+| Inspect an object or explore a map | Large useful subject, deliberate camera or spatial canvas | [Space: inspection and maps](advanced-data-and-space.md#inspection-and-maps) |
+| Relate information to the game world | A bounded world marker or an existing interface on a world surface | [Space: world information](advanced-data-and-space.md#world-information) |
+| Explain change and recover from failure | Accepted-state feedback and purposeful motion with owned lifetimes | [Feedback](advanced-data-and-space.md#feedback-and-continuity) |

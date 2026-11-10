@@ -18,7 +18,7 @@ padding. At ten feet the Screen also clears the environment's `overscanInsets`
 its native bounds still overlap. Nested screens do not add the same margin
 again. A configured `overlayParent` supplies the preview viewport bounds.
 Options: `gap`, `padding`, `align`,
-`distribute`, `width`, `height`, `chrome` and `surface`.
+`distribute`, `width`, `height`, `chrome`, `surface` and `ground`.
 
 `chrome` is the platform-chrome policy. `"device"` (the default) clears the
 top bar, overscan and visible TouchGui movement controls on touch; see
@@ -26,9 +26,8 @@ top bar, overscan and visible TouchGui movement controls on touch; see
 area. `"band"` lets the content ride
 the free strip of the top bar beside the engine's buttons (a game's own top
 row): no top bar padding, overscan kept. `"edge"` adds neither. A page
-background does not need `"edge"`; use `surface`. For art that must itself
-reach the glass, pair `"edge"` with `ScreenInsets = Enum.ScreenInsets.None` on
-the ScreenGui and keep text and controls in safe children. Your own persistent
+background does not need `"edge"`; use `surface`. Art that must itself reach
+the glass does not need `"edge"` either; use `ground`. Your own persistent
 chrome is `padding`.
 
 `surface` (`"surface"`, `"panel"` or `"pane"`) paints the theme plate of that
@@ -40,3 +39,11 @@ screen bounds. The content keeps its padding, so text and controls stay safe.
 Facet measures each band with `GuiService:GetInsetArea`. While the plate is in
 a band, Facet sets the ScreenGui's `ClipToDeviceSafeArea` to false, as a modal
 scrim does. Then it restores the value. Keep `CoreUISafeInsets` on the app.
+
+`ground` is one GuiObject that Facet draws behind the content, most often
+`UI.Image { image = art, scaleMode = "crop" }`. Facet sizes it to cover the
+screen and continues it to the edge of the glass at each safe edge, as
+`surface` does for a plate. The ground is not a child of the stack, so it
+takes no space and no padding. The content stays in the safe area. Use it for
+the place where the screen happens: a felt table, a counter, a sky. For more
+than one layer, pass a `UI.ZStack` of images.

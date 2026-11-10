@@ -15,8 +15,8 @@ conditional design choices, not required colors, type sizes or surface treatment
   Resolution alone does not establish physical readability. Check clocks and numbers in the chosen font: some display fonts
   draw a colon so thin that "24:51" reads as "2451" at small sizes. Wide display
   fonts can also make ordinary captions compete with headings and force short
-  labels to wrap. Start with the base readable family; express character
-  through the palette, icons and surface treatment before changing all text.
+  labels to wrap. Give the display roles a family with character and keep the
+  reading roles in a family that stays legible at caption size.
 - Set `font.family` for each typography role. A `body` override does not
   change all roles. The recipe patches the base font tables and keeps their
   weight, style and line height. `strong` derives from an authored `body`, and

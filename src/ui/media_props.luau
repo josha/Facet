@@ -440,6 +440,9 @@ export type ImageProps = {
 	sliceScale: number?,
 	resample: Types.Input<"default" | "pixelated">?,
 	shape: ("rect" | "circle")?,
+	width: Types.Input<"fill" | number>?,
+	height: Types.Input<"fill" | number>?,
+	aspectRatio: number?,
 	[number]: Compose.Child?,
 }
 export type ImagePropsInput = {
@@ -527,6 +530,9 @@ export type ImagePropsInput = {
 	read sliceScale: number?,
 	read resample: Types.Input<"default" | "pixelated">?,
 	read shape: ("rect" | "circle")?,
+	read width: Types.Input<"fill" | number>?,
+	read height: Types.Input<"fill" | number>?,
+	read aspectRatio: number?,
 	read [number]: Compose.Child?,
 }
 export type BadgeProps = {

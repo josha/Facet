@@ -3,11 +3,17 @@
 Button.appearance option values and behavior.
 
 - `appearance`, `role`, `selected`, `name`, `hint` and `pop`. `appearance` is
-  `standard`, `emphasis`, `soft`, `utility`, `link` or `inverse`. `inverse` is a
+  `standard`, `emphasis`, `soft`, `utility`, `link`, `inverse` or `bare`. `inverse` is a
   light plate on a dark theme, and a dark plate on a light theme. It uses the
   `inverseSurface` and `onInverse` colors of the palette. Without them it uses
   `contentStrong` with `surface` text. The button has the
-  `facet-appearance-inverse` tag. A `utility` or `link` Button has no plate:
+  `facet-appearance-inverse` tag. A `bare` Button is its
+  children: an object in a scene, such as a card, a jar or a tool, with one
+  semantic target. It has no plate, no theme art, no padding and no minimum
+  size of its own, so it has the size of its face. Give it a `name`. Facet
+  still draws focus, and on touch the hit target keeps the minimum size while
+  the face keeps its own. Set `appearance = "bare"` when you build the Button;
+  it is not a bound value. A `utility` or `link` Button has no plate:
   a theme's `control` chrome art paints only the other appearances. A Button
   whose `BackgroundTransparency` is 1 has no plate art either, so a
   transparent hit target never covers the content beneath it. A bound
