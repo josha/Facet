@@ -25,6 +25,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			"tileSize",
 			"sliceCenter",
 			"sliceScale",
+			"paintRect",
 			"resample",
 			"shape",
 			"width",
@@ -71,6 +72,30 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		else
 			assert(spec.sliceCenter == nil, "Facet UI.Image: sliceCenter requires scaleMode slice")
 			assert(spec.sliceScale == nil, "Facet UI.Image: sliceScale requires scaleMode slice")
+		end
+		local paint = spec.paintRect
+		if paint ~= nil then
+			assert(
+				type(paint) == "table"
+					and type(paint.x0) == "number"
+					and type(paint.y0) == "number"
+					and type(paint.x1) == "number"
+					and type(paint.y1) == "number"
+					and type(paint.width) == "number"
+					and type(paint.height) == "number"
+					and paint.x0 >= 0
+					and paint.y0 >= 0
+					and paint.x1 > paint.x0
+					and paint.y1 > paint.y0
+					and paint.x1 <= paint.width
+					and paint.y1 <= paint.height,
+				"Facet UI.Image: paintRect = { x0, y0, x1, y1, width, height } is the rectangle of the paint, "
+					.. "inside an image of width by height source pixels"
+			)
+			assert(
+				not Compose.isValue(spec.image) and type(spec.image) ~= "function",
+				"Facet UI.Image: paintRect belongs to one image; author image as a static string with it"
+			)
 		end
 		assert(
 			spec.shape == nil or spec.shape == "rect" or spec.shape == "circle",
@@ -182,6 +207,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			}
 		end
 		local image = Host.ImageLabel(ctx.props(spec, keys, defaults))
+		if paint ~= nil then
+			image:SetAttribute("FacetPaintRect", types.Rect.new(paint.x0, paint.y0, paint.x1, paint.y1))
+			image:SetAttribute("FacetSourceSize", types.Vector2.new(paint.width, paint.height))
+		end
 		prepareMedia(ctx, image, spec.ImageTransparency)
 		return image
 	end)

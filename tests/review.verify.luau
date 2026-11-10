@@ -20,6 +20,7 @@ type Options = {
 	z: number?,
 	turn: number?,
 	native: boolean?,
+	paint: Rules.ReviewRect?,
 }
 
 local DARK = { r = 0.08, g = 0.09, b = 0.12 }
@@ -53,6 +54,7 @@ local function scene()
 			fan = given.fan,
 			z = given.z,
 			turn = given.turn,
+			paint = given.paint,
 		}
 		if given.text ~= nil then
 			element.text = {
@@ -586,6 +588,287 @@ return function(harness: Verify.Harness)
 			ink = { x = 80, y = 108, width = 160, height = 24 },
 		})
 		t:expect(rules(Rules.analyze(snapshot3()))["escaped-text"]):toBe(1)
+	end)
+
+	harness:case("an image covers a text only where its painted bounds reach", function(t)
+		local function build(paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local row = add(page, "Frame", 200, 190, 1300, 700)
+			local header = add(row, "Frame", 690, 198, 540, 54)
+			add(header, "TextLabel", 690, 198, 540, 54, {
+				text = "Choose your companion",
+				size = 30,
+				ink = { x = 814, y = 206, width = 292, height = 37 },
+			})
+			local choice = add(row, "Frame", 698, 195, 523, 687)
+			add(choice, "ImageLabel", 698, 195, 523, 687, { image = true, paint = paint })
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(build(nil)["covered-text"]):toBe(1)
+		t:expect(build({ x = 730, y = 270, width = 459, height = 541 })["covered-text"]):toBe(nil)
+		t:expect(build({ x = 730, y = 200, width = 459, height = 611 })["covered-text"]):toBe(1)
+		t:expect(build({ x = 959, y = 538, width = 0, height = 0 })["covered-text"]):toBe(nil)
+	end)
+
+	harness:case("a text escapes an image at the edge of its painted bounds", function(t)
+		local card = { x = 258, y = 18, width = 200, height = 62 }
+		local cardPaint = { x = 267, y = 24, width = 184, height = 51 }
+		local function build(ink: Rules.ReviewRect, paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 749, 389, { opaque = true })
+			local word = add(page, "Frame", card.x, card.y, card.width, card.height)
+			add(word, "ImageLabel", card.x, card.y, card.width, card.height, { image = true, paint = paint })
+			local lines = add(word, "Frame", card.x, card.y, card.width, card.height)
+			add(
+				lines,
+				"TextLabel",
+				ink.x,
+				ink.y,
+				ink.width,
+				ink.height,
+				{ text = "YOUR SECRET WORD", size = 14, ink = ink }
+			)
+			local taken = snapshot()
+			taken.width, taken.height = 749, 389
+			return Rules.analyze(taken)
+		end
+		local overTopEdge = { x = 302, y = 20, width = 113, height = 14 }
+		t:expect(rules(build(overTopEdge, nil))["escaped-text"]):toBe(nil)
+		local escaped = build(overTopEdge, cardPaint)
+		t:expect(rules(escaped)["escaped-text"]):toBe(1)
+		t:expect(string.find(escaped.text, "runs past the edge of", 1, true) ~= nil):toBe(true)
+		local onThePaint = { x = 302, y = 30, width = 113, height = 14 }
+		t:expect(rules(build(onThePaint, cardPaint))["escaped-text"]):toBe(nil)
+		local cornerOfMargin = { x = 260, y = 19, width = 14, height = 12 }
+		t:expect(rules(build(cornerOfMargin, cardPaint))["escaped-text"]):toBe(nil)
+		local pastTheRectangle = { x = 250, y = 19, width = 40, height = 14 }
+		t:expect(rules(build(pastTheRectangle, cardPaint))["escaped-text"]):toBe(1)
+		t:expect(rules(build(pastTheRectangle, nil))["escaped-text"]):toBe(1)
+	end)
+
+	harness:case("an image separates two overlapping texts only where it is painted", function(t)
+		local function build(paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			add(page, "TextLabel", 100, 100, 200, 30, {
+				text = "Pot",
+				ink = { x = 100, y = 100, width = 200, height = 30 },
+			})
+			local card = add(page, "Frame", 80, 80, 400, 200)
+			add(card, "ImageLabel", 80, 80, 400, 200, { image = true, paint = paint })
+			add(card, "TextLabel", 150, 110, 200, 30, {
+				text = "Stake",
+				ink = { x = 150, y = 110, width = 200, height = 30 },
+			})
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(build(nil)["overlapping-text"]):toBe(nil)
+		t:expect(build({ x = 90, y = 90, width = 380, height = 180 })["overlapping-text"]):toBe(nil)
+		t:expect(build({ x = 320, y = 90, width = 150, height = 180 })["overlapping-text"]):toBe(1)
+	end)
+
+	harness:case("painted bounds come from the opaque pixels and follow the scale mode", function(t)
+		local Paint = require("../src/ui/review_paint")
+		local width, height = 200, 100
+		local pixels = buffer.create(width * height * 4)
+		local function fill(x0: number, y0: number, x1: number, y1: number, alpha: number)
+			for y = y0, y1 - 1 do
+				for x = x0, x1 - 1 do
+					buffer.writeu8(pixels, (y * width + x) * 4 + 3, alpha)
+				end
+			end
+		end
+		fill(20, 10, 160, 60, 255)
+		fill(20, 60, 160, 80, 140)
+		fill(20, 80, 180, 95, 20)
+		local box = Paint.measure(pixels, width, height)
+		t:expect(box):toEqual({ x0 = 20, y0 = 10, x1 = 160, y1 = 80, width = 200, height = 100 })
+		local empty = Paint.measure(buffer.create(16 * 4), 4, 4)
+		t:expect(empty.x1 - empty.x0):toBe(0)
+		local rect = { x = 100, y = 50, width = 400, height = 100 }
+		t:expect(Paint.place(rect, box, "Stretch", nil, 0)):toEqual({ x = 140, y = 60, width = 280, height = 70 })
+		t:expect(Paint.place(rect, box, "Fit", nil, 0)):toEqual({ x = 220, y = 60, width = 140, height = 70 })
+		t:expect(Paint.place(rect, box, "Crop", nil, 0)):toEqual({ x = 140, y = 50, width = 280, height = 100 })
+		t:expect(Paint.place(rect, box, "Tile", nil, 0)):toEqual(rect)
+		t:expect(Paint.place(rect, empty, "Stretch", nil, 0).width):toBe(0)
+		local slice = { x0 = 50, y0 = 30, x1 = 150, y1 = 70, scale = 1 }
+		t:expect(Paint.place(rect, box, "Slice", slice, 0)):toEqual({ x = 120, y = 60, width = 340, height = 70 })
+		local upright = { x = 100, y = 50, width = 200, height = 100 }
+		t:expect(Paint.place(upright, box, "Stretch", nil, 1)):toEqual({ x = 170, y = 20, width = 70, height = 140 })
+		t:expect(Paint.place(upright, box, "Stretch", nil, 2)):toEqual({ x = 140, y = 70, width = 140, height = 70 })
+		t:expect(Paint.place(upright, box, "Stretch", nil, 3)):toEqual({ x = 160, y = 40, width = 70, height = 140 })
+		t:expect(Paint.place(upright, box, "Stretch", nil, -1)):toEqual(Paint.place(upright, box, "Stretch", nil, 3))
+	end)
+
+	harness:case("a screen-size image stays out of the cover and backing checks whatever its paint", function(t)
+		local banner = { x = 600, y = 270, width = 700, height = 400 }
+		local function overlay(paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local hud = add(page, "Frame", 0, 0, 1920, 1080)
+			add(hud, "TextLabel", 700, 300, 300, 40, {
+				text = "Lap 2 of 3",
+				size = 28,
+				ink = { x = 700, y = 300, width = 160, height = 34 },
+			})
+			local layer = add(page, "Frame", 0, 0, 1920, 1080)
+			add(layer, "ImageLabel", 0, 0, 1920, 1080, { image = true, paint = paint })
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(overlay(nil)["covered-text"]):toBe(nil)
+		t:expect(overlay(banner)["covered-text"]):toBe(nil)
+		local function button(paint: Rules.ReviewRect?)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080)
+			add(page, "ImageLabel", 0, 0, 1920, 1080, { image = true, paint = paint })
+			add(page, "TextButton", 800, 400, 120, 40, {
+				opaque = true,
+				fill = PANEL,
+				interactive = true,
+				text = "Deal again",
+				size = 20,
+				ink = { x = 790, y = 405, width = 160, height = 28 },
+			})
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(button(nil)["escaped-text"]):toBe(1)
+		t:expect(button(banner)["escaped-text"]):toBe(1)
+	end)
+
+	harness:case("collect takes painted bounds from paintRect, then from the pixels in Studio", function(t)
+		type Fake = { [string]: unknown }
+		local reads = 0
+		local function vector(x: number, y: number): Fake
+			return { X = x, Y = y }
+		end
+		local function editable(
+			width: number,
+			height: number,
+			left: number,
+			top: number,
+			right: number,
+			bottom: number
+		): Fake
+			return {
+				Size = vector(width, height),
+				ReadPixelsBuffer = function(_: Fake, position: Fake, size: Fake): buffer
+					local fromX, fromY = position.X :: number, position.Y :: number
+					local wide, tall = size.X :: number, size.Y :: number
+					local pixels = buffer.create(wide * tall * 4)
+					for y = 0, tall - 1 do
+						for x = 0, wide - 1 do
+							local sourceX, sourceY = fromX + x, fromY + y
+							if sourceX >= left and sourceX < right and sourceY >= top and sourceY < bottom then
+								buffer.writeu8(pixels, (y * wide + x) * 4 + 3, 255)
+							end
+						end
+					end
+					return pixels
+				end,
+				Destroy = function() end,
+			}
+		end
+		local function world(studio: boolean): Fake
+			local services: { [string]: Fake } = {
+				Workspace = { CurrentCamera = { ViewportSize = vector(749, 389) } },
+				RunService = {
+					IsStudio = function(): boolean
+						return studio
+					end,
+				},
+				AssetService = {
+					CreateEditableImageAsync = function(_: Fake, content: unknown): Fake
+						reads += 1
+						assert(content ~= "locked", "no permission to load asset")
+						return editable(392, 182, 16, 16, 376, 166)
+					end,
+				},
+			}
+			return {
+				GetService = function(_: Fake, name: string): Fake?
+					return services[name]
+				end,
+			}
+		end
+		local function node(class: string, name: string, properties: Fake, kids: { Fake }?): Fake
+			local made: Fake = table.clone(properties)
+			made.ClassName, made.Name = class, name
+			made.IsA = function(_: Fake, asked: string): boolean
+				return asked == class or (asked == "GuiObject" and class ~= "ScreenGui")
+			end
+			made.GetChildren = function(): { Fake }
+				return kids or {}
+			end
+			made.GetFullName = function(): string
+				return "Gui." .. name
+			end
+			return made
+		end
+		local function image(name: string, uri: string, attributes: Fake?, crop: { Fake }?): Fake
+			return node("ImageLabel", name, {
+				AbsolutePosition = vector(258, 18),
+				AbsoluteSize = vector(200, 62),
+				Image = uri,
+				ImageContent = if uri == "rbxassetid://locked" then "locked" else uri,
+				ImageRectOffset = if crop then crop[1] else vector(0, 0),
+				ImageRectSize = if crop then crop[2] else vector(0, 0),
+				ScaleType = { Name = "Stretch" },
+				GetAttribute = function(_: Fake, key: string): unknown
+					return if attributes then attributes[key] else nil
+				end,
+			})
+		end
+		local function paintOf(game: Fake, child: Fake): Rules.ReviewRect?
+			local screen = node("ScreenGui", "Screen", {
+				FindFirstAncestorWhichIsA = function(): Fake
+					return game
+				end,
+			}, { child })
+			screen.IsA = function(_: Fake, asked: string): boolean
+				return asked == "ScreenGui" or asked == "LayerCollector"
+			end
+			local review = require("../src/ui/review")
+			local snapshot = review.collect({ root = (screen :: unknown) :: Instance })
+			return snapshot.elements[1].paint
+		end
+		local studio = world(true)
+		local measured = paintOf(studio, image("Card", "rbxassetid://card"))
+		t:expect(measured ~= nil):toBe(true)
+		local paint = measured :: Rules.ReviewRect
+		t:expect(math.abs(paint.x - (258 + 16 * 200 / 392)) < 0.01):toBe(true)
+		t:expect(math.abs(paint.y - (18 + 16 * 62 / 182)) < 0.01):toBe(true)
+		t:expect(math.abs(paint.width - 360 * 200 / 392) < 0.01):toBe(true)
+		t:expect(math.abs(paint.height - 150 * 62 / 182) < 0.01):toBe(true)
+		t:expect(reads):toBe(1)
+		paintOf(studio, image("CardAgain", "rbxassetid://card"))
+		t:expect(reads):toBe(1)
+		t:expect(paintOf(studio, image("Locked", "rbxassetid://locked"))):toBe(nil)
+		t:expect(paintOf(world(false), image("Live", "rbxassetid://live"))):toBe(nil)
+		local declared = paintOf(
+			world(false),
+			image("Declared", "rbxassetid://locked", {
+				FacetPaintRect = { Min = vector(98, 0), Max = vector(294, 182) },
+				FacetSourceSize = vector(392, 182),
+			})
+		)
+		t:expect(declared):toEqual({ x = 308, y = 18, width = 100, height = 62 })
+		local declaredInStudio = paintOf(
+			studio,
+			image("DeclaredCard", "rbxassetid://card", {
+				FacetPaintRect = { Min = vector(98, 0), Max = vector(294, 182) },
+				FacetSourceSize = vector(392, 182),
+			})
+		)
+		t:expect(declaredInStudio):toEqual(declared)
+		local cropped =
+			paintOf(studio, image("Cropped", "rbxassetid://sheet", nil, { vector(196, 91), vector(196, 91) }))
+		t:expect(cropped ~= nil):toBe(true)
+		local part = cropped :: Rules.ReviewRect
+		t:expect(math.abs(part.x - 258) < 0.01):toBe(true)
+		t:expect(math.abs(part.width - 180 * 200 / 196) < 0.01):toBe(true)
+		t:expect(math.abs(part.y - 18) < 0.01):toBe(true)
+		t:expect(math.abs(part.height - 75 * 62 / 91) < 0.01):toBe(true)
 	end)
 
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)

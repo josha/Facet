@@ -23,6 +23,12 @@ control height. A native `Size` replaces it.
   source pixels, and takes an optional `sliceScale` above zero (default 1). A
   geometry key without its mode, or a mode without its geometry, causes an
   error.
+- `paintRect = { x0, y0, x1, y1, width, height }` declares the rectangle that
+  holds the paint of the art, in the source pixels of an image that is
+  `width` by `height`. With `ImageRectSize`, use the pixels of that crop. It
+  does not change the picture. `Facet.review` uses it as the painted bounds
+  of the image. Give it for art with a transparent margin that Studio cannot
+  read, such as an asset of another creator. It requires a static `image`.
 - `resample` is `default` or `pixelated` and sets `ResampleMode`. It can be
   bound.
 - `shape = "circle"` adds a `UICorner` of half the size and a square

@@ -77,9 +77,11 @@ color that the label contrasts with. Then make the edge of the file the edge
 of the paint: crop the transparent margin, and keep a soft shadow in its own
 layer or record the painted rectangle in the art module. Pad the label to
 the painted rectangle and choose its size from the size of the piece at each
-form, so the label cannot sit on the margin or leave the shape. Keep such a
-piece near its drawn proportions. When its slot has another shape, show more
-pieces or change the arrangement; do not stretch one.
+form, so the label cannot sit on the margin or leave the shape. The review
+reads the painted bounds of your own art in Studio; for art that Studio
+cannot read, pass the recorded rectangle as `paintRect` on `UI.Image`. Keep
+such a piece near its drawn proportions. When its slot has another shape,
+show more pieces or change the arrangement; do not stretch one.
 
 Keep files small and few. One plate that stretches serves every button. Draw
 state variants (default, pressed, selected, disabled) only where a tint or a

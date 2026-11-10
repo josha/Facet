@@ -20,7 +20,7 @@ Types.ToggleCellProps option values and behavior.
   `OverlayRect` and `CollectionPlacement`.
 - The value types `ButtonRole`, `TextCommitReason`, `CommitReason`,
   `ClearButtonMode`, `ControlSize`, `Status`, `TextRole`, `Presence`,
-  `ImageScaleMode`, `ImageLoader`, `VoteValue`, `StepState`,
+  `ImageScaleMode`, `ImagePaintRect`, `ImageLoader`, `VoteValue`, `StepState`,
   `PaginationForm`, `TabPlacement`, `TabSelectionIndicator`,
   `NoticeSeverity`, `ColorSwatch`, `ColorPickerMode` and `DateRangePreset`.
 - The dismiss reasons `DialogDismissReason`, `PopoverDismissReason`,

@@ -14,10 +14,10 @@ agents, not a runtime feature.
   `close()` functions. `options.root` selects the root and `options.settle`
   sets the wait after opening in seconds (default `0.5`). Common build and
   runtime errors appear once across screens. Each target is closed after review.
-- `review.collect(options?) -> ReviewSnapshot` returns the snapshot only. It
+- `review.collect(options?) -> ReviewSnapshot` returns the snapshot. It
   reads ScreenGuis only, styled values (`GetStyled`), effective visibility,
-  absolute rectangles, the rendered size of scaled text under `UIScale` and
-  the `facet-type-*` tag of each Text.
+  absolute rectangles, painted bounds of images, the rendered size of scaled
+  text under `UIScale` and the `facet-type-*` tag of each Text.
 - `review.analyze(snapshot) -> ReviewReport` analyzes a snapshot. It is pure.
 - `review.fixes` maps each rule to its fix.
 

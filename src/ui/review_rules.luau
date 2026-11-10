@@ -27,6 +27,7 @@ export type ReviewElement = {
 	fill: ReviewColor,
 	fillTransparency: number,
 	image: boolean,
+	paint: ReviewRect?,
 	text: ReviewText?,
 	unfit: string?,
 }
@@ -231,6 +232,15 @@ end
 
 local function isPlate(element: ReviewElement): boolean
 	return element.fillTransparency < 0.4 and element.rect.width >= 24 and element.rect.height >= 24
+end
+
+local function face(element: ReviewElement): ReviewRect
+	local paint = element.paint
+	return if paint ~= nil and element.image and not isPlate(element) then paint else element.rect
+end
+
+local function solid(element: ReviewElement): boolean
+	return isPlate(element) or (element.image and area(face(element)) > 0)
 end
 
 local function prepare(snapshot: ReviewSnapshot): Prepared
@@ -865,10 +875,10 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		return ink
 	end
 	local function backs(element: ReviewElement, shared: ReviewRect): boolean
-		if not (isPlate(element) or element.image) then
+		if not solid(element) then
 			return false
 		end
-		local hidden = overlap(element.rect, shared)
+		local hidden = overlap(face(element), shared)
 		return hidden ~= nil and area(hidden) >= area(shared) * 0.9
 	end
 	local function covered(chain: { ReviewElement }, other: { ReviewElement }, shared: ReviewRect): boolean
@@ -949,14 +959,14 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				cover == element
 				or cover.parent == element.parent
 				or table.find(entry.chain, cover) ~= nil
-				or not (isPlate(cover) or cover.image)
+				or not solid(cover)
 				or area(cover.rect) >= limit
 				or (cover.turn or 0) > 10
 				or not shown(cover, snapshot.width, snapshot.height)
 			then
 				continue
 			end
-			local hidden = overlap(cover.rect, entry.ink)
+			local hidden = overlap(face(cover), entry.ink)
 			if hidden == nil or area(hidden) < area(entry.ink) * 0.5 then
 				continue
 			end
@@ -1054,6 +1064,11 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		local down = math.max(rect.y - ink.y, ink.y + ink.height - rect.y - rect.height)
 		return across >= math.max(4, 0.3 * size) or down >= math.max(3, 0.25 * size)
 	end
+	local function edgeOf(backing: ReviewElement, ink: ReviewRect): ReviewRect
+		local paint = face(backing)
+		local on = overlap(paint, ink)
+		return if on ~= nil and area(on) >= 0.5 * area(ink) then paint else backing.rect
+	end
 	local function near(backing: ReviewElement, chain: { ReviewElement }): boolean
 		for depth, ancestor in chain do
 			if ancestor == backing or (depth <= 3 and ancestor.index == backing.parent) then
@@ -1097,18 +1112,15 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		local held = false
 		if nearest == nil then
 			for _, backing in snapshot.elements do
-				if
-					backing == element
-					or not (isPlate(backing) or backing.image)
-					or not shown(backing, snapshot.width, snapshot.height)
-				then
+				if backing == element or not solid(backing) or not shown(backing, snapshot.width, snapshot.height) then
 					continue
 				end
 				local shared = overlap(backing.rect, ink)
 				if shared == nil or area(shared) < 0.5 * area(ink) or not beneath(backing, element) then
 					continue
 				end
-				if area(backing.rect) < limit and not past(ink, backing.rect, text.size) then
+				local edge = edgeOf(backing, ink)
+				if area(backing.rect) < limit and not past(ink, edge, text.size) then
 					held = true
 				end
 				if nearest == nil or beneath(nearest, backing) then
@@ -1119,7 +1131,8 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if nearest == nil or (held and nearest ~= element) or (nearest.turn or 0) > 1 then
 			continue
 		end
-		if area(nearest.rect) >= limit or not past(ink, nearest.rect, text.size) then
+		local edge = edgeOf(nearest, ink)
+		if area(nearest.rect) >= limit or not past(ink, edge, text.size) then
 			continue
 		end
 		if nearest ~= element and not isPlate(nearest) then

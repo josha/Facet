@@ -1,5 +1,6 @@
 --!strict
 local ambient = require("./ambient")
+local Paint = require("./review_paint")
 local Rules = require("./review_rules")
 
 export type ReviewReport = Rules.ReviewReport
@@ -100,6 +101,163 @@ local function dataModel(): unknown
 	return ambient()
 end
 
+type PaintJob = {
+	element: ReviewElement,
+	node: unknown,
+	rect: Rules.ReviewRect,
+	quarter: number,
+	mode: string,
+	slice: Paint.Slice,
+}
+type PaintCrop = { key: string, offset: unknown, extent: unknown, width: number, height: number }
+type PaintSource = { content: unknown, crops: { PaintCrop } }
+
+local PAINT_READERS = 8
+local measured: { [string]: Paint.Box | false } = {}
+
+local function declaredPaint(node: unknown): Paint.Box?
+	local hasRect, rect = call(node, "GetAttribute", "FacetPaintRect")
+	local hasSize, size = call(node, "GetAttribute", "FacetSourceSize")
+	if not hasRect or rect == nil or not hasSize or size == nil then
+		return nil
+	end
+	local x0, y0 = vector(read(rect, "Min"))
+	local x1, y1 = vector(read(rect, "Max"))
+	local width, height = vector(size)
+	if width <= 0 or height <= 0 then
+		return nil
+	end
+	return { x0 = x0, y0 = y0, x1 = x1, y1 = y1, width = width, height = height }
+end
+
+local function paintCrop(node: unknown): PaintCrop?
+	local image = text(read(node, "Image"))
+	if image == nil or image == "" then
+		return nil
+	end
+	local offset, extent = read(node, "ImageRectOffset"), read(node, "ImageRectSize")
+	local x, y = vector(offset)
+	local width, height = vector(extent)
+	if (width <= 0 or height <= 0) and (x ~= 0 or y ~= 0) then
+		return nil
+	end
+	return {
+		key = ("%s|%g,%g,%g,%g"):format(image, x, y, width, height),
+		offset = offset,
+		extent = extent,
+		width = width,
+		height = height,
+	}
+end
+
+local function readPaint(assets: unknown, source: PaintSource)
+	local loaded, image = call(assets, "CreateEditableImageAsync", source.content)
+	if loaded and image ~= nil then
+		local size = read(image, "Size")
+		local fullWidth, fullHeight = vector(size)
+		for _, crop in source.crops do
+			local whole = crop.width <= 0 or crop.height <= 0
+			local width = if whole then fullWidth else crop.width
+			local height = if whole then fullHeight else crop.height
+			local got, pixels = call(image, "ReadPixelsBuffer", crop.offset, if whole then size else crop.extent)
+			if got and type(pixels) == "buffer" and width > 0 and buffer.len(pixels) >= width * height * 4 then
+				measured[crop.key] = Paint.measure(pixels, width, height)
+			end
+		end
+		call(image, "Destroy")
+	end
+	for _, crop in source.crops do
+		if measured[crop.key] == nil then
+			measured[crop.key] = false
+		end
+	end
+end
+
+local function measurePaint(game: unknown, jobs: { PaintJob }): { [PaintJob]: string }
+	local keys: { [PaintJob]: string } = {}
+	local sources: { [string]: PaintSource } = {}
+	local order: { PaintSource } = {}
+	for _, job in jobs do
+		local crop = paintCrop(job.node)
+		if crop == nil then
+			continue
+		end
+		keys[job] = crop.key
+		if measured[crop.key] ~= nil then
+			continue
+		end
+		local image = text(read(job.node, "Image")) or ""
+		local source = sources[image]
+		if source == nil then
+			source = { content = read(job.node, "ImageContent"), crops = {} }
+			sources[image] = source
+			table.insert(order, source)
+		end
+		local queued = false
+		for _, other in source.crops do
+			queued = queued or other.key == crop.key
+		end
+		if not queued then
+			table.insert(source.crops, crop)
+		end
+	end
+	if #order == 0 then
+		return keys
+	end
+	local hasRun, run = call(game, "GetService", "RunService")
+	local known, inStudio = call(if hasRun then run else nil, "IsStudio")
+	local found, assets = call(game, "GetService", "AssetService")
+	if not known or inStudio ~= true or not found or assets == nil or not coroutine.isyieldable() then
+		return keys
+	end
+	local scheduler = if task then task else nil
+	if scheduler == nil then
+		for _, source in order do
+			readPaint(assets, source)
+		end
+		return keys
+	end
+	local nextSource, working = 1, 0
+	local function work()
+		while nextSource <= #order do
+			local source = order[nextSource]
+			nextSource += 1
+			pcall(readPaint, assets, source)
+		end
+		working -= 1
+	end
+	for _ = 1, math.min(PAINT_READERS, #order) do
+		working += 1
+		scheduler.spawn(work)
+	end
+	while working > 0 do
+		scheduler.wait()
+	end
+	return keys
+end
+
+local function paint(game: unknown, jobs: { PaintJob })
+	local undeclared: { PaintJob } = {}
+	local boxes: { [PaintJob]: Paint.Box } = {}
+	for _, job in jobs do
+		local box = declaredPaint(job.node)
+		if box ~= nil then
+			boxes[job] = box
+		else
+			table.insert(undeclared, job)
+		end
+	end
+	for job, key in measurePaint(game, undeclared) do
+		local box = measured[key]
+		if box then
+			boxes[job] = box
+		end
+	end
+	for job, box in boxes do
+		job.element.paint = Paint.place(job.rect, box, job.mode, job.slice, job.quarter)
+	end
+end
+
 local function roots(root: Instance?): { unknown }
 	if root ~= nil then
 		return { root }
@@ -124,6 +282,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 	local ok, workspace = call(game, "GetService", "Workspace")
 	local width, height = vector(read(if ok then read(workspace, "CurrentCamera") else nil, "ViewportSize"))
 	local elements: { ReviewElement } = {}
+	local paintJobs: { PaintJob } = {}
 	local visit: (unknown, number?, boolean, number) -> ()
 	local function visitChild(child: unknown, parent: number?, shown: boolean, scale: number)
 		do
@@ -142,10 +301,15 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				local x, y = vector(read(child, "AbsolutePosition"))
 				local w, h = vector(read(child, "AbsoluteSize"))
 				local visible = shown and read(child, "Visible") ~= false
-				local spin = number(read(child, "AbsoluteRotation"), 0) % 180
+				local rotation = number(read(child, "AbsoluteRotation"), 0)
+				local spin = rotation % 180
 				local turn = math.min(spin, 180 - spin)
+				local unturned: Rules.ReviewRect = { x = x, y = y, width = w, height = h }
 				local lettered = isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox")
-				if turn > 89 and not lettered and math.abs(number(read(child, "Rotation"), 0) % 180 - spin) < 1 then
+				local turned = turn > 89
+					and not lettered
+					and math.abs(number(read(child, "Rotation"), 0) % 180 - spin) < 1
+				if turned then
 					x, y, w, h, turn = x + (w - h) / 2, y + (h - w) / 2, h, w, 0
 				end
 				local tagged, marked = call(child, "HasTag", "facet-icon-glyph")
@@ -187,6 +351,36 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 							and number(styled(child, "ImageTransparency"), 0) < 0.9
 						),
 				}
+				local pictured = (isA(child, "ImageLabel") or isA(child, "ImageButton")) and element.image
+				local quarter = math.floor(rotation / 90 + 0.5)
+				local inherited = (rotation - number(read(child, "Rotation"), 0)) % 360
+				local upright = quarter % 2 == 0 and math.abs(rotation - quarter * 90) <= 10
+				if
+					pictured
+					and visible
+					and w > 0
+					and h > 0
+					and (upright or turned)
+					and (inherited < 1 or inherited > 359)
+				then
+					local center = read(child, "SliceCenter")
+					local sliceX0, sliceY0 = vector(read(center, "Min"))
+					local sliceX1, sliceY1 = vector(read(center, "Max"))
+					table.insert(paintJobs, {
+						element = element,
+						node = child,
+						rect = unturned,
+						quarter = quarter,
+						mode = text(read(read(child, "ScaleType"), "Name")) or "Stretch",
+						slice = {
+							x0 = sliceX0,
+							y0 = sliceY0,
+							x1 = sliceX1,
+							y1 = sliceY1,
+							scale = number(read(child, "SliceScale"), 1),
+						},
+					})
+				end
 				local hasUnfit, unfit = call(child, "GetAttribute", "FacetUnfit")
 				if hasUnfit and unfit == true then
 					local found, details = call(child, "FindFirstChild", "FacetUnfitDetails")
@@ -249,6 +443,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 			visit(root, nil, true, 1)
 		end
 	end
+	paint(game, paintJobs)
 	if width <= 0 or height <= 0 then
 		for _, element in elements do
 			width = math.max(width, element.rect.x + element.rect.width)
