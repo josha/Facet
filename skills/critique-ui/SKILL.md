@@ -32,67 +32,36 @@ Use the full loop when independent review would add useful evidence.
 
 ## Review a design target
 
-When a separate concept guides an expressive game, review it before translation.
-For new open art direction, review the alternatives together in one round.
-Check that their composition, type and rendering approach differ where the
-game's visual constraints leave room, then judge each against the same task
-and appropriate finish. Do not select a winner solely because
-it is the easiest to implement. If all are generic, request revision of the set.
-For a focused native study suited to an established, quiet or explicitly
-minimal brief, the first Studio screen can supply both the direction and the
-runtime evidence; it does not need a duplicate concept round.
-Use the loop below for a separate concept with a packet labeled
-`design target`: the original brief, prototype images, inspected references
-and the states the design proposes. Static representative data is sufficient.
-Do not require a runtime dump or input proof at this stage. Judge visual
-quality, readability, composition and state treatment; mark runtime and input
-as unverified. Resolve visual `must` fixes before implementation.
+Use these rounds when a separate concept image guides an expressive game.
 
-Use the next fresh round on the first representative Studio screen, before
-functional routes and repeated layouts. Label the packet `runtime translation`.
-State whether the target is an agent-chosen concept (90% visual lock), a
-user-provided specification (100% lock), a directional sketch, or external
-inspiration. For a directional sketch, record the intended constraints and
-the developed visual target; do not require fidelity to incidental sketch
-styling or spacing. Determine its role from the user's wording and task.
-Include the
-original target, any permitted refinements, and the reference-size capture
-at equal viewing sizes, with an aligned layout overlay and paired detail crops.
-Judge target fidelity separately from general visual quality. A coherent
-screen with a materially different composition or finish needs revision.
-Show the choice, action and opened control where the task has them. Include
-selection with focus on that item, selection after focus moves to a peer,
-pressed paint, and any changing feedback before and after acceptance. Do not
-infer these combinations from separate idle images. First resolve fidelity
-at the target's aspect ratio. A packet limited to that first-screen checkpoint
-does not need an invented multi-device scope. For a full multi-device task,
-subsequently include the declared minimum supported narrow and short layouts
-before the author expands to other routes. Use the [minimum-viewport procedure](../use-facet/references/compact-compositions.md#verify-the-minimum-viewport).
-Require recorded camera, safe-area and task-body dimensions with scaling;
-a preset name alone does not establish coverage. Keep a separate notched case
-when it imposes different constraints. For phones supporting both orientations, require portrait
-and landscape evidence; neither proves the other. Check actual target sizes
-and text, not the device's nominal resolution. View enlarged phone captures at their recorded camera width
-for readability, and use the full-resolution image for painted-edge inspection.
-Static task data is
-sufficient; these must be real controls with live labels. Judge whether their
-visible shapes, type and state treatment carry the target's direction.
-Successful image loading and a matching palette do not establish that.
-Name the most important quality lost in translation, if any, even when the
-runtime looks coherent on its own. Check the author's preservation claims
-against the images; correct behavior does not offset missing visual craft.
-Accept a deliberate runtime font substitution when it preserves hierarchy and
-readability. Still judge the craft of the composition, subject and interactive
-surfaces within the chosen visual language.
-List the image paths actually viewed. Identify missing required state or
-viewport captures in the verdict; a visual score for the supplied images
-does not clear that missing evidence.
-Resolve visual `must` fixes and inspect the repair before extending the game.
+1. **Target round.** Before translation, review the alternatives together.
+   The packet, labeled `design target`, holds the original brief, the concept
+   images, any references and the states that the concepts propose. Judge
+   visual quality, readability, composition and state treatment. Runtime and
+   input stay unverified. If every alternative is generic, ask for a revised
+   set. Do not select a winner because it is the easiest to build.
+2. **Translation round.** Review the first Studio screen before other routes
+   are built. The packet, labeled `runtime translation`, holds the target and
+   its role (agent-chosen concept, user specification, directional sketch or
+   inspiration), a capture at the target's aspect ratio at the same viewing
+   size, and captures at the smallest supported phone in each orientation.
+   Show the choice, the action and an opened control as real controls with
+   live labels: selected with focus, selected with focus on a peer, pressed,
+   and feedback before and after acceptance.
+   Judge fidelity to the target separately from general quality. Name the most
+   important quality lost in translation even when the runtime looks coherent
+   on its own. A coherent screen with a materially different composition or
+   finish needs revision. Loaded images and a matching palette do not show
+   that shapes, type and state treatment survived. Accept a font substitution
+   that keeps hierarchy and readability.
+3. **Final round.** Review the completed task with its actual states and sizes.
 
-Review the completed task with its actual states, sizes and input evidence.
-Keep the loop's three-round limit across target, runtime translation and final
-task; changing the packet label does not start a new review budget. If no
-fresh round remains, use a separate self-review and report that limit.
+A quiet, established or explicitly minimal design has no separate concept. Its
+first Studio screen is both the target and the runtime evidence.
+
+The loop's three-round limit covers these rounds together. In the verdict,
+list the images viewed and name any missing state or size; a score for the
+supplied images does not cover a missing one.
 
 ## The loop
 

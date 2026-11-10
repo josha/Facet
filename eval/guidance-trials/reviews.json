@@ -1,0 +1,409 @@
+{
+  "schemaVersion": 1,
+  "axes": [
+    "identity",
+    "craft",
+    "lead",
+    "desktop",
+    "portrait",
+    "landscape"
+  ],
+  "scale": "1 to 5",
+  "note": "One reviewer per review, one run per cell. The same build scored identity 4, 3 and 2 in three reviews; treat one point as noise. Do not average across reviews.",
+  "reviews": [
+    {
+      "id": "p1-blackjack",
+      "phase": 1,
+      "kind": "pair",
+      "builds": [
+        "blackjack-1",
+        "blackjack-2"
+      ],
+      "scores": null,
+      "outcome": "Reviewer picked blackjack-1 (identity 5 against 3) and rated blackjack-2 better on phones (4 and 3 against 2 and 2)."
+    },
+    {
+      "id": "p1-honey",
+      "phase": 1,
+      "kind": "three-way",
+      "builds": [
+        "honey-1",
+        "honey-2",
+        "honey-3"
+      ],
+      "scores": null,
+      "ranking": [
+        "honey-2",
+        "honey-3",
+        "honey-1"
+      ],
+      "outcome": "honey-2 first with 4 on every axis; honey-3 clean on phones with identity 3; honey-1 had identity 5 and 2 on both phone sizes."
+    },
+    {
+      "id": "p1-mail",
+      "phase": 1,
+      "kind": "pair",
+      "builds": [
+        "mail-1",
+        "mail-2"
+      ],
+      "scores": null,
+      "outcome": "Reviewer picked mail-1 with low to medium confidence. Both builds shared the same layout faults."
+    },
+    {
+      "id": "honey-v3",
+      "phase": 2,
+      "kind": "pair",
+      "builds": [
+        "honey-1",
+        "honey-4"
+      ],
+      "scores": {
+        "honey-1": {
+          "identity": 4,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 1
+        },
+        "honey-4": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 2
+        }
+      },
+      "ships": "honey-4"
+    },
+    {
+      "id": "blackjack-v3",
+      "phase": 2,
+      "kind": "pair",
+      "builds": [
+        "blackjack-1",
+        "blackjack-3"
+      ],
+      "scores": {
+        "blackjack-1": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 2,
+          "landscape": 2
+        },
+        "blackjack-3": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 3
+        }
+      },
+      "ships": "blackjack-3"
+    },
+    {
+      "id": "blackjack-v31",
+      "phase": 2,
+      "kind": "pair",
+      "builds": [
+        "blackjack-1",
+        "blackjack-4"
+      ],
+      "scores": {
+        "blackjack-1": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        },
+        "blackjack-4": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 2
+        }
+      },
+      "ships": "blackjack-4"
+    },
+    {
+      "id": "draw",
+      "phase": 2,
+      "kind": "pair",
+      "builds": [
+        "draw-1",
+        "draw-2"
+      ],
+      "scores": {
+        "draw-1": {
+          "identity": 3,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 3
+        },
+        "draw-2": {
+          "identity": 4,
+          "craft": 2,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        }
+      },
+      "ships": "draw-1"
+    },
+    {
+      "id": "blackjack-v32",
+      "phase": 2,
+      "kind": "pair",
+      "builds": [
+        "blackjack-1",
+        "blackjack-5"
+      ],
+      "scores": {
+        "blackjack-1": {
+          "identity": 2,
+          "craft": 2,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        },
+        "blackjack-5": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 3
+        }
+      },
+      "ships": "blackjack-5"
+    },
+    {
+      "id": "blackjack-gen",
+      "phase": 2,
+      "kind": "pair",
+      "builds": [
+        "blackjack-5",
+        "blackjack-6"
+      ],
+      "scores": {
+        "blackjack-5": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 4
+        },
+        "blackjack-6": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 3
+        }
+      },
+      "ships": "blackjack-5",
+      "outcome": "Script art against script art plus an image model. The image model did not raise craft."
+    },
+    {
+      "id": "blackjack-four",
+      "phase": 3,
+      "kind": "four-way, one scale",
+      "builds": [
+        "blackjack-1",
+        "blackjack-5",
+        "blackjack-7",
+        "blackjack-8"
+      ],
+      "scores": {
+        "blackjack-1": {
+          "identity": 2,
+          "craft": 2,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        },
+        "blackjack-5": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 3
+        },
+        "blackjack-7": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 3
+        },
+        "blackjack-8": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 4
+        }
+      },
+      "ranking": [
+        "blackjack-8",
+        "blackjack-7",
+        "blackjack-5",
+        "blackjack-1"
+      ]
+    },
+    {
+      "id": "draw-three",
+      "phase": 3,
+      "kind": "three-way, one scale",
+      "builds": [
+        "draw-1",
+        "draw-2",
+        "draw-3"
+      ],
+      "scores": {
+        "draw-1": {
+          "identity": 3,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 4,
+          "landscape": 3
+        },
+        "draw-2": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 3,
+          "landscape": 3
+        },
+        "draw-3": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 2
+        }
+      },
+      "ranking": [
+        "draw-1",
+        "draw-3",
+        "draw-2"
+      ]
+    },
+    {
+      "id": "draw-final",
+      "phase": 3,
+      "kind": "three-way, one scale",
+      "builds": [
+        "draw-1",
+        "draw-3",
+        "draw-4"
+      ],
+      "scores": {
+        "draw-1": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 4,
+          "landscape": 2
+        },
+        "draw-3": {
+          "identity": 4,
+          "craft": 2,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 3
+        },
+        "draw-4": {
+          "identity": 4,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 4,
+          "landscape": 4
+        }
+      },
+      "ranking": [
+        "draw-4",
+        "draw-1",
+        "draw-3"
+      ],
+      "outcome": "The reviewer would ship none as it is and called draw-4 the only one close."
+    },
+    {
+      "id": "draw-v34",
+      "phase": 4,
+      "kind": "four-way, one scale",
+      "builds": [
+        "draw-1",
+        "draw-3",
+        "draw-4",
+        "draw-5"
+      ],
+      "scores": {
+        "draw-1": {
+          "identity": 3,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 4,
+          "landscape": 3
+        },
+        "draw-3": {
+          "identity": 3,
+          "craft": 2,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        },
+        "draw-4": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 4
+        },
+        "draw-5": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 2
+        }
+      },
+      "ranking": [
+        "draw-1",
+        "draw-4",
+        "draw-5",
+        "draw-3"
+      ],
+      "outcome": "The reviewer would ship none as it is. draw-1 and draw-4 tied on the sum of the scores; the reviewer ranked draw-1 first for legibility and fit. The faults of draw-3 (a label off its stamp, stretched notes, labels over the edges of their art) did not occur in draw-5. draw-5 lost points for a sheet that is too small on the short wide screen, small type on the desktop and a plain main action."
+    }
+  ]
+}

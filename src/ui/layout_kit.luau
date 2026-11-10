@@ -88,8 +88,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		)
 		return pixels
 	end
-	local function spacingValue(value: Shared.Input<Shared.Space>?): Shared.Input<UDim>
+	local function gapValue(value: Shared.Input<Shared.Space>?): Shared.Input<UDim>
 		return derive(function(use)
+			local step = read(value, use)
+			if type(step) == "number" and step < 0 then
+				assert(step > -math.huge, "Facet gap must be a finite number of pixels")
+				return types.UDim.new(0, step)
+			end
 			return types.UDim.new(0, kit.spacing(value, use))
 		end, value, if type(read(value)) == "string" then config.theme else nil)
 	end
@@ -284,7 +289,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}
 		if flow.gap ~= nil then
-			native.Padding = spacingValue(flow.gap)
+			native.Padding = gapValue(flow.gap)
 		end
 		if flow.wrap ~= nil then
 			native.Wraps = flow.wrap

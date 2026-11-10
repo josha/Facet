@@ -162,11 +162,15 @@ local function reach(ctx: Types.Context, frame: GuiObject, poll: boolean?): Comp
 	return result
 end
 
-local function backdrop(ctx: Types.Context, frame: GuiObject, tag: string, corner: string?, skinned: boolean): Frame
-	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
-	local D2 = ctx.types.UDim2
+local function spread(
+	ctx: Types.Context,
+	frame: GuiObject,
+	unitName: string,
+	corner: string?
+): (ComposeTypes.ReadOnlyValue<{ [string]: number }>, ComposeTypes.ReadOnlyValue<number>)
+	local Compose = ctx.Compose
 	local measured = reach(ctx, frame)
-	local unit = ctx.layoutUnit(frame, "GlassUnit")
+	local unit = ctx.layoutUnit(frame, unitName)
 	local extension = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
 		local value = use(measured)
 		local scale = math.max(use(unit), 0.001)
@@ -187,17 +191,39 @@ local function backdrop(ctx: Types.Context, frame: GuiObject, tag: string, corne
 		return false
 	end)
 	hold(ctx, frame, reaching)
+	return extension, unit
+end
+
+local function origin(
+	ctx: Types.Context,
+	extension: ComposeTypes.ReadOnlyValue<{ [string]: number }>
+): (ComposeTypes.Use) -> UDim2
+	local D2 = ctx.types.UDim2
+	return function(use: ComposeTypes.Use): UDim2
+		local sides = use(extension)
+		return D2.fromOffset(-sides.left, -sides.top)
+	end
+end
+
+local function extent(
+	ctx: Types.Context,
+	extension: ComposeTypes.ReadOnlyValue<{ [string]: number }>
+): (ComposeTypes.Use) -> UDim2
+	local D2 = ctx.types.UDim2
+	return function(use: ComposeTypes.Use): UDim2
+		local sides = use(extension)
+		return D2.new(1, sides.left + sides.right, 1, sides.top + sides.bottom)
+	end
+end
+
+local function backdrop(ctx: Types.Context, frame: GuiObject, tag: string, corner: string?, skinned: boolean): Frame
+	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
+	local extension = spread(ctx, frame, "GlassUnit", corner)
 	local paint = Host.Frame "Backdrop" {
 		BorderSizePixel = 0,
 		ZIndex = 0,
-		Position = function(use: ComposeTypes.Use): UDim2
-			local sides = use(extension)
-			return D2.fromOffset(-sides.left, -sides.top)
-		end,
-		Size = function(use: ComposeTypes.Use): UDim2
-			local sides = use(extension)
-			return D2.new(1, sides.left + sides.right, 1, sides.top + sides.bottom)
-		end,
+		Position = origin(ctx, extension),
+		Size = extent(ctx, extension),
 	}
 	paint:AddTag(tag)
 	if skinned then
@@ -209,10 +235,43 @@ local function backdrop(ctx: Types.Context, frame: GuiObject, tag: string, corne
 	return paint
 end
 
+local function ground(ctx: Types.Context, frame: GuiObject, art: GuiObject): Frame
+	local Compose, Host, runtime = ctx.Compose, ctx.Host, ctx.runtime
+	local D2, V2, E = ctx.types.UDim2, ctx.types.Vector2, ctx.types.Enum
+	local extension, unit = spread(ctx, frame, "GroundUnit", nil)
+	art.AnchorPoint = V2.zero
+	art.AutomaticSize = E.AutomaticSize.None
+	art.Position = D2.new(0, 0, 0, 0)
+	local bed = Host.Frame "Ground" {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 0,
+		Position = origin(ctx, extension),
+		Size = extent(ctx, extension),
+		art,
+	}
+	bed:AddTag("facet-ground")
+	local span = ctx.observe.AbsoluteSize(bed)
+	runtime.mount(function()
+		return Host.UISizeConstraint "GroundFill" {
+			MinSize = function(use: ComposeTypes.Use): Vector2
+				local size, scale = use(span), math.max(use(unit), 0.001)
+				return V2.new(size.X / scale, size.Y / scale)
+			end,
+		}
+	end, art)
+	runtime.mount(function()
+		return Host.Folder "GroundGlass" { decoration(Compose, runtime, ctx.types, frame, bed) }
+	end, frame)
+	return bed
+end
+
 return {
 	bands = bands,
 	fills = fills,
 	hold = hold,
 	reach = reach,
 	backdrop = backdrop,
+	ground = ground,
 }

@@ -7,37 +7,19 @@ the theme package. Do not add repeated paint overrides to each screen.
 
 ## Choose the visual direction
 
-Choose the screen's composition, subject treatment, type hierarchy and action
-emphasis before building a shared panel helper. A game's UI should express its
-world and tone beyond an accent-color change. A professional mail app or Studio
-tool can use quiet, familiar styling. Keep standard control behavior in both.
-
-Follow the skill's [direction and first-screen workflow](../../skills/use-facet/SKILL.md#choose-the-visual-direction-before-building-screens).
-A finished native prototype can establish a graphic style. When illustration
-or material detail carries the direction, explore the whole composition and
-produce original runtime art. References teach craft; do not copy their screens
-or images. See [theme direction](../../skills/use-facet/references/game-themes.md#choose-a-direction)
-and [rich skinning](skinning.md) for those routes.
-
-Inspect one representative Studio screen at wide and constrained sizes before
-repeating its treatment. Include the choice, action and relevant states.
-Compare with the intended direction: loaded art and a matching palette do not
-prove that subject scale, control shapes or type hierarchy survived. Repair
-the largest visible gap and view the repair. The skill scopes critique to the
-task and keeps target, first-screen and final review within three rounds.
+Choose the direction before building a shared panel helper. The skill's
+[direction card](../../skills/use-facet/SKILL.md#1-decide-the-direction)
+turns the brief into visible decisions, and [finish](../../skills/use-facet/references/finish.md)
+maps each decision to a theme value. A professional tool can use quiet,
+familiar styling; a game should express its world beyond an accent color.
+See [theme direction](../../skills/use-facet/references/game-themes.md#choose-a-direction)
+for a target chosen from concepts or supplied by the user, and
+[rich skinning](skinning.md) for image surfaces.
 
 ## Upload original art
 
-For authored illustrations, icons and theme surfaces, follow the
-[asset upload route](../../skills/use-facet/references/asset-upload.md).
-Create and inspect ordinary image files, upload them through the connected
-Studio's Open Cloud tools, then bind the returned IDs to Facet's assets, icons
-and chrome. Verify actual loading and control states before repeating the skin.
-Do not use EditableImage or packed pixels to avoid this delivery step. A denied
-permission or failed upload is a blocker to report, not a reason to omit the
-artwork or call a placeholder complete. Native text and paths can remain native.
-EditableImage remains suitable for dynamic player-created pixels, such as a
-drawing canvas and its live brush preview. The upload rule concerns UI assets.
+Follow the [asset upload route](../../skills/use-facet/references/asset-upload.md)
+for authored illustrations, icons and theme surfaces.
 
 ## Define and validate
 
@@ -58,7 +40,7 @@ not prove that the controls and composition express the game.
 For choices, inspect selection and focus together. For actions, compare
 placement before and after feedback. Preserve the chosen materials and type
 hierarchy during repairs.
-The [first-delivery workflow](../../skills/use-facet/SKILL.md#choose-the-visual-direction-before-building-screens)
+The skill's [look and repair step](../../skills/use-facet/SKILL.md#4-look-then-repair)
 includes these checks in the initial build; the user should not need to request
 a separate polish pass.
 

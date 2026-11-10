@@ -7,15 +7,30 @@ local ControlTypes = require("./control_types")
 local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
 
+type Extent = "fill" | number
+
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
 	local Host, Compose = ctx.Host, ctx.Compose
 	local types, read = ctx.types, ctx.read
 	local readString = read<<string?>>
 	local bindString = shared.bind<<string>>
+	local readExtent = read<<Extent?>>
 	local E, D2 = types.Enum, types.UDim2
 	local controlSize = ctx.controlSize
 	UI.Image = ctx.construct("Image", function(spec: MediaProps.ImageProps): ImageLabel
-		local keys = { "image", "tint", "scaleMode", "tileSize", "sliceCenter", "sliceScale", "resample", "shape" }
+		local keys = {
+			"image",
+			"tint",
+			"scaleMode",
+			"tileSize",
+			"sliceCenter",
+			"sliceScale",
+			"resample",
+			"shape",
+			"width",
+			"height",
+			"aspectRatio",
+		}
 		local declared = readString(spec.scaleMode)
 		local live = Compose.isValue(spec.scaleMode) or type(spec.scaleMode) == "function"
 		assert(
@@ -65,6 +80,25 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			spec.shape ~= "circle" or declared ~= "slice",
 			"Facet UI.Image: a circle cannot slice; use fit, fill, crop, stretch or tile"
 		)
+		local ratio = spec.aspectRatio
+		assert(
+			ratio == nil or (type(ratio) == "number" and ratio > 0 and ratio < math.huge),
+			"Facet UI.Image: aspectRatio must be a number above zero"
+		)
+		assert(ratio == nil or spec.shape ~= "circle", "Facet UI.Image: a circle has its own aspect ratio")
+		local function span(value: Extent?, rest: number): (number, number)
+			if value == nil then
+				return 0, rest
+			end
+			if value == "fill" then
+				return 1, 0
+			end
+			assert(
+				type(value) == "number" and value == value and value >= 0,
+				"Facet UI.Image: width and height must be fill or a number of pixels, 0 or more"
+			)
+			return 0, value
+		end
 		local modes: { [string]: Enum.ScaleType } = {
 			fit = E.ScaleType.Fit,
 			fill = E.ScaleType.Crop,
@@ -79,7 +113,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			Image = bindString(spec.image, ""),
 			Size = function(use: ComposeTypes.Use): UDim2
 				local side = controlSize(nil, "height", use)
-				return D2.fromOffset(side, side)
+				local width, height = readExtent(spec.width, use), readExtent(spec.height, use)
+				if ratio ~= nil then
+					if width == nil and height == nil then
+						width, height = side * ratio, side
+					elseif height == nil then
+						height = if type(width) == "number" then width / ratio else "fill"
+					elseif width == nil then
+						width = if type(height) == "number" then height * ratio else "fill"
+					end
+				end
+				local wide, across = span(width, side)
+				local tall, down = span(height, side)
+				return D2.new(wide, across, tall, down)
 			end,
 		}
 		if spec.tint ~= nil then
@@ -121,6 +167,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if spec.shape == "circle" then
 			defaults[#defaults + 1] = Host.UICorner { CornerRadius = ctx.round }
 			defaults[#defaults + 1] = Host.UIAspectRatioConstraint { AspectRatio = 1 }
+		end
+		if ratio ~= nil then
+			defaults[#defaults + 1] = Host.UIAspectRatioConstraint {
+				AspectRatio = ratio,
+				DominantAxis = if spec.width ~= nil or spec.height == nil
+					then E.DominantAxis.Width
+					else E.DominantAxis.Height,
+				AspectType = function(use: ComposeTypes.Use): Enum.AspectType
+					local width, height = readExtent(spec.width, use), readExtent(spec.height, use)
+					local led = (width == "fill" and height == nil) or (height == "fill" and width == nil)
+					return if led then E.AspectType.ScaleWithParentSize else E.AspectType.FitWithinMaxSize
+				end,
+			}
 		end
 		local image = Host.ImageLabel(ctx.props(spec, keys, defaults))
 		prepareMedia(ctx, image, spec.ImageTransparency)

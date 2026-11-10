@@ -238,5 +238,5 @@ control that changes a state or a value, for example a Toggle or a Stepper
 step. To make a game-specific Button play it, set `haptic = true`.
 
 See the [native API contract](../reference/nodes/Constructor-contract.md),
-[adaptive composition](../../skills/use-facet/references/game-ui/LAYOUT_AND_NAVIGATION.md) and
+[adaptive composition](../../skills/use-facet/references/compact-compositions.md) and
 [task recipes](../reference/nodes/Map.md).

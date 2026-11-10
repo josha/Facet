@@ -15,9 +15,10 @@ UI.Screen "Inventory" {
 }
 ```
 
-Key options: `padding`, `gap`, `surface`.
+Key options: `padding`, `gap`, `surface`, `ground`.
 
-With `surface`, the plate reaches the glass and the content stays safe. Keep
+With `surface`, the plate reaches the glass and the content stays safe.
+`ground` does the same with art. Keep
 the app's ScreenInsets. Use it when a store or garage is a new mode that
 replaces play for a while. Use a [Sheet](Sheet.card.md) for temporary, modal
 focus over the game: a confirm, a quick pick or a short glance.

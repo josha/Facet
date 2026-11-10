@@ -844,6 +844,12 @@ local function rulesFor(
 		".facet-appearance-link::UIPadding",
 		{ PaddingLeft = types.UDim.new(0, 0), PaddingRight = types.UDim.new(0, 0) }
 	)
+	rule(".facet-appearance-bare::UIPadding", {
+		PaddingLeft = types.UDim.new(0, 0),
+		PaddingRight = types.UDim.new(0, 0),
+		PaddingTop = types.UDim.new(0, 0),
+		PaddingBottom = types.UDim.new(0, 0),
+	})
 	local inverse, onInverse = source("inverseSurface"), source("onInverse")
 	rule(
 		".facet-appearance-inverse",
@@ -1316,6 +1322,7 @@ local function rulesFor(
 			)
 		end
 	end
+	rule(".facet-button-captioned.facet-disabled", { TextTransparency = 1 })
 	return kit.finish()
 end
 

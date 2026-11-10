@@ -44,6 +44,8 @@ summary).
 | `composition-unfit` | A Composition whose regions would not fit a 358 by 812 or an 812 by 358 phone area at their last form. The detail names the regions. |
 | `stranded-content` | Content that uses less than 40% of a large surface and sits to one side. |
 
+More rules: [Review.layout](Review.layout.md).
+
 A finding is a prompt to look, not a verdict. A rule can find a deliberate
 choice. The rules do not judge subject, art or identity. The critique-ui skill
 pairs this report with captures for that judgment.

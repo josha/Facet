@@ -37,6 +37,7 @@ export type StackOptions = {
 export type ScreenOptions = {
 	chrome: ("device" | "band" | "edge")?,
 	surface: ("surface" | "panel" | "pane")?,
+	ground: GuiObject?,
 	padding: Types.Input<Padding>?,
 	width: Types.Input<Extent>?,
 	maxWidth: Types.ValueNumber?,

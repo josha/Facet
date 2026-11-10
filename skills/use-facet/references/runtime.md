@@ -36,11 +36,13 @@ Use `app.UI` in the app's own code. A portable component can call
 Calling it before the mount creates separate controls, without the app's theme
 metrics and skin. The native stylesheet may still color those controls.
 
-Use Facet controls for input, navigation, collections and overlays. Use
-`local Host = app.runtime.constructors` for the game's native art and world
-content. Host children go in the parent's
-positional list; a Compose-owned object passed as `Parent` needs
-`C.static(object)`. Build controls only inside the mount function or a
+Build the whole interface from Facet: stacks, `ZStack` and `Grid` for
+arrangement, `UI.Image` for art, `UI.Text` for labels, and Facet controls for
+input, navigation, collections and overlays. `local Host = app.runtime.constructors`
+is for what Facet has no construct for, such as a `UIPadding` or
+`UISizeConstraint` child, an `InputAction` or world content. Host children go
+in the parent's positional list; a Compose-owned object passed as `Parent`
+needs `C.static(object)`. Build controls only inside the mount function or a
 component it calls.
 
 ## First screen with native art
@@ -48,9 +50,9 @@ component it calls.
 For a game direction that can be expressed in native type and shapes, see the
 runnable [Proof Press recipe](../assets/native-direction.luau).
 It shows one theme applied to live type, paper, a choice and a primary action,
-with no uploaded assets. It teaches the wiring for a small type-led task;
-it is not a visual quality target or a panel template for illustrated games.
-Use the current game's subject and visual treatment.
+with no uploaded assets. It teaches the wiring for a small type-led task; it
+is not a quality target or a panel template. [Finish](finish.md) lists the
+theme values, fonts and ground treatments that carry a game's own direction.
 In Studio, read the full example in one call:
 
 ```luau
@@ -67,6 +69,11 @@ and on its peer. Check the result at a wide and constrained supported viewport.
 `cell:peek()` in callbacks; write with `set` or `update`. Derive with
 `C.formula(function(use) ... end)`, branch with `C.show(condition, builder)`
 and clean up subscriptions with `C.cleanup(function() connection:Disconnect() end)`.
+`C.switch(source, { [key] = builder }, fallback)` picks one branch by value.
+`C.keyed({ from = list, key = function(value, index) return value.id end, render = function(value, index, key) ... end })`
+builds one child for each list entry and keeps it while its key stays; `value`
+and `index` arrive as readables. `C.watch(function(use) ... end)` runs a side
+effect when the values that it reads change.
 Keep durable selection and drafts outside disposable pages and recycled rows.
 
 NavigationStack keeps pages by entry identity. Push and pop a shallow copy of
@@ -148,7 +155,8 @@ clipping and overlays before testing its submission logic.
 Bind game commands as native InputActions in a game-owned InputContext. A
 Button's `shortcutHint` shows an action's binding; it does not connect it.
 Gate gameplay commands while `UI.environment().gameplaySuspended` is true. Do
-not bind Escape or gamepad Start. `UI.environment()` gives the viewport size,
+not bind Escape or gamepad Start. Facet activates the focused control with
+Space and Return, so do not bind those keys to a game command as well. `UI.environment()` gives the viewport size,
 the primary input and `thumbTarget`; choose layout from room and prompts from
 the actual input. Call it once at the top of a screen function
 (`local env = UI.environment()`) and read `use(env.viewportWidth)` in
@@ -163,9 +171,9 @@ phone. Use the existing page or modal lifecycle when it fits; otherwise gate
 the host controls and restore their previous state when the app closes.
 Read `Factory-options.keyboardNavigation` and `Tasks.safe-layout` for the
 contracts. Do not remove safe insets to cover still-active movement controls.
-When a page needs a full-viewport backdrop or dimming layer, keep that
-noninteractive paint separate from the safe-area content. Inspect the outer
-edges on phone and TV. A docked panel's backing stays within its own bounds.
+A full-viewport ground is noninteractive paint behind the safe-area content;
+the Screen's `ground` option makes it reach the glass, as
+[finish](finish.md#the-ground) shows. Inspect the outer edges on a phone and a television.
 
 When conditional content removes the focused action, transfer selection to a
 useful surviving control. Use NavigationStack or `UI.focusSection` ownership

@@ -1405,6 +1405,22 @@ return function(verifyHarness: Verify.Harness)
 
 	describe("native layout primitives", function()
 		describe("VStack and HStack", function()
+			it("overlaps its children by a negative gap in pixels", {
+				id = "native_layout::VStack and HStack::overlaps its children by a negative gap in pixels",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.HStack { gap = -30, UI.Text { text = "A" }, UI.Text { text = "B" } }
+					end)
+					expect(child(root, "UIListLayout").Padding):toBe(engine.types.UDim.new(0, -30))
+					stop()
+					local column, _, stopColumn = build(nil, function(UI)
+						return UI.VStack { gap = "s", UI.Text { text = "A" }, UI.Text { text = "B" } }
+					end)
+					expect(child(column, "UIListLayout").Padding):toBe(engine.types.UDim.new(0, 8))
+					stopColumn()
+				end,
+			})
+
 			it("maps align and distribute to the native list alignment and flex", {
 				id = "native_layout::VStack and HStack::maps align and distribute to the native list alignment and flex",
 				run = function()
@@ -1704,6 +1720,32 @@ return function(verifyHarness: Verify.Harness)
 						return UI.Screen { padding = 0 }
 					end)
 					expect(child(bare, "UIPadding").PaddingLeft):toBe(engine.types.UDim.new(0, 0))
+				end,
+			})
+
+			it("draws a ground behind its content and keeps it out of the stack", {
+				id = "native_layout::Screen::draws a ground behind its content and keeps it out of the stack",
+				run = function()
+					local art: any
+					local root, engine, stop = build(nil, function(UI)
+						art = UI.Image "Backdrop" { image = "rbxassetid://1", scaleMode = "crop" :: "crop" }
+						return UI.Screen "Home" { ground = art, UI.Text "Title" { text = "A" } }
+					end)
+					local bed = root:FindFirstChild("Ground", true)
+					expect(bed ~= nil):toBe(true)
+					expect((bed:HasTag("facet-ground"))):toBe(true)
+					expect(bed.ClipsDescendants):toBe(true)
+					expect(bed.ZIndex):toBe(0)
+					expect(art.Parent):toBe(bed)
+					expect(art.Position):toBe(engine.types.UDim2.new())
+					expect(art:FindFirstChild("GroundFill") ~= nil):toBe(true)
+					expect(root:FindFirstChild("Title", true) ~= nil):toBe(true)
+					stop()
+					local refused = refusal(function(UI)
+						local options: any = { ground = "rbxassetid://1" }
+						return UI.Screen(options)
+					end)
+					expect((mentions(refused, "ground must be one GuiObject"))):toBe(true)
 				end,
 			})
 

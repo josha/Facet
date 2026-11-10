@@ -49,6 +49,9 @@ export type ImageOptions = {
 	sliceScale: number?,
 	resample: Types.Input<"default" | "pixelated">?,
 	shape: ("rect" | "circle")?,
+	width: Types.Input<"fill" | number>?,
+	height: Types.Input<"fill" | number>?,
+	aspectRatio: number?,
 }
 export type BadgeOptions = {
 	label: Types.Input<string?>?,

@@ -83,6 +83,19 @@ local function role(object: unknown): string?
 	return nil
 end
 
+local function built(object: unknown): boolean
+	local ok, tags = call(object, "GetTags")
+	if not ok or type(tags) ~= "table" then
+		return false
+	end
+	for _, tag in tags do
+		if type(tag) == "string" and string.sub(tag, 1, 6) == "facet-" then
+			return true
+		end
+	end
+	return false
+end
+
 local function dataModel(): unknown
 	return ambient()
 end
@@ -129,6 +142,12 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 				local x, y = vector(read(child, "AbsolutePosition"))
 				local w, h = vector(read(child, "AbsoluteSize"))
 				local visible = shown and read(child, "Visible") ~= false
+				local spin = number(read(child, "AbsoluteRotation"), 0) % 180
+				local turn = math.min(spin, 180 - spin)
+				local lettered = isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox")
+				if turn > 89 and not lettered and math.abs(number(read(child, "Rotation"), 0) % 180 - spin) < 1 then
+					x, y, w, h, turn = x + (w - h) / 2, y + (h - w) / 2, h, w, 0
+				end
 				local tagged, marked = call(child, "HasTag", "facet-icon-glyph")
 				local glyph = tagged and marked == true
 				local element: ReviewElement = {
@@ -142,6 +161,19 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					rect = { x = x, y = y, width = w, height = h },
 					visible = visible,
 					interactive = isA(child, "GuiButton") or isA(child, "TextBox"),
+					z = number(read(child, "ZIndex"), 1),
+					turn = if turn > 0.5 then turn else nil,
+					fan = (function(): boolean
+						local found, layout = call(child, "FindFirstChildWhichIsA", "UIListLayout")
+						if not found or layout == nil then
+							return false
+						end
+						local padding = read(layout, "Padding")
+						return number(read(padding, "Offset"), 0) < 0 or number(read(padding, "Scale"), 0) < 0
+					end)(),
+					clips = read(child, "ClipsDescendants") == true
+						or isA(child, "ScrollingFrame")
+						or isA(child, "CanvasGroup"),
 					fill = color(styled(child, "BackgroundColor3")),
 					fillTransparency = math.clamp(number(styled(child, "BackgroundTransparency"), 1), 0, 1),
 					image = isA(child, "ViewportFrame")
@@ -161,7 +193,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					local message = if found then text(read(details, "Value")) else nil
 					element.unfit = message or "composition does not fit"
 				end
-				if not glyph and (isA(child, "TextLabel") or isA(child, "TextButton") or isA(child, "TextBox")) then
+				if not glyph and lettered then
 					local face = styled(child, "FontFace")
 					local weight = number(read(read(face, "Weight"), "Value"), 400)
 					local size = number(styled(child, "TextSize"), 14)
@@ -169,7 +201,27 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 						local _, boundsHeight = vector(read(child, "TextBounds"))
 						size = if boundsHeight > 0 then boundsHeight / nextScale else size
 					end
+					local inkWidth, inkHeight = vector(read(child, "TextBounds"))
+					local alignX = text(read(read(child, "TextXAlignment"), "Name"))
+					local alignY = text(read(read(child, "TextYAlignment"), "Name"))
+					local ink: Rules.ReviewRect? = nil
+					if inkWidth > 0 and inkHeight > 0 then
+						ink = {
+							x = if alignX == "Left"
+								then x
+								elseif alignX == "Right" then x + w - inkWidth
+								else x + (w - inkWidth) / 2,
+							y = if alignY == "Top"
+								then y
+								elseif alignY == "Bottom" then y + h - inkHeight
+								else y + (h - inkHeight) / 2,
+							width = inkWidth,
+							height = inkHeight,
+						}
+					end
 					element.text = {
+						ink = ink,
+						native = not isA(child, "TextBox") and not built(child),
 						content = text(read(child, "Text")) or "",
 						size = math.floor(size * nextScale + 0.5),
 						bold = weight >= 600,

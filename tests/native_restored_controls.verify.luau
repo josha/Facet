@@ -300,6 +300,11 @@ return function(verifyHarness: Verify.Harness)
 					},
 					{ spec = { scaleMode = "zoom" :: "zoom" }, fragment = "scaleMode must be" },
 					{ spec = { imageFraming = { width = 2, height = 2 } }, fragment = "unknown option" },
+					{ spec = { aspectRatio = 0 }, fragment = "aspectRatio must be a number above zero" },
+					{
+						spec = { shape = "circle" :: "circle", aspectRatio = 2 },
+						fragment = "circle has its own aspect ratio",
+					},
 				}
 				for _, case in cases do
 					Verify.expect((mentions(
@@ -320,6 +325,82 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((mentions(tostring(failure), "static geometry"))):toBe(true)
 				Verify.expect(root.ScaleType):toBe(engine.types.Enum.ScaleType.Fit)
 				stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("native restored controls: Image size", function()
+		verifyHarness:case("takes its size from width, height and aspectRatio", {
+			id = "native_restored_controls::native restored controls: Image size::takes its size from width, height and aspectRatio",
+			run = function()
+				local band, engine, stopBand = build(nil, function(UI)
+					return UI.Image { image = "rbxassetid://1", width = "fill" :: "fill", height = 120 }
+				end)
+				local D2, E = engine.types.UDim2, engine.types.Enum
+				Verify.expect(band.Size):toBe(D2.new(1, 0, 0, 120))
+				Verify.expect(band:FindFirstChildWhichIsA("UIAspectRatioConstraint")):toBe(nil)
+				stopBand()
+				local card, _, stopCard = build(nil, function(UI)
+					return UI.Image { image = "rbxassetid://1", width = 150, aspectRatio = 0.5 }
+				end)
+				Verify.expect(card.Size):toBe(D2.new(0, 150, 0, 300))
+				local held = card:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+				Verify.expect(held.AspectRatio):toBe(0.5)
+				Verify.expect(held.DominantAxis):toBe(E.DominantAxis.Width)
+				Verify.expect(held.AspectType):toBe(E.AspectType.FitWithinMaxSize)
+				stopCard()
+				local tall, _, stopTall = build(nil, function(UI)
+					return UI.Image { image = "rbxassetid://1", height = "fill" :: "fill", aspectRatio = 2 }
+				end)
+				Verify.expect(tall.Size):toBe(D2.new(1, 0, 1, 0))
+				local led = tall:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+				Verify.expect(led.DominantAxis):toBe(E.DominantAxis.Height)
+				Verify.expect(led.AspectType):toBe(E.AspectType.ScaleWithParentSize)
+				stopTall()
+				local alone, _, stopAlone = build(nil, function(UI)
+					return UI.Image { image = "rbxassetid://1", aspectRatio = 2 }
+				end)
+				Verify.expect(alone.Size.Y.Offset > 0):toBe(true)
+				Verify.expect(alone.Size.X.Offset):toBe(alone.Size.Y.Offset * 2)
+				stopAlone()
+				local wide = Compose.cell(72 :: "fill" | number)
+				local live, _, stopLive = build(nil, function(UI)
+					return UI.Image { image = "rbxassetid://1", width = wide, aspectRatio = 0.5 }
+				end)
+				Verify.expect(live.Size):toBe(D2.new(0, 72, 0, 144))
+				wide:set(150)
+				Verify.expect(live.Size):toBe(D2.new(0, 150, 0, 300))
+				wide:set("fill")
+				Verify.expect(live.Size):toBe(D2.new(1, 0, 1, 0))
+				Verify.expect(live:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectType)
+					:toBe(E.AspectType.ScaleWithParentSize)
+				stopLive()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("native restored controls: bare Button", function()
+		verifyHarness:case("has the size of its face, with no plate and no label", {
+			id = "native_restored_controls::native restored controls: bare Button::has the size of its face, with no plate and no label",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.Button "Piece" {
+						appearance = "bare",
+						name = "Piece",
+						UI.Image "Face" { image = "rbxassetid://1", width = 40, height = 56 },
+					}
+				end)
+				Verify.expect((root:HasTag("facet-appearance-bare"))):toBe(true)
+				Verify.expect(root.Size):toBe(engine.types.UDim2.new())
+				Verify.expect(root.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.XY)
+				Verify.expect(root.BackgroundTransparency):toBe(1)
+				Verify.expect(root:FindFirstChild("Face", true) ~= nil):toBe(true)
+				stop()
+				local plain, _, stopPlain = build(nil, function(UI)
+					return UI.Button "Deal" { label = "Deal" }
+				end)
+				Verify.expect((plain:HasTag("facet-appearance-bare"))):toBe(false)
+				stopPlain()
 			end,
 		})
 	end)
