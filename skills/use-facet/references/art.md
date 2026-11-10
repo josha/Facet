@@ -76,9 +76,10 @@ A piece that carries a live label, such as a note, a card, a sign or a
 stamp, needs two more things. Give the label a calm area of the piece, in a
 color that the label contrasts with. Then tell Facet where the paint is.
 Record the painted rectangle and the pixel size of the file in the art
-module as `{ x0, y0, x1, y1, width, height }`; your render script knows
-them, and `Facet.review.paintRect(image)` reads them from the uploaded asset
-in Studio. Make the piece the `ground` of the stack that holds the label:
+module as a table with the fields `x0`, `y0`, `x1`, `y1`, `width` and
+`height`; your render script knows them, and
+`Facet.review.paintRect(image)` reads them from the uploaded asset in
+Studio. Make the piece the `ground` of the stack that holds the label:
 `UI.VStack { ground = UI.Image { image = art.note, scaleMode = "stretch",
 paintRect = art.notePaint }, padding = "s", label }`. The art fills the
 stack, and the padding starts at the edge of the paint, so the label cannot
