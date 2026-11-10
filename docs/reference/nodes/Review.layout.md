@@ -21,6 +21,12 @@ rules use the rectangle of the part; declare `paintRect` there. An image with
 no such pixel is not a cover or a backing. An image as large as 35% of the
 screen is a ground or an overlay whatever its paint.
 
+`review.paintRect(image) -> ImagePaintRect?` reads the painted bounds and the
+pixel size of an image in Studio, in the form that `paintRect` takes. It can
+yield. It returns nil outside Studio and for an image that Studio cannot
+read. The art of a stack `ground` counts as built beside the texts of that
+stack.
+
 A text sits on the paint when half or more of its glyphs are over the painted
 bounds. `escaped-text` then uses the edge of the paint. A text that is mostly
 on the transparent margin, such as a count in the corner of a subject, is

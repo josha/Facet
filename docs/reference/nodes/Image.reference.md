@@ -27,8 +27,9 @@ control height. A native `Size` replaces it.
   holds the paint of the art, in the source pixels of an image that is
   `width` by `height`. With `ImageRectSize`, use the pixels of that crop. It
   does not change the picture. `Facet.review` uses it as the painted bounds
-  of the image. Give it for art with a transparent margin that Studio cannot
-  read, such as an asset of another creator. It requires a static `image`.
+  of the image, and a stack that takes the image as its `ground` starts its
+  padding at this rectangle. It requires a static `image`.
+  `Facet.review.paintRect(image)` reads the values in Studio.
 - `resample` is `default` or `pixelated` and sets `ResampleMode`. It can be
   bound.
 - `shape = "circle"` adds a `UICorner` of half the size and a square

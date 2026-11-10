@@ -10,6 +10,7 @@ local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
 local initialScroll = require("./scroll_initial")
 local glass = require("./glass")
+local artGround = require("./art_ground")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
@@ -25,7 +26,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
 	local flowKeys =
-		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners" }
+		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners", "ground" }
 	table.freeze(flowKeys)
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	type FillAxis = "x" | "y" | "none"
@@ -217,6 +218,16 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			flow = table.clone(spec)
 			flow.padding = clearCorners(spec.padding, bend)
 		end
+		local art = spec.ground
+		assert(
+			art == nil or (typeof(art) == "Instance" and art:IsA("GuiObject")),
+			"Facet stack: ground must be one GuiObject, such as a UI.Image"
+		)
+		local carve = if art ~= nil then artGround.margins(ctx) else nil
+		if carve then
+			flow = table.clone(flow)
+			flow.padding = artGround.padding(ctx, kit.spacing, flow.padding, carve)
+		end
 		local room: ComposeTypes.Value<FillAxis>? = nil
 		if properties.AutomaticSize == nil and fills(children) then
 			local bounded = Compose.cell("none" :: FillAxis)
@@ -229,6 +240,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local frame = kit.stack(children, properties :: Engine.FrameNativeProps, flow, vertical)
 		if room then
 			fillRoom(frame, room)
+		end
+		if art ~= nil and carve then
+			artGround.mount(ctx, frame, art, carve)
 		end
 		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
 		local spillable = not vertical and spec.wrap == nil and bounded
@@ -458,8 +472,17 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	UI.ZStack = ctx.construct("ZStack", function(spec: LayoutProps.ZStackProps): Frame
-		local properties, children = split(spec, { "padding", "width", "height", "alignH", "alignV" })
+		local properties, children = split(spec, { "padding", "width", "height", "alignH", "alignV", "ground" })
 		local size, automatic = kit.extent(spec, "hug", "hug")
+		local art = spec.ground
+		assert(
+			art == nil or (typeof(art) == "Instance" and art:IsA("GuiObject")),
+			"Facet ZStack: ground must be one GuiObject, such as a UI.Image"
+		)
+		local carve = if art ~= nil then artGround.margins(ctx) else nil
+		local inner: Types.Input<Types.Padding>? = if carve
+			then artGround.padding(ctx, kit.spacing, spec.padding, carve)
+			else spec.padding
 		local aligned = spec.alignH ~= nil or spec.alignV ~= nil
 		local function fraction(value: Layout.Edge?): number
 			assert(
@@ -479,7 +502,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			AutomaticSize = automatic,
 		}
 		local frame = kit.plain(
-			Host.Frame(kit.assemble(native, properties, { kit.insets(spec.padding) }, children, function(node, index)
+			Host.Frame(kit.assemble(native, properties, { kit.insets(inner) }, children, function(node, index)
 				if node.ZIndex == 1 then
 					node.ZIndex = index
 				end
@@ -523,6 +546,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					)
 				end
 			end)
+		end
+		if art ~= nil and carve then
+			artGround.mount(ctx, frame, art, carve)
 		end
 		return frame
 	end)

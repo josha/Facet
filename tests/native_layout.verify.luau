@@ -787,6 +787,166 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	describe("stack ground", function()
+		local cardPaint = { x0 = 16, y0 = 16, x1 = 376, y1 = 166, width = 392, height = 182 }
+		local function sides(root: Frame): { number }
+			local pad = child(root, "UIPadding")
+			return { pad.PaddingTop.Offset, pad.PaddingRight.Offset, pad.PaddingBottom.Offset, pad.PaddingLeft.Offset }
+		end
+
+		it("draws the art behind the stack and keeps it out of the list", {
+			id = "native_layout::stack ground::draws the art behind the stack and keeps it out of the list",
+			run = function()
+				local art: GuiObject? = nil
+				local root, engine, stop = build(nil, function(UI)
+					local made = UI.Image "CardArt" { image = "rbxassetid://1", scaleMode = "stretch" :: "stretch" }
+					art = made
+					return UI.VStack "WordCard" { ground = made, UI.Text "Word" { text = "LIGHTHOUSE" } }
+				end)
+				local bed = root:FindFirstChild("Ground", true)
+				local drawn = assert(art)
+				expect(bed ~= nil):toBe(true)
+				expect((bed:HasTag("facet-art-ground"))):toBe(true)
+				expect(bed.ZIndex):toBe(0)
+				expect(drawn.Parent):toBe(bed)
+				expect(drawn.Size):toBe(engine.types.UDim2.fromScale(1, 1))
+				expect(drawn.ZIndex):toBe(0)
+				expect(bed:FindFirstAncestorWhichIsA("Folder").Parent):toBe(root)
+				expect(root:FindFirstChild("Word") ~= nil):toBe(true)
+				expect(root:FindFirstChild("CardArt")):toBe(nil)
+				expect(sides(root)):toEqual({ 0, 0, 0, 0 })
+				stop()
+				local refused = refusal(function(UI)
+					local art = ("rbxassetid://1" :: unknown) :: GuiObject
+					return UI.VStack { ground = art }
+				end)
+				expect((mentions(refused, "ground must be one GuiObject"))):toBe(true)
+				local refusedLayers = refusal(function(UI)
+					local art = ("rbxassetid://1" :: unknown) :: GuiObject
+					return UI.ZStack { ground = art }
+				end)
+				expect((mentions(refusedLayers, "ground must be one GuiObject"))):toBe(true)
+			end,
+		})
+
+		it("starts the padding of a sized stack at the paint of a stretched ground", {
+			id = "native_layout::stack ground::starts the padding of a sized stack at the paint of a stretched ground",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.VStack "WordCard" {
+						width = 392,
+						height = 182,
+						padding = 8,
+						ground = UI.Image {
+							image = "rbxassetid://1",
+							scaleMode = "stretch" :: "stretch",
+							paintRect = cardPaint,
+						},
+						UI.Text { text = "LIGHTHOUSE" },
+					}
+				end)
+				local V2 = engine.types.Vector2
+				engine.environment.poke(root, "AbsoluteSize", V2.new(392, 182))
+				expect(sides(root)):toEqual({ 24, 24, 24, 24 })
+				engine.environment.poke(root, "AbsoluteSize", V2.new(196, 91))
+				expect(sides(root)):toEqual({ 16, 16, 16, 16 })
+				stop()
+			end,
+		})
+
+		it("solves the padding of a hugging stack so that the ground keeps its margin share", {
+			id = "native_layout::stack ground::solves the padding of a hugging stack so that the ground keeps its margin share",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.VStack "Note" {
+						ground = UI.Image {
+							image = "rbxassetid://1",
+							scaleMode = "stretch" :: "stretch",
+							paintRect = { x0 = 20, y0 = 10, x1 = 180, y1 = 90, width = 200, height = 100 },
+						},
+						UI.Text { text = "Start drawing!" },
+					}
+				end)
+				local V2 = engine.types.Vector2
+				engine.environment.poke(root, "AbsoluteSize", V2.new(160, 80))
+				expect(sides(root)):toEqual({ 10, 20, 10, 20 })
+				engine.environment.poke(root, "AbsoluteSize", V2.new(200, 100))
+				expect(sides(root)):toEqual({ 10, 20, 10, 20 })
+				stop()
+			end,
+		})
+
+		it("keeps the margins of a sliced ground at every size and adds none without paintRect", {
+			id = "native_layout::stack ground::keeps the margins of a sliced ground at every size and adds none without paintRect",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.HStack "Note" {
+						padding = "s",
+						ground = UI.Image {
+							image = "rbxassetid://1",
+							scaleMode = "slice" :: "slice",
+							sliceCenter = { x0 = 24, y0 = 24, x1 = 104, y1 = 104 },
+							paintRect = { x0 = 4, y0 = 4, x1 = 120, y1 = 116, width = 128, height = 128 },
+						},
+						UI.Text { text = "Guesses land here" },
+					}
+				end)
+				local V2 = engine.types.Vector2
+				engine.environment.poke(root, "AbsoluteSize", V2.new(300, 90))
+				expect(sides(root)):toEqual({ 12, 16, 20, 12 })
+				engine.environment.poke(root, "AbsoluteSize", V2.new(120, 60))
+				expect(sides(root)):toEqual({ 12, 16, 20, 12 })
+				stop()
+				local plain, plainEngine, stopPlain = build(nil, function(UI)
+					return UI.ZStack "Stamp" {
+						padding = 6,
+						ground = UI.Image { image = "rbxassetid://1", scaleMode = "stretch" :: "stretch" },
+						UI.Text { text = "TIME UP" },
+					}
+				end)
+				plainEngine.environment.poke(plain, "AbsoluteSize", plainEngine.types.Vector2.new(120, 60))
+				expect(sides(plain)):toEqual({ 6, 6, 6, 6 })
+				stopPlain()
+			end,
+		})
+
+		it("pads a ZStack to the paint and the review reads the ground as built beside its texts", {
+			id = "native_layout::stack ground::pads a ZStack to the paint and the review reads the ground as built beside its texts",
+			run = function()
+				local root, engine, stop = build(nil, function(UI)
+					return UI.ZStack "WordCard" {
+						width = 392,
+						height = 182,
+						ground = UI.Image "CardArt" {
+							image = "rbxassetid://1",
+							scaleMode = "stretch" :: "stretch",
+							paintRect = cardPaint,
+						},
+						UI.Text "Word" { text = "LIGHTHOUSE" },
+					}
+				end)
+				engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(392, 182))
+				expect(sides(root)):toEqual({ 16, 16, 16, 16 })
+				local snapshot = Facet.review.collect({ root = root })
+				local card, image, word
+				for _, element in snapshot.elements do
+					local leaf = string.match(element.path, "[^%.]+$")
+					if leaf == "WordCard" then
+						card = element
+					elseif leaf == "CardArt" then
+						image = element
+					elseif leaf == "Word" then
+						word = element
+					end
+				end
+				expect(assert(image).parent):toBe(assert(card).index)
+				expect(assert(word).parent):toBe(assert(card).index)
+				expect(assert(image).z):toBe(0)
+				stop()
+			end,
+		})
+	end)
+
 	describe("phone layout policy", function()
 		it("reserves a visible horizontal scroll hint below overflowing genre chips", {
 			id = "native_layout::phone layout policy::reserves a visible horizontal scroll hint below overflowing genre chips",

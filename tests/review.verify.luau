@@ -669,7 +669,7 @@ return function(harness: Verify.Harness)
 	end)
 
 	harness:case("painted bounds come from the opaque pixels and follow the scale mode", function(t)
-		local Paint = require("../src/ui/review_paint")
+		local Paint = require("../src/ui/paint_bounds")
 		local width, height = 200, 100
 		local pixels = buffer.create(width * height * 4)
 		local function fill(x0: number, y0: number, x1: number, y1: number, alpha: number)

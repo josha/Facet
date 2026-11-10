@@ -17,6 +17,15 @@ labels that were not built with `UI.Text`. `floating-text` counts a large
 image, such as a ground, as a plate. A part that is turned by a quarter turn
 is read at its turned rectangle.
 
+VStack, HStack and ZStack take `ground`: one GuiObject, most often a
+`UI.Image` of a note, a card or a sign, that Facet draws behind the content
+of the stack. The ground fills the stack and takes no space in it. When the
+image has `paintRect`, the padding of the stack starts at the edge of the
+paint, so a label on the art cannot sit on the transparent margin of the
+file. `Facet.review.paintRect(image)` reads the painted bounds and the pixel
+size of an image in Studio, in the form that `paintRect` takes. The review
+counts the art of a ground as built beside the texts of its stack.
+
 `Facet.review` reads where an image is painted. `covered-text`,
 `escaped-text` and the backing check of `overlapping-text` use the painted
 bounds of an image: the smallest rectangle that holds its visible pixels. An
