@@ -242,6 +242,7 @@ export type Status = MediaTypes.Status
 export type TextRole = MediaTypes.TextRole
 export type Presence = MediaTypes.Presence
 export type ImageScaleMode = MediaTypes.ScaleMode
+export type ImagePaintRect = MediaTypes.PaintRect
 export type ImageLoader = MediaTypes.ImageLoader
 export type VoteValue = ContentTypes.VoteValue
 export type StepState = ContentTypes.StepState

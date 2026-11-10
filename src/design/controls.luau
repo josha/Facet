@@ -654,6 +654,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			tileSize = { type = "value", label = "Tile size", order = 14, format = "json" },
 			sliceCenter = { type = "value", label = "Slice center", order = 15, format = "json" },
 			sliceScale = { type = "number", label = "Slice scale", order = 16 },
+			paintRect = { type = "value", label = "Painted rectangle", order = 17, format = "json" },
 		}),
 	},
 	Label = {

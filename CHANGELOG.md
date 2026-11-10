@@ -15,7 +15,21 @@ an image from another part. `escaped-text` finds a text that runs past the
 plate or the image that it sits on, or that a clip cuts. `native-text` finds
 labels that were not built with `UI.Text`. `floating-text` counts a large
 image, such as a ground, as a plate. A part that is turned by a quarter turn
-is read at its turned rectangle. The rules read rectangles, not pixels.
+is read at its turned rectangle.
+
+`Facet.review` reads where an image is painted. `covered-text`,
+`escaped-text` and the backing check of `overlapping-text` use the painted
+bounds of an image: the smallest rectangle that holds its opaque pixels. An
+image with a transparent margin no longer covers a text that its paint does
+not reach, and a label that runs over the edge of a shape painted inside its
+image is found. In Studio, `review.collect` reads the pixels one time for
+each asset and can yield on the first read. `UI.Image` takes
+`paintRect = { x0, y0, x1, y1, width, height }` to declare the bounds for art
+that Studio cannot read, such as an asset of another creator; the root module
+exports `ImagePaintRect`. Without either source the rules use the rectangle
+of the part, as before. A text that is mostly on the transparent margin of an
+image is still measured against the rectangle, and a hole in the paint counts
+as paint.
 
 A disabled Button of a skinned theme no longer draws its own text under its
 caption. The doubled text was hidden by opaque art and showed through

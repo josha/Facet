@@ -1305,6 +1305,7 @@ local derived: Types.Derived = {
 				aspectRatio = { type = "number" },
 				height = { type = "choice", also = { "number" }, options = { "fill" } },
 				image = { type = "string" },
+				paintRect = { type = "value" },
 				resample = { type = "choice", options = { "default", "pixelated" } },
 				scaleMode = { type = "choice", options = { "fit", "fill", "crop", "stretch", "tile", "slice" } },
 				shape = { type = "choice", options = { "rect", "circle" } },

@@ -39,6 +39,7 @@ export type LabelOptions = {
 	iconPosition: ("leading" | "trailing")?,
 }
 export type ScaleMode = "fit" | "fill" | "crop" | "stretch" | "tile" | "slice"
+export type PaintRect = { x0: number, y0: number, x1: number, y1: number, width: number, height: number }
 export type ImageOptions = {
 	ref: ((ImageLabel) -> ())?,
 	image: Types.ValueString?,
@@ -47,6 +48,7 @@ export type ImageOptions = {
 	tileSize: { width: number, height: number }?,
 	sliceCenter: { x0: number, y0: number, x1: number, y1: number }?,
 	sliceScale: number?,
+	paintRect: PaintRect?,
 	resample: Types.Input<"default" | "pixelated">?,
 	shape: ("rect" | "circle")?,
 	width: Types.Input<"fill" | number>?,

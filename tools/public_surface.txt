@@ -428,6 +428,7 @@ type IdentityCollectionSpec
 type IdentityOutlineSpec
 type IdentityTableSpec
 type ImageLoader
+type ImagePaintRect
 type ImageProps
 type ImageResource
 type ImageScaleMode

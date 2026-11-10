@@ -302,6 +302,18 @@ return function(verifyHarness: Verify.Harness)
 					{ spec = { imageFraming = { width = 2, height = 2 } }, fragment = "unknown option" },
 					{ spec = { aspectRatio = 0 }, fragment = "aspectRatio must be a number above zero" },
 					{
+						spec = { paintRect = { x0 = 16, y0 = 16, x1 = 376, y1 = 166 } },
+						fragment = "paintRect = { x0, y0, x1, y1, width, height }",
+					},
+					{
+						spec = { paintRect = { x0 = 16, y0 = 16, x1 = 400, y1 = 166, width = 392, height = 182 } },
+						fragment = "inside an image of width by height",
+					},
+					{
+						spec = { paintRect = { x0 = 60, y0 = 16, x1 = 60, y1 = 166, width = 392, height = 182 } },
+						fragment = "rectangle of the paint",
+					},
+					{
 						spec = { shape = "circle" :: "circle", aspectRatio = 2 },
 						fragment = "circle has its own aspect ratio",
 					},
@@ -325,6 +337,30 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((mentions(tostring(failure), "static geometry"))):toBe(true)
 				Verify.expect(root.ScaleType):toBe(engine.types.Enum.ScaleType.Fit)
 				stop()
+			end,
+		})
+	end)
+
+	verifyHarness:suite("native restored controls: Image paint", function()
+		verifyHarness:case("records paintRect on the ImageLabel for the review", {
+			id = "native_restored_controls::native restored controls: Image paint::records paintRect on the ImageLabel for the review",
+			run = function()
+				local card, engine, stopCard = build(nil, function(UI)
+					return UI.Image {
+						image = "rbxassetid://1",
+						scaleMode = "stretch" :: "stretch",
+						paintRect = { x0 = 16, y0 = 16, x1 = 376, y1 = 166, width = 392, height = 182 },
+					}
+				end)
+				Verify.expect(card:GetAttribute("FacetPaintRect")):toBe(engine.types.Rect.new(16, 16, 376, 166))
+				Verify.expect(card:GetAttribute("FacetSourceSize")):toBe(engine.types.Vector2.new(392, 182))
+				stopCard()
+				local plain, _, stopPlain = build(nil, function(UI)
+					return UI.Image { image = "rbxassetid://1" }
+				end)
+				Verify.expect(plain:GetAttribute("FacetPaintRect")):toBe(nil)
+				Verify.expect(plain:GetAttribute("FacetSourceSize")):toBe(nil)
+				stopPlain()
 			end,
 		})
 	end)

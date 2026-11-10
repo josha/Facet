@@ -301,8 +301,11 @@ under a plate from another part at this size, and `escaped-text` names a
 label that runs past its backing or that a clip cuts; repair them unless the
 effect is deliberate. `native-text` names labels that were built outside
 Facet; rebuild them with `UI.Text`. Treat other findings as prompts to look,
-not as verdicts. The review reads rectangles, not pixels: it does not see a
-label on the transparent margin of an image, so look at the capture too.
+not as verdicts. For an image, the review uses the painted bounds, which it
+reads from the pixels in Studio, so a label that runs over the edge of the
+paint is found. It does not find a label that is mostly on the transparent
+margin or over a hole in the paint, and it uses the rectangle for art that
+Studio cannot read, so look at the capture too.
 
 Then build the remaining routes around the working treatment, each with its
 own composition. Use the [critique-ui loop](../critique-ui/SKILL.md#the-loop)
