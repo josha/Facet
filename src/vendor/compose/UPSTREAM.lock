@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "8e37196e3b3ead8a42152828ad18eee4edeeeeb7",
+  "commit": "90f0209e9e31d7bc04d090c8cdc8ffad2bcb7319",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -9,7 +9,7 @@
     "core/animation/codec.luau": "18037131fa92aef37238061493d3e2b37d3e4391342b85029f8d5b7020d0c71c",
     "core/animation/cubic-bezier.luau": "4fb0a33535ae6d5f354acbbb841ca332039bd025e2f5244c9757f1406e46c205",
     "core/animation/easing.luau": "007617038b8618f725b9aeb21bf213b722e5b1b47cdb803aeb3072240eecc1c4",
-    "core/animation/motion.luau": "25dc0a85fc40412ae4137dcac42e3497fbbd0a83f23ea7172429ebdc3c56abff",
+    "core/animation/motion.luau": "849c251bf0aafdc4a08f7252a539eac1486a2de48e4bec5dc3cff1309f9e9cb0",
     "core/animation/ramp.luau": "b9c7dcb970d1d0c5bd5da9bb11c85d8ed22eaa2cbda9b8ce0e8a3590bf80612b",
     "core/animation/spring.luau": "afb61422e042110c6bfed77300d8268bde87f2d4bbc8236c0a0e14cba3ee9ce1",
     "core/animation/timeline.luau": "67b31d5359c2721b524def473764a7c388037f8bd61c22644a7478eebf3750d1",
@@ -133,7 +133,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "3476fac1a9832ef1b4d80fbac253781f2c62234a029904f01b0e806a41fcaf3a",
+    "SKILL.md": "0664d0cbdb0b0ca4684ac943dd942998ef5d0eced502920e0a163c34d34d2068",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }
