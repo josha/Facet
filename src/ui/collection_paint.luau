@@ -224,7 +224,7 @@ return function(
 		end
 		halt()
 	end
-	ctx.Compose.cleanup(close)
+	local release = ctx.Compose.cleanup(close)
 	if measure then
 		local size = ctx.observe.AbsoluteSize(root)
 		ctx.Compose.watch(function(use: ComposeTypes.Use)
@@ -234,5 +234,5 @@ return function(
 	else
 		prepare()
 	end
-	return ready, close
+	return ready, release
 end
