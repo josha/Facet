@@ -218,6 +218,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	local measurementsChanged = false
 
 	local placements: { [number]: Layout.Placement } = {}
+	local cachedFirst, cachedLast = 1, 0
 	local selection: retain.Selection<V, Layout.Placement, K> = { values = {}, keys = {}, states = {} }
 	local published: Status? = nil
 	local windowRange: Layout.Range = { first = 1, last = 0, firstRow = 1, lastRow = 0 }
@@ -226,6 +227,7 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 
 	local function geometryChanged()
 		table.clear(placements)
+		cachedFirst, cachedLast = 1, 0
 	end
 
 	local function placementFor(index: number): Layout.Placement
@@ -257,12 +259,23 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 	end
 
 	local function rebuild(list: { V }, layout: Layout.Options)
+		local previous = geometry
 		indexMap = nil
 		builtFor = list
 		layout.count = #list
-		geometry = Layout.create(layout)
+		local created = Layout.create(layout)
+		geometry = created
 		measurementsChanged = true
-		geometryChanged()
+		if
+			not previous.uniform
+			or previous.columns ~= created.columns
+			or previous.rowSize ~= created.rowSize
+			or previous.gap ~= created.gap
+			or previous.crossSize ~= created.crossSize
+			or previous.crossGap ~= created.crossGap
+		then
+			geometryChanged()
+		end
 	end
 
 	local function findAnchorIndex(list: { V }, wanted: K): number?
@@ -318,7 +331,12 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			return keyIndex()[key]
 		end
 		controls.placementOf = function(index: number): Layout.Placement
-			return placementFor(index)
+			if index >= cachedFirst and index <= cachedLast then
+				return placementFor(index)
+			end
+			local made = Layout.placementOf(geometry, index)
+			freeze(made)
+			return made
 		end
 		controls.offsetOf = function(index: number, align: Align?, size: number?): number
 			local placement = Layout.placementOf(geometry, index)
@@ -425,6 +443,13 @@ local function orderedCollection<V, K>(options: Options<V, K>): Children.Directi
 			keys[index] = nil
 			states[index] = nil
 		end
+		for index = cachedFirst, math.min(cachedLast, first - 1) do
+			placements[index] = nil
+		end
+		for index = math.max(cachedFirst, last + 1), cachedLast do
+			placements[index] = nil
+		end
+		cachedFirst, cachedLast = first, last
 
 		lastOffset = viewportOffset
 		lastOffsetRevision = offsetRevision
