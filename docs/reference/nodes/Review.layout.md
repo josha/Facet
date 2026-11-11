@@ -8,6 +8,7 @@ Review rules for parts that collide or that leave the Facet layout.
 | `covered-text` | A text with half or more of its glyphs under a plate or the paint of an image from another part, such as a banner that is wider than its slot. A cover that hides three or more texts is an overlay and does not count. A stack with a negative `gap` is a fan and does not count. |
 | `escaped-text` | A text whose glyphs run past the edge of the plate or the paint of the image that it sits on, or that a clip cuts. A scrolling view does not count as a clip. An image counts only when it is built beside the text, within three levels. A text that still sits inside a larger plate does not count. |
 | `native-text` | Three or more texts that are native labels and not `UI.Text`. They miss the type roles of the theme, the text size of the player and the ten-foot scale. |
+| `oversized-target` | Buttons that are taller or wider than the scroll view that holds them, so no scroll position shows one whole. One finding for each scroll view, with the count, the size and the room. |
 
 For `floating-text`, an image counts as a plate when its paint is under the
 text, or when it covers a quarter of the screen or more, such as a Screen

@@ -78,6 +78,47 @@ readable records require it. A virtual collection limits mounted rows; it does
 not make a tall row fit. Do not add a permanent Inspect footer when record
 activation already opens detail. Keep commitment in that detail step.
 
+## Change the form of a record
+
+A record with art above its facts is tall. In a short room it can be taller
+than the list that scrolls it, and then the player never sees one record
+whole. The header and the filters above the list take part of the height, so
+the room of the list is smaller than the screen. Measure that room and choose
+the form of the record from it. The [collection example](../examples/collection.luau)
+does this; the lines below are its outline, and its numbers belong to its
+own records.
+
+```luau
+local body = UI.ZStack "RecordsBody" { width = "fill", height = "fill", UI.fill() }
+local room = UI.environment(body) -- the room of the list, after the header and the filters
+local short = C.formula(function(use: Facet.Use): boolean
+    return use(room.viewportWidth) < 620 or use(room.viewportHeight) < 400
+end)
+local rows: Facet.KeyedCollectionSpec<Record, string> = {
+    from = records, key = "id",
+    minColumnWidth = room.scaled(320),
+    itemSize = function(use: Facet.Use): number
+        return if use(short) then 170 else 330 -- each form fits the room that selects it
+    end,
+    render = function(current)
+        return C.show(short, function()
+            return thumbnailBesideFacts(current) -- art at the side; name, facts and price in a column
+        end, function()
+            return artAboveFacts(current)
+        end)
+    end,
+    UI.fill(),
+}
+local list = UI.VirtualGrid "Records" (rows)
+list.Parent = body
+```
+
+A `Grid` with a fixed `cellHeight` and a column count from the width of the
+screen does not do this: the cell keeps its height when the room gets short.
+After the change, open the shortest supported screen, scroll from entry and
+activate a record. A record that is deliberately larger than its room, such
+as a long article, is a different case: give it its own scrolling step.
+
 Do not force a mid-collection `initialFocus` for every input. It can scroll a
 fresh touch browse away from the beginning. Choose focus entry for the active
 input; preserve the player's actual key and scroll context on return.

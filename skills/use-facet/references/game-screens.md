@@ -18,6 +18,16 @@ for exact options.
 | Go deeper and return | NavigationStack within the chosen surface |
 | Browse candidates and inspect a selection | NavigationSplitView or a collection with a separate detail step |
 
+Each starting point is a Facet presenter, and the presenter owns what a
+surface needs when it opens and closes: the entry selection, Back and gamepad
+B, the return of the selection to the opener, and with
+`suspendGameplay = true` the game's input and touch controls. Nodes
+`Tasks.hud`, `Tasks.pages` and `Tasks.sheet` show each structure. A page that
+the game swaps in with its own cell has no presenter, so the game would have
+to write all of that, and a hand-written version usually selects a disabled
+or hidden control. Use the presenter and keep the composition of each page
+your own.
+
 Opening from a HUD does not require a centered Sheet. Decide how much world
 context and input access the task needs. A modal owns input; visible gameplay
 behind it is not necessarily interactive or paused. Use `suspendGameplay = true`

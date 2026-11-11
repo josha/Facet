@@ -1,19 +1,30 @@
 # Build with Facet
 
-Follow the supplied use-facet skill. Facet is installed at
-`ReplicatedStorage.Packages.Facet`, including its Compose runtime.
-The same skill and public reference pages are available in
-`ServerStorage.FacetDocs`. Its folders follow repository paths. For example,
-read `FacetDocs.skills["use-facet"]["SKILL.md"].Value` and
-`FacetDocs.docs.reference.nodes["Map.md"].Value` through Studio MCP in Edit mode.
-Your first call reads only `SKILL.md` and `references/runtime.md`. After that,
-search instead of reading: in Edit,
-`return loadstring(game.ServerStorage.FacetDocs["search.luau"].Value)()("hud standings")`
-returns matching sections of guides, examples and reference pages. Read the
-exact contract or one relevant complete example when needed to implement the
-first screen correctly; search results are not always the complete contract.
-Retrieve later controls when you need them. Batch related queries and avoid
-dumping the whole control index or unrelated examples. Studio MCP is the only
-tool; report unavailable art or review tools and use the skill's supported
-native route when it fits the brief.
+The use-facet skill follows these instructions in full. Follow it. Do not read
+its `SKILL.md` again from Studio: a second copy stays in context for the rest
+of the work.
+
+Facet is installed at `ReplicatedStorage.Packages.Facet`, including its Compose
+runtime. The skill's reference pages, its examples and the public control
+contracts are in `ServerStorage.FacetDocs`. Its folders follow repository
+paths, so `references/runtime.md` in the skill is
+`FacetDocs.skills["use-facet"].references["runtime.md"].Value`. Read them
+through Studio MCP in Edit mode.
+
+- Your first call reads only `references/runtime.md`.
+- After that, search before you read: in Edit,
+  `return loadstring(game.ServerStorage.FacetDocs["search.luau"].Value)()({ "hud standings", "Sheet detents" })`
+  returns the matching sections of guides, examples and reference pages.
+  Batch related queries in one call.
+- Read a complete contract with `search.read(path)` before the first use of a
+  control or of an option on that control; a search result is not always the
+  complete contract. Read a whole guide or example only when the skill names
+  it for the step in hand.
+- Do not dump the control index, unrelated examples or the Compose skill.
+  `runtime.md` has the Compose calls that a screen needs.
+
+Studio MCP is the only tool. There is no image model, no drawing tool and no
+second agent. Where the skill offers a route for that case, such as blocking
+in the first screen in place of a sketch and making art from native shapes,
+take it and report what was unavailable.
 Use this installed library; do not add another UI library.

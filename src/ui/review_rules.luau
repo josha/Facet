@@ -84,6 +84,7 @@ local fixes: { [string]: string } = {
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
+	["oversized-target"] = "A control is larger than the scroll area that holds it, so the player never sees it whole at this size. Measure the room of the list with UI.environment(body) and give the record a shorter form there, such as a thumbnail beside its facts, or move the header and the filters out of the room of the list. See the compact-compositions reference in the use-facet skill.",
 }
 local FIXES = table.freeze(fixes)
 
@@ -208,6 +209,7 @@ local function quote(content: string): string
 	return '"' .. short .. '"'
 end
 
+type Oversized = { first: ReviewElement, count: number, axis: string, size: number, room: number }
 type Prepared = {
 	byIndex: { [number]: ReviewElement },
 	children: { [number]: { ReviewElement } },
@@ -1254,6 +1256,66 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if element.unfit then
 			add("composition-unfit", "high", element, `does not fit {element.unfit}`)
 		end
+	end
+
+	local oversized: { [number]: Oversized } = {}
+	local oversizedOrder: { number } = {}
+	for _, element in snapshot.elements do
+		if not element.visible or (element.class ~= "TextButton" and element.class ~= "ImageButton") then
+			continue
+		end
+		local scroller: ReviewElement? = nil
+		local parent = prepared.parentOf(element)
+		while parent ~= nil and scroller == nil do
+			local ancestor = prepared.byIndex[parent]
+			if ancestor == nil then
+				break
+			end
+			if ancestor.class == "ScrollingFrame" then
+				scroller = ancestor
+			end
+			parent = prepared.parentOf(ancestor)
+		end
+		if scroller == nil or not shown(scroller, snapshot.width, snapshot.height) then
+			continue
+		end
+		local rect, window = element.rect, scroller.rect
+		if window.width < 48 or window.height < 48 then
+			continue
+		end
+		local axis: string? = nil
+		local size, room = 0, 0
+		if rect.height > window.height + 1 then
+			axis, size, room = "tall", rect.height, window.height
+		elseif rect.width > window.width + 1 then
+			axis, size, room = "wide", rect.width, window.width
+		end
+		if axis == nil then
+			continue
+		end
+		local group = oversized[scroller.index]
+		if group == nil then
+			oversized[scroller.index] = { first = element, count = 1, axis = axis, size = size, room = room }
+			table.insert(oversizedOrder, scroller.index)
+		else
+			group.count += 1
+			group.size = math.max(group.size, size)
+		end
+	end
+	for _, index in oversizedOrder do
+		local group = oversized[index]
+		add(
+			"oversized-target",
+			"medium",
+			group.first,
+			("%d control(s) up to %d px %s in a scroll area %d px %s"):format(
+				group.count,
+				math.floor(group.size),
+				group.axis,
+				math.floor(group.room),
+				group.axis
+			)
+		)
 	end
 
 	if snapshot.touch == true then

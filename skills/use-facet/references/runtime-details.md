@@ -74,6 +74,35 @@ Do not repair overflow by shrinking all text or the whole interface.
 A viewport may be zero during mount. Prefer measured forms to viewport arithmetic;
 when calculating a size, keep it nonnegative before the first frame.
 
+Scaling a fixed desktop canvas with `UIScale` does not reflow its columns.
+It can shrink targets and text below their usable sizes while a header or
+minimum-sized control still overlaps. Use the bounded task area's width and
+height to choose a fitting composition; preserve the input target size and
+text preference in that form. Art can scale within its allocated area.
+
+Check rendered text bounds after applying device and text scaling. Adjacent
+labels can overlap even when their assigned rectangles looked large enough
+at desktop scale. Use the mounted safe area's dimensions and the controls'
+actual minimum sizes; an authored height can be smaller than the rendered
+touch target. When the content cannot fit, change its grouping or presentation
+instead of stacking fixed offsets past the edge. Check the scroll window as well as its contents: its bottom
+must fit the available area, and the final item and exit must be reachable.
+Check painted bounds too: an outer stroke, shadow or focus ring can extend
+beyond `AbsoluteSize` and be cut off by a clipping ancestor. Leave room for
+that paint, or use an inset treatment; do not disable necessary clipping.
+For an image skin, fit the live label inside its usable painted area.
+Transparent margins, content insets and shaped edges can leave less room than
+the control rectangle. Recompose an action row when its labels and padding
+cannot fit; a label touching the border is not a successful fit.
+
+A plain TextInput honors an explicit native `Size`. A zero Y scale and offset
+give it zero height; the auto-sized Button example does not apply to it. Omit
+`Size` for the normal field, or supply a positive height for a fixed-size field.
+After changing field sizing, click or tap the field and type into it. A direct
+`CaptureFocus()` call is useful for diagnosis, but does not test whether the
+user can reach the field. If pointer input fails, inspect the field's bounds,
+clipping and overlays before testing its submission logic.
+
 Keep the action and its terms together. Pin them when readable content still
 fits; with large text, a keyboard or short room, let the complete decision
 scroll rather than trap controls behind a fixed footer.
@@ -122,6 +151,15 @@ owned page or modal behavior for input lifetime; do not emulate it with an
 opaque Frame. Read `Tasks.pages` for navigation ownership and `responder`
 for controller entry to a passive HUD. Do not bind reserved Escape or Start.
 
+For a dedicated full-screen app, the host must own gameplay input and native
+touch-control visibility for that app's lifetime. A Screen correctly reserves
+space for visible movement controls, which can leave little room on a short
+phone. Use the existing page or modal lifecycle when it fits; otherwise gate
+the host controls and restore their previous state when the app closes.
+Read `Factory-options.keyboardNavigation` and `Tasks.safe-layout` for the
+contracts. Do not remove safe insets to cover still-active movement controls.
+Inspect the outer edges of a full-viewport ground on a phone and a television.
+
 `UI.environment()` exposes camera room, input and access preferences.
 Use `UI.environment(taskBody)` for the bounded body after navigation and insets;
 do not measure a hugging child that changes size with the chosen form.
@@ -144,6 +182,11 @@ or disable Roblox UI to make room. Read `Composition.adaptation` for the contrac
 Localize complete labels through the game's translator and give the app that
 translator. Disable AutoLocalize for already translated or player-supplied
 text. Use actual InputAction hints rather than hard-coded keyboard suffixes.
+
+Verify required engine APIs from the project's normal script context. A Studio
+command or plugin can have permissions that the game script does not. After
+an access setting changes, start a fresh Play session and exercise the actual
+success path; a successful privileged probe does not establish that it works.
 
 ## Exact contracts
 

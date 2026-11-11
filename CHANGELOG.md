@@ -1,5 +1,17 @@
 # Current package
 
+`Facet.review` has the rule `oversized-target`. It finds buttons that are
+taller or wider than the scroll view that holds them, such as a record card
+of 290 pixels in a list that has 170 pixels of room on a phone in landscape.
+The player can scroll and can activate the part that shows, but never sees
+one record whole. The finding names the count, the size and the room.
+
+An unknown option on a control now names what the control takes. When no
+known option is close to the name, the error lists the options of a control
+that has 14 or fewer, and points to the reference of a control that has more:
+`Facet UI.ZStack: unknown option 'surface'. Its options include alignH,
+alignV, ground, height, padding, width.`
+
 `UI.Screen` takes `ground`: one GuiObject, most often a `UI.Image` or a
 `UI.ZStack` of images, that Facet draws behind the content and continues to
 every edge of the glass, while the content stays in the safe area. `UI.Image`

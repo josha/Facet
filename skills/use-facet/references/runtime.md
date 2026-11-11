@@ -45,23 +45,48 @@ in the parent's positional list; a Compose-owned object passed as `Parent`
 needs `C.static(object)`. Build controls only inside the mount function or a
 component it calls.
 
+## From a native habit to Facet
+
+| Native habit | Use |
+| --- | --- |
+| `Frame` with a `UIListLayout` | `UI.VStack` or `UI.HStack` with `gap`, `padding`, `align` and `distribute` |
+| A row that must become a column | `UI.AdaptiveStack`, or `HStack { wrap = true }` for many short items |
+| `UIGridLayout` or computed cell positions | `UI.Grid`, or `UI.VirtualGrid` with `minColumnWidth` for a long collection that scrolls |
+| Children layered with `AnchorPoint` and `Position` | `UI.ZStack` with `alignH` and `alignV` |
+| A block pinned to the bottom or the far side | `UI.Spacer {}` or `UI.fill()` in a bounded stack |
+| `ImageLabel` with a computed `Size` | `UI.Image` with `width`, `height` and `aspectRatio` (`"fill"` or pixels, bound to the room when needed), `scaleMode`, `shape` and `tint`; native image properties still apply |
+| A separate ScreenGui for a full-screen backdrop | `UI.Screen { ground = UI.Image { ... } }`, or a `UI.ZStack` of images for layers |
+| A transparent `ImageButton` or `TextButton` over art | `UI.Button { appearance = "bare", name = ..., face }`: the Button has the size of its face, Facet draws focus and keeps the touch target |
+| Objects placed in a scene by coordinates | Layers of a `ZStack`, each a filling stack that aligns its own content; a negative `gap` for overlap; `Rotation` on a face |
+| `TextLabel` | `UI.Text` with a `textRole`; `UI.Label` for an icon with a value |
+| A count or status pill; a mark on a corner | `UI.Badge`; `UI.badged(host, value)` |
+| A plate image behind a group | `surface = "panel"` with theme `chrome.panel` art |
+| A label on one piece of art, such as a note, a card or a sign | A stack with `ground = UI.Image { image = ..., scaleMode = ..., paintRect = ... }`: the art fills the stack and the padding starts at its paint |
+| A thin frame as a rule | `UI.Divider` |
+| Pixel tables chosen by screen size | `AdaptiveStack`, `ViewThatFits`, or one `UI.environment()` class |
+| `TweenService` | Theme motion with `UI.countUp`, `UI.follow`, `UI.sequence`, `UI.shake`, `Flash` and `Travel` |
+| `UserInputService` key checks | An `InputAction` with the Button's `shortcutHint` |
+
+
+Put `table.unpack(rows)` last in a constructor; before other entries Luau keeps
+only its first value. In a `Stage` where the player chooses colors, keep
+`Ambient` and `LightColor` near white.
+
 ## First screen with native art
 
-For a game direction that can be expressed in native type and shapes, see the
-runnable [Proof Press recipe](../assets/native-direction.luau).
-It shows one theme applied to live type, paper, a choice and a primary action,
-with no uploaded assets. It teaches the wiring for a small type-led task; it
-is not a quality target or a panel template. [Finish](finish.md) lists the
-theme values, fonts and ground treatments that carry a game's own direction.
+The runnable [Proof Press example](../assets/native-direction.luau) is one
+first screen built from native type and shapes, with no uploaded assets. Read
+it for the wiring of a theme and for the layers of a screen: a ground that
+reaches the glass, a lead that takes its size from the room, the controls on
+a rail, and a short wide form with the lead beside the controls. It is one
+composition for one task, a letterpress shop with one large proof. It is not
+a layout for other screens, and a quiet interface has other answers; the
+[settings example](../examples/settings.luau) is a plain form.
 In Studio, read the full example in one call:
 
 ```luau
 return game.ServerStorage.FacetDocs.skills["use-facet"].assets["native-direction.luau"].Value
 ```
-
-Mount the representative task with its authored theme before repeating the
-screen treatment. Inspect the action and the selected choice with focus on it
-and on its peer. Check the result at a wide and constrained supported viewport.
 
 ## State and commands
 
@@ -121,34 +146,8 @@ parent with a defined width and hugs inside a hugging stack or a row;
 space before you use fill. Spacing steps are `xs`, `s`, `m`, `l` and `xl`. Do
 not repair overflow by shrinking all text.
 
-Scaling a fixed desktop canvas with `UIScale` does not reflow its columns.
-It can shrink targets and text below their usable sizes while a header or
-minimum-sized control still overlaps. Use the bounded task area's width and
-height to choose a fitting composition; preserve the input target size and
-text preference in that form. Art can scale within its allocated area.
-
-Check rendered text bounds after applying device and text scaling. Adjacent
-labels can overlap even when their assigned rectangles looked large enough
-at desktop scale. Use the mounted safe area's dimensions and the controls'
-actual minimum sizes; an authored height can be smaller than the rendered
-touch target. When the content cannot fit, change its grouping or presentation
-instead of stacking fixed offsets past the edge. Check the scroll window as well as its contents: its bottom
-must fit the available area, and the final item and exit must be reachable.
-Check painted bounds too: an outer stroke, shadow or focus ring can extend
-beyond `AbsoluteSize` and be cut off by a clipping ancestor. Leave room for
-that paint, or use an inset treatment; do not disable necessary clipping.
-For an image skin, fit the live label inside its usable painted area.
-Transparent margins, content insets and shaped edges can leave less room than
-the control rectangle. Recompose an action row when its labels and padding
-cannot fit; a label touching the border is not a successful fit.
-
-A plain TextInput honors an explicit native `Size`. A zero Y scale and offset
-give it zero height; the auto-sized Button example does not apply to it. Omit
-`Size` for the normal field, or supply a positive height for a fixed-size field.
-After changing field sizing, click or tap the field and type into it. A direct
-`CaptureFocus()` call is useful for diagnosis, but does not test whether the
-user can reach the field. If pointer input fails, inspect the field's bounds,
-clipping and overlays before testing its submission logic.
+[Runtime details](runtime-details.md#sizing-details) covers scaled text
+bounds, painted bounds under a clip, image skins and the size of a TextInput.
 
 ## Input
 
@@ -164,38 +163,48 @@ property functions.
 
 `suspendGameplay = true` applies to modal surfaces and a nonempty
 NavigationStack path; it does not suspend gameplay for a root Screen alone.
-For a dedicated full-screen app, the host must own gameplay input and native
-touch-control visibility for that app's lifetime. A Screen correctly reserves
-space for visible movement controls, which can leave little room on a short
-phone. Use the existing page or modal lifecycle when it fits; otherwise gate
-the host controls and restore their previous state when the app closes.
-Read `Factory-options.keyboardNavigation` and `Tasks.safe-layout` for the
-contracts. Do not remove safe insets to cover still-active movement controls.
-A full-viewport ground is noninteractive paint behind the safe-area content;
+While one is open, Facet turns off the touch controls and
+`UI.environment().gameplaySuspended` is true. Derive the game's own input
+from it. Do not turn the touch controls or an input context on and off by
+hand for a page that an owner can present. For a dedicated full-screen app,
+read [runtime details](runtime-details.md#input-and-adaptation). A
+full-viewport ground is noninteractive paint behind the safe-area content;
 the Screen's `ground` option makes it reach the glass, as
-[finish](finish.md#the-ground) shows. Inspect the outer edges on a phone and a television.
+[finish](finish.md#the-ground) shows.
 
-When conditional content removes the focused action, transfer selection to a
-useful surviving control. Use NavigationStack or `UI.focusSection` ownership
-where it fits; read `Selection.SelectedObject` for native restoration. Test
-the next directional input and the return action after acceptance. A successful
-activation can still leave selection on a removed object. Keep pointer and
+Facet owns the selection of a surface that it presents. A Sheet, a Dialog
+and a NavigationStack page select their entry control when they open: the
+control that `initialFocus` names, else the first usable one. They skip
+disabled and hidden controls, and they return the selection to the opener
+when they close. Read `Selection.SelectedObject` for the contract. A panel
+that the game shows and hides itself gets no entry control and no return.
+Present it through NavigationStack, a modal or `UI.focusSection`. Do not select "the first
+button" by a search of the descendants: `Visible` is true on a disabled
+button and on a button under a hidden ancestor, and the engine then holds
+the selection on a control that cannot act. Write `GuiService.SelectedObject`
+yourself in one case: conditional content removes the focused control, and
+you move the selection to a named control that survives. Keep pointer and
 touch users free from unsolicited focus claims.
+
+To check controller focus in Studio, switch the device preview to a console.
+Injected arrow keys stand for the D-pad and Return stands for the A button.
+When nothing is selected, `GuiService:Select(playerGui)` stands for the first
+press. Read `GuiService.SelectedObject` after each move: it is a control that
+can act, the next move leaves it, and Return activates it. An injected
+`ButtonA` does not activate the selection. Check the entry, one move, an
+activation and the return for each kind of surface. The first injected key
+after a change of device can clear the selection, so send one key before you
+select.
 
 A page whose builder errors shows "This page could not be displayed." and
 warns with the page id and the error in the output; read the output after
 each Play.
 
-Verify required engine APIs from the project's normal script context. A Studio
-command or plugin can have permissions that the game script does not. After
-an access setting changes, start a fresh Play session and exercise the actual
-success path; a successful privileged probe does not establish that it works.
-
 ## Exact contracts
 
 In Studio, read a node at
 `ServerStorage.FacetDocs.docs.reference.nodes["Button.card.md"].Value`; with a
-shell, `lute run tools/facet docs Button.card`. Read a card when the needed
-contract is unclear or the example does not cover it. Batch independent reads
-and reuse answers while they remain current. [Runtime details](runtime-details.md) covers Sheets, overloaded
-collections, the top bar, localization and the type checker.
+shell, `lute run tools/facet docs Button.card`. Batch independent reads and
+reuse answers while they remain current. [Runtime details](runtime-details.md)
+covers Sheets, overloaded collections, the top bar, localization and the type
+checker.

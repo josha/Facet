@@ -612,13 +612,32 @@ local function selectedInfo(): Info?
 	return describe(selected, rect)
 end
 
-local function fullyShown(object: GuiObject): boolean
+local function revealedState(object: GuiObject): (boolean, boolean)
 	local rect = shownRect(object, false)
 	if rect == nil then
-		return false
+		return false, false
 	end
 	local whole = rectOf(object)
-	return rect.width >= whole.width - 1 and rect.height >= whole.height - 1
+	local wide, tall = rect.width >= whole.width - 1, rect.height >= whole.height - 1
+	if wide and tall then
+		return true, false
+	end
+	local scroller = object:FindFirstAncestorWhichIsA("ScrollingFrame")
+	if scroller == nil then
+		return false, false
+	end
+	local room = scroller.AbsoluteWindowSize
+	local overX, overY = whole.width > room.X + 1, whole.height > room.Y + 1
+	if not overX and not overY then
+		return false, false
+	end
+	local window = shownRect(scroller, false)
+	if window == nil then
+		return false, true
+	end
+	local fillsX = if overX then rect.width >= math.min(window.width, room.X) - 1 else wide
+	local fillsY = if overY then rect.height >= math.min(window.height, room.Y) - 1 else tall
+	return fillsX and fillsY, true
 end
 
 local function nudge(scroller: ScrollingFrame, window: Rect, deltaX: number, deltaY: number, mode: string): boolean
@@ -726,7 +745,10 @@ local function seek(query: Query, mode: string): boolean
 	return false
 end
 
-local function reveal(query: Query, mode: string): { revealed: boolean, steps: number, info: Info? }
+local function reveal(
+	query: Query,
+	mode: string
+): { revealed: boolean, oversized: boolean, steps: number, info: Info? }
 	local wide = table.clone(query)
 	wide.clipped = true
 	local target = resolve(wide)
@@ -734,11 +756,11 @@ local function reveal(query: Query, mode: string): { revealed: boolean, steps: n
 		target = resolve(wide)
 	end
 	if target == nil then
-		return { revealed = false, steps = 0, info = nil }
+		return { revealed = false, oversized = false, steps = 0, info = nil }
 	end
 	local object = target.object
 	local steps = 0
-	while not fullyShown(object) and steps < 40 do
+	while not revealedState(object) and steps < 40 do
 		local scroller, deltaX, deltaY = scrollTarget(object, mode == "touch")
 		if scroller == nil then
 			break
@@ -760,8 +782,10 @@ local function reveal(query: Query, mode: string): { revealed: boolean, steps: n
 		end
 	end
 	local shown = shownRect(object, false)
+	local revealed, oversized = revealedState(object)
 	return {
-		revealed = fullyShown(object),
+		revealed = revealed,
+		oversized = oversized,
 		steps = steps,
 		info = if shown ~= nil then describe(object, shown) else nil,
 	}
@@ -779,13 +803,37 @@ local function same(left: GuiObject, right: GuiObject): boolean
 end
 
 local function gamepadPath(query: Query, limit: number): { [string]: unknown }
-	local start = GuiService.SelectedObject
-	if start == nil then
+	local selected = GuiService.SelectedObject
+	if selected == nil then
 		return { found = false, reason = "nothing is selected", visited = 0 }
 	end
 	local target = targetOf(query)
 	if target == nil then
 		return { found = false, reason = "no element matches the target", visited = 0 }
+	end
+	local start: GuiObject = selected
+	local stranded: string? = nil
+	if not start.Selectable or not start.Interactable or shownRect(start, false) == nil then
+		stranded = label(start)
+		local left: GuiObject? = nil
+		for _, direction in ORDER do
+			key(DIRECTIONS[direction])
+			local moved = GuiService.SelectedObject
+			if moved ~= nil and moved ~= selected then
+				left = moved
+				break
+			end
+		end
+		if left == nil then
+			return {
+				found = false,
+				reason = "the selection rests on a control that cannot act, and no direction leaves it",
+				visited = 1,
+				labels = { stranded },
+				stranded = stranded,
+			}
+		end
+		start = left
 	end
 	local function selectionMatches(node: GuiObject, _query: Query): boolean
 		return same(node, target :: GuiObject)
@@ -827,7 +875,13 @@ local function gamepadPath(query: Query, limit: number): { [string]: unknown }
 	end
 	frames(2)
 	if found == nil then
-		return { found = false, reason = "no selection path reaches the control", visited = count, labels = labels }
+		return {
+			found = false,
+			reason = "no selection path reaches the control",
+			visited = count,
+			labels = labels,
+			stranded = stranded,
+		}
 	end
 	local path: { string } = {}
 	local cursor: GuiObject = found
@@ -836,7 +890,7 @@ local function gamepadPath(query: Query, limit: number): { [string]: unknown }
 		table.insert(path, 1, step.direction)
 		cursor = step.from
 	end
-	return { found = true, path = path, visited = count, target = label(found) }
+	return { found = true, path = path, visited = count, target = label(found), stranded = stranded }
 end
 
 local function visibleTexts(): { { text: string, rect: Rect } }
@@ -1930,8 +1984,12 @@ handlers.preview = function(request: Request): unknown
 				end
 			end
 		end
-		if reveal(query, if request.mode == "touch" then "touch" else "wheel").revealed then
+		local shown = reveal(query, if request.mode == "touch" then "touch" else "wheel")
+		if shown.revealed then
 			tapped = handlers.tap(request) :: { [string]: unknown }
+			if shown.oversized then
+				tapped.oversized = true
+			end
 		else
 			tapped.reason = "the matched control could not be revealed"
 		end

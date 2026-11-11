@@ -27,8 +27,14 @@ local definition: Facet.ThemeDefinition = {
 				extra = {
 					control = rgb(241, 227, 206),
 					contentSecondary = rgb(90, 68, 52),
-					controlSelected = ultramarine,
+					controlSelected = rgb(41, 32, 22),
 					onSelected = paper,
+					chromeGradient = {
+						surface = {
+							rotation = 90,
+							stops = { { t = 0, r = 1, g = 1, b = 1 }, { t = 1, r = 0.8, g = 0.73, b = 0.64 } },
+						},
+					},
 				},
 			},
 		},
@@ -37,6 +43,7 @@ local definition: Facet.ThemeDefinition = {
 		typography = {
 			title = { size = 42, font = serif },
 			heading = { size = 26, font = serif },
+			numeral = { size = 26, font = serif },
 			control = { size = 18, font = { weight = "Bold" } },
 		},
 		radii = { panel = 0, control = 4 },
@@ -53,7 +60,9 @@ local app = Facet.app({ name = "ProofPress", theme = theme })
 local UI = app.UI
 local draft = C.cell("Ultramarine")
 local printed = C.cell("Ultramarine")
-local function choice(ink: string)
+local pulls = C.cell(1)
+
+local function choice(ink: string, grow: boolean)
 	return UI.Button {
 		label = ink,
 		selected = function(use: Facet.Use)
@@ -65,56 +74,118 @@ local function choice(ink: string)
 		onActivate = function()
 			draft:set(ink)
 		end,
+		if grow then UI.fill() else nil,
+	}
+end
+
+local function pull()
+	return UI.Button "Print" {
+		label = "Pull a proof",
+		appearance = "emphasis",
+		onActivate = function()
+			printed:set(draft:peek())
+			pulls:update(function(count: number): number
+				return count + 1
+			end)
+		end,
 	}
 end
 
 app.mount(function()
-	return UI.Screen "ProofPress" {
-		surface = "surface",
-		align = "center",
-		UI.ScrollView "Workshop" {
+	local env = UI.environment()
+	local function sheetWidth(use: Facet.Use): number
+		return math.floor(use(env.viewportHeight) * 1.1)
+	end
+	local function ink(use: Facet.Use): Color3
+		local color = if use(printed) == "Vermilion" then vermilion else ultramarine
+		return Color3.new(color.r, color.g, color.b)
+	end
+
+	local function sheet()
+		return UI.VStack "Sheet" {
+			surface = "panel",
 			width = "fill",
-			maxWidth = 520,
-			padding = "s",
-			gap = "m",
+			height = "fill",
+			maxWidth = sheetWidth,
+			padding = "l",
+			gap = "s",
+			align = "center",
+			distribute = "center",
 			UI.fill(),
-			UI.Text { text = "Proof press", textSize = "heading" },
-			UI.VStack "Paper" {
-				surface = "panel",
-				width = "fill",
-				padding = "m",
-				gap = "xs",
+			UI.Text "Specimen" {
+				text = "Pack my box.",
+				textRole = "title",
+				textSize = { fit = { cap = 100, floor = 34 } },
+				textAlign = "center",
+				Size = UDim2.fromScale(1, 0.3),
+				tint = ink,
+			},
+			UI.Text { text = "with five dozen", textRole = "title", textAlign = "center", wrap = true, tint = ink },
+			UI.Text { text = "liquor jugs.", textRole = "heading", textAlign = "center", wrap = true, tint = ink },
+			UI.Divider {},
+			UI.HStack "Imprint" {
+				gap = "m",
+				align = "center",
 				UI.Text {
-					text = "Pack my box.",
-					textSize = "title",
-					wrap = true,
-					tint = function(use: Facet.Use)
-						local ink = if use(printed) == "Vermilion" then vermilion else ultramarine
-						return Color3.new(ink.r, ink.g, ink.b)
+					text = function(use: Facet.Use)
+						return "No. " .. use(pulls)
 					end,
+					textRole = "numeral",
 				},
 				UI.Text {
 					text = function(use: Facet.Use)
 						return "Printed in " .. use(printed)
 					end,
-					textSize = "caption",
+					textRole = "caption",
 				},
 			},
-			UI.HStack "Inks" {
+		}
+	end
+
+	return C.show(env.isLandscape, function()
+		return UI.Screen "ProofPress" {
+			surface = "surface",
+			UI.HStack "Bed" {
 				width = "fill",
-				wrap = true,
+				height = "fill",
+				gap = "m",
+				distribute = "center",
+				UI.fill(),
+				sheet(),
+				UI.VStack "Rail" {
+					surface = "panel",
+					width = 260,
+					padding = "s",
+					gap = "s",
+					align = "stretch",
+					UI.Text { text = "Proof press", textRole = "heading" },
+					choice("Vermilion", false),
+					choice("Ultramarine", false),
+					pull(),
+				},
+			},
+		}
+	end, function()
+		return UI.Screen "ProofPress" {
+			surface = "surface",
+			gap = "m",
+			UI.Text { text = "Proof press", textRole = "heading" },
+			sheet(),
+			UI.VStack "Rail" {
+				surface = "panel",
+				width = "fill",
+				padding = "s",
 				gap = "s",
-				choice("Vermilion"),
-				choice("Ultramarine"),
+				align = "stretch",
+				UI.HStack "Inks" {
+					width = "fill",
+					gap = "s",
+					choice("Vermilion", true),
+					choice("Ultramarine", true),
+				},
+				pull(),
 			},
-			UI.Button "Print" {
-				label = "Pull a proof",
-				appearance = "emphasis",
-				onActivate = function()
-					printed:set(draft:peek())
-				end,
-			},
-		},
-	}
+		}
+	end)
 end)
 script.Destroying:Connect(app.dispose)

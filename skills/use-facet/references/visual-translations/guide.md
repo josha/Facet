@@ -11,7 +11,7 @@ Use the comparison to understand a material, hierarchy or control treatment. Kee
 
 The recipes arrange some of their art with native frames. In new work,
 arrange with `UI.ZStack`, stacks and `UI.Image`, as the skill's
-[Facet table](../../SKILL.md#build-with-facet-not-around-it) shows. Take the
+[Facet table](../runtime.md#from-a-native-habit-to-facet) shows. Take the
 theme, shaped-action and Dialog techniques from the recipes, not their frame
 structure.
 
