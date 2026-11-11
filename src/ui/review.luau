@@ -383,6 +383,19 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					if tagged and grounds == true then
 						element.ground = true
 					end
+					local marked, skin = call(child, "HasTag", "facet-skin-art")
+					local owner = if marked and skin == true then read(child, "Parent") else nil
+					for _ = 1, 6 do
+						if owner == nil then
+							break
+						end
+						local known, skinned = call(owner, "HasTag", "facet-skinned")
+						if known and skinned == true then
+							element.parent = indexOf[owner] or element.parent
+							break
+						end
+						owner = read(owner, "Parent")
+					end
 				end
 				local quarter = math.floor(rotation / 90 + 0.5)
 				local inherited = (rotation - number(read(child, "Rotation"), 0)) % 360

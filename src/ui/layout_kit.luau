@@ -36,6 +36,8 @@ export type Kit = {
 	) -> Frame,
 	liftTarget: (GuiObject) -> GuiObject,
 	intrinsic: (GuiObject, boolean, number) -> number,
+	rigid: (GuiObject, number) -> number,
+	hold: (GuiObject) -> (number, boolean) -> boolean,
 	lifter: (GuiObject, "x" | "y") -> (number) -> boolean,
 	follow: (GuiObject, "x" | "y", (ComposeTypes.Use?) -> number) -> () -> boolean,
 	match: (Frame, boolean, (ComposeTypes.Use?) -> boolean) -> (),
@@ -637,6 +639,47 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local floor = sizeFloor.peek(node)
 		return floor ~= nil and (if horizontal then floor.x:peek() else floor.y:peek()) > 0
 	end
+	local RIGID_PARTS = 128
+	local function rigid(node: GuiObject, scale: number, budget: { number }): number
+		if node:HasTag("facet-fixed-width") then
+			return node.Size.X.Offset
+		end
+		local pad = node:FindFirstChildWhichIsA("UIPadding")
+		local sides = if pad then pad.PaddingLeft.Offset + pad.PaddingRight.Offset else 0
+		if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
+			local bends = node.TextWrapped or node.TextScaled or node.TextTruncate ~= Enum.TextTruncate.None
+			return if bends then sides else node.TextBounds.X / scale + sides
+		end
+		if node:IsA("ScrollingFrame") and node.ScrollingDirection ~= Enum.ScrollingDirection.Y then
+			return 0
+		end
+		local list = node:FindFirstChildWhichIsA("UIListLayout")
+		local along = list ~= nil and list.FillDirection == Enum.FillDirection.Horizontal
+		local folds = list ~= nil and along and (list.Wraps or node:HasTag("facet-row-spills"))
+		local total, count = 0, 0
+		for _, child in node:GetChildren() do
+			if budget[1] <= 0 then
+				break
+			end
+			if child:IsA("GuiObject") and child.Visible then
+				budget[1] -= 1
+				local extent = rigid(child, scale, budget)
+				if along and not folds then
+					total += extent
+					count += 1
+				else
+					total = math.max(total, extent)
+				end
+			end
+		end
+		if list and along and not folds and count > 1 then
+			total += list.Padding.Offset * (count - 1)
+		end
+		return total + sides
+	end
+	function kit.rigid(node: GuiObject, scale: number): number
+		return rigid(node, scale, { RIGID_PARTS })
+	end
 	function kit.intrinsic(node: GuiObject, horizontal: boolean, scale: number): number
 		local function pixels(value: Vector2): number
 			return (if horizontal then value.X else value.Y) / scale
@@ -687,6 +730,35 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local own = if horizontal then node.Size.X.Offset else node.Size.Y.Offset
 		return math.max(own, text + sides, total + sides)
+	end
+	function kit.hold(node: GuiObject): (number, boolean) -> boolean
+		local owner = assert(Compose.currentOwner(), "Facet hold needs an owner")
+		local held: sizeFloor.Floor? = nil
+		Compose.cleanup(function()
+			if held then
+				held.x:set(0)
+			end
+		end)
+		return function(value: number, squeezed: boolean): boolean
+			if ComposeTypes.owner.isDisposed(owner) then
+				return false
+			end
+			local floor = held
+			if floor == nil then
+				if not squeezed or value <= 0 then
+					return false
+				end
+				floor = floorOf(node, owner)
+				held = floor
+			end
+			if floor == nil then
+				return false
+			end
+			if floor.x:peek() ~= value then
+				floor.x:set(value)
+			end
+			return true
+		end
 	end
 	function kit.lifter(source: GuiObject, axis: "x" | "y"): (number) -> boolean
 		local owner = assert(Compose.currentOwner(), "Facet lift needs an owner")

@@ -29,6 +29,16 @@ counts the art of a ground as built beside the texts of its stack, and
 ground, also when most of the text is off the art. `floating-text` counts an
 image as a plate when its paint is under the text.
 
+An HStack that wraps by itself now also wraps when the content of a child
+that fills does not fit beside the other children. The content counts by its
+stacks with a `width` in pixels and its texts that do not wrap or truncate.
+Before, the fill child took the room that was left, and such a part inside
+it ran under the next child of the row.
+
+`Facet.review` counts the art of a theme skin as built in the part that
+wears the skin, so a skinned Sheet or panel hides the texts under it from
+`overlapping-text` and `covered-text`.
+
 `Facet.review` reads where an image is painted. `covered-text`,
 `escaped-text` and the backing check of `overlapping-text` use the painted
 bounds of an image: the smallest rectangle that holds its visible pixels. An

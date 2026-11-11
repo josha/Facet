@@ -189,6 +189,85 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("spills a row when the fixed content of its fill child does not fit beside the next part", {
+			id = "native_layout::native composition rest measurements::spills a row when the fixed content of its fill child does not fit beside the next part",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack "Page" {
+						UI.HStack "Row" {
+							width = "fill",
+							gap = 0,
+							UI.HStack "Terms" {
+								UI.fill(),
+								wrap = true,
+								gap = 0,
+								UI.VStack "Objective" { width = 260 },
+								UI.VStack "Reward" { width = 150 },
+							},
+							Host.Frame "Stamp" {},
+						},
+						UI.HStack "Derived" {
+							width = "fill",
+							gap = 0,
+							UI.VStack "Room" {
+								UI.fill(),
+								UI.VStack "Tracks" {
+									width = function(): number
+										return 260
+									end,
+								},
+							},
+							Host.Frame "Side" {},
+						},
+						UI.HStack "Titled" {
+							width = "fill",
+							gap = 0,
+							UI.VStack "Copy" {
+								UI.fill(),
+								UI.Text "Title" { text = "A title that does not wrap" },
+								UI.Text "Body" { text = "A body that wraps", wrap = true },
+							},
+							Host.Frame "Action" {},
+						},
+					}
+				end)
+				local V2 = engine.types.Vector2
+				local function wraps(name: string): boolean
+					return root:FindFirstChild(name):FindFirstChildWhichIsA("UIListLayout").Wraps
+				end
+				local function size(name: string, width: number)
+					engine.environment.poke(root:FindFirstChild(name, true), "AbsoluteSize", V2.new(width, 20))
+				end
+				size("Stamp", 115)
+				size("Row", 400)
+				expect(wraps("Row")):toBe(false)
+				size("Row", 273)
+				expect(wraps("Row")):toBe(true)
+				local floor = root:FindFirstChild("Terms", true):FindFirstChild("Lift")
+				expect(floor ~= nil and floor.MinSize.X):toBe(260)
+				size("Row", 200)
+				expect(floor.MinSize.X):toBe(200)
+				size("Row", 376)
+				expect(wraps("Row")):toBe(false)
+				expect(floor.MinSize.X):toBe(0)
+				size("Row", 374)
+				expect(wraps("Row")):toBe(true)
+				size("Row", 700)
+				expect(wraps("Row")):toBe(false)
+				size("Side", 115)
+				size("Tracks", 260)
+				size("Derived", 273)
+				expect(wraps("Derived")):toBe(false)
+				size("Action", 115)
+				engine.environment.poke(root:FindFirstChild("Title", true), "TextBounds", V2.new(300, 20))
+				engine.environment.poke(root:FindFirstChild("Body", true), "TextBounds", V2.new(900, 20))
+				size("Titled", 500)
+				expect(wraps("Titled")):toBe(false)
+				size("Titled", 400)
+				expect(wraps("Titled")):toBe(true)
+				stop()
+			end,
+		})
 		it("keeps a padded row whose children fit on one line when its content reads wider than the row", {
 			id = "native_layout::native composition rest measurements::keeps a padded row whose children fit on one line when its content reads wider than the row",
 			run = function()
