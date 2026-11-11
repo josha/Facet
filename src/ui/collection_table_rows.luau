@@ -79,6 +79,23 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 	local staticColumns = if type(spec.columns) ~= "function" and not Compose.isValue(spec.columns)
 		then readColumns(spec.columns)
 		else nil
+	local probes = setmetatable({} :: { [TextLabel]: true }, { __mode = "ks" })
+	local probeShare, probeLines = 0, false
+	local function probeSize(share: number, lines: boolean): UDim2
+		return D2.new(1, share, if lines then 0 else 1, 0)
+	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		local share, lines = use(layout.disclosureShare), metrics.touchRows(use)
+		if share == probeShare and lines == probeLines then
+			return
+		end
+		probeShare, probeLines = share, lines
+		local size, automatic = probeSize(share, lines), if lines then E.AutomaticSize.Y else E.AutomaticSize.None
+		for label in probes do
+			label.Size = size
+			label.AutomaticSize = automatic
+		end
+	end)
 	local function build(
 		current: ComposeTypes.ReadOnlyValue<V>,
 		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
@@ -200,33 +217,23 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				end
 				return table.concat(lines, "\n")
 			end
-			local function probe(
-				name: string,
-				text: ((ComposeTypes.Use) -> string)?,
-				share: boolean,
-				lines: (ComposeTypes.Use) -> boolean
-			): TextLabel
-				return ctx.styled(
+			local function probe(name: string, text: ((ComposeTypes.Use) -> string)?, shared: boolean): TextLabel
+				local label = ctx.styled(
 					ctx.text({
 						Name = name,
 						TextWrapped = false,
 						TextTransparency = 1,
 						Interactable = false,
-						Size = function(use: ComposeTypes.Use)
-							return D2.new(
-								1,
-								if share then use(layout.disclosureShare) else 0,
-								if lines(use) then 0 else 1,
-								0
-							)
-						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if lines(use) then E.AutomaticSize.Y else E.AutomaticSize.None
-						end,
+						Size = if shared then probeSize(probeShare, probeLines) else D2.fromScale(1, 0),
+						AutomaticSize = if shared and not probeLines then E.AutomaticSize.None else E.AutomaticSize.Y,
 						Text = text or "",
 					}),
 					"TableValue"
 				)
+				if shared then
+					probes[label] = true
+				end
+				return label
 			end
 			local wordFits = Compose.cell<<boolean?>>(nil)
 			local longestWord: Types.Child? = if render or definition.wrap == false
@@ -234,9 +241,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				else Compose.show(function(use: ComposeTypes.Use): boolean
 					return layout.textWrap(readColumn(column, use), use)
 				end, function()
-					local measure = probe("LongestWord", words, false, function()
-						return true
-					end)
+					local measure = probe("LongestWord", words, false)
 					local fits = ctx.observe.TextFits(measure)
 					Compose.watch(function(use: ComposeTypes.Use)
 						wordFits:set(use(fits))
@@ -246,7 +251,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 					end)
 					return measure
 				end)
-			local undisclosed = if render then nil else probe("Undisclosed", nil, true, metrics.touchRows)
+			local undisclosed = if render then nil else probe("Undisclosed", nil, true)
 			local content: GuiObject = if render
 				then ctx.styled(
 					Host.Frame "Inset" {
