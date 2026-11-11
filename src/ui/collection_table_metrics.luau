@@ -14,6 +14,7 @@ export type Metrics = {
 	headerHeight: ComposeTypes.Value<number>,
 	topHeight: ComposeTypes.Value<number>,
 	recordHeight: (ComposeTypes.Value<{ [string]: number }>, string, TextLabel | TextButton, number) -> (),
+	textHeight: (TextLabel | TextButton, number) -> (ComposeTypes.Use) -> number?,
 	textInsets: TextLabel,
 	textInsetSize: ComposeTypes.ReadOnlyValue<Vector2>,
 }
@@ -114,6 +115,18 @@ return function<V, K>(
 			end
 		end)
 	end
+	local function textHeight(node: TextLabel | TextButton, extra: number): (ComposeTypes.Use) -> number?
+		local observed: ComposeTypes.ReadOnlyValue<Vector2> = ctx.observe.TextBounds(node)
+		local text = ctx.observe.Text(node)
+		local last: number? = nil
+		return function(use: ComposeTypes.Use): number?
+			local bounds = use(observed)
+			if bounds.Y > 0 or use(text) == "" then
+				last = bounds.Y / use(unitScale) + extra
+			end
+			return last
+		end
+	end
 	local textInsets = ctx.styled(
 		ctx.text({
 			Name = "CellTextInsets",
@@ -139,6 +152,7 @@ return function<V, K>(
 		headerHeight = headerHeight,
 		topHeight = topHeight,
 		recordHeight = recordHeight,
+		textHeight = textHeight,
 		textInsets = textInsets,
 		textInsetSize = textInsetSize,
 	}
