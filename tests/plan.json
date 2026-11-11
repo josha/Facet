@@ -152,6 +152,13 @@
       ]
     },
     {
+      "id": "geometry_signature",
+      "locator": "tests/geometry_signature.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "gesture_arbitration",
       "locator": "tests/gesture_arbitration.verify.luau",
       "requires": [

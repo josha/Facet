@@ -3,6 +3,7 @@ local Types = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
+local geometrySignature = require("./geometry_signature")
 
 local TEXT: { [string]: true } = { TextLabel = true, TextButton = true, TextBox = true }
 
@@ -24,11 +25,11 @@ end
 
 return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnlyValue<boolean>
 	local fontsReady = fontReadiness(ctx, roots)
-	local snapshot = ""
+	local signature = geometrySignature()
+	local snapshot = 0
 	local limit = math.ceil(math.max(1, ctx.metric("motion.restLimit")) * 60)
 	local waiting = 0
 	local function prepared(): boolean
-		local parts: { string } = {}
 		local texts: { fontReadiness.TextNode } = {}
 		local measured, attached = true, false
 		local function record(node: Instance, visible: boolean)
@@ -37,7 +38,10 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 				measured = measured and not textMeasure.pending(node)
 				if visible then
 					local position, size, bounds = node.AbsolutePosition, node.AbsoluteSize, node.TextBounds
-					table.insert(parts, `{position.X},{position.Y}:{size.X},{size.Y}:{bounds.X},{bounds.Y}:{node.Text}`)
+					signature.push(position)
+					signature.push(size)
+					signature.push(bounds)
+					signature.push(node.Text)
 				end
 			end
 		end
@@ -64,13 +68,15 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 		for _, root in roots do
 			local size, position = root.AbsoluteSize, root.AbsolutePosition
 			attached = attached or root.Parent ~= nil and size.X > 0 and size.Y > 0
-			table.insert(parts, `{position.X},{position.Y}:{size.X},{size.Y}:{root.Visible}`)
+			signature.push(position)
+			signature.push(size)
+			signature.push(root.Visible)
 			if TEXT[root.ClassName] and (root:IsA("TextLabel") or root:IsA("TextButton") or root:IsA("TextBox")) then
 				table.insert(texts, root)
 			end
 			visit(root, root.Visible)
 		end
-		snapshot = table.concat(parts, ";")
+		snapshot = signature.finish()
 		local settling = false
 		for _, root in roots do
 			local at: Instance? = root.Parent
@@ -92,7 +98,7 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 			waiting += 1
 			return waiting >= limit
 		end,
-		sample = function(): string
+		sample = function(): number
 			return snapshot
 		end,
 		timeout = ctx.metric("motion.restLimit"),

@@ -287,11 +287,13 @@ return function<V, K>(
 		local stop = Compose.withOwner(poolOwner, function()
 			return runtime.mount(function(): GuiObject
 				contentOwner = assert(Compose.currentOwner())
-				runtime.decorate(node, {
-					Name = tostring(keyCell:peek()),
-					ClipsDescendants = tree ~= nil,
-					Interactable = interactable,
-				})
+				node.Name = tostring(keyCell:peek())
+				node.ClipsDescendants = tree ~= nil
+				if interactable == true then
+					node.Interactable = true
+				else
+					runtime.decorate(node, { Interactable = interactable })
+				end
 				local placed = { index = -1, main = math.huge, cross = math.huge, size = -1, crossSize = -1 }
 				local position = if positionEditor
 					then positionEditor.position(keyCell:peek(), placement, function(value: Vector2)
