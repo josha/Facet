@@ -27,6 +27,7 @@ pixel size of an image in Studio, in the form that `paintRect` takes. It can
 yield. It returns nil outside Studio and for an image that Studio cannot
 read. The art of a stack `ground` counts as built beside the texts of that
 stack, and `escaped-text` always measures those texts against its paint.
+The art of a theme skin counts as built in the part that wears the skin.
 
 A text sits on the paint when half or more of its glyphs are over the painted
 bounds. `escaped-text` then uses the edge of the paint. A text that is mostly

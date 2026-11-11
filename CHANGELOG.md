@@ -35,6 +35,10 @@ stacks with a `width` in pixels and its texts that do not wrap or truncate.
 Before, the fill child took the room that was left, and such a part inside
 it ran under the next child of the row.
 
+`Facet.review` counts the art of a theme skin as built in the part that
+wears the skin, so a skinned Sheet or panel hides the texts under it from
+`overlapping-text` and `covered-text`.
+
 `Facet.review` reads where an image is painted. `covered-text`,
 `escaped-text` and the backing check of `overlapping-text` use the painted
 bounds of an image: the smallest rectangle that holds its visible pixels. An

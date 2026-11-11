@@ -1021,4 +1021,38 @@ return function(harness: Verify.Harness)
 		stop()
 		runtime:dispose()
 	end)
+
+	harness:case("collect counts the art of a skin as built in the part that wears the skin", function(t)
+		local engineLib = require("./lib/native_engine")
+		local engine = engineLib.new()
+		local V2 = engine.types.Vector2
+		local screen = engine.new("ScreenGui")
+		local function part(class: string, name: string, parent: Instance): Instance
+			local node = engine.new(class)
+			node.Name = name
+			node.Parent = parent
+			engine.environment.poke(node, "AbsolutePosition", V2.new(0, 0))
+			engine.environment.poke(node, "AbsoluteSize", V2.new(749, 331))
+			return node
+		end
+		local panel = part("Frame", "Panel", screen)
+		panel:AddTag("facet-skinned")
+		local boundary = part("Frame", "SkinBoundary", part("CanvasGroup", "Fade", panel))
+		local art = part("ImageLabel", "Art", part("Frame", "Skin", part("Frame", "SkinBounds", boundary)))
+		local artImage = (art :: unknown) :: ImageLabel
+		artImage.Image = "rbxassetid://1"
+		art:AddTag("facet-skin-art")
+		local loose = part("ImageLabel", "Loose", part("Frame", "Holder", part("Frame", "Plain", screen)))
+		local looseImage = (loose :: unknown) :: ImageLabel
+		looseImage.Image = "rbxassetid://1"
+		loose:AddTag("facet-skin-art")
+		local review = require("../src/ui/review")
+		local snapshot = review.collect({ root = screen })
+		local byName: { [string]: Rules.ReviewElement } = {}
+		for _, element in snapshot.elements do
+			byName[string.match(element.path, "([^%.]+)$") or element.path] = element
+		end
+		t:expect(byName.Art.parent):toBe(byName.Panel.index)
+		t:expect(byName.Loose.parent):toBe(byName.Holder.index)
+	end)
 end
