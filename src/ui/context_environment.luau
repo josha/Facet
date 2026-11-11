@@ -175,5 +175,11 @@ return function(
 		ctx.touchFloor = function()
 			return touchFloor
 		end
+		local touchFloorActive = ctx.Compose.formula(function(use: ComposeTypes.Use): boolean
+			return touchFloor(use) > 0
+		end)
+		ctx.touchFloorActive = function()
+			return touchFloorActive
+		end
 	end)
 end
