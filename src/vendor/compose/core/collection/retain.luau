@@ -7,7 +7,9 @@ local Host = require "../host"
 local Support = require "../structure/support"
 local Types = require "../reactive/types"
 local cellModule = require "../reactive/cell"
-local keyed = require "../structure/keyed"
+local keyedRows = require "../structure/keyed-rows"
+
+local UNREAD_INDEX = cellModule.cell(0)
 
 export type Render<V, S, K> = (value: Types.ReadOnlyValue<V>, state: Types.ReadOnlyValue<S>, key: K) -> Host.Node
 export type Recycle<V, S, K> = (
@@ -35,57 +37,22 @@ export type Options<V, S, K> = {
 local function retainKeyed<V, S, K>(options: Options<V, S, K>, render: Render<V, S, K>): Children.Directive
 	local source = options.source
 	local selectItems = options.select
-	local equals = options.equals
-
-	local states: { [K]: Types.Value<S> } = {}
-	local keysAt: { K } = {}
-	local pending: { [K]: S } = {}
-	local present: { [K]: true } = {}
+	local selected: Selection<V, S, K>? = nil
 
 	local function slice(use: Types.Use): { V }
-		local list = source(use)
-		local selection = selectItems(use, list)
-		local values, keys, itemStates = selection.values, selection.keys, selection.states
-		local count = #values
-
-		table.clear(present)
-		table.clear(keysAt)
-		for index = 1, count do
-			local key = keys[index]
-			keysAt[index] = key
-			present[key] = true
-			local held = states[key]
-			if held ~= nil then
-				held:set(itemStates[index])
-			else
-				pending[key] = itemStates[index]
-			end
-		end
-
-		for key in states do
-			if present[key] == nil then
-				states[key] = nil
-			end
-		end
-
-		return values
+		local selection = selectItems(use, source(use))
+		selected = selection
+		return selection.values
 	end
 
-	local function keyOfRetained(_value: V, index: number): K
-		return keysAt[index]
+	local function collect(_list: { V }, wanted: number, keys: { K }, states: { S }): { S }
+		local selection = assert(selected)
+		table.move(selection.keys, 1, wanted, 1, keys)
+		table.move(selection.states, 1, wanted, 1, states)
+		return states
 	end
 
-	local function renderRetained(value: Types.ReadOnlyValue<V>, _index: Types.ReadOnlyValue<number>, key: K): Host.Node
-		local state = states[key]
-		if state == nil then
-			state = cellModule.cell(pending[key], equals)
-			states[key] = state
-			pending[key] = nil
-		end
-		return render(value, state, key)
-	end
-
-	return keyed<<V, K>> { from = slice, key = keyOfRetained, render = renderRetained }
+	return keyedRows(slice, render, collect, nil, options.equals)
 end
 
 local function retainSlots<V, S, K>(
@@ -205,8 +172,9 @@ local function retainSlots<V, S, K>(
 		return values
 	end
 
-	local function slotOfRetained(_value: V, index: number): number
-		return slotsAt[index]
+	local function collect(_list: { V }, wanted: number, slots: { number }, unread: { number }): { number }
+		table.move(slotsAt, 1, wanted, 1, slots)
+		return unread
 	end
 
 	local function renderSlot(
@@ -242,7 +210,7 @@ local function retainSlots<V, S, K>(
 		return node
 	end
 
-	return keyed<<V, number>> { from = slice, key = slotOfRetained, render = renderSlot }
+	return keyedRows(slice, renderSlot, collect, UNREAD_INDEX, nil)
 end
 
 local function retain<V, S, K>(options: Options<V, S, K>): Children.Directive

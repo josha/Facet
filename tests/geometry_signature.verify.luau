@@ -86,4 +86,27 @@ return function(harness: Verify.Harness)
 		Verify.expect(late):toBe(1)
 		runtime:dispose()
 	end)
+
+	harness:case("a label that only moves reaches no text listener", function()
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local Compose = Facet.Compose
+		local ctx = ({ Compose = Compose } :: unknown) :: Types.Context
+		local Vector2 = engine.types.Vector2
+		local label = engine.new("TextLabel")
+		local seen: { string } = {}
+		local owner = Compose.createOwner(runtime.reactor)
+		Compose.withOwner(owner, function()
+			textChanges(ctx, label, function(property: string)
+				table.insert(seen, property)
+			end)
+		end)
+		engine.environment.poke(label, "AbsolutePosition", Vector2.new(0, 40))
+		engine.environment.poke(label, "AbsolutePosition", Vector2.new(0, 80))
+		Verify.expect(seen):toEqual({})
+		engine.environment.poke(label, "AbsoluteSize", Vector2.new(120, 20))
+		Verify.expect(seen):toEqual({ "AbsoluteSize" })
+		Compose.owner.dispose(owner)
+		runtime:dispose()
+	end)
 end

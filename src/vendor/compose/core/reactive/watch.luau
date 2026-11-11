@@ -58,6 +58,8 @@ WATCH.__index = WATCH
 Nodes.adopt(WATCH)
 WATCH.state = CLEAN
 WATCH.kind = 3
+WATCH.released = false
+WATCH.queued = false
 
 function WATCH.run(node: Node, frame: Evaluation.Evaluation?)
 	if node.released then
@@ -78,6 +80,8 @@ Nodes.adopt(TERMINAL)
 TERMINAL.state = CLEAN
 TERMINAL.group = true
 TERMINAL.kind = 4
+TERMINAL.released = false
+TERMINAL.queued = false
 
 local resume: Node? = nil
 
@@ -175,6 +179,8 @@ GUARDED.__index = GUARDED
 Nodes.adopt(GUARDED)
 GUARDED.state = CLEAN
 GUARDED.kind = 3
+GUARDED.released = false
+GUARDED.queued = false
 
 function GUARDED.run(node: Node, frame: Evaluation.Evaluation?)
 	if node.released then
@@ -193,8 +199,6 @@ local function begin(reactor: Reactor, body: Body, class: {}, label: string?, sc
 	local node: Node = {
 		reactor = reactor,
 		effect = body,
-		released = false,
-		queued = false,
 		reads = nil,
 		inherited = scope,
 		child = nil,
