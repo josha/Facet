@@ -39,6 +39,7 @@ local listener = erase<<(callback: unknown) -> (unknown) -> ()>>(identity)
 local node = erase<<(subject: unknown) -> Types.Node>>(identity)
 local valueNode = erase<<(subject: unknown) -> Types.Node & Types.ReadOnlyValue<unknown>>>(identity)
 local nodeList = erase<<(produced: unknown) -> { Host.Node }>>(identity)
+local teardown = erase<<(callback: unknown) -> () -> ()>>(identity)
 
 local function cache(target: Types.Node, value: unknown)
 	target.value = value
@@ -49,6 +50,7 @@ end
 
 return {
 	nodeList = nodeList,
+	teardown = teardown,
 	node = node,
 	valueNode = valueNode,
 	entries = entries,

@@ -71,6 +71,56 @@ local function belongsTo<R>(node: Node, owner: OwnerTypes.Owner<R>): boolean
 	return known == token or known == token + BORROWED_TAG or known == token + ADOPTED_TAG
 end
 
+local survey: { [unknown]: true } = {}
+
+local function membership<R>(node: Node, owner: OwnerTypes.Owner<R>): boolean?
+	local known = custody[node]
+	if type(known) == "table" or type(known) == "userdata" then
+		return nil
+	end
+	local token = owner.nodeToken
+	if token == nil then
+		return false
+	end
+	return known == token or known == token + BORROWED_TAG or known == token + ADOPTED_TAG
+end
+
+local function foreignLeaves<R>(
+	children: { [number]: Host.Child? },
+	first: number,
+	owner: OwnerTypes.Owner<R>
+): { [unknown]: true }?
+	local pending = 0
+	for index = first, #children do
+		local child = children[index]
+		local known = custody[child]
+		if (type(known) == "table" or type(known) == "userdata") and survey[child] == nil then
+			survey[child] = true
+			pending += 1
+		end
+	end
+	local entry = owner.head
+	while entry ~= nil and pending > 0 do
+		for index = #entry, 1, -1 do
+			local subject = entry[index]
+			if survey[subject] ~= nil then
+				survey[subject] = nil
+				pending -= 1
+				if pending == 0 then
+					break
+				end
+			end
+		end
+		entry = entry.following
+	end
+	if pending == 0 then
+		return nil
+	end
+	local foreign = table.clone(survey)
+	table.clear(survey)
+	return foreign
+end
+
 local function protect(node: Node)
 	local known = custody[node]
 	if type(known) == "number" and known > 0 then
@@ -285,6 +335,8 @@ return {
 	markOwned = markOwned,
 	ownerToken = ownerToken,
 	belongsTo = belongsTo,
+	membership = membership,
+	foreignLeaves = foreignLeaves,
 	rememberEvent = rememberEvent,
 	takeEvent = takeEvent,
 	protect = protect,

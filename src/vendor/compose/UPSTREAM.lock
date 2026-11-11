@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "9b7c21792d974bc02a6733f5235072584440fc1b",
+  "commit": "3eb071a57f4b5a5d09d88d09d6949ffe98df0053",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -24,21 +24,21 @@
     "core/collection/retain.luau": "af86eb0d4406f4a7a440682d6406038f9b45f8dbd98d641e0c7912123f246f67",
     "core/context.luau": "d01d7e1913ec8d5a5795e746be08feb260da1ec873c86eb6fe0ee364d9ab7fb8",
     "core/diagnostics.luau": "fed3e94da3335c1de00ada09a422b9f0dccf5978fb467103c497b2c54c2c8a6d",
-    "core/dynamic.luau": "76f8a9abb103a250a761a631334231ffa94b3dbb92cb25a3d7e7fd937135da5c",
+    "core/dynamic.luau": "34469f6487499663a65550ee96c9b7bcc840195930c122d752240a0356729361",
     "core/focus-neighbor.luau": "adcef26786478021b99e4e86bc71eb707f5ed8b6ed978c5c6acd144a1e70e939",
     "core/focus-scope.luau": "84fbda700215c2ddcd231ff7a9578ae60a7efd82db80d18c7932daf82a09fae1",
     "core/frames.luau": "d9b7850d7f817448af0d91983ee3de4b609682a6f1123113d8ed1892963c14a0",
     "core/geometry.luau": "0fc2541ccde094d97602641f0044b43754a76d3b215fe801031842928b46aadb",
     "core/host-validation.luau": "c11cae8259965dfc6776f7335c329eea30f4fb7644c7953cde1aecf8f929c878",
     "core/host.luau": "b0d3876d0861f87f37e31db6347eaa8f2b1ad6944db64bbdc8b2d31cdae556a2",
-    "core/init.luau": "fcf358ec95ba55b3f025de9522a05702ebf793b57c35385f958c1185da7e91fa",
+    "core/init.luau": "422b16aff0dea41ca8b90e14b7309cae12b9eef624260b555b18d98e19af8a34",
     "core/keyed-cache.luau": "acadf1ab256974c215a3ad70c4fc54eb76dc0325453570cd1cc0b4da75da59a5",
     "core/ownership/active.luau": "5520c80bbd84715c7324bf3c3cb460e21c1e228867d6a4851c63c48d3b23a3d4",
     "core/ownership/cache-options.luau": "2df939a9a4b8045c7521366bd8c5d22920cb63b28250be7a18d4b89cfc7f5b45",
     "core/ownership/charges.luau": "bb071a86b6e47a3a72e9a1fc60083e370cbbb92d8f6a2172d7332f1099334a51",
     "core/ownership/frame.luau": "b6171981159693750e0519c9aa20d2ab93040cbdae158721ffca26c9950bd71f",
     "core/ownership/inspect.luau": "b257089b304950cee03fce086f07d780ba8e256062ffc2bea9f346d25099d630",
-    "core/ownership/nodes.luau": "bf4ab13ba18abbf2cc4ff72b12ba1451edd5d405377b98f41edac66955497b9c",
+    "core/ownership/nodes.luau": "569115db00b585d2a1f6bbf3fd424cdcc799e07367365591379b36d845016dbd",
     "core/ownership/owner.luau": "3c326b6f954290b7307b98f971623a1904c7ecee9c25cb263665a436f3df891d",
     "core/ownership/report.luau": "817e6a181cd5dfc6e01948adddd45c0fc9de6dc782dbed3d3d834f235c22ae1b",
     "core/ownership/root-scope.luau": "550e65a629edadf67ef2f0081cdb43e7f08bd4e8c5f93e8634a15aa79c90b21b",
@@ -55,10 +55,10 @@
     "core/reactive/watch.luau": "d97410c8cfce6c19cf7d20f25a9b16585d30508c34b55a1ebff24da97147bc33",
     "core/reactive/yield-check.luau": "0d71a666c78d016412d3f93fec8f1e0b1e37847896767b9252a4e9de36df86a4",
     "core/runtime/bindings.luau": "938187860c2372a177ed97a5b2da000b6e9d8ec301b6994c8518730b3ce7d706",
-    "core/runtime/children.luau": "55b83e30758e80bbddc0b8b51f254447594aea1ae2fe99a46a975f21215de7f9",
+    "core/runtime/children.luau": "6062f9935c49fad8a1d749e02df24b25cd92c3e4699dc05a23264e97865bb115",
     "core/runtime/clock.luau": "cb4e49ed1d3b781a049a5bcc8d814e8af2fc791d84453e6a9219103644d45610",
-    "core/runtime/extensions.luau": "2a07ace5ef791b93a478fd1fbcad5d1f2f54358ab04dfabedc50a5ed0df16d82",
-    "core/runtime/init.luau": "418e11f3d3fd0dfc64483efb61de2fbabec2c27617798ea8326b6d02cdd93803",
+    "core/runtime/extensions.luau": "083e6c646d2a93877300060d916ddb6103783cc47d5d9ccda0737a039fa79de4",
+    "core/runtime/init.luau": "ca69e6d1aa3f8dde59877f91f2c57d6fa6ed10c88cc1af191246d95b3a6e8b93",
     "core/runtime/observe.luau": "f46d0390cff8b4ddfdb0de450c5ad8f31ce89e39d0796a8847973f4a733aa869",
     "core/runtime/props-state.luau": "26a25a504a1e75baa4e8ef2f52e9d0aab4f99db5f2b6f1c00b1814bb0da34eca",
     "core/runtime/props.luau": "2c16a3265eca5320ccef499690c74108b09c91e458dfc62c697dcea71596aed1",
@@ -132,7 +132,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "75d07028a0bd319c0d5db7666ff7fa0f8318531002c00aaaf52f0d6dbae0c904",
+    "SKILL.md": "2636e2961b82224066806dc5e46d23023d8a2e668a9ec728226cba129f6db57b",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }
