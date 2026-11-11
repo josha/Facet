@@ -85,10 +85,11 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		key: ComposeTypes.ReadOnlyValue<K>
 	): GuiObject
 		local heights: { [string]: (ComposeTypes.Use) -> number? } = {}
-		local heightsChanged = Compose.cell(0)
+		local hides: { [string]: (ComposeTypes.Use) -> boolean } = {}
+		local sourcesChanged = Compose.cell(0)
 		local function measureHeight(id: string, source: (ComposeTypes.Use) -> number?)
 			heights[id] = source
-			heightsChanged:set(heightsChanged:peek() + 1)
+			sourcesChanged:set(sourcesChanged:peek() + 1)
 		end
 		local truncated: ComposeTypes.Value<{ [string]: boolean }> = Compose.cell({})
 		local held: K? = nil
@@ -125,14 +126,27 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		end)
 		local function measureRow()
 			Compose.watch(function(use: ComposeTypes.Use)
-				use(heightsChanged)
+				use(sourcesChanged)
 				local height = use(minimumRow)
 				local hidden = use(collapsed)
+				local cells = truncated:peek()
+				local changed = false
 				for _, column in readColumns(spec.columns, use) do
-					local source = heights[column.id]
-					if source and not hidden[column.id] then
+					local id = column.id
+					local source = heights[id]
+					if source and not hidden[id] then
 						height = math.max(height, source(use) or 0)
 					end
+					local hide = hides[id]
+					if hide and (cells[id] == true) ~= hide(use) then
+						if not changed then
+							cells, changed = table.clone(cells), true
+						end
+						cells[id] = if cells[id] then nil else true
+					end
+				end
+				if changed then
+					truncated:set(cells)
 				end
 				local now = use(key)
 				if
@@ -330,33 +344,24 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			end
 			if not render then
 				assert(content:IsA("TextLabel"))
-				measureHeight(definition.id, metrics.textHeight(content, CELL_PADDING))
 				local fits = ctx.observe.TextFits(assert(undisclosed))
 				local bounds = ctx.observe.TextBounds(assert(undisclosed))
 				local size = ctx.observe.AbsoluteSize(assert(undisclosed))
-				Compose.watch(function(use: ComposeTypes.Use)
-					local id = readColumn(column, use).id
+				local hidden = false
+				hides[definition.id] = function(use: ComposeTypes.Use): boolean
 					if
-						tree
-						and (
-							use(size).X <= 0
-							or use(bounds).Y <= 0
-							or use(size).Y < use(bounds).Y + CELL_PADDING * use(unitScale)
+						not tree
+						or (
+							use(size).X > 0
+							and use(bounds).Y > 0
+							and use(size).Y >= use(bounds).Y + CELL_PADDING * use(unitScale)
 						)
 					then
-						return
+						hidden = use(fits) == false
 					end
-					local hidden = use(fits) == false
-					if (truncated:peek()[id] == true) ~= hidden then
-						local cells = table.clone(truncated:peek())
-						if hidden then
-							cells[id] = true
-						else
-							cells[id] = nil
-						end
-						truncated:set(cells)
-					end
-				end)
+					return hidden
+				end
+				measureHeight(definition.id, metrics.textHeight(content, CELL_PADDING))
 			end
 			if tree and readNumber(index) == 1 then
 				content = tree.wrap(content, current, key:peek())
