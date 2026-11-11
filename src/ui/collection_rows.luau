@@ -220,7 +220,13 @@ return function<V, K>(
 		if node.Parent and parked == nil then
 			r.previousParent = node.Parent
 		end
-		if parking and parked and restoring ~= r and not ComposeTypes.owner.isDisposed(poolOwner) and node.Parent == nil then
+		if
+			parking
+			and parked
+			and restoring ~= r
+			and not ComposeTypes.owner.isDisposed(poolOwner)
+			and node.Parent == nil
+		then
 			local outer = restoring
 			restoring = r
 			local ok = pcall(function()
@@ -504,8 +510,10 @@ return function<V, K>(
 						main, cross = position.Y, position.X
 					end
 					if entrance then
-						main += (1 - (if use then use(entrance) else entrance:peek()))
-							* ctx.metric("motion.distances.rowArrival", use)
+						main += (1 - (if use then use(entrance) else entrance:peek())) * ctx.metric(
+							"motion.distances.rowArrival",
+							use
+						)
 					end
 					if placed.index ~= at.index then
 						placed.index = at.index
