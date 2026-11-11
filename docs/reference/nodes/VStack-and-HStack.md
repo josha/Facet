@@ -4,9 +4,20 @@
 
 `UI.VStack(spec) -> Frame` stacks its children vertically. `UI.HStack(spec) ->
 Frame` stacks them horizontally. Both hug their content by default. Options:
-`gap`, `padding`, `align`, `distribute`, `wrap`, `width`, `height`, `maxWidth`
-and `maxHeight`. `wrap`
+`gap`, `padding`, `align`, `distribute`, `wrap`, `width`, `height`, `maxWidth`,
+`maxHeight` and `ground`. `wrap`
 sets `UIListLayout.Wraps`. The shared props type is `StackProps`.
+
+`ground` is one GuiObject that Facet draws behind the content of the stack,
+most often a `UI.Image` of a note, a card or a sign that carries live text.
+The ground fills the stack. It is not a child of the stack, so it takes no
+space. When the image has `paintRect`, the padding of the stack starts at the
+edge of the paint: Facet adds the transparent margin of the art to `padding`
+on each side, for the `stretch`, `fit`, `crop` and `slice` modes. A stack that
+hugs its content keeps the margin share of a stretched ground. Give the stack
+the proportions of the art, or use a sliced ground for a stack that grows
+with its content. Without `paintRect` the padding starts at the edge of the
+stack. ZStack takes `ground` in the same way.
 
 An HStack with a bounded width (`width = "fill"`, a number of pixels, or a
 native `Size`) never lets its children run past its edge. When you omit

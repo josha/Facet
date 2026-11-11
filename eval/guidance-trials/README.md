@@ -13,7 +13,7 @@ benchmark and it does not give a success rate.
 
 - [Protocol](protocol.md): how to run an author, capture, review blind and
   run a repair round.
-- [Tasks](tasks.json): the four requests that were used and their exposure,
+- [Tasks](tasks.json): the five requests that were used and their exposure,
   and unseen requests for the next test.
 - [Kits](kits.json): each frozen kit, its hash and what it added.
 - [Runs](runs.json): each author run, its kit, stage, script and cost.
@@ -77,6 +77,28 @@ repeat the faults of the v3.3 first pass. It stayed below the repaired build
 and below current guidance, mainly on the short wide screen. Drawing was
 development material for v3.4, so this is not an independent test.
 
+### A stack ground for labels on art, on an unseen task
+
+v3.5 is the guidance of the package after the review read the paint of an
+image. v3.6 adds the stack `ground`, which pads the content of a stack to the
+paint of its art. Both authors built the quest board, an unseen task, on the
+same library. One reviewer scored the two builds together.
+
+| Build | Kit | Identity | Craft | Lead | Desktop | Portrait | Landscape |
+|---|---|---|---|---|---|---|---|
+| `quest-1` | v3.5 | 4 | 4 | 3 | 4 | 3 | 3 |
+| `quest-2` | v3.6 | 4 | 3 | 3 | 4 | 2 | 1 |
+
+Ranked: `quest-1`, `quest-2`. The reviewer would ship neither. The v3.6
+author made the art of the sign, the notices and the panels the ground of
+their stacks, and no label left the paint of its art. It lost on the phone
+layout, on seams in sliced art and on a seal over the footer of a notice.
+The v3.5 build had a stamp over the progress count in the reader on the
+phone in portrait: a column with a width in pixels was wider than its fill
+slot. The review reported that fault; the author did not run the review in
+that state. One run stands behind each arm, so the result does not separate
+the kits.
+
 ## What the results say
 
 - Every build from v3 on uses Facet for layout, images, text and controls,
@@ -98,8 +120,8 @@ development material for v3.4, so this is not an independent test.
   moved by one point, and once by two, between reviews. Of the three reviews
   that held three or more drawing builds, `draw-1` ranked first in two and
   second in one.
-- All four used tasks informed the guidance. No result here is an
-  independent test of the final kit. Use a task from the `unseen` list.
+- The first four used tasks informed the guidance. The quest board did not,
+  and it has one run for each arm.
 - The authors could not start a reviewer. The harness ran each repair round.
   An author that runs its own review loop has not been measured.
 - The reviews judged captures. They did not test input, focus, a gamepad or

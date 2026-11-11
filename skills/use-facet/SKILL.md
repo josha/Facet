@@ -334,6 +334,7 @@ when the room shrinks.
 | `TextLabel` | `UI.Text` with a `textRole`; `UI.Label` for an icon with a value |
 | A count or status pill; a mark on a corner | `UI.Badge`; `UI.badged(host, value)` |
 | A plate image behind a group | `surface = "panel"` with theme `chrome.panel` art |
+| A label on one piece of art, such as a note, a card or a sign | A stack with `ground = UI.Image { image = ..., scaleMode = ..., paintRect = ... }`: the art fills the stack and the padding starts at its paint |
 | A thin frame as a rule | `UI.Divider` |
 | Pixel tables chosen by screen size | `AdaptiveStack`, `ViewThatFits`, or one `UI.environment()` class |
 | `TweenService` | Theme motion with `UI.countUp`, `UI.follow`, `UI.sequence`, `UI.shake`, `Flash` and `Travel` |

@@ -23,6 +23,7 @@ export type GroupOptions = {
 export type StackOptions = {
 	padding: Types.Input<Padding>?,
 	surface: ("surface" | "panel" | "pane")?,
+	ground: GuiObject?,
 	corners: Types.Input<StackCorners>?,
 	status: Types.Input<Media.Status?>?,
 	width: Types.Input<Extent>?,
@@ -48,6 +49,7 @@ export type ScreenOptions = {
 }
 export type ZStackOptions = {
 	padding: Types.Input<Padding>?,
+	ground: GuiObject?,
 	width: Types.Input<Extent>?,
 	maxWidth: Types.ValueNumber?,
 	maxHeight: Types.ValueNumber?,

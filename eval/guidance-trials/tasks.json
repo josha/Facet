@@ -29,6 +29,13 @@
       "exposure": "development",
       "since": "v3.4 (the v3.3 first pass and its repair round informed kit-ee4)",
       "request": "Build the drawing round of my draw-and-guess party game with Facet. The player gets a secret word, draws it on a canvas with a few colors and brush sizes, can undo and clear, sees the timer and the other players' guesses come in, and submits the drawing."
+    },
+    {
+      "id": "quest-board",
+      "family": "browse and track",
+      "exposure": "test",
+      "since": "v3.6 (first used for kit-8fd against kit-dbf)",
+      "request": "Build the quest board for my adventure game with Facet. The player browses today's quests, reads one, accepts or abandons it, follows progress on accepted quests and claims a finished one."
     }
   ],
   "unseen": [
@@ -41,11 +48,6 @@
       "id": "race-results",
       "family": "results and rewards",
       "request": "Build the race results screen for my kart racer with Facet. After a race the player sees the finishing order, their time against their best, what they earned, and chooses to race again or return to the garage."
-    },
-    {
-      "id": "quest-board",
-      "family": "browse and track",
-      "request": "Build the quest board for my adventure game with Facet. The player browses today's quests, reads one, accepts or abandons it, follows progress on accepted quests and claims a finished one."
     },
     {
       "id": "fishing-hud",

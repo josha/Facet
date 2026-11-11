@@ -70,18 +70,25 @@ Give each file one runtime role, because the role decides its geometry.
 | Repeating material | A seamless square tile, 128 to 512 pixels | `UI.Image` with `scaleMode = "tile"` and `tileSize`, or theme `chrome` `tile` |
 | Stretchable plate, per state | A small transparent image with corners and edge detail inside fixed margins; record the slice rectangle | Theme `assets` and `chrome` `nineSlice` with `contentInsets` |
 | Subject or icon | A transparent cutout with a little padding | `UI.Image`, or theme `icons` |
+| Piece that carries a live label | A note, a card, a sign or a stamp with a calm area for the label; record its painted rectangle | The `ground` of the stack that holds the label: `UI.Image` with `paintRect` |
 
 A piece that carries a live label, such as a note, a card, a sign or a
 stamp, needs two more things. Give the label a calm area of the piece, in a
-color that the label contrasts with. Then make the edge of the file the edge
-of the paint: crop the transparent margin, and keep a soft shadow in its own
-layer or record the painted rectangle in the art module. Pad the label to
-the painted rectangle and choose its size from the size of the piece at each
-form, so the label cannot sit on the margin or leave the shape. The review
-reads the painted bounds of your own art in Studio; for art that Studio
-cannot read, pass the recorded rectangle as `paintRect` on `UI.Image`. Keep
-such a piece near its drawn proportions. When its slot has another shape,
-show more pieces or change the arrangement; do not stretch one.
+color that the label contrasts with. Then tell Facet where the paint is.
+Record the painted rectangle and the pixel size of the file in the art
+module as a table with the fields `x0`, `y0`, `x1`, `y1`, `width` and
+`height`; your render script knows them, and
+`Facet.review.paintRect(image)` reads them from the uploaded asset in
+Studio. Make the piece the `ground` of the stack that holds the label:
+`UI.VStack { ground = UI.Image { image = art.note, scaleMode = "stretch",
+paintRect = art.notePaint }, padding = "s", label }`. The art fills the
+stack, and the padding starts at the edge of the paint, so the label cannot
+sit on the transparent margin or on a soft shadow. Choose the label size
+from the size of the piece at each form, so the label stays inside the
+shape. Keep such a piece near its drawn proportions: give the stack the
+proportions of the art, or draw the piece as a `slice` plate when it must
+grow with its text. When its slot has another shape, show more pieces or
+change the arrangement; do not stretch one.
 
 Keep files small and few. One plate that stretches serves every button. Draw
 state variants (default, pressed, selected, disabled) only where a tint or a
@@ -137,7 +144,8 @@ each operation for its asset ID. Roblox limits an image to 1024 pixels on a
 side, so split a wider piece into parts that meet edge to edge. Keep a small art module that maps a semantic
 name to its `rbxassetid://` string, its delivered pixel size and its slice
 rectangle. Roblox can resize an upload, so read `ImageRectSize` or the loaded
-size in Studio before trusting slice coordinates from the source file.
+size in Studio (`Facet.review.paintRect(image)` returns it) before trusting
+slice coordinates or a painted rectangle from the source file.
 
 Then view the art on real controls at each device size. Check that it loaded,
 that a sliced image is whole at its smallest and its largest size (a slice can

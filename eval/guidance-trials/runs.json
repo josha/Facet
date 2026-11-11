@@ -306,6 +306,40 @@
       "generatedImages": 6,
       "toolCalls": 214,
       "note": "Drawing was development material for kit-ee4, so this run is not an independent test. One of the six image calls returned no image."
+    },
+    {
+      "id": "quest-1",
+      "task": "quest-board",
+      "kit": "kit-8fd",
+      "stage": "first pass",
+      "script": "QuestBoard1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 29.8,
+      "tokensK": 441,
+      "generatedImages": 6,
+      "toolCalls": 226,
+      "note": "Library e093628 for both arms. No stack ground in this kit: labels on art are layers of a ZStack. The review found a high overlapping-text in the reader on the phone in portrait (a fixed 260-pixel column in a 142-pixel fill slot ran under the stamp); the author did not run the review in that state."
+    },
+    {
+      "id": "quest-2",
+      "task": "quest-board",
+      "kit": "kit-dbf",
+      "stage": "first pass",
+      "script": "QuestBoard2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 29.3,
+      "tokensK": 409,
+      "generatedImages": 6,
+      "toolCalls": 231,
+      "note": "Library e093628 for both arms. Five stacks take a ground (sign, notices, parchment panels) and no label left the paint of its art. The author did not use paintRect: a script cropped each piece to its paint. The layout does not recover after a rotation from portrait to landscape with the Sheet open; that state is not in the review."
     }
   ]
 }

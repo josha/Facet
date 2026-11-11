@@ -1,6 +1,6 @@
 --!strict
 local ambient = require("./ambient")
-local Paint = require("./review_paint")
+local Paint = require("./paint_bounds")
 local Rules = require("./review_rules")
 
 export type ReviewReport = Rules.ReviewReport
@@ -270,6 +270,31 @@ local function roots(root: Instance?): { unknown }
 	return { gui }
 end
 
+local function paintRect(image: string): Paint.Box?
+	local game = dataModel()
+	local hasRun, run = call(game, "GetService", "RunService")
+	local known, inStudio = call(if hasRun then run else nil, "IsStudio")
+	local found, assets = call(game, "GetService", "AssetService")
+	local made, content, origin = pcall(function(): (unknown, unknown)
+		return Content.fromUri(image), Vector2.zero
+	end)
+	if not known or inStudio ~= true or not found or not made then
+		return nil
+	end
+	local loaded, editable = call(assets, "CreateEditableImageAsync", content)
+	if not loaded or editable == nil then
+		return nil
+	end
+	local size = read(editable, "Size")
+	local width, height = vector(size)
+	local got, pixels = call(editable, "ReadPixelsBuffer", origin, size)
+	call(editable, "Destroy")
+	if not got or type(pixels) ~= "buffer" or width <= 0 or buffer.len(pixels) < width * height * 4 then
+		return nil
+	end
+	return Paint.measure(pixels, width, height)
+end
+
 local function collect(options: ReviewOptions?): ReviewSnapshot
 	local given: ReviewOptions = options or {}
 	local game: unknown = nil
@@ -282,6 +307,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 	local ok, workspace = call(game, "GetService", "Workspace")
 	local width, height = vector(read(if ok then read(workspace, "CurrentCamera") else nil, "ViewportSize"))
 	local elements: { ReviewElement } = {}
+	local indexOf: { [unknown]: number } = {}
 	local paintJobs: { PaintJob } = {}
 	local visit: (unknown, number?, boolean, number) -> ()
 	local function visitChild(child: unknown, parent: number?, shown: boolean, scale: number)
@@ -352,6 +378,12 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 						),
 				}
 				local pictured = (isA(child, "ImageLabel") or isA(child, "ImageButton")) and element.image
+				if pictured then
+					local tagged, grounds = call(read(child, "Parent"), "HasTag", "facet-art-ground")
+					if tagged and grounds == true then
+						element.ground = true
+					end
+				end
 				local quarter = math.floor(rotation / 90 + 0.5)
 				local inherited = (rotation - number(read(child, "Rotation"), 0)) % 360
 				local upright = quarter % 2 == 0 and math.abs(rotation - quarter * 90) <= 10
@@ -426,7 +458,13 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					}
 				end
 				table.insert(elements, element)
+				indexOf[child] = element.index
 				nextParent, nextShown = element.index, visible
+				local tagged, grounds = call(child, "HasTag", "facet-art-ground")
+				if tagged and grounds == true then
+					local found, folder = call(child, "FindFirstAncestorWhichIsA", "Folder")
+					nextParent = (if found then indexOf[read(folder, "Parent")] else nil) or nextParent
+				end
 			end
 			visit(child, nextParent, nextShown, nextScale)
 		end
@@ -675,6 +713,7 @@ end
 return table.freeze({
 	analyze = Rules.analyze,
 	collect = collect,
+	paintRect = paintRect,
 	screen = screen,
 	screens = screens,
 	fixes = Rules.fixes,
