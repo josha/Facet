@@ -103,8 +103,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				end
 			end
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			local now, cells = use(key), use(truncated)
+		local function track(now: K, cells: { [string]: boolean })
 			if held ~= now then
 				release(held)
 				held = now
@@ -120,7 +119,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				end
 				truncatedRows:set(rows)
 			end
-		end)
+		end
 		Compose.cleanup(function()
 			release(held)
 		end)
@@ -149,6 +148,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 					truncated:set(cells)
 				end
 				local now = use(key)
+				track(now, cells)
 				if
 					(height > use(minimumRow) or rowMeasures:peek()[now] ~= nil)
 					and rowMeasures:peek()[now] ~= height
@@ -407,9 +407,6 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				local lane = laneWidth(use)
 				return if lane then D2.new(0, lane, 1, 0) else D2.new(1, -use(disclosureWidth), 1, 0)
 			end,
-			Position = function(use: ComposeTypes.Use)
-				return D2.fromOffset(-use(scrolledX), 0)
-			end,
 		})
 		local cellRow = row
 		local rowProps: Types.FrameProps = {
@@ -518,11 +515,11 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			row = editor.wrap(row, current, key:peek(), true)
 		end
 		local painted = ctx.styled<<GuiObject>>(if editor then row else disclosing, "TableRow")
-		runtime.decorate(painted, {
-			Position = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(scrolledX), 0)
-			end,
-		})
+		Compose.watch(function(use: ComposeTypes.Use)
+			local x = use(scrolledX)
+			cellRow.Position = D2.fromOffset(-x, 0)
+			painted.Position = D2.fromOffset(x, 0)
+		end)
 		if spec.alternatingRows then
 			Compose.watch(function(use: ComposeTypes.Use)
 				if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
