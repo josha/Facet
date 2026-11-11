@@ -23,8 +23,11 @@ An HStack with a bounded width (`width = "fill"`, a number of pixels, or a
 native `Size`) never lets its children run past its edge. When you omit
 `wrap`, the row stays on one line while its children fit and wraps them onto
 the next line while they do not; it returns to one line when there is room
-again. Set `wrap = false` to keep one line regardless, for example in a row
-that scrolls or clips on purpose. A hugging HStack grows to fit its children,
+again. A child that fills counts by the parts of its content that cannot
+give way: a stack with a `width` in pixels and a text that does not wrap or
+truncate. When those do not fit beside the other children, the row wraps and
+the fill child takes a line of its own. Set `wrap = false` to keep one line
+regardless, for example in a row that scrolls or clips on purpose. A hugging HStack grows to fit its children,
 so it never wraps by itself. A wrapped row needs room to grow downward: give it
 no fixed height.
 

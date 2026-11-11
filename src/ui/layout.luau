@@ -247,10 +247,30 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local bounded = spec.width ~= nil and spec.width ~= "hug" or properties.Size ~= nil
 		local spillable = not vertical and spec.wrap == nil and bounded
 		local list = if spillable then frame:FindFirstChildWhichIsA("UIListLayout") else nil
+		if type(spec.width) == "number" then
+			frame:AddTag("facet-fixed-width")
+		end
 		if list then
+			frame:AddTag("facet-row-spills")
 			local outer, content = ctx.observe.AbsoluteSize(frame), ctx.observe.AbsoluteContentSize(list)
+			local fillers: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
+			local holds: { [GuiObject]: (number, boolean) -> boolean } = {}
+			local fills = false
+			for _, child in frame:GetChildren() do
+				if child:IsA("GuiObject") and child:FindFirstChildWhichIsA("UIFlexItem") then
+					fills = true
+					holds[child] = kit.hold(child)
+					local inner = child:FindFirstChildWhichIsA("UIListLayout")
+					if inner then
+						table.insert(fillers, ctx.observe.AbsoluteContentSize(inner))
+					end
+				end
+			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				local width, used = use(outer).X, use(content).X
+				for _, inner in fillers do
+					use(inner)
+				end
 				if width <= 0 then
 					return
 				end
@@ -268,8 +288,31 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					then (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) * scale
 						+ (pad.PaddingLeft.Scale + pad.PaddingRight.Scale) * width
 					else 0
-				local spills = (list.Wraps or used + sides > width + 0.5)
-					and kit.intrinsic(frame, true, scale) * scale > width + 0.5
+				local spills: boolean
+				if fills then
+					local room = math.max(0, (width - sides) / scale)
+					local need, count = 0, 0
+					local owns: { [GuiObject]: number } = {}
+					for _, child in frame:GetChildren() do
+						if child:IsA("GuiObject") and child.Visible then
+							local own = child.AbsoluteSize.X / scale
+							if holds[child] then
+								own = kit.rigid(child, scale)
+								owns[child] = own
+							end
+							need += own
+							count += 1
+						end
+					end
+					need += list.Padding.Offset * math.max(count - 1, 0)
+					spills = need * scale + sides > width + 0.5
+					for child, hold in holds do
+						hold(if spills then math.min(owns[child] or 0, room) else 0, spills)
+					end
+				else
+					spills = (list.Wraps or used + sides > width + 0.5)
+						and kit.intrinsic(frame, true, scale) * scale > width + 0.5
+				end
 				if list.Wraps ~= spills then
 					list.Wraps = spills
 				end
