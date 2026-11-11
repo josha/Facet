@@ -2,9 +2,8 @@
 
 Two games build their interfaces with Facet:
 
-- [Word Amigos](#word-amigos), a released two-player word game.
-- [Realms of Artinel](#realms-of-artinel), an online role-playing game in
-  development.
+- [Word Amigos](#word-amigos), a two-player word game.
+- [Realms of Artinel](#realms-of-artinel), an online role-playing game.
 
 The games use Facet in different ways. Word Amigos uses the stock controls
 almost everywhere. Realms of Artinel keeps the Facet mechanisms and the
@@ -13,7 +12,7 @@ page comes from the source of the game.
 
 ## Word Amigos
 
-[Word Amigos](https://www.roblox.com/games/88565189553139) is an original
+[Word Amigos](https://www.roblox.com/share?code=9410acb407f85a4b8cb9c6e748ad0c76&type=ExperienceDetails) is an original
 two-player word game for Roblox. Players take turns. Each player puts letter
 tiles on a shared board to make words and get points.
 
@@ -163,8 +162,8 @@ control text.
 
 ## Realms of Artinel
 
-Realms of Artinel is an online role-playing game for Roblox. It is in
-development and is not released. Its whole client interface uses Facet: the
+[Realms of Artinel](https://www.roblox.com/share?code=5a55b450b362e84499d4af5219faad3f&type=ExperienceDetails) is an online role-playing game for Roblox. Its whole
+client interface uses Facet: the
 heads-up display (HUD), the game windows, character creation, dialogue and the
 markers over the world.
 

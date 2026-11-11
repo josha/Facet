@@ -76,8 +76,8 @@ regression work. Verify these behaviors:
 [Word Amigos](made-with-facet.md#word-amigos) is a two-player word game whose
 interface uses only Facet controls.
 [Realms of Artinel](made-with-facet.md#realms-of-artinel) is an online
-role-playing game in development that adds its own control kits on the Facet
-mechanisms and StyleSheet. The page lists each control and mechanism that each
+role-playing game that adds its own control kits on the Facet mechanisms and
+StyleSheet. The page lists each control and mechanism that each
 game uses, and the task that each one does.
 
 ## What to copy
