@@ -188,21 +188,26 @@ return function<V, K>(
 		fresh[key] = nil
 		return entering and read(spec.arrival) == "rise" and not reduced()
 	end
+	type Parking = { parent: Instance?, destroyed: RBXScriptConnection? }
 	type Retiring = {
 		node: Frame,
 		lease: ComposeTypes.PoolLease<State.PooledRow>,
-		stop: () -> (),
+		stop: (() -> ())?,
 		content: GuiObject,
 		paint: State.Preparing?,
 		held: K?,
-		parked: Instance?,
+		parking: Parking?,
 		previousParent: Instance?,
-		released: boolean,
-		restoring: boolean,
 		restore: RBXScriptConnection?,
-		destroyed: RBXScriptConnection?,
 		live: boolean,
+		item: ComposeTypes.ReadOnlyValue<V>,
+		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		edits: { activation.EditAction },
+		marked: Mark?,
+		arrive: ((K) -> ())?,
+		rekey: ((K) -> ())?,
 	}
+	local restoring: Retiring? = nil
 	local function bump(value: number): number
 		return value + 1
 	end
@@ -210,19 +215,20 @@ return function<V, K>(
 		return math.max(0, value - 1)
 	end
 	local function restoreParent(r: Retiring)
-		local node = r.node
-		if node.Parent and r.parked == nil then
+		local node, parking = r.node, r.parking
+		local parked = if parking then parking.parent else nil
+		if node.Parent and parked == nil then
 			r.previousParent = node.Parent
 		end
-		local parked = r.parked
-		if parked and not r.restoring and not ComposeTypes.owner.isDisposed(poolOwner) and node.Parent == nil then
-			r.restoring = true
+		if parking and parked and restoring ~= r and not ComposeTypes.owner.isDisposed(poolOwner) and node.Parent == nil then
+			local outer = restoring
+			restoring = r
 			local ok = pcall(function()
 				node.Parent = parked
 			end)
-			r.restoring = false
+			restoring = outer
 			if not ok then
-				r.parked = nil
+				parking.parent = nil
 			end
 		end
 		if r.live then
@@ -235,20 +241,58 @@ return function<V, K>(
 		end)
 	end
 	local function releaseRow(r: Retiring)
-		if r.released then
+		local stop = r.stop
+		if stop == nil then
 			return
 		end
-		r.released = true
-		r.parked = nil
-		local restore, destroyed = r.restore, r.destroyed
+		r.stop = nil
+		local restore, parking = r.restore, r.parking
+		r.parking = nil
 		if restore then
 			restore:Disconnect()
 		end
-		if destroyed then
-			destroyed:Disconnect()
+		if parking and parking.destroyed then
+			parking.destroyed:Disconnect()
 		end
-		r.stop()
+		stop()
 		r.lease.release()
+	end
+	local function follow(r: Retiring, now: K)
+		local gone: K? = r.held
+		if gone == now then
+			return
+		end
+		local node = r.node
+		if gone ~= nil then
+			if mounted[gone] == node then
+				mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
+			end
+			if gui and State.belongsTo(ctx.selection.get(), node) then
+				view.focusOwned = true
+				ctx.selection.set(nil)
+			end
+			local arrive = r.arrive
+			if arrive then
+				arrive(now)
+			end
+		end
+		r.held = now
+		local rekey = r.rekey
+		if rekey then
+			rekey(now)
+		end
+		node.Name = tostring(now)
+		mounted[now], placed[now], cellEdits[now] = node, r.placement, r.edits
+		if gone ~= nil then
+			local marked = r.marked
+			if marked then
+				highlight.move(marked, now)
+			end
+			if tree == nil and spec.disabled ~= nil then
+				node.Interactable = not policy.disabled(spec.disabled, r.item:peek())
+			end
+			mountedVersion:update(bump)
+		end
 	end
 	local function retireRow(r: Retiring)
 		r.live = false
@@ -298,14 +342,15 @@ return function<V, K>(
 			and not ComposeTypes.owner.isDisposed(poolOwner)
 			and #nextRows > 0
 		then
-			r.parked = node.Parent or r.previousParent or view.rowParent
+			local parking: Parking = { parent = node.Parent or r.previousParent or view.rowParent, destroyed = nil }
+			r.parking = parking
 			if r.restore == nil then
 				r.restore = watchParent(r)
 			end
-			r.destroyed = node.Destroying:Connect(function()
-				r.parked = nil
+			parking.destroyed = node.Destroying:Connect(function()
+				parking.parent = nil
 			end)
-			node.Parent = r.parked
+			node.Parent = parking.parent
 			r.content.Interactable = false
 			view.retiring[node] = function()
 				releaseRow(r)
@@ -734,13 +779,16 @@ return function<V, K>(
 			content = content,
 			paint = nil,
 			held = nil,
-			parked = nil,
+			parking = nil,
 			previousParent = node.Parent,
-			released = false,
-			restoring = false,
 			restore = nil,
-			destroyed = nil,
 			live = true,
+			item = rowItem,
+			placement = placement,
+			edits = edits,
+			marked = marked,
+			arrive = nil,
+			rekey = rekey,
 		}
 		if rowSignals then
 			r.restore = watchParent(r)
@@ -787,41 +835,7 @@ return function<V, K>(
 				animate()
 			end
 		end
-		local function follow(now: K)
-			local gone: K? = r.held
-			if gone == now then
-				return
-			end
-			if gone ~= nil then
-				if mounted[gone] == node then
-					mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
-				end
-				if gui and State.belongsTo(ctx.selection.get(), node) then
-					view.focusOwned = true
-					ctx.selection.set(nil)
-				end
-			end
-			if gone ~= nil and arrive then
-				arrive(now)
-			end
-			r.held = now
-			if rekey then
-				rekey(now)
-			end
-			node.Name = tostring(now)
-			mounted[now], placed[now], cellEdits[now] = node, placement, edits
-			if gone ~= nil then
-				if marked then
-					highlight.move(marked, now)
-				end
-				if tree == nil and spec.disabled ~= nil then
-					node.Interactable = not policy.disabled(spec.disabled, rowItem:peek())
-				end
-				mountedVersion:update(function(value)
-					return value + 1
-				end)
-			end
-		end
+		r.arrive = arrive
 		local owner = assert(Compose.currentOwner())
 		if retained then
 			Compose.owner.watchTerminal(owner, function(use: ComposeTypes.Use)
@@ -829,9 +843,11 @@ return function<V, K>(
 			end)
 		end
 		if follows then
-			Compose.owner.watchStatic(owner, keyCell, follow)
+			Compose.owner.watchStatic(owner, keyCell, function(now: K)
+				follow(r, now)
+			end)
 		else
-			follow(keyCell:peek())
+			follow(r, keyCell:peek())
 		end
 		local measureRow: ((ComposeTypes.Use, Vector2) -> ())? = nil
 		local automatic = measuredNode.AutomaticSize
