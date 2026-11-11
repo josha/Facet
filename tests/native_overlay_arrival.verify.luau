@@ -178,6 +178,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("help for a control inside a sheet stacks above the sheet", function()
+			local screen, frames, stop, engine = world(function(UI: FacetControls)
+				return UI.Sheet "Window" {
+					title = "Character",
+					isPresented = Compose.cell(true),
+					content = function()
+						return UI.Button "Slot" { label = "Slot", help = "Bindstone" }
+					end,
+				}
+			end, true)
+			local render = assert(frames.PreRender)
+			for _, node in screen:GetDescendants() do
+				if node:IsA("GuiObject") then
+					engine.environment.poke(node, "AbsoluteSize", engineLib.types.Vector2.new(210, 40))
+				end
+			end
+			for _ = 1, 6 do
+				render:Fire(1 / 60)
+			end
+			local sheet = screen:FindFirstChild("OverlayArrival", true)
+			Verify.expect(sheet ~= nil):toBe(true)
+			local slot = screen:FindFirstChild("Slot", true)
+			engine.environment.poke(slot, "GuiState", engineLib.types.Enum.GuiState.Hover)
+			for _ = 1, 40 do
+				render:Fire(1 / 60)
+				frames.Heartbeat:Fire(1 / 60)
+			end
+			local text = screen:FindFirstChild("HelpText", true)
+			Verify.expect(text ~= nil):toBe(true)
+			local help = text:FindFirstAncestor("OverlayArrival")
+			Verify.expect(help ~= nil and help ~= sheet):toBe(true)
+			Verify.expect(help.ZIndex > sheet.ZIndex):toBe(true)
+			stop()
+		end)
 		verifyHarness:case("releases its frame hook when the surface closes before the first frame", {
 			id = "native_overlay_arrival::presented surfaces arrive styled::releases its frame hook when the surface closes before the first frame",
 			run = function()
