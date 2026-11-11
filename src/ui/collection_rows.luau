@@ -202,7 +202,9 @@ return function<V, K>(
 		local current = retained or rowItem
 		local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
 		local reservedPosition: ComposeTypes.ReadOnlyValue<Vector2>? = nil
-		local glide: ComposeTypes.Value<number>? = nil
+		local glideOffset = 0
+		local reposition: (() -> ())? = nil
+		local rekey: ((K) -> ())? = nil
 		local move: ((ComposeTypes.Placement, K) -> ())? = nil
 		if springPlacement and positionEditor == nil then
 			local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
@@ -234,8 +236,6 @@ return function<V, K>(
 				engine.retarget()
 			end)
 		elseif positionEditor == nil and tree == nil and kind == "list" then
-			local offset = Compose.cell(0)
-			glide = offset
 			local stopGlide: (() -> ())? = nil
 			local function halt()
 				if stopGlide then
@@ -245,12 +245,27 @@ return function<V, K>(
 			end
 			Compose.cleanup(halt)
 			local previous, previousKey = placement:peek(), keyCell:peek()
+			local function shift(value: number)
+				if glideOffset ~= value then
+					glideOffset = value
+					if reposition then
+						reposition()
+					end
+				end
+			end
+			rekey = function(now: K)
+				if now ~= previousKey then
+					previousKey = now
+					halt()
+					shift(0)
+				end
+			end
 			move = function(at: ComposeTypes.Placement, now: K)
-				local delta = previous.offset + offset:peek() - at.offset
+				local delta = previous.offset + glideOffset - at.offset
 				local moved = at.index ~= previous.index and now == previousKey
 				if now ~= previousKey then
 					halt()
-					offset:set(0)
+					glideOffset = 0
 				end
 				previous, previousKey = at, now
 				if not moved or math.abs(delta) > viewport:peek().size or reduced() then
@@ -260,10 +275,10 @@ return function<V, K>(
 				local elapsed = 0
 				local seconds = ctx.metric("motion.durations.glide")
 				local present = ctx.motionEase("present")
-				offset:set(delta)
+				glideOffset = delta
 				stopGlide = view.frames.onFrame(function(step: number)
 					elapsed = math.min(seconds, elapsed + step)
-					offset:set(delta * (1 - present(elapsed / seconds)))
+					shift(delta * (1 - present(elapsed / seconds)))
 					if elapsed >= seconds then
 						halt()
 					end
@@ -311,24 +326,15 @@ return function<V, K>(
 						end
 					end, spec.reducedMotion)
 					else nil
-				Compose.owner.watchTerminal(contentOwner, function(use: ComposeTypes.Use)
-					local at = use(placement)
-					if position then
-						if entrance then
-							use(entrance)
-						end
-						position(at)
-					end
-					if move then
-						move(at, use(keyCell))
-					end
-					local main, cross = at.offset + (if glide then use(glide) else 0), at.crossOffset
+				local function apply(at: ComposeTypes.Placement, use: ComposeTypes.Use?)
+					local main, cross = at.offset + glideOffset, at.crossOffset
 					if reservedPosition then
-						local position = use(reservedPosition)
+						local position = if use then use(reservedPosition) else reservedPosition:peek()
 						main, cross = position.Y, position.X
 					end
 					if entrance then
-						main += (1 - use(entrance)) * ctx.metric("motion.distances.rowArrival", use)
+						main += (1 - (if use then use(entrance) else entrance:peek()))
+							* ctx.metric("motion.distances.rowArrival", use)
 					end
 					if placed.index ~= at.index then
 						placed.index = at.index
@@ -344,7 +350,32 @@ return function<V, K>(
 							then D2.fromOffset(at.size, at.crossSize)
 							else D2.fromOffset(at.crossSize, at.size)
 					end
-				end)
+				end
+				reposition = function()
+					apply(placement:peek())
+				end
+				if position or entrance or reservedPosition then
+					Compose.owner.watchTerminal(contentOwner, function(use: ComposeTypes.Use)
+						local at = use(placement)
+						if position then
+							if entrance then
+								use(entrance)
+							end
+							position(at)
+						end
+						if move then
+							move(at, use(keyCell))
+						end
+						apply(at, use)
+					end)
+				else
+					Compose.owner.watchStatic(contentOwner, placement, function(at: ComposeTypes.Placement)
+						if move then
+							move(at, keyCell:peek())
+						end
+						apply(at)
+					end)
+				end
 				local rendered = assert(spec.render)(current, placement, keyCell)
 				if tree and not tree.columnar then
 					rendered = tree.wrap(rendered, current, keyCell:peek())
@@ -678,6 +709,9 @@ return function<V, K>(
 				arrive(now)
 			end
 			held = now
+			if rekey then
+				rekey(now)
+			end
 			node.Name = tostring(now)
 			mounted[now], placed[now], cellEdits[now] = node, placement, edits
 			if gone ~= nil then
