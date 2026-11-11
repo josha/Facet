@@ -202,7 +202,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			end
 			local function probe(
 				name: string,
-				text: (ComposeTypes.Use) -> string,
+				text: ((ComposeTypes.Use) -> string)?,
 				share: boolean,
 				lines: (ComposeTypes.Use) -> boolean
 			): TextLabel
@@ -223,7 +223,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 						AutomaticSize = function(use: ComposeTypes.Use)
 							return if lines(use) then E.AutomaticSize.Y else E.AutomaticSize.None
 						end,
-						Text = text,
+						Text = text or "",
 					}),
 					"TableValue"
 				)
@@ -246,7 +246,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 					end)
 					return measure
 				end)
-			local undisclosed = if render then nil else probe("Undisclosed", valueText, true, metrics.touchRows)
+			local undisclosed = if render then nil else probe("Undisclosed", nil, true, metrics.touchRows)
 			local content: GuiObject = if render
 				then ctx.styled(
 					Host.Frame "Inset" {
@@ -276,7 +276,11 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 						end,
 						Size = D2.fromScale(1, 1),
 						AutomaticSize = E.AutomaticSize.None,
-						Text = valueText,
+						Text = function(use: ComposeTypes.Use): string
+							local text = valueText(use)
+							assert(undisclosed).Text = text
+							return text
+						end,
 					}),
 					"TableValue"
 				)
