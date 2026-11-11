@@ -28,6 +28,7 @@ export type ReviewElement = {
 	fillTransparency: number,
 	image: boolean,
 	paint: ReviewRect?,
+	ground: boolean?,
 	text: ReviewText?,
 	unfit: string?,
 }
@@ -1077,6 +1078,17 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 		return false
 	end
+	local function grounds(backing: ReviewElement, chain: { ReviewElement }): boolean
+		if backing.ground ~= true or not backing.image then
+			return false
+		end
+		for _, ancestor in chain do
+			if ancestor.index == backing.parent then
+				return true
+			end
+		end
+		return false
+	end
 	local escapes = 0
 	for _, entry in inked do
 		if escapes >= 3 then
@@ -1115,11 +1127,15 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				if backing == element or not solid(backing) or not shown(backing, snapshot.width, snapshot.height) then
 					continue
 				end
+				local owned = grounds(backing, entry.chain)
 				local shared = overlap(backing.rect, ink)
-				if shared == nil or area(shared) < 0.5 * area(ink) or not beneath(backing, element) then
+				if
+					(not owned and (shared == nil or area(shared) < 0.5 * area(ink)))
+					or not beneath(backing, element)
+				then
 					continue
 				end
-				local edge = edgeOf(backing, ink)
+				local edge = if owned then face(backing) else edgeOf(backing, ink)
 				if area(backing.rect) < limit and not past(ink, edge, text.size) then
 					held = true
 				end
@@ -1131,11 +1147,12 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if nearest == nil or (held and nearest ~= element) or (nearest.turn or 0) > 1 then
 			continue
 		end
-		local edge = edgeOf(nearest, ink)
+		local owned = grounds(nearest, entry.chain)
+		local edge = if owned then face(nearest) else edgeOf(nearest, ink)
 		if area(nearest.rect) >= limit or not past(ink, edge, text.size) then
 			continue
 		end
-		if nearest ~= element and not isPlate(nearest) then
+		if nearest ~= element and not isPlate(nearest) and not owned then
 			local shared = overlap(nearest.rect, ink)
 			if shared == nil or area(shared) < 0.7 * area(ink) or not near(nearest, entry.chain) then
 				continue
@@ -1174,6 +1191,12 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			table.insert(backdrops, element)
 		end
 	end
+	local pictures: { ReviewElement } = {}
+	for _, element in snapshot.elements do
+		if element.image and element.text == nil and shown(element, snapshot.width, snapshot.height) then
+			table.insert(pictures, element)
+		end
+	end
 	local floating: { ReviewElement } = {}
 	for _, element in texts do
 		local text = textOf(element)
@@ -1192,6 +1215,14 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if not backed then
 			for _, art in backdrops do
 				if within(art.rect, element) then
+					backed = true
+					break
+				end
+			end
+		end
+		if not backed then
+			for _, art in pictures do
+				if art ~= element and backs(art, element.rect) and beneath(art, element) then
 					backed = true
 					break
 				end

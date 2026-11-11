@@ -378,6 +378,12 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 						),
 				}
 				local pictured = (isA(child, "ImageLabel") or isA(child, "ImageButton")) and element.image
+				if pictured then
+					local tagged, grounds = call(read(child, "Parent"), "HasTag", "facet-art-ground")
+					if tagged and grounds == true then
+						element.ground = true
+					end
+				end
 				local quarter = math.floor(rotation / 90 + 0.5)
 				local inherited = (rotation - number(read(child, "Rotation"), 0)) % 360
 				local upright = quarter % 2 == 0 and math.abs(rotation - quarter * 90) <= 10

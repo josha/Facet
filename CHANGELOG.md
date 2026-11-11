@@ -24,7 +24,10 @@ image has `paintRect`, the padding of the stack starts at the edge of the
 paint, so a label on the art cannot sit on the transparent margin of the
 file. `Facet.review.paintRect(image)` reads the painted bounds and the pixel
 size of an image in Studio, in the form that `paintRect` takes. The review
-counts the art of a ground as built beside the texts of its stack.
+counts the art of a ground as built beside the texts of its stack, and
+`escaped-text` finds a text of that stack that runs past the paint of the
+ground, also when most of the text is off the art. `floating-text` counts an
+image as a plate when its paint is under the text.
 
 `Facet.review` reads where an image is painted. `covered-text`,
 `escaped-text` and the backing check of `overlapping-text` use the painted

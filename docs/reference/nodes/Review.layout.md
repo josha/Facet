@@ -9,8 +9,9 @@ Review rules for parts that collide or that leave the Facet layout.
 | `escaped-text` | A text whose glyphs run past the edge of the plate or the paint of the image that it sits on, or that a clip cuts. A scrolling view does not count as a clip. An image counts only when it is built beside the text, within three levels. A text that still sits inside a larger plate does not count. |
 | `native-text` | Three or more texts that are native labels and not `UI.Text`. They miss the type roles of the theme, the text size of the player and the ten-foot scale. |
 
-For `floating-text`, an image that covers a quarter of the screen or more,
-such as a Screen `ground`, counts as a plate.
+For `floating-text`, an image counts as a plate when its paint is under the
+text, or when it covers a quarter of the screen or more, such as a Screen
+`ground`.
 
 For an image, the rules use its painted bounds: the smallest rectangle that
 holds its pixels of alpha 0.1 or more. `paintRect` on `UI.Image` declares
@@ -25,7 +26,7 @@ screen is a ground or an overlay whatever its paint.
 pixel size of an image in Studio, in the form that `paintRect` takes. It can
 yield. It returns nil outside Studio and for an image that Studio cannot
 read. The art of a stack `ground` counts as built beside the texts of that
-stack.
+stack, and `escaped-text` always measures those texts against its paint.
 
 A text sits on the paint when half or more of its glyphs are over the painted
 bounds. `escaped-text` then uses the edge of the paint. A text that is mostly

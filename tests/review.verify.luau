@@ -21,6 +21,7 @@ type Options = {
 	turn: number?,
 	native: boolean?,
 	paint: Rules.ReviewRect?,
+	ground: boolean?,
 }
 
 local DARK = { r = 0.08, g = 0.09, b = 0.12 }
@@ -55,6 +56,7 @@ local function scene()
 			z = given.z,
 			turn = given.turn,
 			paint = given.paint,
+			ground = given.ground,
 		}
 		if given.text ~= nil then
 			element.text = {
@@ -645,6 +647,63 @@ return function(harness: Verify.Harness)
 		local pastTheRectangle = { x = 250, y = 19, width = 40, height = 14 }
 		t:expect(rules(build(pastTheRectangle, cardPaint))["escaped-text"]):toBe(1)
 		t:expect(rules(build(pastTheRectangle, nil))["escaped-text"]):toBe(1)
+	end)
+
+	harness:case("a text of a stack escapes the paint of the ground of that stack at any share", function(t)
+		local paint = { x = 108, y = 108, width = 134, height = 74 }
+		local function build(ink: Rules.ReviewRect, ground: boolean, nested: boolean)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local card = add(page, "Frame", 100, 100, 150, 90)
+			add(card, "ImageLabel", 100, 100, 150, 90, { image = true, paint = paint, ground = ground, z = 0 })
+			local holder = card
+			if nested then
+				holder = add(card, "Frame", 108, 108, 134, 30, { opaque = true, fill = PANEL })
+			end
+			add(
+				holder,
+				"TextLabel",
+				108,
+				108,
+				134,
+				24,
+				{ text = "A label that is far too long for this card", size = 24, ink = ink }
+			)
+			return rules(Rules.analyze(snapshot()))
+		end
+		local farPast = { x = 108, y = 108, width = 352, height = 24 }
+		t:expect(build(farPast, false, false)["escaped-text"]):toBe(nil)
+		t:expect(build(farPast, true, false)["escaped-text"]):toBe(1)
+		local inside = { x = 110, y = 110, width = 120, height = 24 }
+		t:expect(build(inside, true, false)["escaped-text"]):toBe(nil)
+		local onTheMargin = { x = 101, y = 101, width = 30, height = 12 }
+		t:expect(build(onTheMargin, false, false)["escaped-text"]):toBe(nil)
+		t:expect(build(onTheMargin, true, false)["escaped-text"]):toBe(1)
+		t:expect(build(inside, true, true)["escaped-text"]):toBe(nil)
+	end)
+
+	harness:case("a text on the paint of an image is not floating text", function(t)
+		local function build(paint: Rules.ReviewRect?, above: boolean)
+			local add, snapshot = scene()
+			local hud = add(nil, "Frame", 0, 0, 1920, 1080)
+			for row = 0, 2 do
+				local y = 16 + row * 100
+				local card = add(hud, "Frame", 16, y, 240, 80)
+				add(card, "ImageLabel", 16, y, 240, 80, {
+					image = true,
+					paint = if paint ~= nil
+						then { x = paint.x, y = y + paint.y, width = paint.width, height = paint.height }
+						else nil,
+					z = if above then 3 else 0,
+				})
+				add(card, "TextLabel", 32, y + 24, 200, 32, { text = "Quest " .. row, size = 24 })
+			end
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(build(nil, false)["floating-text"]):toBe(nil)
+		t:expect(build({ x = 20, y = 4, width = 232, height = 72 }, false)["floating-text"]):toBe(nil)
+		t:expect(build({ x = 20, y = 60, width = 232, height = 16 }, false)["floating-text"]):toBe(1)
+		t:expect(build(nil, true)["floating-text"]):toBe(1)
 	end)
 
 	harness:case("an image separates two overlapping texts only where it is painted", function(t)
