@@ -79,12 +79,52 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 	local staticColumns = if type(spec.columns) ~= "function" and not Compose.isValue(spec.columns)
 		then readColumns(spec.columns)
 		else nil
+	local probes = setmetatable({} :: { [TextLabel]: true }, { __mode = "ks" })
+	local probeShare, probeLines = 0, false
+	local function probeSize(share: number, lines: boolean): UDim2
+		return D2.new(1, share, if lines then 0 else 1, 0)
+	end
+	Compose.watch(function(use: ComposeTypes.Use)
+		local share, lines = use(layout.disclosureShare), metrics.touchRows(use)
+		if share == probeShare and lines == probeLines then
+			return
+		end
+		probeShare, probeLines = share, lines
+		local size, automatic = probeSize(share, lines), if lines then E.AutomaticSize.Y else E.AutomaticSize.None
+		for label in probes do
+			label.Size = size
+			label.AutomaticSize = automatic
+		end
+	end)
+	local frames: { [GuiObject]: GuiObject } = {}
+	local frameSize, frameX = D2.fromScale(1, 1), 0
+	Compose.watch(function(use: ComposeTypes.Use)
+		local lane = laneWidth(use)
+		local size = if lane then D2.new(0, lane, 1, 0) else D2.new(1, -use(disclosureWidth), 1, 0)
+		local x = use(scrolledX)
+		if size == frameSize and x == frameX then
+			return
+		end
+		frameSize, frameX = size, x
+		local cellsAt, paintedAt = D2.fromOffset(-x, 0), D2.fromOffset(x, 0)
+		for cells, painted in frames do
+			cells.Size = size
+			cells.Position = cellsAt
+			painted.Position = paintedAt
+		end
+	end)
 	local function build(
 		current: ComposeTypes.ReadOnlyValue<V>,
 		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
 		key: ComposeTypes.ReadOnlyValue<K>
 	): GuiObject
-		local cellHeights: ComposeTypes.Value<{ [string]: number }> = Compose.cell({})
+		local heights: { [string]: (ComposeTypes.Use) -> number? } = {}
+		local hides: { [string]: (ComposeTypes.Use) -> boolean } = {}
+		local sourcesChanged = Compose.cell(0)
+		local function measureHeight(id: string, source: (ComposeTypes.Use) -> number?)
+			heights[id] = source
+			sourcesChanged:set(sourcesChanged:peek() + 1)
+		end
 		local truncated: ComposeTypes.Value<{ [string]: boolean }> = Compose.cell({})
 		local held: K? = nil
 		local function release(gone: K?)
@@ -97,8 +137,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				end
 			end
 		end
-		Compose.watch(function(use: ComposeTypes.Use)
-			local now, cells = use(key), use(truncated)
+		local function track(now: K, cells: { [string]: boolean })
 			if held ~= now then
 				release(held)
 				held = now
@@ -114,25 +153,50 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				end
 				truncatedRows:set(rows)
 			end
-		end)
+		end
+		local framed: GuiObject? = nil
 		Compose.cleanup(function()
 			release(held)
+			if framed then
+				frames[framed] = nil
+			end
 		end)
-		Compose.watch(function(use: ComposeTypes.Use)
-			local height = use(minimumRow)
-			local sizes, hidden = use(cellHeights), use(collapsed)
-			for _, column in readColumns(spec.columns, use) do
-				if not hidden[column.id] then
-					height = math.max(height, sizes[column.id] or 0)
+		local function measureRow()
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(sourcesChanged)
+				local height = use(minimumRow)
+				local hidden = use(collapsed)
+				local cells = truncated:peek()
+				local changed = false
+				for _, column in readColumns(spec.columns, use) do
+					local id = column.id
+					local source = heights[id]
+					if source and not hidden[id] then
+						height = math.max(height, source(use) or 0)
+					end
+					local hide = hides[id]
+					if hide and (cells[id] == true) ~= hide(use) then
+						if not changed then
+							cells, changed = table.clone(cells), true
+						end
+						cells[id] = if cells[id] then nil else true
+					end
 				end
-			end
-			local now = use(key)
-			if (height > use(minimumRow) or rowMeasures:peek()[now] ~= nil) and rowMeasures:peek()[now] ~= height then
-				local nextHeights = table.clone(rowMeasures:peek())
-				nextHeights[now] = height
-				rowMeasures:set(nextHeights)
-			end
-		end)
+				if changed then
+					truncated:set(cells)
+				end
+				local now = use(key)
+				track(now, cells)
+				if
+					(height > use(minimumRow) or rowMeasures:peek()[now] ~= nil)
+					and rowMeasures:peek()[now] ~= height
+				then
+					local nextHeights = table.clone(rowMeasures:peek())
+					nextHeights[now] = height
+					rowMeasures:set(nextHeights)
+				end
+			end)
+		end
 		local function renderColumn(column: Types.Input<Column>, index: Types.Input<number>)
 			local definition = readColumn(column)
 			local authored = definition.render
@@ -174,41 +238,41 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				end
 				return table.concat(lines, "\n")
 			end
-			local function probe(
-				name: string,
-				text: (ComposeTypes.Use) -> string,
-				share: boolean,
-				lines: (ComposeTypes.Use) -> boolean
-			): TextLabel
-				return ctx.styled(
+			local function probe(name: string, text: ((ComposeTypes.Use) -> string)?, shared: boolean): TextLabel
+				local label = ctx.styled(
 					ctx.text({
 						Name = name,
 						TextWrapped = false,
 						TextTransparency = 1,
 						Interactable = false,
-						Size = function(use: ComposeTypes.Use)
-							return D2.new(
-								1,
-								if share then use(layout.disclosureShare) else 0,
-								if lines(use) then 0 else 1,
-								0
-							)
-						end,
-						AutomaticSize = function(use: ComposeTypes.Use)
-							return if lines(use) then E.AutomaticSize.Y else E.AutomaticSize.None
-						end,
-						Text = text,
+						Size = if shared then probeSize(probeShare, probeLines) else D2.fromScale(1, 0),
+						AutomaticSize = if shared and not probeLines then E.AutomaticSize.None else E.AutomaticSize.Y,
+						Text = text or "",
 					}),
 					"TableValue"
 				)
+				if shared then
+					probes[label] = true
+				end
+				return label
 			end
-			local longestWord = if render
+			local wordFits = Compose.cell<<boolean?>>(nil)
+			local longestWord: Types.Child? = if render or definition.wrap == false
 				then nil
-				else probe("LongestWord", words, false, function()
-					return true
+				else Compose.show(function(use: ComposeTypes.Use): boolean
+					return layout.textWrap(readColumn(column, use), use)
+				end, function()
+					local measure = probe("LongestWord", words, false)
+					local fits = ctx.observe.TextFits(measure)
+					Compose.watch(function(use: ComposeTypes.Use)
+						wordFits:set(use(fits))
+					end)
+					Compose.cleanup(function()
+						wordFits:set(nil)
+					end)
+					return measure
 				end)
-			local undisclosed = if render then nil else probe("Undisclosed", valueText, true, metrics.touchRows)
-			local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
+			local undisclosed = if render then nil else probe("Undisclosed", nil, true)
 			local content: GuiObject = if render
 				then ctx.styled(
 					Host.Frame "Inset" {
@@ -234,11 +298,15 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 						end,
 						TextTruncate = E.TextTruncate.AtEnd,
 						TextWrapped = function(use: ComposeTypes.Use): boolean
-							return layout.textWrap(readColumn(column, use), use) and use(assert(wordFits)) ~= false
+							return layout.textWrap(readColumn(column, use), use) and use(wordFits) ~= false
 						end,
 						Size = D2.fromScale(1, 1),
 						AutomaticSize = E.AutomaticSize.None,
-						Text = valueText,
+						Text = function(use: ComposeTypes.Use): string
+							local text = valueText(use)
+							assert(undisclosed).Text = text
+							return text
+						end,
 					}),
 					"TableValue"
 				)
@@ -249,7 +317,8 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				local settled: ComposeTypes.ReadOnlyValue<boolean>? = nil
 				local automatic = ctx.observe.AutomaticSize(measured)
 				local authored: ComposeTypes.ReadOnlyValue<UDim2>? = nil
-				Compose.watch(function(use: ComposeTypes.Use)
+				local previous: number? = nil
+				measureHeight(definition.id, function(use: ComposeTypes.Use): number?
 					local sizing = use(automatic)
 					if sizing ~= E.AutomaticSize.Y and sizing ~= E.AutomaticSize.XY then
 						if authored == nil then
@@ -258,14 +327,13 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 							end)
 						end
 						if use(assert(authored)).Y.Scale ~= 0 then
-							return
+							return previous
 						end
 					end
 					local pixels = use(size).Y
 					local height = pixels / use(unitScale) + CELL_PADDING
-					local previous = cellHeights:peek()[definition.id]
 					if previous == height or (pixels == 0 and previous == nil and use(minimumRow) >= height) then
-						return
+						return previous
 					end
 					if pixels == 0 and runtime.host.frames then
 						if settled == nil then
@@ -279,12 +347,11 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 							end)
 						end
 						if not use(assert(settled)) then
-							return
+							return previous
 						end
 					end
-					local nextHeights = table.clone(cellHeights:peek())
-					nextHeights[definition.id] = height
-					cellHeights:set(nextHeights)
+					previous = height
+					return height
 				end)
 			end
 			if not render and readNumber(index) == 1 then
@@ -307,41 +374,30 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			end
 			if not render then
 				assert(content:IsA("TextLabel"))
-				metrics.recordHeight(cellHeights, definition.id, content, CELL_PADDING)
 				local fits = ctx.observe.TextFits(assert(undisclosed))
 				local bounds = ctx.observe.TextBounds(assert(undisclosed))
 				local size = ctx.observe.AbsoluteSize(assert(undisclosed))
-				Compose.watch(function(use: ComposeTypes.Use)
-					local id = readColumn(column, use).id
+				local hidden = false
+				hides[definition.id] = function(use: ComposeTypes.Use): boolean
 					if
-						tree
-						and (
-							use(size).X <= 0
-							or use(bounds).Y <= 0
-							or use(size).Y < use(bounds).Y + CELL_PADDING * use(unitScale)
+						not tree
+						or (
+							use(size).X > 0
+							and use(bounds).Y > 0
+							and use(size).Y >= use(bounds).Y + CELL_PADDING * use(unitScale)
 						)
 					then
-						return
+						hidden = use(fits) == false
 					end
-					local hidden = use(fits) == false
-					if (truncated:peek()[id] == true) ~= hidden then
-						local cells = table.clone(truncated:peek())
-						if hidden then
-							cells[id] = true
-						else
-							cells[id] = nil
-						end
-						truncated:set(cells)
-					end
-				end)
+					return hidden
+				end
+				measureHeight(definition.id, metrics.textHeight(content, CELL_PADDING))
 			end
 			if tree and readNumber(index) == 1 then
 				content = tree.wrap(content, current, key:peek())
 				local outlineSize = ctx.observe.AbsoluteSize(content)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local sizes = table.clone(cellHeights:peek())
-					sizes[definition.id] = use(outlineSize).Y / use(unitScale)
-					cellHeights:set(sizes)
+				measureHeight(definition.id, function(use: ComposeTypes.Use): number?
+					return use(outlineSize).Y / use(unitScale)
 				end)
 			end
 			local cell = ctx.styled(layout.columnFrame(column, index, content, longestWord, undisclosed), "TableCell")
@@ -351,7 +407,8 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		local attributes: EngineTypes.Attributes = { FacetSelected = false }
 		local rowProps: Types.FrameProps = {
 			Name = "Row",
-			Size = D2.fromScale(1, 1),
+			Size = frameSize,
+			Position = D2.fromOffset(-frameX, 0),
 			BackgroundTransparency = 1,
 			Attributes = attributes,
 			lists.list({}, false),
@@ -375,15 +432,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			)
 		end
 		local row: GuiObject = Host.Frame(rowProps)
-		runtime.decorate(row, {
-			Size = function(use: ComposeTypes.Use)
-				local lane = laneWidth(use)
-				return if lane then D2.new(0, lane, 1, 0) else D2.new(1, -use(disclosureWidth), 1, 0)
-			end,
-			Position = function(use: ComposeTypes.Use)
-				return D2.fromOffset(-use(scrolledX), 0)
-			end,
-		})
+		measureRow()
 		local cellRow = row
 		local rowProps: Types.FrameProps = {
 			Name = "DisclosingRow",
@@ -491,11 +540,9 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			row = editor.wrap(row, current, key:peek(), true)
 		end
 		local painted = ctx.styled<<GuiObject>>(if editor then row else disclosing, "TableRow")
-		runtime.decorate(painted, {
-			Position = function(use: ComposeTypes.Use)
-				return D2.fromOffset(use(scrolledX), 0)
-			end,
-		})
+		painted.Position = D2.fromOffset(frameX, 0)
+		frames[cellRow] = painted
+		framed = cellRow
 		if spec.alternatingRows then
 			Compose.watch(function(use: ComposeTypes.Use)
 				if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then
