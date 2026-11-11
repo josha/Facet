@@ -13,6 +13,7 @@ local help = {}
 
 local KEYS: { [string]: boolean } = freeze({
 	title = true,
+	titleTone = true,
 	body = true,
 	shortcut = true,
 	edge = true,
@@ -22,6 +23,12 @@ local KEYS: { [string]: boolean } = freeze({
 	cooldown = true,
 	flavour = true,
 })
+
+local function assertTone(tone: unknown, field: string)
+	if tone ~= nil and (type(tone) ~= "string" or string.match(tone, "^%a[%w%-]*$") == nil) then
+		error(`Facet UI.Button: help.{field} must be a tone name such as "positive"`, 0)
+	end
+end
 
 function help.check(ctx: Types.Context, value: unknown)
 	if type(value) ~= "table" or ctx.Compose.isValue(value) then
@@ -57,6 +64,12 @@ function help.check(ctx: Types.Context, value: unknown)
 				text(entry.label) and text(entry.value),
 				"Facet UI.Button: help rows require label and value strings"
 			)
+			for key in entry do
+				if key ~= "label" and key ~= "value" and key ~= "tone" then
+					error(`Facet UI.Button: unknown help row option '{tostring(key)}'`, 0)
+				end
+			end
+			assertTone(entry.tone, "rows.tone")
 		end
 	end
 	if fields.body == "" and (type(fields.title) ~= "string" or fields.title == "") then
@@ -82,6 +95,7 @@ function help.check(ctx: Types.Context, value: unknown)
 			error('Facet UI.Button: help.shortcut must be a list of key chords such as { { "Ctrl", "K" } }', 0)
 		end
 	end
+	assertTone(fields.titleTone, "titleTone")
 	placement.assertEdge(fields.edge, "UI.Button help")
 	placement.assertAlign(fields.align, "UI.Button help")
 end
