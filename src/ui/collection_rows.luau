@@ -188,6 +188,183 @@ return function<V, K>(
 		fresh[key] = nil
 		return entering and read(spec.arrival) == "rise" and not reduced()
 	end
+	type Parking = { parent: Instance?, destroyed: RBXScriptConnection? }
+	type Retiring = {
+		node: Frame,
+		lease: ComposeTypes.PoolLease<State.PooledRow>,
+		stop: (() -> ())?,
+		content: GuiObject,
+		paint: State.Preparing?,
+		held: K?,
+		parking: Parking?,
+		previousParent: Instance?,
+		restore: RBXScriptConnection?,
+		live: boolean,
+		item: ComposeTypes.ReadOnlyValue<V>,
+		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
+		edits: { activation.EditAction },
+		marked: Mark?,
+		arrive: ((K) -> ())?,
+		rekey: ((K) -> ())?,
+	}
+	local restoring: Retiring? = nil
+	local function bump(value: number): number
+		return value + 1
+	end
+	local function lower(value: number): number
+		return math.max(0, value - 1)
+	end
+	local function restoreParent(r: Retiring)
+		local node, parking = r.node, r.parking
+		local parked = if parking then parking.parent else nil
+		if node.Parent and parked == nil then
+			r.previousParent = node.Parent
+		end
+		if
+			parking
+			and parked
+			and restoring ~= r
+			and not ComposeTypes.owner.isDisposed(poolOwner)
+			and node.Parent == nil
+		then
+			local outer = restoring
+			restoring = r
+			local ok = pcall(function()
+				node.Parent = parked
+			end)
+			restoring = outer
+			if not ok then
+				parking.parent = nil
+			end
+		end
+		if r.live then
+			mountedVersion:update(bump)
+		end
+	end
+	local function watchParent(r: Retiring): RBXScriptConnection
+		return r.node.AncestryChanged:Connect(function()
+			restoreParent(r)
+		end)
+	end
+	local function releaseRow(r: Retiring)
+		local stop = r.stop
+		if stop == nil then
+			return
+		end
+		r.stop = nil
+		local restore, parking = r.restore, r.parking
+		r.parking = nil
+		if restore then
+			restore:Disconnect()
+		end
+		if parking and parking.destroyed then
+			parking.destroyed:Disconnect()
+		end
+		stop()
+		r.lease.release()
+	end
+	local function follow(r: Retiring, now: K)
+		local gone: K? = r.held
+		if gone == now then
+			return
+		end
+		local node = r.node
+		if gone ~= nil then
+			if mounted[gone] == node then
+				mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
+			end
+			if gui and State.belongsTo(ctx.selection.get(), node) then
+				view.focusOwned = true
+				ctx.selection.set(nil)
+			end
+			local arrive = r.arrive
+			if arrive then
+				arrive(now)
+			end
+		end
+		r.held = now
+		local rekey = r.rekey
+		if rekey then
+			rekey(now)
+		end
+		node.Name = tostring(now)
+		mounted[now], placed[now], cellEdits[now] = node, r.placement, r.edits
+		if gone ~= nil then
+			local marked = r.marked
+			if marked then
+				highlight.move(marked, now)
+			end
+			if tree == nil and spec.disabled ~= nil then
+				node.Interactable = not policy.disabled(spec.disabled, r.item:peek())
+			end
+			mountedVersion:update(bump)
+		end
+	end
+	local function retireRow(r: Retiring)
+		r.live = false
+		local node, held, paint = r.node, r.held, r.paint
+		if gui and State.belongsTo(ctx.selection.get(), node) then
+			view.focusOwned = true
+			ctx.selection.set(nil)
+		end
+		if held ~= nil and mounted[held] == node then
+			mounted[held], placed[held], cellEdits[held] = nil, nil, nil
+		end
+		view.slotKeys[node] = nil
+		if preparing[node] then
+			preparing[node] = nil
+			waiting:update(lower)
+		end
+		local nextRows = source(peek)
+		local keyed = keysOf(nextRows)
+		local wanted = held ~= nil and keyed.index[held] ~= nil
+		local pendingReplacement = false
+		if not wanted then
+			local window = viewport:peek()
+			for index, nextKey in keyed.keys do
+				if mounted[nextKey] == nil then
+					local locate = controls.placementOf
+					local at = if locate then locate(index) else nil
+					if
+						spec.mode == "all"
+						or window.size <= 0
+						or (
+							at ~= nil
+							and at.offset + at.size > window.offset
+							and at.offset < window.offset + window.size
+						)
+					then
+						pendingReplacement = true
+						break
+					end
+				end
+			end
+		end
+		if
+			not wanted
+			and pendingReplacement
+			and paint ~= nil
+			and paint.painted
+			and not ComposeTypes.owner.isDisposed(poolOwner)
+			and #nextRows > 0
+		then
+			local parking: Parking = { parent = node.Parent or r.previousParent or view.rowParent, destroyed = nil }
+			r.parking = parking
+			if r.restore == nil then
+				r.restore = watchParent(r)
+			end
+			parking.destroyed = node.Destroying:Connect(function()
+				parking.parent = nil
+			end)
+			node.Parent = parking.parent
+			r.content.Interactable = false
+			view.retiring[node] = function()
+				releaseRow(r)
+			end
+		else
+			releaseRow(r)
+		end
+	end
 	local function row(
 		rowItem: ComposeTypes.ReadOnlyValue<V>,
 		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
@@ -202,7 +379,9 @@ return function<V, K>(
 		local current = retained or rowItem
 		local springPlacement = spec.slots ~= nil or spec.drag ~= nil or spec.drop ~= nil
 		local reservedPosition: ComposeTypes.ReadOnlyValue<Vector2>? = nil
-		local glide: ComposeTypes.Value<number>? = nil
+		local glideOffset = 0
+		local reposition: (() -> ())? = nil
+		local rekey: ((K) -> ())? = nil
 		local move: ((ComposeTypes.Placement, K) -> ())? = nil
 		if springPlacement and positionEditor == nil then
 			local position = Compose.cell(V2.new(placement:peek().crossOffset, placement:peek().offset))
@@ -234,8 +413,6 @@ return function<V, K>(
 				engine.retarget()
 			end)
 		elseif positionEditor == nil and tree == nil and kind == "list" then
-			local offset = Compose.cell(0)
-			glide = offset
 			local stopGlide: (() -> ())? = nil
 			local function halt()
 				if stopGlide then
@@ -245,12 +422,27 @@ return function<V, K>(
 			end
 			Compose.cleanup(halt)
 			local previous, previousKey = placement:peek(), keyCell:peek()
+			local function shift(value: number)
+				if glideOffset ~= value then
+					glideOffset = value
+					if reposition then
+						reposition()
+					end
+				end
+			end
+			rekey = function(now: K)
+				if now ~= previousKey then
+					previousKey = now
+					halt()
+					shift(0)
+				end
+			end
 			move = function(at: ComposeTypes.Placement, now: K)
-				local delta = previous.offset + offset:peek() - at.offset
+				local delta = previous.offset + glideOffset - at.offset
 				local moved = at.index ~= previous.index and now == previousKey
 				if now ~= previousKey then
 					halt()
-					offset:set(0)
+					glideOffset = 0
 				end
 				previous, previousKey = at, now
 				if not moved or math.abs(delta) > viewport:peek().size or reduced() then
@@ -260,10 +452,10 @@ return function<V, K>(
 				local elapsed = 0
 				local seconds = ctx.metric("motion.durations.glide")
 				local present = ctx.motionEase("present")
-				offset:set(delta)
+				glideOffset = delta
 				stopGlide = view.frames.onFrame(function(step: number)
 					elapsed = math.min(seconds, elapsed + step)
-					offset:set(delta * (1 - present(elapsed / seconds)))
+					shift(delta * (1 - present(elapsed / seconds)))
 					if elapsed >= seconds then
 						halt()
 					end
@@ -311,24 +503,17 @@ return function<V, K>(
 						end
 					end, spec.reducedMotion)
 					else nil
-				Compose.owner.watchTerminal(contentOwner, function(use: ComposeTypes.Use)
-					local at = use(placement)
-					if position then
-						if entrance then
-							use(entrance)
-						end
-						position(at)
-					end
-					if move then
-						move(at, use(keyCell))
-					end
-					local main, cross = at.offset + (if glide then use(glide) else 0), at.crossOffset
+				local function apply(at: ComposeTypes.Placement, use: ComposeTypes.Use?)
+					local main, cross = at.offset + glideOffset, at.crossOffset
 					if reservedPosition then
-						local position = use(reservedPosition)
+						local position = if use then use(reservedPosition) else reservedPosition:peek()
 						main, cross = position.Y, position.X
 					end
 					if entrance then
-						main += (1 - use(entrance)) * ctx.metric("motion.distances.rowArrival", use)
+						main += (1 - (if use then use(entrance) else entrance:peek())) * ctx.metric(
+							"motion.distances.rowArrival",
+							use
+						)
 					end
 					if placed.index ~= at.index then
 						placed.index = at.index
@@ -344,7 +529,32 @@ return function<V, K>(
 							then D2.fromOffset(at.size, at.crossSize)
 							else D2.fromOffset(at.crossSize, at.size)
 					end
-				end)
+				end
+				reposition = function()
+					apply(placement:peek())
+				end
+				if position or entrance or reservedPosition then
+					Compose.owner.watchTerminal(contentOwner, function(use: ComposeTypes.Use)
+						local at = use(placement)
+						if position then
+							if entrance then
+								use(entrance)
+							end
+							position(at)
+						end
+						if move then
+							move(at, use(keyCell))
+						end
+						apply(at, use)
+					end)
+				else
+					Compose.owner.watchStatic(contentOwner, placement, function(at: ComposeTypes.Placement)
+						if move then
+							move(at, keyCell:peek())
+						end
+						apply(at)
+					end)
+				end
 				local rendered = assert(spec.render)(current, placement, keyCell)
 				if tree and not tree.columnar then
 					rendered = tree.wrap(rendered, current, keyCell:peek())
@@ -570,52 +780,26 @@ return function<V, K>(
 				return content
 			end, node)
 		end)
-		local parked: Instance? = nil
-		local previousParent: Instance? = node.Parent
-		local released = false
-		local restoringParent = false
-		local destroyed: RBXScriptConnection? = nil
-		local live = true
-		local function restoreParent()
-			if node.Parent and parked == nil then
-				previousParent = node.Parent
-			end
-			if
-				parked
-				and not restoringParent
-				and not ComposeTypes.owner.isDisposed(poolOwner)
-				and node.Parent == nil
-			then
-				restoringParent = true
-				local ok = pcall(function()
-					node.Parent = parked
-				end)
-				restoringParent = false
-				if not ok then
-					parked = nil
-				end
-			end
-			if live then
-				mountedVersion:update(function(value: number): number
-					return value + 1
-				end)
-			end
-		end
-		local restore: RBXScriptConnection? = if rowSignals then node.AncestryChanged:Connect(restoreParent) else nil
-		local function release()
-			if released then
-				return
-			end
-			released = true
-			parked = nil
-			if restore then
-				restore:Disconnect()
-			end
-			if destroyed then
-				destroyed:Disconnect()
-			end
-			stop()
-			lease.release()
+		local r: Retiring = {
+			node = node,
+			lease = lease,
+			stop = stop,
+			content = content,
+			paint = nil,
+			held = nil,
+			parking = nil,
+			previousParent = node.Parent,
+			restore = nil,
+			live = true,
+			item = rowItem,
+			placement = placement,
+			edits = edits,
+			marked = marked,
+			arrive = nil,
+			rekey = rekey,
+		}
+		if rowSignals then
+			r.restore = watchParent(r)
 		end
 		if directSelection then
 			wireSelection(content, keyCell, if marked then marked.hit else nil)
@@ -659,39 +843,7 @@ return function<V, K>(
 				animate()
 			end
 		end
-		local held: K? = nil
-		local function follow(now: K)
-			if held == now then
-				return
-			end
-			local gone = held
-			if gone ~= nil then
-				if mounted[gone] == node then
-					mounted[gone], placed[gone], cellEdits[gone] = nil, nil, nil
-				end
-				if gui and State.belongsTo(ctx.selection.get(), node) then
-					view.focusOwned = true
-					ctx.selection.set(nil)
-				end
-			end
-			if gone ~= nil and arrive then
-				arrive(now)
-			end
-			held = now
-			node.Name = tostring(now)
-			mounted[now], placed[now], cellEdits[now] = node, placement, edits
-			if gone ~= nil then
-				if marked then
-					highlight.move(marked, now)
-				end
-				if tree == nil and spec.disabled ~= nil then
-					node.Interactable = not policy.disabled(spec.disabled, rowItem:peek())
-				end
-				mountedVersion:update(function(value)
-					return value + 1
-				end)
-			end
-		end
+		r.arrive = arrive
 		local owner = assert(Compose.currentOwner())
 		if retained then
 			Compose.owner.watchTerminal(owner, function(use: ComposeTypes.Use)
@@ -699,9 +851,11 @@ return function<V, K>(
 			end)
 		end
 		if follows then
-			Compose.owner.watchStatic(owner, keyCell, follow)
+			Compose.owner.watchStatic(owner, keyCell, function(now: K)
+				follow(r, now)
+			end)
 		else
-			follow(keyCell:peek())
+			follow(r, keyCell:peek())
 		end
 		local measureRow: ((ComposeTypes.Use, Vector2) -> ())? = nil
 		local automatic = measuredNode.AutomaticSize
@@ -845,67 +999,9 @@ return function<V, K>(
 		waiting:update(function(value)
 			return value + 1
 		end)
+		r.paint = paint
 		Compose.cleanup(function()
-			live = false
-			if gui and State.belongsTo(ctx.selection.get(), node) then
-				view.focusOwned = true
-				ctx.selection.set(nil)
-			end
-			if held ~= nil and mounted[held] == node then
-				mounted[held], placed[held], cellEdits[held] = nil, nil, nil
-			end
-			view.slotKeys[node] = nil
-			if preparing[node] then
-				preparing[node] = nil
-				waiting:update(function(value)
-					return math.max(0, value - 1)
-				end)
-			end
-			local nextRows = source(peek)
-			local keyed = keysOf(nextRows)
-			local wanted = held ~= nil and keyed.index[held] ~= nil
-			local pendingReplacement = false
-			if not wanted then
-				local window = viewport:peek()
-				for index, nextKey in keyed.keys do
-					if mounted[nextKey] == nil then
-						local locate = controls.placementOf
-						local at = if locate then locate(index) else nil
-						if
-							spec.mode == "all"
-							or window.size <= 0
-							or (
-								at ~= nil
-								and at.offset + at.size > window.offset
-								and at.offset < window.offset + window.size
-							)
-						then
-							pendingReplacement = true
-							break
-						end
-					end
-				end
-			end
-			if
-				not wanted
-				and pendingReplacement
-				and paint.painted
-				and not ComposeTypes.owner.isDisposed(poolOwner)
-				and #nextRows > 0
-			then
-				parked = node.Parent or previousParent or view.rowParent
-				if restore == nil then
-					restore = node.AncestryChanged:Connect(restoreParent)
-				end
-				destroyed = node.Destroying:Connect(function()
-					parked = nil
-				end)
-				node.Parent = parked
-				content.Interactable = false
-				view.retiring[node] = release
-			else
-				release()
-			end
+			retireRow(r)
 		end)
 		return node
 	end
