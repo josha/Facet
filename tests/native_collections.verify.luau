@@ -3978,6 +3978,11 @@ return function(verifyHarness: Verify.Harness)
 				expect((height())):toBe(44)
 				engine.environment.poke(input, "PreferredInput", E.PreferredInput.Touch)
 				engine.environment.poke(input, "TouchEnabled", true)
+				for _, label in node:GetDescendants() do
+					if label.Name == "LongestWord" then
+						engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
+					end
+				end
 				expect((height())):toBe(56)
 				expect((wraps())):toBe(true)
 				engine.environment.poke(

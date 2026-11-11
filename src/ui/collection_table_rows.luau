@@ -202,13 +202,25 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 					"TableValue"
 				)
 			end
-			local longestWord = if render
+			local wordFits = Compose.cell<<boolean?>>(nil)
+			local longestWord: Types.Child? = if render or definition.wrap == false
 				then nil
-				else probe("LongestWord", words, false, function()
-					return true
+				else Compose.show(function(use: ComposeTypes.Use): boolean
+					return layout.textWrap(readColumn(column, use), use)
+				end, function()
+					local measure = probe("LongestWord", words, false, function()
+						return true
+					end)
+					local fits = ctx.observe.TextFits(measure)
+					Compose.watch(function(use: ComposeTypes.Use)
+						wordFits:set(use(fits))
+					end)
+					Compose.cleanup(function()
+						wordFits:set(nil)
+					end)
+					return measure
 				end)
 			local undisclosed = if render then nil else probe("Undisclosed", valueText, true, metrics.touchRows)
-			local wordFits = if longestWord then ctx.observe.TextFits(longestWord) else nil
 			local content: GuiObject = if render
 				then ctx.styled(
 					Host.Frame "Inset" {
@@ -234,7 +246,7 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 						end,
 						TextTruncate = E.TextTruncate.AtEnd,
 						TextWrapped = function(use: ComposeTypes.Use): boolean
-							return layout.textWrap(readColumn(column, use), use) and use(assert(wordFits)) ~= false
+							return layout.textWrap(readColumn(column, use), use) and use(wordFits) ~= false
 						end,
 						Size = D2.fromScale(1, 1),
 						AutomaticSize = E.AutomaticSize.None,

@@ -17,7 +17,7 @@ export type Columns<V, K> = {
 		Types.Input<CollectionTypes.TableColumn<V, K>>,
 		Types.Input<number>,
 		GuiObject,
-		GuiObject?,
+		Types.Child?,
 		GuiObject?
 	) -> Frame,
 }
@@ -297,7 +297,7 @@ return function<V, K>(
 		current: Types.Input<CollectionTypes.TableColumn<V, K>>,
 		index: Types.Input<number>,
 		content: GuiObject,
-		extra: GuiObject?,
+		extra: Types.Child?,
 		more: GuiObject?
 	): Frame
 		local id = ctx.read<<CollectionTypes.TableColumn<V, K>>>(current).id
@@ -353,9 +353,13 @@ return function<V, K>(
 			BackgroundTransparency = 1,
 			Size = layout.size,
 			content,
-			extra,
-			more,
 		}
+		if extra then
+			table.insert(nativeProps, extra)
+		end
+		if more then
+			table.insert(nativeProps, more)
+		end
 		if not fixedColumns then
 			table.insert(nativeProps, Host.UISizeConstraint { MinSize = layout.minimum, MaxSize = layout.maximum })
 			table.insert(nativeProps, Host.UIFlexItem { FlexMode = layout.flex })
