@@ -96,6 +96,23 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			label.AutomaticSize = automatic
 		end
 	end)
+	local frames: { [GuiObject]: GuiObject } = {}
+	local frameSize, frameX = D2.fromScale(1, 1), 0
+	Compose.watch(function(use: ComposeTypes.Use)
+		local lane = laneWidth(use)
+		local size = if lane then D2.new(0, lane, 1, 0) else D2.new(1, -use(disclosureWidth), 1, 0)
+		local x = use(scrolledX)
+		if size == frameSize and x == frameX then
+			return
+		end
+		frameSize, frameX = size, x
+		local cellsAt, paintedAt = D2.fromOffset(-x, 0), D2.fromOffset(x, 0)
+		for cells, painted in frames do
+			cells.Size = size
+			cells.Position = cellsAt
+			painted.Position = paintedAt
+		end
+	end)
 	local function build(
 		current: ComposeTypes.ReadOnlyValue<V>,
 		placement: ComposeTypes.ReadOnlyValue<ComposeTypes.Placement>,
@@ -137,8 +154,12 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 				truncatedRows:set(rows)
 			end
 		end
+		local framed: GuiObject? = nil
 		Compose.cleanup(function()
 			release(held)
+			if framed then
+				frames[framed] = nil
+			end
 		end)
 		local function measureRow()
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -386,7 +407,8 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		local attributes: EngineTypes.Attributes = { FacetSelected = false }
 		local rowProps: Types.FrameProps = {
 			Name = "Row",
-			Size = D2.fromScale(1, 1),
+			Size = frameSize,
+			Position = D2.fromOffset(-frameX, 0),
 			BackgroundTransparency = 1,
 			Attributes = attributes,
 			lists.list({}, false),
@@ -411,12 +433,6 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 		end
 		local row: GuiObject = Host.Frame(rowProps)
 		measureRow()
-		runtime.decorate(row, {
-			Size = function(use: ComposeTypes.Use)
-				local lane = laneWidth(use)
-				return if lane then D2.new(0, lane, 1, 0) else D2.new(1, -use(disclosureWidth), 1, 0)
-			end,
-		})
 		local cellRow = row
 		local rowProps: Types.FrameProps = {
 			Name = "DisclosingRow",
@@ -524,11 +540,9 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 			row = editor.wrap(row, current, key:peek(), true)
 		end
 		local painted = ctx.styled<<GuiObject>>(if editor then row else disclosing, "TableRow")
-		Compose.watch(function(use: ComposeTypes.Use)
-			local x = use(scrolledX)
-			cellRow.Position = D2.fromOffset(-x, 0)
-			painted.Position = D2.fromOffset(x, 0)
-		end)
+		painted.Position = D2.fromOffset(frameX, 0)
+		frames[cellRow] = painted
+		framed = cellRow
 		if spec.alternatingRows then
 			Compose.watch(function(use: ComposeTypes.Use)
 				if read(spec.alternatingRows, use) == true and use(placement).index % 2 == 0 then

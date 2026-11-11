@@ -488,6 +488,48 @@ return function(verifyHarness: Verify.Harness)
 				expect(assert(controls.indexOfKey)(3)):toBe(2)
 			end,
 		})
+		it("keeps row cells and row paint aligned with the horizontal scroll offset", {
+			id = "native_collections::Table sort scrolling::keeps row cells and row paint aligned with the horizontal scroll offset",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local rows = Compose.cell(records(3))
+				local stop, mounted = runtime.mount(function()
+					local tableSpec: FixtureCollectionProps.KeyedTableSpec<Record, number> = {
+						from = rows,
+						key = function(item: Record): number
+							return item.id
+						end,
+						columns = {
+							{ id = "id", width = 200 },
+							{ id = "label", width = 200 },
+						},
+						itemSize = 20,
+					}
+					return UI.Table(tableSpec)
+				end, target)
+				local node = (mounted :: unknown) :: Frame
+				local body = assert(node:FindFirstChild("Body")) :: ScrollingFrame
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(150, 100)
+				)
+				body.CanvasPosition = engine.types.Vector2.new(60, 0)
+				local function expectAligned(key: number)
+					local item = assert(assert(body:FindFirstChild("Items")):FindFirstChild(tostring(key)))
+					local cells = assert(item:FindFirstChild("Row", true)) :: Frame
+					local painted = assert(cells.Parent) :: Frame
+					expect(cells.Position.X.Offset):toBe(-60)
+					expect(painted.Position.X.Offset):toBe(60)
+				end
+				expectAligned(1)
+				expectAligned(3)
+				local more = records(4)
+				rows:set(more)
+				expectAligned(4)
+				stop()
+			end,
+		})
 		it("resets sorting and reveals a selected row without changing list anchoring", {
 			id = "native_collections::Table sort scrolling::resets sorting and reveals a selected row without changing list anchoring",
 			run = function()
