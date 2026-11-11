@@ -230,7 +230,7 @@ local function createMotion<T>(
 		settings[4] = 0
 		local state: State<T>? = nil
 		local typeName = ""
-		Owner.watch(owner, function(use)
+		Owner.effectHeld(owner, function(use)
 			local wanted = source(use)
 			local reduced = reducedMotion ~= nil and reducedMotion(use) == true
 			local currentState = state

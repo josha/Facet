@@ -1163,21 +1163,27 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		local topbar, position, parent =
 			ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
+		local bottom: number?, top, onScreen = nil, 0, false
 		local function measure()
-			local band, top = gui.TopbarInset, frame.AbsolutePosition.Y
+			if bottom == nil or not onScreen then
+				under:set(0)
+				return
+			end
 			local ok, inset = pcall(gui.GetGuiInset, gui)
-			under:set(
-				if typeof(band) == "Rect" and frame:FindFirstAncestorWhichIsA("ScreenGui")
-					then math.max(0, band.Max.Y - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top)
-					else 0
-			)
+			under:set(math.max(0, bottom - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top))
+		end
+		local function locate()
+			onScreen = frame:FindFirstAncestorWhichIsA("ScreenGui") ~= nil
+			measure()
 		end
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(parent)
-			use(topbar)
-			use(position)
-			measure()
+			local band = use(topbar)
+			bottom = if typeof(band) == "Rect" then band.Max.Y else nil
+			top = use(position).Y
+			locate()
 		end)
+		runtime.connect(frame, "AncestryChanged", locate)
 		local frames = config.services and config.services.RunService
 		if frames then
 			runtime.connect(frames, "Heartbeat", measure)
