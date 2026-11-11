@@ -57,6 +57,9 @@ local function decorate(supplied: Host.Host, requireOwner: (string) -> Owner.Own
 		end
 		error(err, 0)
 	end
+	if owner.head == nil then
+		Owner.dispose(owner)
+	end
 
 	return node
 end

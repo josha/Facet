@@ -227,10 +227,20 @@ local function createRuntime(host: Host.Host): Runtime
 			local list: Children.ChildList? = nil
 			local staticSlot = 0
 			local staticChildren: { Node }? = nil
+			local surveyed = false
+			local foreign: { [unknown]: true }? = nil
 			for index = 1, childCount do
 				local child = entries[index]
 				if type(child) == "table" or type(child) == "userdata" then
-					if not Nodes.belongsTo(child, owner) or not Nodes.isDestructible(child) then
+					local mine = Nodes.membership(child, owner)
+					if mine == nil then
+						if not surveyed then
+							surveyed = true
+							foreign = Nodes.foreignLeaves(entries, index, owner)
+						end
+						mine = foreign == nil or foreign[child] == nil
+					end
+					if not mine or not Nodes.isDestructible(child) then
 						local attached = staticChildren
 						if attached == nil then
 							local children: { Node } = {}
@@ -456,6 +466,17 @@ local function createRuntime(host: Host.Host): Runtime
 	end
 
 	local function mount(component: Component, target: Node): (Dispose, Node)
+		local parent = Active.current()
+		if
+			parent ~= nil
+			and not runtimeDisposed
+			and not inspecting.active
+			and (type(target) == "table" or type(target) == "userdata")
+		then
+			claimTarget(target)
+			local owner, node = Block.mountSingle(host, target, parent, component)
+			return Owner.disposer(owner), node
+		end
 		local label = Block.nameOf(component)
 		local dispose, nodes = mountInto(function(): { Node }
 			return { component() }

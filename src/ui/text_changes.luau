@@ -2,32 +2,49 @@
 local Types = require("./types")
 
 type Listener = (string) -> ()
-type Entry = { listeners: { [Listener]: boolean }, connection: RBXScriptConnection }
+type Entry = { listeners: { [Listener]: boolean }, order: { Listener }, connection: RBXScriptConnection? }
 local entries: { [Instance]: Entry } = setmetatable({}, { __mode = "k" })
 
 return function(ctx: Types.Context, label: Instance, listener: Listener, onStop: (() -> ())?): () -> ()
 	local entry = entries[label]
 	if entry == nil then
-		local listeners: { [Listener]: boolean } = {}
-		entry = {
-			listeners = listeners,
-			connection = label.Changed:Connect(function(property: string)
-				local due = table.clone(listeners)
-				for callback in due do
-					if listeners[callback] then
-						callback(property)
-					end
+		local created: Entry = { listeners = {}, order = {} }
+		created.connection = label.Changed:Connect(function(property: string)
+			if property == "AbsolutePosition" then
+				return
+			end
+			local listeners = created.listeners
+			for _, callback in created.order do
+				if listeners[callback] then
+					callback(property)
 				end
-			end),
-		}
+			end
+		end)
+		entry = created
 		entries[label] = entry
 	end
 	local held = entry
-	held.listeners[listener] = true
+	if not held.listeners[listener] then
+		held.listeners[listener] = true
+		local order = table.clone(held.order)
+		table.insert(order, listener)
+		held.order = order
+	end
 	return ctx.Compose.cleanup(function()
-		held.listeners[listener] = nil
+		if held.listeners[listener] then
+			held.listeners[listener] = nil
+			local order: { Listener } = {}
+			for _, callback in held.order do
+				if callback ~= listener then
+					table.insert(order, callback)
+				end
+			end
+			held.order = order
+		end
 		if next(held.listeners) == nil then
-			held.connection:Disconnect()
+			if held.connection then
+				held.connection:Disconnect()
+			end
 			entries[label] = nil
 		end
 		if onStop then

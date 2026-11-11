@@ -284,12 +284,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					hug()
 				end
 			end)
-			Compose.cleanup(function()
-				if connection then
-					connection()
-					connection = nil
-				end
-			end)
 			hug()
 		end
 		if lines then

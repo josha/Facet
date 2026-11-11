@@ -463,9 +463,7 @@ end
 local function cleanup(value: unknown): Types.Dispose
 	local teardown: Types.Dispose
 	if type(value) == "function" then
-		teardown = function()
-			Dynamic.invoke(value)
-		end
+		teardown = Dynamic.teardown(value)
 	elseif type(value) == "table" then
 		local object = value
 		if type(Dynamic.read(object, "destroy")) == "function" then

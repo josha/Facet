@@ -347,6 +347,33 @@ local function mountRows<A, B>(
 	return nil, owner
 end
 
+local function mountSingle(
+	host: Host.Host,
+	target: Node,
+	parentOwner: Owner.Owner,
+	component: () -> ...unknown
+): (Owner.Owner, Node)
+	local owner = Owner.createChild(parentOwner)
+	local running = Active.push(owner)
+	local ok, node, nodes = rowOutputs(pcall(component))
+	Active.pop(owner, running)
+	if ok and nodes == nil and (type(node) == "table" or type(node) == "userdata") then
+		local render = host.render
+		local inserted, failure = pcall(render.insertChild, target, node, 1)
+		if not inserted then
+			Owner.dispose(owner)
+			error(failure, 0)
+		end
+		Owner.adopt(owner, function()
+			render.removeChild(target, node)
+		end)
+		return owner, node
+	end
+	local built =
+		place(wholeOf(host, target), owner, ok, if ok then nodes or { node } else node, nameOf(component), nil, nil)
+	return owner, built[1]
+end
+
 local function releaseNode(mountPoint: MountPoint, node: Node)
 	mountPoint.remove(node)
 end
@@ -356,6 +383,7 @@ return {
 		mountBlock = mountBlock,
 		mountRow = mountRow,
 		mountRows = mountRows,
+		mountSingle = mountSingle,
 		releaseNode = releaseNode,
 		releaseNodes = releaseNodes,
 		nameOf = nameOf,

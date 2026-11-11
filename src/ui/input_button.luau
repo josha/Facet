@@ -1164,142 +1164,161 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				sink = spec.dialogAction ~= nil or modified,
 			})
 		end
-		if targetFloor and not constrainedCaption then
-			runtime.mountFragment(function()
-				return {
-					Compose.show(function(use: ComposeTypes.Use): boolean
-						return plateFloor(use) > 0
-					end, function()
-						local extra = sizeFloor.of(node, Compose.cell)
-						return Host.UISizeConstraint "TargetFloor" {
-							MinSize = function(use: ComposeTypes.Use): Vector2
-								local minimum = plateFloor(use)
-								return V2.new(
-									math.max(targetWidth(minimum, use), use(extra.x)),
-									math.max(minimum, use(extra.y))
-								)
-							end,
-						}
-					end),
-				}
-			end, node)
-		end
 		if targetFloor then
-			local function reached(input: InputObject, clicks: number)
-				local layer = node:FindFirstAncestorWhichIsA("LayerCollector")
-				local host = if layer then layer:FindFirstAncestorWhichIsA("BasePlayerGui") else nil
-				if host and input then
-					local point = input.Position
-					for _, hit in (host :: BasePlayerGui):GetGuiObjectsAtPosition(point.X, point.Y) do
-						if node:IsDescendantOf(hit) then
-							break
-						elseif
-							hit ~= node
-							and not hit:IsDescendantOf(node)
-							and activation.marked(hit)
-							and activation.trigger(hit, input, clicks)
-						then
-							return
+			local mountFloors = Compose.bindOwner(function()
+				if not constrainedCaption then
+					runtime.mountFragment(function()
+						return {
+							Compose.show(function(use: ComposeTypes.Use): boolean
+								return plateFloor(use) > 0
+							end, function()
+								local extra = sizeFloor.of(node, Compose.cell)
+								return Host.UISizeConstraint "TargetFloor" {
+									MinSize = function(use: ComposeTypes.Use): Vector2
+										local minimum = plateFloor(use)
+										return V2.new(
+											math.max(targetWidth(minimum, use), use(extra.x)),
+											math.max(minimum, use(extra.y))
+										)
+									end,
+								}
+							end),
+						}
+					end, node)
+				end
+				local function reached(input: InputObject, clicks: number)
+					local layer = node:FindFirstAncestorWhichIsA("LayerCollector")
+					local host = if layer then layer:FindFirstAncestorWhichIsA("BasePlayerGui") else nil
+					if host and input then
+						local point = input.Position
+						for _, hit in (host :: BasePlayerGui):GetGuiObjectsAtPosition(point.X, point.Y) do
+							if node:IsDescendantOf(hit) then
+								break
+							elseif
+								hit ~= node
+								and not hit:IsDescendantOf(node)
+								and activation.marked(hit)
+								and activation.trigger(hit, input, clicks)
+							then
+								return
+							end
 						end
 					end
+					press(input, clicks)
 				end
-				press(input, clicks)
-			end
-			local function hitTarget(margin: ComposeTypes.ReadOnlyValue<Vector2>): GuiObject | ComposeTypes.Directive
-				local function strip(name: string, anchor: Vector2, at: UDim2, band: boolean): TextButton
-					local props: Shared.TextButtonProps = {
-						Text = "",
-						BackgroundTransparency = 1,
-						AutoButtonColor = false,
-						Selectable = false,
-						Interactable = enabledProperty,
-						AnchorPoint = anchor,
-						Position = at,
-						Size = function(use: ComposeTypes.Use): UDim2
-							local gap = use(margin)
-							return if band then D2.new(1, 2 * gap.X, 0, gap.Y) else D2.new(0, gap.X, 1, 0)
-						end,
-						Visible = function(use: ComposeTypes.Use): boolean
-							local gap = use(margin)
-							return (if band then gap.Y else gap.X) > 0
-						end,
-						Activated = reached,
-					}
-					local made = Host.TextButton(name)(props)
-					local began, ended, cancelled = pressBegan, pressEnded, pressCancelled
-					if began and ended and cancelled then
-						runtime.connect(made, "InputBegan", began)
-						runtime.connect(made, "InputEnded", ended)
-						runtime.connect(made, "MouseLeave", cancelled)
+				local function hitTarget(
+					margin: ComposeTypes.ReadOnlyValue<Vector2>
+				): GuiObject | ComposeTypes.Directive
+					local function strip(name: string, anchor: Vector2, at: UDim2, band: boolean): TextButton
+						local props: Shared.TextButtonProps = {
+							Text = "",
+							BackgroundTransparency = 1,
+							AutoButtonColor = false,
+							Selectable = false,
+							Interactable = enabledProperty,
+							AnchorPoint = anchor,
+							Position = at,
+							Size = function(use: ComposeTypes.Use): UDim2
+								local gap = use(margin)
+								return if band then D2.new(1, 2 * gap.X, 0, gap.Y) else D2.new(0, gap.X, 1, 0)
+							end,
+							Visible = function(use: ComposeTypes.Use): boolean
+								local gap = use(margin)
+								return (if band then gap.Y else gap.X) > 0
+							end,
+							Activated = reached,
+						}
+						local made = Host.TextButton(name)(props)
+						local began, ended, cancelled = pressBegan, pressEnded, pressCancelled
+						if began and ended and cancelled then
+							runtime.connect(made, "InputBegan", began)
+							runtime.connect(made, "InputEnded", ended)
+							runtime.connect(made, "MouseLeave", cancelled)
+						end
+						return made
 					end
-					return made
+					local strips = {
+						strip("HitTop", V2.new(0.5, 1), D2.fromScale(0.5, 0), true),
+						strip("HitBottom", V2.new(0.5, 0), D2.fromScale(0.5, 1), true),
+						strip("HitLeading", V2.new(1, 0.5), D2.fromScale(0, 0.5), false),
+						strip("HitTrailing", V2.new(0, 0.5), D2.fromScale(1, 0.5), false),
+					}
+					if spec.busy == nil then
+						return Compose.fragment(function()
+							return strips
+						end)
+					end
+					local area = Host.Frame "HitTarget" {
+						Size = D2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						table.unpack(strips),
+					}
+					return decoration(Compose, runtime, ctx.types, node, area)
 				end
-				local strips = {
-					strip("HitTop", V2.new(0.5, 1), D2.fromScale(0.5, 0), true),
-					strip("HitBottom", V2.new(0.5, 0), D2.fromScale(0.5, 1), true),
-					strip("HitLeading", V2.new(1, 0.5), D2.fromScale(0, 0.5), false),
-					strip("HitTrailing", V2.new(0, 0.5), D2.fromScale(1, 0.5), false),
-				}
-				if spec.busy == nil then
-					return Compose.fragment(function()
-						return strips
-					end)
-				end
-				local area = Host.Frame "HitTarget" {
-					Size = D2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					table.unpack(strips),
-				}
-				return decoration(Compose, runtime, ctx.types, node, area)
-			end
-			runtime.mountFragment(function()
-				return {
-					Compose.show(function(use: ComposeTypes.Use): boolean
-						return reachFloor(use) > 0
-					end, function()
-						local moved = Compose.cell(0)
-						runtime.connect(node, "AncestryChanged", function()
-							moved:set(moved:peek() + 1)
-						end)
-						local holder = Compose.formula(function(use: ComposeTypes.Use): GuiBase2d?
-							use(moved)
-							local parent = node.Parent
-							if
-								parent
-								and parent:IsA("GuiBase2d")
-								and (parent:IsA("LayerCollector") or parent:FindFirstAncestorWhichIsA("LayerCollector"))
-							then
-								return parent
-							end
-							return nil
-						end)
-						local unit = Compose.cell(1)
-						Compose.watch(function(use: ComposeTypes.Use)
-							local parent = use(holder)
-							if parent then
-								local measured = ctx.layoutUnit(parent)
-								Compose.watch(function(inner: ComposeTypes.Use)
-									unit:set(inner(measured))
-								end)
-							end
-						end)
-						local plate = ctx.layoutSize(node, unit)
-						local margin = Compose.formula(function(use: ComposeTypes.Use): Vector2
-							local size, floor = use(plate), reachFloor(use)
-							return V2.new(
-								math.max(0, (targetWidth(floor, use) - size.X) / 2),
-								math.max(0, (floor - size.Y) / 2)
-							)
-						end)
-						return Compose.show(function(use: ComposeTypes.Use): boolean
-							local gap = use(margin)
-							return gap.X > 0 or gap.Y > 0
+				runtime.mountFragment(function()
+					return {
+						Compose.show(function(use: ComposeTypes.Use): boolean
+							return reachFloor(use) > 0
 						end, function()
-							return hitTarget(margin)
-						end)
-					end),
-				}
-			end, node)
+							local moved = Compose.cell(0)
+							runtime.connect(node, "AncestryChanged", function()
+								moved:set(moved:peek() + 1)
+							end)
+							local holder = Compose.formula(function(use: ComposeTypes.Use): GuiBase2d?
+								use(moved)
+								local parent = node.Parent
+								if
+									parent
+									and parent:IsA("GuiBase2d")
+									and (
+										parent:IsA("LayerCollector")
+										or parent:FindFirstAncestorWhichIsA("LayerCollector")
+									)
+								then
+									return parent
+								end
+								return nil
+							end)
+							local unit = Compose.cell(1)
+							Compose.watch(function(use: ComposeTypes.Use)
+								local parent = use(holder)
+								if parent then
+									local measured = ctx.layoutUnit(parent)
+									Compose.watch(function(inner: ComposeTypes.Use)
+										unit:set(inner(measured))
+									end)
+								end
+							end)
+							local plate = ctx.layoutSize(node, unit)
+							local margin = Compose.formula(function(use: ComposeTypes.Use): Vector2
+								local size, floor = use(plate), reachFloor(use)
+								return V2.new(
+									math.max(0, (targetWidth(floor, use) - size.X) / 2),
+									math.max(0, (floor - size.Y) / 2)
+								)
+							end)
+							return Compose.show(function(use: ComposeTypes.Use): boolean
+								local gap = use(margin)
+								return gap.X > 0 or gap.Y > 0
+							end, function()
+								return hitTarget(margin)
+							end)
+						end),
+					}
+				end, node)
+			end)
+			local floorsMounted = false
+			local function arm(active: boolean)
+				if active and not floorsMounted then
+					floorsMounted = true
+					mountFloors()
+				end
+			end
+			local touchFloorActive = ctx.touchFloorActive()
+			arm(touchFloorActive:peek())
+			if not floorsMounted then
+				Compose.owner.watchStatic(owner, touchFloorActive, arm)
+			end
 		end
 
 		if popTimeline then
