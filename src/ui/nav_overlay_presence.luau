@@ -6,6 +6,7 @@ local motion = require("./motion")
 local fontReadiness = require("./font_readiness")
 local arrival = require("./overlay_arrival")
 local textMeasure = require("./text_measure")
+local geometrySignature = require("./geometry_signature")
 type Departure = { exit: ({ ComposeTypes.Node }) -> ComposeTypes.Exiting }
 
 export type Presence = {
@@ -106,14 +107,14 @@ return function(ctx: Types.Context): Presence
 		end
 		local fontsReady = fontReadiness(ctx, nodes)
 		local sampled: { Vector2 } = {}
-		local snapshot, complete = "", false
+		local signature = geometrySignature()
+		local snapshot, complete = 0, false
 		local allowed: boolean? = nil
 		local rested = ctx.runtime.settled {
-			sample = function(): string
+			sample = function(): number
 				return snapshot
 			end,
 			ready = function(): boolean
-				local parts: { string } = {}
 				local filled = false
 				local measured = true
 				local origin = nodes[1].AbsolutePosition
@@ -127,18 +128,18 @@ return function(ctx: Types.Context): Presence
 				for _, node in descendants do
 					measured = measured and not textMeasure.pending(node)
 					if node:IsA("GuiObject") then
-						local value = `{node.AbsolutePosition - origin}:{node.AbsoluteSize}:{node.Visible}`
+						signature.push(node.AbsolutePosition - origin)
+						signature.push(node.AbsoluteSize)
+						signature.push(node.Visible)
 						if node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox") then
-							value ..= `:{node.TextBounds}`
+							signature.push(node.TextBounds)
 						end
-						table.insert(parts, value)
 					end
 				end
-				snapshot, complete, allowed =
-					table.concat(parts, ";"), filled, nodes[1].Visible and fontsReady() and measured
+				snapshot, complete, allowed = signature.finish(), filled, nodes[1].Visible and fontsReady() and measured
 				return allowed ~= false
 			end,
-			equals = function(a: string, b: string): boolean
+			equals = function(a: number, b: number): boolean
 				return complete and a == b
 			end,
 			restart = restart,

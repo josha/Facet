@@ -6,6 +6,7 @@ local overlayPresence = require("./nav_overlay_presence")
 local regionPresence = require("./region_presence")
 local fontReadiness = require("./font_readiness")
 local textMeasure = require("./text_measure")
+local geometrySignature = require("./geometry_signature")
 local arrival = require("./overlay_arrival")
 local transitions = require("./transition")
 
@@ -157,15 +158,15 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			return node
 		end
 		local fontsReady = fontReadiness(ctx, surfaces)
-		local snapshot, complete = "", false
+		local signature = geometrySignature()
+		local snapshot, complete = 0, false
 		local allowed: boolean? = nil
 		local ready = arrival.prepared(phase)
 			or ctx.runtime.settled {
-				sample = function(): string
+				sample = function(): number
 					return snapshot
 				end,
 				ready = function(): boolean
-					local signature: { string } = {}
 					local filled = false
 					local measured = true
 					for _, surface in surfaces do
@@ -177,18 +178,19 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 							if child:IsA("GuiObject") then
 								filled = filled
 									or (child.Visible and child.AbsoluteSize.X > 0 and child.AbsoluteSize.Y > 0)
-								local value = `{child.AbsolutePosition}:{child.AbsoluteSize}:{child.Visible}`
+								signature.push(child.AbsolutePosition)
+								signature.push(child.AbsoluteSize)
+								signature.push(child.Visible)
 								if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-									value ..= `:{child.TextBounds}`
+									signature.push(child.TextBounds)
 								end
-								table.insert(signature, value)
 							end
 						end
 					end
-					snapshot, complete, allowed = table.concat(signature, ";"), filled, fontsReady() and measured
+					snapshot, complete, allowed = signature.finish(), filled, fontsReady() and measured
 					return allowed ~= false
 				end,
-				equals = function(a: string, b: string): boolean
+				equals = function(a: number, b: number): boolean
 					return complete and a == b
 				end,
 			}
