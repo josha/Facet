@@ -745,10 +745,7 @@ local function seek(query: Query, mode: string): boolean
 	return false
 end
 
-local function reveal(
-	query: Query,
-	mode: string
-): { revealed: boolean, oversized: boolean, steps: number, info: Info? }
+local function reveal(query: Query, mode: string): { revealed: boolean, oversized: boolean, steps: number, info: Info? }
 	local wide = table.clone(query)
 	wide.clipped = true
 	local target = resolve(wide)

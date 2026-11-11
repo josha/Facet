@@ -59,7 +59,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		return form(best)
 	end
-	local function fitOf(value: Media.TextSize?): { cap: Media.TextFitBound?, floor: Media.TextFitBound? }?
+	local function fitOf(value: Media.TextSize?): { read cap: Media.TextFitBound?, read floor: Media.TextFitBound? }?
 		if value == nil then
 			return nil
 		end
