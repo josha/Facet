@@ -72,13 +72,12 @@ regression work. Verify these behaviors:
 
 ## Made with Facet
 
-[Made with Facet](made-with-facet.md) shows how two games use Facet.
-[Word Amigos](made-with-facet.md#word-amigos) is a two-player word game whose
-interface uses only Facet controls.
+[Made with Facet](made-with-facet.md) shows how two public games use Facet.
+[Word Amigos](made-with-facet.md#word-amigos) is a two-player word game and
 [Realms of Artinel](made-with-facet.md#realms-of-artinel) is an online
-role-playing game that adds its own control kits on the Facet mechanisms and
-StyleSheet. The page lists each control and mechanism that each
-game uses, and the task that each one does.
+role-playing game. Both build their screens as Facet designs over the stock
+controls and keep their look in a Facet theme. The page lists each control and
+mechanism that each game uses, and the task that each one does.
 
 ## What to copy
 
