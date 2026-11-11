@@ -243,6 +243,9 @@ return function(
 						AutomaticSize = E.AutomaticSize.XY,
 					}))
 					ctx.textRole(heading, "heading")
+					if structured.titleTone then
+						heading:AddTag("facet-tone-" .. structured.titleTone)
+					end
 					panelProps[#panelProps + 1] = heading
 				end
 				runtime.decorate(label, {
@@ -254,7 +257,7 @@ return function(
 				panelProps[#panelProps + 1] = label
 				if structured then
 					local order = 3
-					local function detail(name: string, words: Types.Input<string>, secondary: boolean?)
+					local function detail(name: string, words: Types.Input<string>, secondary: boolean?, tone: string?)
 						local line = wrap(ctx.text({
 							Name = name,
 							LayoutOrder = order,
@@ -265,13 +268,17 @@ return function(
 						if secondary then
 							line:AddTag("facet-secondary")
 						end
+						if tone then
+							line:AddTag("facet-tone-" .. tone)
+						end
 						panelProps[#panelProps + 1] = line
 						order += 1
 					end
 					for index, row in structured.rows or {} do
 						detail("HelpRow" .. index, function(use: ComposeTypes.Use): string
-							return (readText(row.label, use) or "") .. ": " .. (readText(row.value, use) or "")
-						end)
+							local label, value = readText(row.label, use) or "", readText(row.value, use) or ""
+							return if value == "" then label else label .. ": " .. value
+						end, nil, row.tone)
 					end
 					if structured.cost then
 						detail("HelpCost", structured.cost)

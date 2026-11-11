@@ -191,9 +191,13 @@ rule. `charges` accepts a bound nonnegative integer, including zero. Use
 The sweep uses the theme's scrim paint. Theme rules can target
 `.facet-cooldown` and `.facet-charges` for separate paint.
 
-`Facet.HelpSpec` adds optional `rows = { { label, value } }`, `cost`, `cooldown`,
-and `flavour` to the existing `title`, required `body`, `shortcut`, `edge`, and
-`align`. `Facet.HelpRow` names a row. Text fields accept bound strings. Include
+`Facet.HelpSpec` adds optional `rows = { { label, value, tone } }`, `cost`,
+`cooldown`, `flavour` and `titleTone` to the existing `title`, required `body`,
+`shortcut`, `edge`, and `align`. `Facet.HelpRow` names a row. A row with an
+empty `value` shows its label only. Text fields accept bound strings. A tone is
+a name: the help line gets the StyleSheet tag `facet-tone-<name>`. The stock
+theme colors `accent`, `positive`, `warning`, `negative` and `muted`; a game
+adds rules for its own tones, such as item rarity. Include
 units and labels in cost and cooldown strings. Button Help uses one pattern
 for pointer dwell, native selection, and touch long-press. It uses the existing
 tooltip theme, safe overlay bounds, edge flipping, and touch clearance.
