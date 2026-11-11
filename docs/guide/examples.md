@@ -72,9 +72,13 @@ regression work. Verify these behaviors:
 
 ## Made with Facet
 
-[Word Amigos](made-with-facet.md) is a two-player word game for Roblox. Its
-interface uses only Facet controls. The page lists each control and mechanism
-that the game uses, and the task that each one does.
+[Made with Facet](made-with-facet.md) shows how two games use Facet.
+[Word Amigos](made-with-facet.md#word-amigos) is a two-player word game whose
+interface uses only Facet controls.
+[Realms of Artinel](made-with-facet.md#realms-of-artinel) is an online
+role-playing game in development that adds its own control kits on the Facet
+mechanisms and StyleSheet. The page lists each control and mechanism that each
+game uses, and the task that each one does.
 
 ## What to copy
 
