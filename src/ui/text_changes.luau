@@ -10,6 +10,9 @@ return function(ctx: Types.Context, label: Instance, listener: Listener, onStop:
 	if entry == nil then
 		local created: Entry = { listeners = {}, order = {} }
 		created.connection = label.Changed:Connect(function(property: string)
+			if property == "AbsolutePosition" then
+				return
+			end
 			local listeners = created.listeners
 			for _, callback in created.order do
 				if listeners[callback] then
