@@ -404,6 +404,38 @@
         "draw-3"
       ],
       "outcome": "The reviewer would ship none as it is. draw-1 and draw-4 tied on the sum of the scores; the reviewer ranked draw-1 first for legibility and fit. The faults of draw-3 (a label off its stamp, stretched notes, labels over the edges of their art) did not occur in draw-5. draw-5 lost points for a sheet that is too small on the short wide screen, small type on the desktop and a plain main action."
+    },
+    {
+      "id": "quest-v36",
+      "phase": 5,
+      "kind": "pair, one scale",
+      "builds": [
+        "quest-1",
+        "quest-2"
+      ],
+      "scores": {
+        "quest-1": {
+          "identity": 4,
+          "craft": 4,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 3
+        },
+        "quest-2": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 2,
+          "landscape": 1
+        }
+      },
+      "ranking": [
+        "quest-1",
+        "quest-2"
+      ],
+      "outcome": "The reviewer would ship neither as it is and ranked current guidance first. quest-2 lost on the phone: in landscape one notice shows beside a satchel that takes most of the board, and in portrait the satchel fills the top half; the reviewer also named seams in sliced art and a seal over the footer of a notice. None of its faults is a label off the paint of its art. quest-1 lost points for notices with no picture, cut location tags and the stamp over the progress count in the portrait reader. One run stands behind each arm, so this does not separate the kits."
     }
   ]
 }

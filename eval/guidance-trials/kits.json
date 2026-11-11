@@ -76,6 +76,26 @@
         "draw-5"
       ],
       "adds": "General causes from the drawing first pass and its repair; one view and one light in every image prompt; the escaped-text rule; a project component when Facet has no control."
+    },
+    {
+      "id": "kit-8fd",
+      "version": "v3.5",
+      "sha256": "8fddd75b4011007d682ff4b507848c9dc0ea1c0cb1bf81cdf66e1a9111d66340",
+      "sourceCommit": "2540128",
+      "frozenBefore": [
+        "quest-1"
+      ],
+      "adds": "The paint of an image in the review: covered-text, escaped-text and overlapping-text read the painted bounds; UI.Image paintRect."
+    },
+    {
+      "id": "kit-dbf",
+      "version": "v3.6",
+      "sha256": "dbfee19acb36d882d3092f87b45f7acb136240bb4b32293a7919cd66781ac08f",
+      "sourceCommit": "e093628",
+      "frozenBefore": [
+        "quest-2"
+      ],
+      "adds": "A stack ground that pads its content to the paint of the art; Facet.review.paintRect; the label on art as the ground of its stack; escaped-text holds a text of a stack to the paint of its ground; floating-text counts art under a text as a plate."
     }
   ]
 }
