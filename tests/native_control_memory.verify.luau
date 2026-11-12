@@ -320,6 +320,23 @@ return function(harness: Verify.Harness)
 				end
 				Verify.expect(second.GroupTransparency):toBe(0)
 				Verify.expect(first.GroupTransparency):toBe(0)
+				one.rows:set({ { id = "1" }, { id = "2" }, { id = "3" } })
+				local third = one.content("3")
+				local holder = assert(third.Parent)
+				local environment, V2 = one.state.engine.environment, one.state.types.Vector2
+				for _, node in holder:GetDescendants() do
+					if node:IsA("GuiObject") then
+						environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteSize", V2.new(100, 44))
+					end
+				end
+				for _ = 1, 60 do
+					one.state.frame()
+				end
+				Verify.expect(third:GetAttribute("FacetCollectionReady")):toBe(false)
+				for _ = 1, 80 do
+					one.state.frame()
+				end
+				Verify.expect(third:GetAttribute("FacetCollectionReady")):toBe(true)
 				one.stop()
 				one.state.dispose()
 				Verify.expect(one.state.engine.census().connections):toBe(0)
