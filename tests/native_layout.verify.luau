@@ -189,6 +189,37 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("grows a container along its parent's axis with grow", {
+			id = "native_layout::native composition rest measurements::grows a container along its parent's axis with grow",
+			run = function()
+				local root, _, stop = build(nil, function(UI)
+					return UI.HStack "Row" {
+						width = "fill",
+						UI.ZStack "Meter" { grow = 1 },
+						UI.VStack "Shared" { grow = 2 },
+						UI.Group "Mask" { grow = 1 },
+						UI.HStack "Fixed" {},
+					}
+				end)
+				local function flex(name: string): UIFlexItem?
+					return assert(root:FindFirstChild(name)):FindFirstChildWhichIsA("UIFlexItem")
+				end
+				local meter = assert(flex("Meter"))
+				local shared = assert(flex("Shared"))
+				expect(meter.Name):toBe("Grow")
+				expect(meter.FlexMode.Name):toBe("Custom")
+				expect(meter.GrowRatio):toBe(1)
+				expect(shared.GrowRatio):toBe(2)
+				expect(shared.ShrinkRatio):toBe(2)
+				expect(flex("Mask") ~= nil):toBe(true)
+				expect(flex("Fixed")):toBe(nil)
+				stop()
+				local zero = refusal(function(UI): Instance
+					return UI.VStack "Zero" { grow = 0 }
+				end)
+				expect(mentions(zero, "Facet grow must be a positive finite number")):toBe(true)
+			end,
+		})
 		it("spills a row when the fixed content of its fill child does not fit beside the next part", {
 			id = "native_layout::native composition rest measurements::spills a row when the fixed content of its fill child does not fit beside the next part",
 			run = function()
