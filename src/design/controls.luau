@@ -1864,6 +1864,12 @@ local controls: { [string]: Types.ControlSpec } = {
 			height = { type = "value", label = "Height", order = 3, format = "extent" },
 			padding = { type = "value", label = "Padding", order = 4, format = "padding" },
 			maxWidth = { type = "number", label = "Maximum width", order = 5 },
+			corners = {
+				type = "choice",
+				label = "Corners",
+				order = 6,
+				options = { "pill", "square", "control", "panel" },
+			},
 		},
 	},
 	ZStack = {
@@ -1884,6 +1890,12 @@ local controls: { [string]: Types.ControlSpec } = {
 			alignV = { type = "choice", label = "Vertical", order = 5, options = { "start", "center", "end" } },
 			maxWidth = { type = "number", label = "Maximum width", order = 12 },
 			maxHeight = { type = "number", label = "Maximum height", order = 13 },
+			corners = {
+				type = "choice",
+				label = "Corners",
+				order = 14,
+				options = { "pill", "square", "control", "panel" },
+			},
 		}),
 	},
 }

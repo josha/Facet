@@ -796,6 +796,40 @@ return function(verifyHarness: Verify.Harness)
 				expect(mentions(negative, "corners must be pill, square, control, panel")):toBe(true)
 			end,
 		})
+
+		it("rounds a Group mask and a ZStack with the same corner names", {
+			id = "native_layout::stack corners option::rounds a Group mask and a ZStack with the same corner names",
+			run = function()
+				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local shape = Compose.cell("pill" :: Corners)
+				local root, _, stop = build({ theme = theme }, function(UI)
+					return UI.VStack "Holder" {
+						UI.Group "Mask" { corners = shape, width = 64, height = 64 },
+						UI.ZStack "Portrait" { corners = "panel", width = 64, height = 64 },
+						UI.ZStack "Plain" { width = 64, height = 64 },
+					}
+				end)
+				local mask = assert(root:FindFirstChild("Mask"))
+				local portrait = assert(root:FindFirstChild("Portrait"))
+				expect(mask.ClassName):toBe("CanvasGroup")
+				local maskCorner = assert(mask:FindFirstChild("Corners")) :: UICorner
+				local portraitCorner = assert(portrait:FindFirstChild("Corners")) :: UICorner
+				expect(tostring(maskCorner.CornerRadius)):toBe("1, 0")
+				expect(tostring(portraitCorner.CornerRadius)):toBe("0, 12")
+				shape:set("square")
+				expect(tostring(maskCorner.CornerRadius)):toBe("0, 0")
+				local rounder = Facet.themes.neutralPackage()
+				rounder.metrics.radii.panel = 20
+				theme:set(rounder)
+				expect(tostring(portraitCorner.CornerRadius)):toBe("0, 20")
+				expect(assert(root:FindFirstChild("Plain")):FindFirstChild("Corners")):toBe(nil)
+				stop()
+				local odd = refusal(function(UI): Instance
+					return UI.Group "Odd" { corners = ("round" :: unknown) :: number }
+				end)
+				expect(mentions(odd, "Facet Group: corners must be pill, square, control, panel")):toBe(true)
+			end,
+		})
 	end)
 
 	describe("stack surface chrome and status", function()

@@ -79,6 +79,7 @@ export type GroupProps = {
 	height: Types.Input<Layout.Extent>?,
 	maxWidth: Types.ValueNumber?,
 	padding: Types.Input<Layout.Padding>?,
+	corners: Types.Input<Layout.StackCorners>?,
 	[number]: Compose.Child?,
 }
 export type GroupPropsInput = {
@@ -154,6 +155,7 @@ export type GroupPropsInput = {
 	read height: Types.Input<Layout.Extent>?,
 	read maxWidth: Types.ValueNumber?,
 	read padding: Types.Input<Layout.Padding>?,
+	read corners: Types.Input<Layout.StackCorners>?,
 	read [number]: Compose.Child?,
 }
 export type StackProps = {
@@ -553,6 +555,7 @@ export type ZStackProps = {
 	height: Types.Input<Layout.Extent>?,
 	alignH: Types.Input<Layout.Edge>?,
 	alignV: Types.Input<Layout.Edge>?,
+	corners: Types.Input<Layout.StackCorners>?,
 	[number]: Compose.Child?,
 }
 export type ZStackPropsInput = {
@@ -630,6 +633,7 @@ export type ZStackPropsInput = {
 	read height: Types.Input<Layout.Extent>?,
 	read alignH: Types.Input<Layout.Edge>?,
 	read alignV: Types.Input<Layout.Edge>?,
+	read corners: Types.Input<Layout.StackCorners>?,
 	read [number]: Compose.Child?,
 }
 export type ScrollViewProps = {
