@@ -13,6 +13,9 @@ local ControlTypes = require("./control_types")
 local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
 local textChanges = require("./text_changes")
+local textMeasure = require("./text_measure")
+
+local LOOSE_MEASURE = 320
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
 	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
@@ -246,6 +249,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local appliedSize, appliedMode = label.Size, label.AutomaticSize
 			local connection: (() -> ())? = nil
 			local bend: UIFlexItem? = nil
+			local natural: ComposeTypes.ReadOnlyValue<Vector2>? = nil
+			local measure: () -> () = function() end
 			local function hug()
 				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
 					if connection then
@@ -285,8 +290,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					bend.Parent = nil
 				end
 				row = row or bends
-				appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
-				appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+				local loose = wrapped and frame and (automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY)
+				if loose and natural == nil then
+					measure()
+				end
+				local line = if loose and natural then natural:peek().X else math.huge
+				if line < math.huge then
+					appliedSize = D2.fromOffset(math.min(math.ceil(line) + 1, LOOSE_MEASURE), 0)
+					appliedMode = E.AutomaticSize.Y
+				else
+					appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+					appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+				end
 				label.Size = appliedSize
 				label.AutomaticSize = appliedMode
 				if not wrapped and not aligned and list ~= nil and not across then
@@ -296,6 +311,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						else E.TextXAlignment.Left
 				end
 			end
+			measure = Compose.bindOwner(function()
+				local bounds = textMeasure.natural(ctx, label)
+				local primed = false
+				natural = bounds
+				Compose.watch(function(use: ComposeTypes.Use)
+					use(bounds)
+					if primed then
+						hug()
+					end
+					primed = true
+				end)
+			end)
 			connection = textChanges(ctx, label, function(property: string)
 				if property == "Parent" then
 					hug()

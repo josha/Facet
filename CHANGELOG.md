@@ -1,5 +1,13 @@
 # Current package
 
+A `UI.Text` with `wrap = true` in a parent that hugs its width no longer
+collapses. In a stack with no width it had nothing to fill: in a VStack it
+was 0 pixels wide, and in a HUD Region it wrapped to the narrowest slot that
+the Composition ever gave it and stayed there, so a plate of "ION // RUN"
+became 44 pixels wide and four lines tall. The text is now as wide as its
+line, up to 320 pixels, and wraps past that. A wrapped text in a parent with
+a width, in a bounded HStack and with its own `Size` is sized as before.
+
 A Composition also sets `FacetUnfit` for a region that opens its fullest form
 in a Popover when that form is wider than the screen or than a 358 pixel
 phone: the Popover cannot be narrower than a form with a pixel width, so it
@@ -19,6 +27,7 @@ in a row that hugs are sized as before.
 `Facet.review` has a new rule. `offscreen-text` (high) finds a text with less
 than half of its glyphs on the screen while the stack that holds it is on the
 screen. A text inside a clip or a scrolling view does not count.
+
 On touch, `UI.Screen` and `UI.Composition` reserve less room for the dynamic
 thumbstick. The band was as tall as the region that takes the drag, which is
 two thirds of a phone in landscape: 228 of 331 pixels on an iPhone 14, so a
