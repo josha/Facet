@@ -4215,6 +4215,75 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("credits a selection inside a nested list to the outer row and can leave restore off", {
+			id = "native_collections::Compose native collections::credits a selection inside a nested list to the outer row and can leave restore off",
+			run = function()
+				for _, restore in { true, false } do
+					local engine, runtime, UI, target, gui = setup()
+					local outer: FixtureCollectionTypes.FocusControls<any> = {}
+					local stop, node: any = runtime.mount(function()
+						local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
+							from = records(3),
+							key = key,
+							itemSize = 60,
+							focus = outer,
+							restoreFocus = if restore then nil else false,
+							render = function(current): GuiObject
+								local base = current:peek().id * 10
+								local inner: { Record } = {}
+								for index = 1, 4 do
+									inner[index] = { id = base + index, label = `Item {base + index}` }
+								end
+								local shelf: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
+									Name = "Shelf",
+									from = inner,
+									key = key,
+									itemSize = 40,
+									direction = "horizontal",
+									render = function(item): GuiObject
+										return button(UI, item)
+									end,
+								}
+								return UI.VirtualList(shelf)
+							end,
+						}
+						return UI.VirtualList(listSpec)
+					end, target)
+					local V2 = engine.types.Vector2
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(300, 200))
+					for _, shelf in node:GetDescendants() do
+						if shelf.Name == "Shelf" then
+							engine.environment.poke(
+								VerifyRoblox.assertInstance(shelf),
+								"AbsoluteWindowSize",
+								V2.new(300, 60)
+							)
+						end
+					end
+					local row = assert(node:FindFirstChild("2", true))
+					local nested = assert(assert(row:FindFirstChild("22", true)):FindFirstChild("Action", true))
+					gui.SelectedObject = nested
+					expect(outer.current and outer.current:peek()):toBe(2)
+					local away = assert(
+						assert(assert(node:FindFirstChild("3", true)):FindFirstChild("31", true)):FindFirstChild(
+							"Action",
+							true
+						)
+					)
+					gui.SelectedObject = nil
+					assert(outer.focus)(1)
+					if restore then
+						expect(gui.SelectedObject ~= nil):toBe(true)
+					else
+						expect(gui.SelectedObject):toBe(nil)
+					end
+					local _ = away
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
 		it("keeps focus on the item by default and on the slot with focusPolicy index", {
 			id = "native_collections::Compose native collections::keeps focus on the item by default and on the slot with focusPolicy index",
 			run = function()

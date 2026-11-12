@@ -7,7 +7,7 @@ Shared-models-and-views contract and option values.
 All three containers accept `from`, stable `key`, `selection`, `selectionMode`,
 `editing`, `disabled`, `selectable`, `rowActions`, `onActivate`, and model-owned
 delete/reorder callbacks. List and grid use `render`; Table columns can use the
-same render function. Table also forwards `focusPolicy`, `initialFocus`,
+same render function. Table also forwards `focusPolicy`, `restoreFocus`, `initialFocus`,
 `autoFocus`, `wrapFocus`, `maxRetained` and `onReachEnd` to its virtual body.
 
 When `from` is a filtered projection, supply `selectionFrom = allRecords` to

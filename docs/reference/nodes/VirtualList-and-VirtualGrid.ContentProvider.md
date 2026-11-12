@@ -43,7 +43,11 @@ replaces its Compose `OrderedCollection` and mounts the rows again. Keep durable
 row state in the model. Other values cause an error.
 
 Optional collection focus uses `focus`, `initialFocus`, `autoFocus`,
-`wrapFocus`, `focusPolicy` and `disabled(item)`. `focusPolicy = "key"` (the
+`wrapFocus`, `focusPolicy`, `restoreFocus` and `disabled(item)`. A selection
+anywhere inside a row, including inside a list nested in that row, moves the
+collection's focus to that row. When rows mount or the list scrolls, the
+collection selects the focused row again; `restoreFocus = false` leaves the
+engine selection alone. `focusPolicy = "key"` (the
 default) keeps focus on the item when the order changes. `"index"` keeps it on
 the slot, so a live standings list does not walk the gamepad focus up and down.
 It moves focus to the item that now holds the slot, or the last slot when the
