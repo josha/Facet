@@ -54,6 +54,11 @@ that the fuller form shows, because that form is not on the screen. Keep
 `mayDrop` for what the player can play without. What the player opens with a
 button is a task: give it a surface of its own, not a region that can drop.
 
+A shorter form is another composition of the same facts, not the same
+sentence in a smaller box: an icon, one numeral, or a label of one or two
+words. A form that the reveal opens must fit the narrowest phone, so let it
+hug its content; `composition-unfit` names a form that is too wide.
+
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains
 after navigation, insets, padding and actions. Width alone cannot establish fit.
 

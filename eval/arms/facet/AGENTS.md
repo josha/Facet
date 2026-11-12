@@ -24,8 +24,10 @@ through Studio MCP in Edit mode.
 - Do not dump the control index, unrelated examples or the Compose skill.
   `runtime.md` has the Compose calls that a screen needs.
 
-Studio MCP is the only tool. There is no image model, no drawing tool and no
-second agent. Where the skill offers a route for that case, such as blocking
-in the first screen in place of a sketch and making art from native shapes,
-take it and report what was unavailable.
+Studio MCP is the only way to change the place and to look at it, and there
+is no second agent. Look at your tool list for an image generator. When it
+has one, use it for the concept of the first screen and for nothing else.
+When it has none, a skill that names one cannot run: block the first screen
+in, as step 1 of the skill describes, and make art from native shapes. Either
+way the concept is the first picture of the work.
 Use this installed library; do not add another UI library.

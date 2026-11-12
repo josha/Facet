@@ -14,18 +14,29 @@ elsewhere. Fix a defect that blocks later routes first.
 
 Do these in order. Each one ends with a result that you can observe.
 
-1. **One route works.** Read the required guidance and the task chapters for
+1. **The concept comes first.** For a new visual direction, look at the main
+   screen before you build the game behind it. Write the direction. Then
+   make a picture of the screen that the player sees most, which for a game
+   is play with its interface over it. With an image tool, generate two or
+   three whole-screen compositions and choose one. Without one, block the
+   screen in: its ground, its main subject at its size and its main action,
+   with fixed sample data and no game logic, and capture it. This picture is
+   the first capture of the work, and it comes in the first few minutes.
+   Change the composition until it is strong, and say in one message what
+   you chose. Skip this step when the brief asks for an established look.
+2. **One route works.** Read the required guidance and the task chapters for
    the first route. Resolve unfamiliar library options from their public
    contracts. Build a small complete route before expanding features: enter
    from gameplay, use normal player input, observe the actual game effect and
    accepted result, and return. Include the server behavior that makes the
    result real. An open page, a changed label or a successful tool call does
    not prove this route.
-2. **Its screen is finished.** For a new visual direction, finish the look of
-   one screen before you build the interface of a second route. A route can
-   span several screens. Take the one that the player sees most; when the
-   product also has destinations that cover or replace play, finish one of
-   those in the same way. Finish its composition, subject treatment, type
+3. **Its screen is finished.** For a new visual direction, finish the look of
+   one screen before you build the interface of a second route. It is the
+   screen of the concept: for a game, play with its interface over it. A
+   sheet that opens over play does not stand in for it. When the product
+   also has destinations that cover or replace play, finish one of those in
+   the same way afterwards. Finish its composition, subject treatment, type
    hierarchy and action emphasis, with representative data. Finish with it
    the parts that later routes will call: the style or theme, one record, the
    actions and the body of a page. Those parts draw every later route, so a
@@ -33,23 +44,25 @@ Do these in order. Each one ends with a result that you can observe.
    supported form: wide, narrow and short. A phone brief covering both
    orientations needs both portrait and landscape here; one compact preset
    cannot prove both. Repair what the captures show, then check the screen
-   with controller-only focus when a controller is supported. Then state in
-   one message, one line each, what the captures show of the ground, the
-   main subject, the type, the edge of the surfaces and the main action. A
-   line that you cannot point to in a capture is work to do before the next
-   route. This step is not polish: a fault left here is repeated in every
-   later route, and a theme definition alone does not complete it. The
-   screen can be resolved with static data before step 1; static data does
-   not count as the accepted game effect. Skip this step when the brief asks
-   for an established look or supports one form factor and one input.
-3. **Every route has an entry and a result.** Give each remaining required
+   with controller-only focus when a controller is supported. Then put the
+   concept beside the wide capture and state in one message, one line each,
+   what the captures show of the ground, the main subject, the type, the
+   edge of the surfaces and the main action, and what the build lost from
+   the concept. A line that you cannot point to in a capture is work to do
+   before the next route. This step is not polish: a fault left here is
+   repeated in every later route, and a theme definition alone does not
+   complete it. Skip this step when the brief asks for an established look
+   or supports one form factor and one input.
+4. **Every route has an entry and a result.** Give each remaining required
    route a minimal working entry and result before you deepen a route that
    already works. Build each from what the first screen settled, with a
    composition suited to its task. Do not pour every route into one page
    layout.
-4. **Deepen and verify.** Add features in small groups and verify their real
+5. **Deepen and verify.** Add features in small groups and verify their real
    effects after each group. Check choices and progression in the later tasks
    that consume them. Keep the place working after each group of changes.
+   Leave time for the end: after the last change, capture the main screen
+   again at each form and repair what a late change broke.
 
 ## Checks
 

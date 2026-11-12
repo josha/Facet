@@ -19,7 +19,7 @@ phone, a desktop and a television.
 | A small edit to an established interface | Reuse its decisions and check the affected states. Go to [Find the implementation route](#find-the-implementation-route). |
 | A new interface or a visual redesign | Steps 1 to 5 below. Finish steps 1 to 4 on one screen before you build a second screen. |
 | The user supplied a reference image or selected a concept | That image is the target. Read [the target contract](references/game-themes.md#commit-to-the-visual-target) in place of step 1, then do steps 2 to 5. |
-| An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art in place of sketches; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
+| An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art as the concept; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
 | A wireframe, a functional spike or a tool in its host's style | Stop at the stated scope. Keep the host's conventions. |
 
 Identify the user's decision, the accepted outcome and the return path.
@@ -80,20 +80,33 @@ state treatment. Name the product family that the user already knows and keep
 its conventions. Polish then comes from [hierarchy, rhythm, density and
 states](references/finish.md#quiet-interfaces), not from decoration.
 
-**See the screen before building it.** When the direction is a place, a
-material or an illustrated world, draw the first screen as a picture: two or
-three whole-screen compositions of the same task and data on one sheet. Use
-image generation when it is available. Otherwise a short script that draws
-flat shapes, type and color is enough. View the sheet. Choose the composition
-where the lead and the world are strongest, and note what to take from the
-others. A sketch shows a thin scene or a weak hierarchy in minutes; a build
-shows it much later. When you can draw nothing outside the engine, block in
-the first screen in place of the sketch: mount only the ground, the lead at
-its size and the main action, capture that, and judge the composition before
-you add another part. A quiet tool, a text-led design and an established
-direction skip the sketch.
+### Make the concept before the build
 
-The card and the sketch are internal decisions, not user approval steps.
+When the direction is a place, a material or an illustrated world, the first
+picture of the work is a concept of the first screen. It comes before the
+world is detailed, before the game logic and before any second surface. The
+card is only words, and a build shows a weak composition after the routes
+exist, when it costs most to change.
+
+Make the concept with the best means that you have. Look at your tool list
+before you say that a means is missing.
+
+- **An image tool.** Generate two or three whole-screen compositions of the
+  same task and data on one sheet, in the palette and the type of the card.
+- **A drawing script.** Draw the same compositions as flat shapes, type and
+  color.
+- **The engine alone.** Block the screen in. Mount the ground, the lead at
+  its size and the main action with fixed sample data, in the palette and
+  the type of the card, and capture it. It has no game logic and no second
+  surface.
+
+View the concept. Change the composition until the lead and the world are
+strong, then say in one message which composition you chose and what you
+changed. Keep it: [step 2](#know-when-it-is-done) puts it beside the first
+screen that you build. A quiet tool, a text-led design and an established
+direction skip the concept.
+
+The card and the concept are internal decisions, not user approval steps.
 
 ## 2. Build the first screen
 
@@ -103,9 +116,10 @@ later.
 
 **Choose the screen.** Take the screen that the player sees most. When play
 continues behind the interface, the world is the ground and the lead, and the
-first screen is the view of play with its HUD. A product that also has
-destinations that replace play, such as a shop or an editor, has a second
-kind of ground. Finish one such destination in the same way before you build
+first screen is the view of play with its HUD. A sheet that opens over play
+does not stand in for it. A product that also has destinations that replace
+play, such as a shop or an editor, has a second kind of ground. Finish one
+such destination in the same way, after the view of play, before you build
 the others.
 
 **Give it an owner.** A surface that opens and closes needs a Facet presenter.
@@ -151,6 +165,9 @@ finish them here, before a second screen calls them.
 - **The body of a page.** It uses the width of its surface: a bounded
   column, a `Grid` whose column count follows the room, or two panes. A
   stack that hugs one corner of a large surface is not a body.
+- **The text.** `wrap = true` is for a sentence. A name, a value, a label
+  and a heading are one line. A helper that wraps every text lets a value
+  break in the middle when its part is narrow.
 
 **Build it in layers.**
 
@@ -170,11 +187,11 @@ For a place, a material or an illustrated world, read
 [build a screen as a place](references/place.md) before you write the screen.
 It has the construction: a ground that reaches the glass, a scene region made
 of layers, objects that are Buttons, and art without an image model. The
-build shows the same place and the same objects as the chosen sketch. Facet
+build shows the same place and the same objects as the chosen concept. Facet
 changes how the picture is constructed, not what it shows: a wall of tools
 stays a wall of tools. It does not become a grid of cards because a Card is
-the nearest control. When the build looks plainer than the sketch, it is not
-finished.
+the nearest control. When the build looks plainer than the concept, it is
+not finished.
 
 Put the character in the theme, so every control inherits it. Read
 [finish](references/finish.md) when you define the theme: it maps each line
@@ -188,12 +205,12 @@ cards leaves the task unchanged.
 The first screen is done when three tests pass on one revision. Do not build
 a second screen before they do.
 
-1. **The card.** Put the card beside the desktop capture and mark each line
-   present or absent: the ground, the lead at its share of the screen, the
-   palette roles, the two type families, the shared edge, the material of
-   the controls, the signature and the response. An absent line is work to
-   do. Do not remove it from the card to pass. A quiet interface marks the
-   same lines with its quiet answers.
+1. **The card.** Put the card and the concept beside the desktop capture
+   and mark each line of the card present or absent: the ground, the lead at
+   its share of the screen, the palette roles, the two type families, the
+   shared edge, the material of the controls, the signature and the
+   response. An absent line is work to do. Do not remove it from the card to
+   pass. A quiet interface marks the same lines with its quiet answers.
 2. **The forms.** That revision is captured on a desktop, a phone in
    portrait and the same phone in landscape, as
    [step 3](#3-make-one-build-fit-every-screen) describes, and nothing
@@ -238,6 +255,10 @@ real safe-area insets and touch controls; a resized frame does not. Capture
 the first screen on a desktop, a phone in portrait and the same phone in
 landscape before you build more screens. Restore the desktop preview when you
 finish.
+
+Let a plate hug its content. A pixel width that makes a text fit on a
+desktop does not shrink on a phone, and `mayDrop = true` does not repair it:
+the Popover that shows the dropped part is as wide as the part.
 
 A size that you fix stays fixed in a short room; Facet does not choose a
 shorter form for you. A record that is taller than the room that scrolls it
@@ -331,6 +352,8 @@ touches.
   session. Check the first directional move, an activation and Back.
 - After a change to the form or the size of a record, open the shortest
   screen, scroll from entry and activate a record.
+- After a change to a HUD region, review the HUD again on the phone in both
+  orientations. A region that is added late is the one that overlaps.
 
 Use the [critique-ui loop](../critique-ui/SKILL.md#the-loop) when the user
 asks for a review or a polish pass, or after choosing from rendered
