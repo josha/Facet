@@ -311,13 +311,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				listener = nil,
 				bend = nil,
 			}
-			local function listener(property: string)
-				if property == "Parent" then
-					hug(fitting)
-				end
+			local function listener()
+				hug(fitting)
 			end
 			fitting.listener = listener
-			textChanges.watch(ctx, label, listener)
+			textChanges.watch(ctx, label, listener, nil, "Parent")
 			hug(fitting)
 		end
 		if lines then

@@ -7,15 +7,24 @@ type Entry = {
 	listeners: { Listener },
 	owners: { unknown },
 	stops: { (() -> ()) | false },
+	wants: { string | false },
+	dispatching: number,
 }
 local entries: { [Instance]: Entry } = setmetatable({}, { __mode = "k" })
 
+local function writable(entry: Entry)
+	if entry.dispatching > 0 then
+		entry.listeners, entry.owners, entry.stops, entry.wants =
+			table.clone(entry.listeners), table.clone(entry.owners), table.clone(entry.stops), table.clone(entry.wants)
+	end
+end
+
 local function removeAt(entry: Entry, index: number)
-	local listeners, owners, stops = table.clone(entry.listeners), table.clone(entry.owners), table.clone(entry.stops)
-	table.remove(listeners, index)
-	table.remove(owners, index)
-	table.remove(stops, index)
-	entry.listeners, entry.owners, entry.stops = listeners, owners, stops
+	writable(entry)
+	table.remove(entry.listeners, index)
+	table.remove(entry.owners, index)
+	table.remove(entry.stops, index)
+	table.remove(entry.wants, index)
 end
 
 local function finish(label: Instance, entry: Entry)
@@ -67,21 +76,27 @@ local function releaseOwner(label: Instance, entry: Entry, owner: unknown)
 	end
 end
 
-local function watch(ctx: Types.Context, label: Instance, listener: Listener, onStop: (() -> ())?)
+local function watch(ctx: Types.Context, label: Instance, listener: Listener, onStop: (() -> ())?, only: string?)
 	local Compose = ctx.Compose
 	local entry = entries[label]
 	if entry == nil then
-		local created: Entry = { listeners = {}, owners = {}, stops = {} }
+		local created: Entry = { listeners = {}, owners = {}, stops = {}, wants = {}, dispatching = 0 }
 		created.connection = label.Changed:Connect(function(property: string)
 			if property == "AbsolutePosition" then
 				return
 			end
-			local snapshot = created.listeners
-			for _, callback in snapshot do
-				if created.listeners == snapshot or table.find(created.listeners, callback) then
+			local snapshot, wants = created.listeners, created.wants
+			created.dispatching += 1
+			for index, callback in snapshot do
+				local want = wants[index]
+				if
+					(want == false or want == property)
+					and (created.listeners == snapshot or table.find(created.listeners, callback))
+				then
 					callback(property)
 				end
 			end
+			created.dispatching -= 1
 		end)
 		entry = created
 		entries[label] = entry
@@ -92,12 +107,13 @@ local function watch(ctx: Types.Context, label: Instance, listener: Listener, on
 	end
 	local owner: unknown = Compose.currentOwner()
 	local registered = table.find(held.owners, owner) ~= nil
-	local listeners, owners, stops = table.clone(held.listeners), table.clone(held.owners), table.clone(held.stops)
-	table.insert(listeners, listener)
-	table.insert(owners, owner)
+	writable(held)
 	local ending: (() -> ()) | false = if onStop then onStop else false
-	table.insert(stops, ending)
-	held.listeners, held.owners, held.stops = listeners, owners, stops
+	table.insert(held.listeners, listener)
+	table.insert(held.owners, owner)
+	table.insert(held.stops, ending)
+	local wanted: string | false = if only then only else false
+	table.insert(held.wants, wanted)
 	if not registered then
 		Compose.cleanup(function()
 			releaseOwner(label, held, owner)
