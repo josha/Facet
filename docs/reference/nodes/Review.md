@@ -28,7 +28,7 @@ summary).
 
 | Rule | Finds |
 |---|---|
-| `joined-facts` | One text that joins facts with a middle dot, a bullet, a vertical bar, a spaced slash or an en dash. Medium when a fact has a number. |
+| `joined-facts` | One text that joins facts with a dot, bullet, bar, spaced slash or en dash. Medium with a number, high when it leads a HUD region. |
 | `numbers-unemphasized` | Three or more texts with numbers, none larger than the common size or bold. |
 | `flat-hierarchy` | The largest text is less than 1.35 times the common size. |
 | `competing-peaks` | Two different texts share the lead size in one plate. The same slot in sibling groups, such as three stat values, counts once. |

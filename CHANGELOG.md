@@ -1,5 +1,12 @@
 # Current package
 
+`Facet.review` reports `joined-facts` as high when the joined line has a
+number and is the largest text of a HUD Region, such as
+"P4 / 4 • LAP 1 / 2 • 0 km/h" alone on a plate. The player reads a HUD value
+at a glance during play, and in that line no value leads. The same line under
+a larger text in its region, and a joined line outside a Composition, stay
+medium.
+
 A Region takes `label` and `icon`. A region that the screen has no room for
 showed as a "…" badge, and three of them on a phone in portrait said nothing
 about what each one held. The region's `Reveal` badge and the zone's

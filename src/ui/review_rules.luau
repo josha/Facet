@@ -32,6 +32,7 @@ export type ReviewElement = {
 	text: ReviewText?,
 	unfit: string?,
 	reveal: string?,
+	region: boolean?,
 }
 export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"
@@ -63,7 +64,7 @@ local SEVERITY_RANK: { [ReviewSeverity]: number } = { high = 1, medium = 2, low 
 local RECIPES = "See the information-display reference in the use-facet skill."
 
 local fixes: { [string]: string } = {
-	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. "
+	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. In a HUD region the player reads a value at a glance during play, so a joined line that leads its region is high. "
 		.. RECIPES,
 	["numbers-unemphasized"] = "The numbers on this screen are no larger or heavier than the text around them. Put the value that drives the decision in the numeral role, larger than body text, with its unit or label smaller. "
 		.. RECIPES,
@@ -403,7 +404,37 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			end
 		end
 		if digits then
-			add("joined-facts", "medium", element, ("%s joins %d facts"):format(quote(content), #parts))
+			local region: ReviewElement? = nil
+			local parent = prepared.parentOf(element)
+			while parent ~= nil and region == nil do
+				local ancestor = prepared.byIndex[parent]
+				if ancestor == nil then
+					break
+				end
+				if ancestor.region then
+					region = ancestor
+				end
+				parent = prepared.parentOf(ancestor)
+			end
+			local leads = region ~= nil
+			if region then
+				for _, other in prepared.descendantTexts(region) do
+					if textOf(other).size > textOf(element).size then
+						leads = false
+						break
+					end
+				end
+			end
+			if leads then
+				add(
+					"joined-facts",
+					"high",
+					element,
+					("%s joins %d facts and leads a HUD region"):format(quote(content), #parts)
+				)
+			else
+				add("joined-facts", "medium", element, ("%s joins %d facts"):format(quote(content), #parts))
+			end
 		elseif #parts >= 3 then
 			add("joined-facts", "low", element, ("%s joins %d phrases"):format(quote(content), #parts))
 		end
