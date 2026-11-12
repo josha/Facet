@@ -556,6 +556,7 @@ type TextInputRequestProps
 type TextProps
 type TextRole
 type ThemeDefinition
+type ThemeFinish
 type ThemePackage
 type ThemeRule
 type ThemeRuleProperties
