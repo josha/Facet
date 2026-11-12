@@ -208,6 +208,13 @@
       ]
     },
     {
+      "id": "native_collection_focus",
+      "locator": "tests/native_collection_focus.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "native_collections",
       "locator": "tests/native_collections.verify.luau",
       "requires": [
