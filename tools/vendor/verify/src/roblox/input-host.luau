@@ -298,6 +298,29 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			stated[object] = true
 		end
 	end
+	local function pressButtonBindings(button: Instance, down: boolean)
+		local root = gui:FindFirstAncestorWhichIsA "DataModel" or gui
+		for _, binding in root:GetDescendants() do
+			if not binding:IsA "InputBinding" or env.propertyOf(binding, "UIButton") ~= button then
+				continue
+			end
+			local action = binding.Parent
+			if action == nil or not action:IsA "InputAction" then
+				continue
+			end
+			if env.propertyOf(action, "Enabled") ~= true then
+				continue
+			end
+			local context = action:FindFirstAncestorWhichIsA "InputContext"
+			if context ~= nil and env.propertyOf(context, "Enabled") ~= true then
+				continue
+			end
+			if tostring(env.propertyOf(action, "Type")):match "([^%.]+)$" ~= "Bool" then
+				unsupported "InputBinding.UIButton on a non-Bool InputAction"
+			end
+			env.method(action, "Fire")(action, down)
+		end
+	end
 	local function validateBindings(source: "movement" | "button"): ()
 		local root = gui:FindFirstAncestorWhichIsA "DataModel" or gui
 		for _, binding in root:GetDescendants() do
@@ -335,9 +358,6 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				if active ~= true then
 					unsupported "InputContext.Enabled metadata"
 				end
-			end
-			if source == "button" and env.propertyOf(binding, "UIButton") ~= nil then
-				unsupported "InputBinding.UIButton"
 			end
 			if env.propertyOf(binding, "KeyCode") == nil then
 				unsupported "InputBinding.KeyCode metadata"
@@ -630,6 +650,7 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 			end
 			if targetButton then
 				env.fire(targetButton, "MouseButton1Down", at.X, at.Y)
+				pressButtonBindings(targetButton, true)
 			end
 			local clicked = textTarget(objects)
 			local cursor = if clicked and read(clicked, "TextEditable") ~= false then textCursor(clicked, at) else nil
@@ -655,6 +676,9 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				dragging = nil
 			end
 			local original = pressedButton
+			if original and env.isAlive(original) then
+				pressButtonBindings(original, false)
+			end
 			if original and env.isAlive(original) and original == targetButton then
 				env.fire(original, "MouseButton1Click")
 				env.fire(original, "MouseButton1Up", at.X, at.Y)
@@ -686,11 +710,11 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 	local function codeName(value: unknown): string
 		return (tostring(value):match "([^%.]+)$" or tostring(value))
 	end
-	local function boundActions(code: string, kind: string?): { BoundAction }
+	local function boundActions(code: string, kind: string?, property: string?): { BoundAction }
 		local root = gui:FindFirstAncestorWhichIsA "DataModel" or gui
 		local found: { BoundAction } = {}
 		for _, binding in root:GetDescendants() do
-			if not binding:IsA "InputBinding" or codeName(env.propertyOf(binding, "KeyCode")) ~= code then
+			if not binding:IsA "InputBinding" or codeName(env.propertyOf(binding, property or "KeyCode")) ~= code then
 				continue
 			end
 			local matched = true
@@ -740,7 +764,61 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 		end)
 		return found
 	end
+	local function deliverComposite(code: string)
+		local found: { BoundAction } = {}
+		local seen: { [Instance]: boolean } = {}
+		for _, property in { "Up", "Down", "Left", "Right" } do
+			for _, entry in boundActions(code, "Direction2D", property) do
+				if not seen[entry.action] then
+					seen[entry.action] = true
+					table.insert(found, entry)
+				end
+			end
+		end
+		table.sort(found, function(left, right)
+			return Values.number(env.propertyOf(left.context, "Priority"))
+				> Values.number(env.propertyOf(right.context, "Priority"))
+		end)
+		local sunk: number? = nil
+		for _, entry in found do
+			local priority = Values.number(env.propertyOf(entry.context, "Priority"))
+			if sunk and priority < sunk then
+				break
+			end
+			local x, y = 0, 0
+			for _, binding in entry.action:GetChildren() do
+				if not binding:IsA "InputBinding" then
+					continue
+				end
+				local function held(property: string): number
+					return if heldKeys[codeName(env.propertyOf(binding, property))] then 1 else 0
+				end
+				local modifiers = true
+				for _, property in MODIFIERS do
+					local key = env.propertyOf(binding, property)
+					if key ~= nil and key ~= none and key ~= unknownKey and not heldKeys[codeName(key)] then
+						modifiers = false
+					end
+				end
+				if modifiers then
+					local scale = Values.vector(env.propertyOf(binding, "Vector2Scale"))
+					local dx = (held "Right" - held "Left") * scale.X
+					local dy = (held "Up" - held "Down") * scale.Y
+					local magnitude = math.sqrt(dx * dx + dy * dy)
+					if env.propertyOf(binding, "ClampMagnitudeToOne") == true and magnitude > 1 then
+						dx, dy = dx / magnitude, dy / magnitude
+					end
+					x, y = x + dx, y + dy
+				end
+			end
+			env.method(entry.action, "Fire")(entry.action, library.Vector2.new(x, y))
+			if env.propertyOf(entry.context, "Sink") == true then
+				sunk = priority
+			end
+		end
+	end
 	local function deliverActions(code: string, down: boolean)
+		deliverComposite(code)
 		if not down then
 			for key, actions in keyActions do
 				for _, entry in actions do
@@ -1260,9 +1338,6 @@ local function simulated(env: Environment.Environment, options: SimulatedOptions
 				end
 				if count ~= nil and (type(count) ~= "number" or count < 0 or count % 1 ~= 0) then
 					unsupported "non-integer activation count"
-				end
-				if at.X ~= position.X or at.Y ~= position.Y then
-					unsupported "button coordinates without prior pointer movement"
 				end
 				if touchMode() then
 					touch.press(touchPoint(at), down)

@@ -5,6 +5,7 @@ local Types = require "./place-types"
 local installServices = require "./place-services"
 local Scheduler = require "./scheduler"
 local Environment = require "./environment"
+local Utf8Library = require "./utf8-library"
 
 export type Chunk = Types.Chunk
 export type Instance = Types.Instance
@@ -247,6 +248,9 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 			return cache.load(path, environmentFor(object))()
 		end)
 		local failure = "Requested module experienced an error while loading"
+		if not ok then
+			failure ..= ": " .. tostring(value)
+		end
 		settle(entry, if ok then "done" else "failed", if ok then value else failure)
 		if not ok then
 			engine.record("error", tostring(value), path)
@@ -346,7 +350,7 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 	globals.math = math
 	globals.coroutine = coroutine
 	globals.bit32 = bit32
-	globals.utf8 = utf8
+	globals.utf8 = Utf8Library.create()
 	globals.buffer = buffer
 	local runtimeDebug: { [string]: unknown } = { info = debug.info, traceback = debug.traceback }
 	runtimeDebug.profilebegin = function(label: string)
@@ -411,6 +415,7 @@ local function create<B>(engine: Engine, mounted: Mounted, options: Options<B>):
 	end
 	function runtime.step(seconds: number)
 		assert(seconds >= 0 and seconds < math.huge, "frame duration must be finite and nonnegative")
+		environment.poke(engine.service "Stats", "FrameTime", seconds)
 		local run = engine.service "RunService"
 		scheduler.advance(seconds)
 		scheduler.drain(64)

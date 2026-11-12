@@ -1108,6 +1108,10 @@ Nonzero `OverlapParams.Tolerance`, `RaycastParams.Margin` and `RaycastParams.Siz
 
 AudioEmitter distance curves copy inputs, outputs and cloned state. Negative finite distances become zero. Finite volumes stay within `[0, 1]`. These rules match the native setters. Invalid keys or values fail before the curve changes. The simulator accepts at most 400 points. It does not simulate audibility or audio output.
 
+The ParticleEmitter method double accepts finite nonnegative integer Emit counts, defaulting to 16, and Clear requests. These produce `effect` diagnostics recording the request only. No particles, visibility, lighting or rendering are simulated or proved.
+
+Fixture engines compute Attachment.WorldCFrame and WorldPosition from local CFrame and the nearest ancestral PVInstance or Attachment, through intervening folders. BasePart ancestors use CFrame rather than PivotOffset; other PVInstances use their pivot. Detached attachments use their local frame. Parent movement and reparenting affect subsequent reads. World-space writes convert to local coordinates, and Position/CFrame writes stay coupled. Position writes preserve rotation. This covers static attachment transforms, not animated bone transforms, constraint solving or native property-change event parity.
+
 `Model:ScaleTo` scales about the current pivot and keeps nested model factors and cloned scale state. Supported geometry includes part sizes and pivot offsets, attachment frames, joint C0/C1, mesh offsets and file-mesh scale. It includes sound rolloff distances and particle size, speed and acceleration. It also includes beam widths and curves, trail minimum and maximum length, and rope length and thickness. Supported Humanoid properties are hip height, speed, jump height and jump power. AnimationConstraint translation scales linearly and its maximum force and torque scale cubically; strength and damping remain unchanged. Motor6D/Bone animated transforms and light range remain unchanged. Edited properties become the new basis for later scaling; unchanged property sizes keep their original basis. Part positions use floating-point transformations. Constraints other than ropes and animation constraints refuse before geometry changes; constraint dynamics and other geometric properties require an explicit host or native execution.
 
 Lute consumers use `Lute.fixture.host` for filesystem reads, compilation, environment-bound loading and JSON, and `Lute.fixture.files` for project traversal. Both tables are frozen; clone the host when injecting fixture sources. `Lute.FixturePlaceHost` is its exported type. Consumers keep project paths and game-specific setup rather than copying this platform wiring.
@@ -1940,6 +1944,7 @@ The default library has no catalog. Its `Enum` is permissive: any family and any
 - Attributes have change signals. Property change signals fire only on change.
 - Signals start listeners in connect order on separate scheduler coroutines. A yielding listener does not suspend the emitter or other listeners. A connection that disconnects before its listener starts is skipped; a started listener may finish after disconnection.
 - `signal:Wait()` yields through the existing scheduler until the next fire and returns its complete argument tuple. It ignores previous fires. Resumption and task cancellation release the wait listener.
+- `signal:Once(handler)` connects a listener that disconnects before its first run and returns the connection. Disconnecting it earlier skips the listener.
 - `signalOf(object, event)` returns `{ fire, connections, fires }` for one event.
   A test can fire the event and count its live connections and fires.
 - `connectionsOf(signal)` and `firesOf(signal)` count any signal that the environment made.
@@ -2028,6 +2033,8 @@ The simulated input host repeats held arrow-key selection after 0.5 seconds, the
 ### Input action state
 
 `InputAction:Fire(value)` and `GetState()` share state with simulated keyboard dispatch. The value must match the action type: boolean, number, Vector2 or Vector3. Repeated values emit no event. Boolean transitions emit `Pressed` or `Released` before `StateChanged`. Other types emit only `StateChanged`.
+`InputBinding:Fire(value)` on a Scriptable binding feeds its parent InputAction with the same type and enabled rules as `InputAction:Fire`. It raises for any other binding type.
+An enabled automatic `InputBinding` whose `UIButton` is a clicked GuiButton fires its Bool action true on the pointer press and false on release. A non-Bool action raises `unsupported_simulated_input`. Touch dispatch to UIButton bindings is not simulated.
 
 An action must belong to a DataModel and be enabled. Its nearest InputContext must also be enabled. Disabling either resets the state. A parent change resets affected actions, and a type change publishes the new zero state. Clones start at zero. The shared Studio sequence checks these transitions, duplicate suppression and destruction. This model does not establish physical input delivery.
 
@@ -2161,9 +2168,11 @@ The bridge returns `{ environment, engine, ui, layout, unavailable, faults, hasC
 
 BillboardGuis below a mounted root establish independent canvas spaces. Their native `AbsolutePosition` is `(0, 0)`. Their `Size` scale components specify studs; offsets specify pixels. Layout projects the stud components at the offset camera depth and rounds the canvas dimensions to pixels. Screen ancestry contributes no origin, rotation or scale. Descendants use the existing layout and text measurement rules within that canvas. `SizeOffset`, `AlwaysOnTop` and `LightInfluence` do not change local canvas geometry. This models no lighting, occlusion or screen hit testing.
 
+`layout.ignoreDecorativeWorldGui = true` explicitly excludes noninteractive world layers from layout and hit testing without changing their instances. Hidden controls do not make a layer interactive. Visible buttons, active or selectable GUI objects, and enabled drag detectors still require supported projection and input behavior. The default continues to refuse unsupported enabled world layers. An excluded decoration establishes no native geometry or rendering evidence.
+
 `Roblox.UiProjectionHost` is `{ revision, camera, adornee }`. `revision()` returns a number that changes whenever host projection inputs change. `camera()` returns `{ basis, viewport = { X, Y }, fieldOfView }` or nil. `adornee(instance)` returns `{ basis, size }` or nil. A basis contains `position`, `right`, `up` and `back`, each a numeric `{ X, Y, Z }`; its axes describe an orthonormal frame. Adornee sizes are full dimensions in studs. The field of view is vertical, in degrees. The fixture bridge supplies this contract from Workspace.CurrentCamera and BasePart CFrame and Size. An explicit Adornee takes precedence over the parent part. Custom hosts can provide other adornee geometry. Missing camera, target, bounds or required properties raise `unsupported_ui_layout` before geometry publication.
 
-StudsOffset and ExtentsOffset use the camera axes; extents use half the camera-aligned adornee bounds. World-space variants use the world axes and bounds. Positive depth offsets bring the canvas toward the camera. On the reference host, MaxDistance culls at the offset camera depth; zero and infinity remove the limit. Out-of-range and behind-camera canvases become zero-sized, while descendant pixel offsets remain authored. Disabled BillboardGuis retain their last published geometry. The shared native fixture checks text and descendants at two camera distances, transformed screen ancestry, offsets, lighting flags, parent-part movement, camera rotation, disabled retention and culling boundaries. Nondefault deprecated DistanceLowerLimit and DistanceUpperLimit remain unsupported. Projected input and arbitrary text rendering remain outside this geometry claim.
+StudsOffset and ExtentsOffset use the camera axes; extents use half the camera-aligned adornee bounds. World-space variants use the world axes and bounds. Positive depth offsets bring the canvas toward the camera. On the reference host, MaxDistance culls at the offset camera depth; zero and infinity remove the limit. Out-of-range and behind-camera canvases become zero-sized, while descendant pixel offsets remain authored. Disabled BillboardGuis retain their last published geometry and are excluded from hit testing. Enabled world GUI input remains unsupported. The shared native fixture checks text and descendants at two camera distances, transformed screen ancestry, offsets, lighting flags, parent-part movement, camera rotation, disabled retention and culling boundaries. Nondefault deprecated DistanceLowerLimit and DistanceUpperLimit remain unsupported. Projected input and arbitrary text rendering remain outside this geometry claim.
 
 Layout clamps `ScrollingFrame.CanvasPosition` when it owns the measured bounds. Poked `AbsoluteSize`, `AbsoluteWindowSize` or `AbsoluteCanvasSize` that differ from its last publication make those bounds stale. Before the first pass, nonzero bounds count as supplied geometry. If stale bounds would cause a clamp, layout raises `unsupported_ui_layout` before publishing geometry. The error names the instance and shows supplied and computed bounds. This includes poked bounds with an unmeasured zero canvas. Author `Size` and `CanvasSize`, or keep the poked frame outside layout roots.
 
@@ -2450,6 +2459,32 @@ local instanceHost = Roblox.instanceHost.simulated("client", environment)
 instanceHost.host.close()
 ```
 
+### `Roblox.controllerHost`
+
+Source: [src/roblox/controller-host.luau](../src/roblox/controller-host.luau).
+
+`Roblox.controllerHost.simulated(engine)` opts a place engine into kinematic controller motion.
+It integrates `ControllerManager.MovingDirection`, `BaseMoveSpeed` and the active controller's `MoveSpeedFactor`.
+Ground sensors use the configured `Workspace.Raycast` host and `GroundOffset`. Manual sensors remain caller-owned.
+Disconnect the returned connection to stop motion and release the instance observer.
+This host proves controller wiring and game logic. It simulates no wall collision, gravity, native physics or rendering.
+
+Place runtimes simulate `Player.LoadCharacterAsync` for connected players, including replacement events,
+`StarterCharacter` cloning and selected spawn placement. Place boot retains a character loaded during admission.
+Character-added and appearance-ready events precede workspace parenting. R15 part replacement retains placement
+and retargets existing joints. Avatar scaling and mesh deformation remain native-only.
+`RunService.BindToSimulation` requires fixed simulation and supports the declared frequencies, priorities and disconnect.
+It supplies fixed deltas to callbacks. It does not model rollback or native property synchronization restrictions.
+`Stats.FrameTime` reports the supplied virtual frame duration, never native performance.
+
+### `Roblox.pathfindingHost`
+
+`Roblox.pathfindingHost.install(engine, compute)` opts into configured `CreatePath`, `ComputeAsync` and `GetWaypoints` behavior. `compute(origin, destination, parameters)` receives finite Vector3 endpoints and a copy of the path parameters. Return a list of finite positions including both endpoints, or nil for `NoPath`. Successful results expose copied Walk waypoints; a later miss clears them. The consumer supplies routing topology. This host does not build a native navmesh or simulate collision avoidance or jumps.
+
+### `Roblox.promptHost`
+
+`Roblox.promptHost.simulated(engine, { player, visible })` opts into distance-gated prompt events and holds. `visible(prompt, origin, target)` supplies visibility and selection policy; this host does not infer native camera visibility, line of sight or exclusivity. Prompts must be enabled under Workspace, within `MaxActivationDistance` of the player's HumanoidRootPart, and parented to a BasePart, Attachment or Model with a PrimaryPart. The service must be enabled. Heartbeats emit prompt and service shown/hidden events. Public keyboard events and `InputHoldBegin`/`InputHoldEnd` share cancellable holds; a completed hold emits Triggered once. Removal, range loss, disabling and disconnect cancel pending holds. The returned connection disconnects the host. No rendering or native input acceptance is proved. Fixture services start with ProximityPromptService.Enabled true. Prompt defaults include Enabled and RequiresLineOfSight true, HoldDuration zero, MaxActivationDistance ten, keyboard E and gamepad ButtonX.
+
 ### `Roblox.inputHost`
 
 Source: [src/roblox/input-host.luau](../src/roblox/input-host.luau).
@@ -2459,6 +2494,7 @@ Source: [src/roblox/input-host.luau](../src/roblox/input-host.luau).
 Returns: An input binding, native backend when available, operation registry or screen point. `key`, `pointer` and `text` are typed operations.
 
 Failures: Unsupported native input returns nil. Invalid input or unsupported simulated geometry raises.
+Virtual mouse-button input uses its explicit coordinates without requiring a preceding pointer move.
 `screenCenter` needs native `GuiService:GetGuiInset()` and a positive rendered target area.
 
 ```luau
@@ -2500,15 +2536,20 @@ local host = Roblox.experienceHost.create(experienceOptions)
 
 Source: [src/roblox/multiplayer.luau](../src/roblox/multiplayer.luau).
 
-`server(context: Context, options: ServerOptions) -> CaseHost`; `client(options: ClientOptions) -> () -> ()`
+`server(context: Context, options: ServerOptions) -> CaseHost`; `client(options: ClientOptions) -> () -> ()`; `undeliverable(storage: DeliveryStorage, reason: DeliveryReason, detail: string) -> boolean`; `DELIVERY_CHANNEL: string`
 
-Returns: A coordinated server host or a client disconnect function.
+Returns: A coordinated server host, a client disconnect function, or whether a delivery report was sent.
 
 Failures: Missing roles, refused requests and expired deadlines fail. The caller supplies role authorization.
+
+`undeliverable` fires `reason` (`request_missing`, `run_id_mismatch` or `remote_missing`) and `detail` through the `VerifyDelivery` channel that the server runner creates for a `players` run. It returns `false` when the channel is absent. The server runner ends the run with the first report. `ClientOptions.undeliverable` is called once when the client receives a message for a different run, with `run_id_mismatch`.
 
 ```luau
 local disconnect = Roblox.multiplayer.client(multiplayerClientOptions)
 disconnect()
+if not remote then
+	Roblox.multiplayer.undeliverable(game:GetService("ReplicatedStorage"), "remote_missing", "no session remote")
+end
 ```
 
 ### `Roblox.reportChannel`
@@ -2585,7 +2626,7 @@ Load caller-supplied captures with the schema below. Verify retains captured fac
 | --- | --- |
 | Model | `pivot`, `box`, `size`, optional `primaryPart` |
 | BasePart | `cframe`, `pivotOffset`, `size`, `canCollide`, `canQuery`, `material`, `materialVariant` |
-| MeshPart | `meshId`, `textureId`, `meshSize`, `collisionFidelity` |
+| MeshPart | `meshId`, `textureId`, `meshSize`, `collisionFidelity`, optional `hasSkinnedMesh` |
 | SurfaceAppearance | `colorMap`, `normalMap`, `metalnessMap`, `roughnessMap`, `alphaMode` |
 | SpecialMesh | `meshId`, `textureId`, `scale`, `offset` |
 | Attachment | `cframe` |
@@ -2595,6 +2636,8 @@ Load caller-supplied captures with the schema below. Verify retains captured fac
 | KeyframeSequence | `loop`, `priority` |
 | Keyframe | `time` |
 | Pose | `cframe`, `weight`, `easingStyle`, `easingDirection` |
+
+An optional `hasSkinnedMesh` boolean on a MeshPart sets its read-only `HasSkinnedMesh`. A capture without it leaves `HasSkinnedMesh` false; Verify never infers it from bones.
 
 Vectors have three finite components. Frames have the twelve components from `CFrame:GetComponents()`. Enum fields use member names. Map fields contain durable URI strings. An empty string means no map. Mesh capture uses Box collision fidelity. It records native Size and MeshSize. Its part frame and Size define its bounds. Model `box` and `size` record the native bounding box. Animation parent indices retain nested poses. The capture loads sequences through KeyframeSequenceProvider. It does not sample playback.
 
