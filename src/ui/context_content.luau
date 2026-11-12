@@ -664,7 +664,112 @@ local function attachMeasuredLayout(
 	end)
 end
 
-local function attachLayout(
+type Steady = {
+	ctx: Shared.Context,
+	label: TextLabel | TextButton,
+	stable: boolean?,
+	watchPadding: boolean?,
+	lazy: boolean?,
+	warm: boolean?,
+	face: Font,
+	points: number,
+	pending: RBXScriptConnection?,
+	refreshing: boolean,
+	alive: boolean,
+	owner: ComposeTypes.Owner?,
+	listener: ((string) -> ())?,
+}
+local attachLayout: (Shared.Context, TextLabel | TextButton, boolean?, boolean?, boolean?, boolean?) -> ()
+local function measuredMode(ctx: Shared.Context, label: TextLabel | TextButton): boolean
+	local mode, size = label.AutomaticSize, label.Size
+	if mode == ctx.types.Enum.AutomaticSize.None then
+		return false
+	end
+	return mode ~= ctx.types.Enum.AutomaticSize.Y or size.X.Scale == 0 or label:GetStyled("TextWrapped") == true
+end
+local function clearSteady(steady: Steady)
+	local pending = steady.pending
+	if pending then
+		pending:Disconnect()
+		steady.pending = nil
+	end
+end
+local function reflowSteady(steady: Steady, metrics: boolean?)
+	local label, E = steady.label, steady.ctx.types.Enum
+	local mode = label.AutomaticSize
+	if not steady.alive or steady.refreshing or mode == E.AutomaticSize.None then
+		return
+	end
+	steady.refreshing = true
+	local face, points = steady.face, steady.points
+	local resetFace = metrics == true and label.FontFace ~= face
+	local resetSize = metrics == true and label.TextSize ~= points
+	if resetFace then
+		label.FontFace = face
+	end
+	if resetSize then
+		label.TextSize = points
+	end
+	label.AutomaticSize = E.AutomaticSize.None
+	label.AutomaticSize = mode
+	if resetFace then
+		label:ResetPropertyToDefault("FontFace")
+	end
+	if resetSize then
+		label:ResetPropertyToDefault("TextSize")
+	end
+	steady.refreshing = false
+end
+local function refreshSteady(steady: Steady)
+	local label = steady.label
+	local nextFace: Font = label:GetStyled("FontFace")
+	local nextSize: number = label:GetStyled("TextSize")
+	local moved = steady.face ~= nextFace or steady.points ~= nextSize
+	steady.face, steady.points = nextFace, nextSize
+	if not moved or label.AutomaticSize == steady.ctx.types.Enum.AutomaticSize.None then
+		return
+	end
+	reflowSteady(steady)
+	local frames = steady.ctx.config.services.RunService
+	if steady.pending == nil and frames then
+		local function apply()
+			clearSteady(steady)
+			reflowSteady(steady, true)
+		end
+		steady.pending = if frames.PreRender then frames.PreRender:Connect(apply) else frames.Heartbeat:Connect(apply)
+	end
+end
+local function changeSteady(steady: Steady, property: string)
+	if steady.refreshing then
+		return
+	end
+	if property == "FontFace" or property == "TextSize" then
+		refreshSteady(steady)
+	end
+	if
+		(property == "AutomaticSize" or property == "Size" or property == "TextWrapped")
+		and measuredMode(steady.ctx, steady.label)
+	then
+		clearSteady(steady)
+		local listener = steady.listener
+		steady.listener = nil
+		if listener then
+			textChanges.stop(steady.label, listener)
+		end
+		local owner = steady.owner
+		if owner then
+			steady.ctx.Compose.withOwner(owner, function()
+				attachLayout(steady.ctx, steady.label, steady.stable, steady.watchPadding, steady.lazy, steady.warm)
+			end)
+		end
+	end
+end
+local function stopSteady(steady: Steady)
+	steady.alive = false
+	clearSteady(steady)
+end
+
+function attachLayout(
 	ctx: Shared.Context,
 	label: TextLabel | TextButton,
 	stable: boolean?,
@@ -672,89 +777,28 @@ local function attachLayout(
 	lazy: boolean?,
 	warm: boolean?
 )
-	local function needsMeasurement(): boolean
-		local mode, size = label.AutomaticSize, label.Size
-		if mode == ctx.types.Enum.AutomaticSize.None then
-			return false
+	if not measuredMode(ctx, label) then
+		local steady: Steady = {
+			ctx = ctx,
+			label = label,
+			stable = stable,
+			watchPadding = watchPadding,
+			lazy = lazy,
+			warm = warm,
+			face = label:GetStyled("FontFace"),
+			points = label:GetStyled("TextSize"),
+			pending = nil,
+			refreshing = false,
+			alive = true,
+			owner = ctx.Compose.currentOwner(),
+			listener = nil,
+		}
+		local function listener(property: string)
+			changeSteady(steady, property)
 		end
-		return mode ~= ctx.types.Enum.AutomaticSize.Y or size.X.Scale == 0 or label:GetStyled("TextWrapped") == true
-	end
-	if not needsMeasurement() then
-		local E = ctx.types.Enum
-		local face: Font = label:GetStyled("FontFace")
-		local points: number = label:GetStyled("TextSize")
-		local pending: RBXScriptConnection? = nil
-		local refreshing, alive = false, true
-		local function clearPending()
-			if pending then
-				pending:Disconnect()
-				pending = nil
-			end
-		end
-		local function reflow(metrics: boolean?)
-			local mode = label.AutomaticSize
-			if not alive or refreshing or mode == E.AutomaticSize.None then
-				return
-			end
-			refreshing = true
-			local resetFace = metrics == true and label.FontFace ~= face
-			local resetSize = metrics == true and label.TextSize ~= points
-			if resetFace then
-				label.FontFace = face
-			end
-			if resetSize then
-				label.TextSize = points
-			end
-			label.AutomaticSize = E.AutomaticSize.None
-			label.AutomaticSize = mode
-			if resetFace then
-				label:ResetPropertyToDefault("FontFace")
-			end
-			if resetSize then
-				label:ResetPropertyToDefault("TextSize")
-			end
-			refreshing = false
-		end
-		local function refreshMetrics()
-			local nextFace: Font = label:GetStyled("FontFace")
-			local nextSize: number = label:GetStyled("TextSize")
-			local moved = face ~= nextFace or points ~= nextSize
-			face, points = nextFace, nextSize
-			if not moved or label.AutomaticSize == E.AutomaticSize.None then
-				return
-			end
-			reflow()
-			local frames = ctx.config.services.RunService
-			if pending == nil and frames then
-				local function apply()
-					clearPending()
-					reflow(true)
-				end
-				pending = if frames.PreRender then frames.PreRender:Connect(apply) else frames.Heartbeat:Connect(apply)
-			end
-		end
-		local attach = ctx.Compose.bindOwner(function()
-			attachLayout(ctx, label, stable, watchPadding, lazy, warm)
-		end)
-		local function onLayout(property: string)
-			if refreshing then
-				return
-			end
-			if property == "FontFace" or property == "TextSize" then
-				refreshMetrics()
-			end
-			if
-				(property == "AutomaticSize" or property == "Size" or property == "TextWrapped")
-				and needsMeasurement()
-			then
-				clearPending()
-				textChanges.stop(label, onLayout)
-				attach()
-			end
-		end
-		textChanges.watch(ctx, label, onLayout, function()
-			alive = false
-			clearPending()
+		steady.listener = listener
+		textChanges.watch(ctx, label, listener, function()
+			stopSteady(steady)
 		end)
 		return
 	end
