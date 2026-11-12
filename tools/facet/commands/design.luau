@@ -88,6 +88,47 @@ local function register(harness: Verify.Harness, prefix: string)
 			Verify.expect(string.find(result.stdout, "stays in sync", 1, true) ~= nil):toBe(true)
 		end,
 	})
+	harness:case(prefix .. "a growing container stays in sync", {
+		id = prefix .. "a growing container stays in sync",
+		run = function(test: Verify.Context)
+			local directory = Files.temporaryDirectory("facet-design-grow-")
+			test:defer(function()
+				Files.remove(directory)
+			end)
+			local module = Files.join(directory, "Vitals.luau")
+			Files.write(
+				module,
+				table.concat({
+					"--!strict",
+					"",
+					'local Facet = require(game:GetService("ReplicatedStorage").Facet)',
+					"",
+					"export type Props = {}",
+					"",
+					'local _design = { contract = { inputs = {}, outputs = {} }, name = "Vitals" }',
+					"",
+					"local function Vitals(UI: Facet.Controls, props: Props): GuiObject",
+					'\treturn UI.HStack "Row" {',
+					'\t\tgap = "s",',
+					'\t\twidth = "fill",',
+					'\t\tUI.ZStack "Meter" {',
+					"\t\t\tgrow = 1,",
+					"\t\t},",
+					'\t\tUI.VStack "Shared" {',
+					"\t\t\tgrow = 2,",
+					"\t\t},",
+					"\t}",
+					"end",
+					"",
+					"return Vitals",
+					"",
+				}, "\n")
+			)
+			local result = check({ module })
+			Verify.expect(result.ok):toBe(true)
+			Verify.expect(string.find(result.stdout, "stays in sync", 1, true) ~= nil):toBe(true)
+		end,
+	})
 	harness:case(prefix .. "custom code and rewrites are reported", {
 		id = prefix .. "custom code and rewrites are reported",
 		run = function(test: Verify.Context)

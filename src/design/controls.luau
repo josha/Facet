@@ -566,6 +566,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		container = true,
 		defaults = { cellHeight = 72, columns = 2, gap = "s" },
 		fields = nativeFields(4, {
+			grow = { type = "number", label = "Grow", order = 40 },
 			columns = { type = "number", label = "Columns", order = 1 },
 			gap = {
 				type = "choice",
@@ -602,6 +603,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		container = true,
 		defaults = { gap = "s" },
 		fields = nativeFields(6, {
+			grow = { type = "number", label = "Grow", order = 40 },
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -1215,6 +1217,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		container = true,
 		defaults = { gap = "s", height = 240, width = "fill" },
 		fields = nativeFields(6, {
+			grow = { type = "number", label = "Grow", order = 40 },
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -1705,6 +1708,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		container = true,
 		defaults = { gap = "s", width = "fill" },
 		fields = nativeFields(6, {
+			grow = { type = "number", label = "Grow", order = 40 },
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			gap = {
@@ -1859,6 +1863,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		container = true,
 		defaults = { height = 160, width = "fill", groupTransparency = 0 },
 		fields = {
+			grow = { type = "number", label = "Grow", order = 40 },
 			groupTransparency = { type = "number", label = "Group transparency", order = 1 },
 			width = { type = "value", label = "Width", order = 2, format = "extent" },
 			height = { type = "value", label = "Height", order = 3, format = "extent" },
@@ -1877,6 +1882,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		container = true,
 		defaults = { height = 160, width = "fill" },
 		fields = nativeFields(6, {
+			grow = { type = "number", label = "Grow", order = 40 },
 			width = { type = "value", label = "Width", order = 1, format = "extent" },
 			height = { type = "value", label = "Height", order = 2, format = "extent" },
 			padding = {

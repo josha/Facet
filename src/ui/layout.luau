@@ -89,8 +89,27 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		Compose.cleanup(release)
 		attach()
 	end
+	local function growth(weight: unknown): UIFlexItem
+		assert(
+			type(weight) == "number" and weight > 0 and weight < math.huge,
+			"Facet grow must be a positive finite number"
+		)
+		return Host.UIFlexItem {
+			Name = "Grow",
+			FlexMode = E.UIFlexMode.Custom,
+			GrowRatio = weight,
+			ShrinkRatio = weight,
+		}
+	end
 	local function containerProps(spec: unknown, keys: { string }): ({ [unknown]: unknown }, UISizeConstraint?)
-		local limits = spec :: { maxWidth: Types.ValueNumber?, maxHeight: Types.ValueNumber? }
+		local limits = spec :: { maxWidth: Types.ValueNumber?, maxHeight: Types.ValueNumber?, grow: number? }
+		if limits.grow ~= nil then
+			local trimmed = table.clone(spec :: { [unknown]: unknown })
+			trimmed.grow = nil
+			local properties, constraint = containerProps(trimmed, keys)
+			properties[#properties + 1] = growth(limits.grow)
+			return properties, constraint
+		end
 		if limits.maxWidth == nil and limits.maxHeight == nil then
 			return ctx.props(spec, keys) :: { [unknown]: unknown }, nil
 		end
