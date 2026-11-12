@@ -4215,6 +4215,47 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps a windowed list's mounted rows bounded after a long scroll", {
+			id = "native_collections::Compose native collections::keeps a windowed list's mounted rows bounded after a long scroll",
+			run = function()
+				for _, recycle in { true, false } do
+					local engine, runtime, UI, target = setup()
+					local stop, node: any = runtime.mount(function()
+						local listSpec: FixtureCollectionProps.KeyedCollectionSpec<Record, number> = {
+							from = records(1000),
+							key = key,
+							itemSize = 40,
+							recycle = if recycle then nil else false,
+							render = function(current): GuiObject
+								return button(UI, current)
+							end,
+						}
+						return UI.VirtualList(listSpec)
+					end, target)
+					local V2 = engine.types.Vector2
+					engine.environment.poke(VerifyRoblox.assertInstance(node), "AbsoluteWindowSize", V2.new(300, 400))
+					local items = assert(node:FindFirstChild("Items", true))
+					local function mounted(): number
+						local count = 0
+						for _, child in items:GetChildren() do
+							if child:IsA("GuiObject") then
+								count += 1
+							end
+						end
+						return count
+					end
+					local start = mounted()
+					for offset = 0, 20000, 400 do
+						node.CanvasPosition = V2.new(0, offset)
+					end
+					expect(items:FindFirstChild("500") ~= nil or items:FindFirstChild("510") ~= nil):toBe(true)
+					expect(mounted() <= start + 4):toBe(true)
+					stop()
+					runtime:dispose()
+				end
+			end,
+		})
+
 		it("credits a selection inside a nested list to the outer row and can leave restore off", {
 			id = "native_collections::Compose native collections::credits a selection inside a nested list to the outer row and can leave restore off",
 			run = function()
