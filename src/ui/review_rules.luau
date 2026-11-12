@@ -31,6 +31,7 @@ export type ReviewElement = {
 	ground: boolean?,
 	text: ReviewText?,
 	unfit: string?,
+	reveal: string?,
 }
 export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"
@@ -79,6 +80,7 @@ local fixes: { [string]: string } = {
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
+	["unnamed-reveal"] = 'A HUD region that the screen has no room for shows as a "..." mark, and the mark does not say what is behind it. Give the Region a label, an icon or both: the mark shows them, and the popover of several regions names each one. For a readout whose shorter form loses nothing, set reveal = false.',
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
 	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder. Give the holder a width: a width in pixels or fill, a Size with a width, or align = "stretch" on the list that holds it.',
@@ -1296,9 +1298,14 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		)
 	end
 
+	local marks = 0
 	for _, element in snapshot.elements do
 		if element.unfit then
 			add("composition-unfit", "high", element, `does not fit {element.unfit}`)
+		end
+		if element.reveal and element.visible and marks < 3 and area(element.rect) > 0 then
+			add("unnamed-reveal", "medium", element, `the mark does not say that it holds {element.reveal}`)
+			marks += 1
 		end
 	end
 

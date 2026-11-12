@@ -432,6 +432,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					local message = if found then text(read(details, "Value")) else nil
 					element.unfit = message or "composition does not fit"
 				end
+				local hasReveal, reveal = call(child, "GetAttribute", "FacetReveal")
+				if hasReveal and type(reveal) == "string" and reveal ~= "" then
+					element.reveal = reveal
+				end
 				if not glyph and lettered then
 					local face = styled(child, "FontFace")
 					local weight = number(read(read(face, "Weight"), "Value"), 400)

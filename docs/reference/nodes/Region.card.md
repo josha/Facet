@@ -8,7 +8,9 @@ Inside an app mount, set `local UI = app.UI`.
 UI.Region "Region" { zone = "topRight", rank = 1, UI.Text { text = "Ready" } }
 ```
 
-Key options: `zone`, `rank`, `mayDrop`.
+Key options: `zone`, `rank`, `mayDrop`, `label`, `icon`.
+
+Give a region that can hide a `label` or an `icon`: its mark shows them.
 
 Put Region inside Composition.
 

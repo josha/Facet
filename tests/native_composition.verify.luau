@@ -1184,6 +1184,63 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("shows a region's label on its marks and names it in the zone's popover", {
+			id = "native_composition::Composition::shows a region's label on its marks and names it in the zone's popover",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				for _, named in { true, false } do
+					local feedForm = Compose.cell(1)
+					local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return UI.Composition "Hud" {
+							gap = 8,
+							padding = 0,
+							topbar = false,
+							UI.Region "Stay" {
+								zone = "left" :: "left",
+								rank = 1,
+								Host.Frame { Name = "StayFull" },
+							},
+							UI.Region "Feed" {
+								zone = "left" :: "left",
+								rank = 2,
+								mayDrop = true,
+								label = if named then "Feed" else nil,
+								form = feedForm,
+								Host.Frame { Name = "FeedFull" },
+							},
+						}
+					end)
+					local unnamed = if named then nil else "Feed"
+					w.size(w.find("StayFull"), 100, 60)
+					w.size(w.find("FeedFull"), 120, 60)
+					local badge = w.find("Reveal")
+					w.size(badge, 28, 60)
+					expect(badge:GetAttribute("FacetReveal")):toBe(unnamed)
+					local lettered = badge:IsA("TextLabel") or badge:FindFirstChildWhichIsA("TextLabel", true) ~= nil
+					expect(lettered):toBe(named)
+					local zones = w.find("Zones")
+					w.size(zones, 800, 400)
+					w.size(zones, 800, 100)
+					expect((feedForm:peek())):toBe(0)
+					local target = w.find("ZoneRevealLeft")
+					expect(target:GetAttribute("FacetReveal")):toBe(unnamed)
+					expect(target:FindFirstChild("Badge").Visible):toBe(not named)
+					local mark = target:FindFirstChild("MarkFeed")
+					expect(mark ~= nil):toBe(named)
+					if mark then
+						expect(mark.Visible):toBe(true)
+						w.size(mark, 72, 20)
+						expect(target.Size.X.Offset):toBe(72)
+					end
+					target.Activated:Fire()
+					expect(w.find("HiddenFeed"):FindFirstChild("Label") ~= nil):toBe(named)
+					w.size(zones, 800, 400)
+					expect((feedForm:peek())):toBe(1)
+					w.stop()
+				end
+			end,
+		})
+
 		it("keeps the zone's hidden popover open while another region in the zone steps a visible form", {
 			id = "native_composition::Composition::keeps the zone's hidden popover open while another region in the zone steps a visible form",
 			run = function()

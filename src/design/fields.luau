@@ -2041,6 +2041,8 @@ local derived: Types.Derived = {
 				Visible = { type = "boolean" },
 				ZIndex = { type = "number" },
 				form = { type = "value" },
+				icon = { type = "string" },
+				label = { type = "string" },
 				leading = { type = "boolean" },
 				mayDrop = { type = "boolean" },
 				rank = { type = "number" },
