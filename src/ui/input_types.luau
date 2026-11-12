@@ -139,6 +139,7 @@ export type TextInputOptions = {
 	placeholder: TextValue?,
 	multiline: boolean?,
 	visibleLines: number?,
+	minHeight: Input<number>?,
 	validate: ((string) -> string?)?,
 	maxLength: number?,
 	invalid: ComposeTypes.ReadOnlyValue<boolean>?,

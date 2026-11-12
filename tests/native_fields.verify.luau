@@ -151,6 +151,26 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("minHeight sets the field's floor in the framed and the bare field", {
+			id = "native_fields::native field chrome::minHeight sets the field's floor in the framed and the bare field",
+			run = function()
+				local floor = Compose.cell(48)
+				local framed = world(function(UI: FacetControls)
+					return UI.TextInput "Name" { value = Compose.cell(""), label = "Display name", minHeight = floor }
+				end)
+				local field = find(find(framed.node, "Input"), "Field")
+				expect(field.Size.Y.Offset):toBe(48)
+				floor:set(64)
+				expect(field.Size.Y.Offset):toBe(64)
+				framed.stop()
+				local bare = world(function(UI: FacetControls)
+					return UI.TextInput "Bare" { value = Compose.cell(""), minHeight = 72 }
+				end)
+				expect(bare.node.Size.Y.Offset):toBe(72)
+				bare.stop()
+			end,
+		})
+
 		it("the label sits above its field, and a tap or a finger on it puts the caret in the field", {
 			id = "native_fields::native field chrome::the label sits above its field, and a tap or a finger on it puts the caret in the field",
 			run = function()
