@@ -5,11 +5,16 @@ local scrollLock = require("./scroll_lock")
 
 local MEASURE = 100000
 
+export type Bound = {
+	wide: ComposeTypes.ReadOnlyValue<number>,
+	limit: (ComposeTypes.Use) -> number,
+}
+
 return function(
 	ctx: Types.Context,
 	props: Types.ScrollingFrameProps,
 	children: { Types.Child },
-	options: { hug: boolean?, name: string?, rest: boolean? }?
+	options: { hug: boolean?, name: string?, rest: boolean?, bound: Bound? }?
 ): (
 	ScrollingFrame,
 	Frame,
@@ -19,12 +24,21 @@ return function(
 )
 	local Host, Compose, E, D2 = ctx.Host, ctx.Compose, ctx.types.Enum, ctx.types.UDim2
 	local hug = options ~= nil and options.hug == true
+	local bound = if hug and options then options.bound else nil
 	local flowProps: Types.FrameProps = {
 		Name = if options and options.name then options.name else "Flow",
 		BackgroundTransparency = 1,
 		Size = if hug then D2.fromOffset(0, 0) else D2.new(1, 0, 0, 0),
 		AutomaticSize = if hug then E.AutomaticSize.XY else E.AutomaticSize.Y,
 	}
+	if bound then
+		flowProps.Size = function(use: ComposeTypes.Use): UDim2
+			return D2.fromOffset(if use(bound.wide) > 0 then bound.limit(use) else 0, 0)
+		end
+		flowProps.AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+			return if use(bound.wide) > 0 then E.AutomaticSize.Y else E.AutomaticSize.XY
+		end
+	end
 	for _, child in children do
 		flowProps[#flowProps + 1] = child
 	end
@@ -33,7 +47,7 @@ return function(
 	local extent = Compose.cell(0)
 	props.AutomaticCanvasSize = E.AutomaticSize.None
 	props.CanvasSize = function(use: ComposeTypes.Use)
-		return D2.fromOffset(0, use(extent))
+		return D2.fromOffset(if bound then use(bound.wide) else 0, use(extent))
 	end
 	props[#props + 1] = Host.Frame "Measure" {
 		BackgroundTransparency = 1,

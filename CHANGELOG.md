@@ -1,5 +1,21 @@
 # Current package
 
+`Facet.review` has a new rule. `collapsed-text` (high) finds a text that is
+0 pixels wide inside a holder that is on the screen. It is most often a row
+with `width = "fill"` inside a Button or a stack that hugs: the row takes
+the width of its content, and the part of the row that fills gets none.
+[Button.records](docs/reference/nodes/Button.records.md) says how to give
+such a Button its width.
+
+A Popover stays inside the screen when its content has a pixel width that is
+wider than the screen. The body carried a size constraint with the right
+maximum, but the engine does not apply a maximum to an automatic size, so a
+420 pixel child made a 420 pixel panel on a 389 pixel phone and the Close
+button was drawn off the screen. The panel now takes the width of the safe
+box, the header and its Close button stay in it, and the body scrolls
+sideways to the rest of the content. Content that fits, and content that
+fills, are sized as before.
+
 A `UI.Text` with `wrap = true` in a parent that hugs its width no longer
 collapses. In a stack with no width it had nothing to fill: in a VStack it
 was 0 pixels wide, and in a HUD Region it wrapped to the narrowest slot that

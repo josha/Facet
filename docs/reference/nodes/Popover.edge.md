@@ -10,7 +10,10 @@ default follows live input changes. The compact sheet route is unchanged.
 The placement tries the preferred edge,
 then the opposite edge. When neither side holds the panel, it hangs beside the
 source before any clamp. `maxWidth` and `maxHeight` bound the whole panel,
-chrome included, inside the live safe box. The body scrolls. `tail = false`
+chrome included, inside the live safe box. The body scrolls. Content with
+a pixel width that is wider than the box does not widen the panel: the panel
+stays at the box, its Close button stays on the screen, and the body also
+scrolls sideways. `tail = false`
 removes the arrow.
 
 Callout and Popover use `chrome.panelTail` when the theme provides it.
