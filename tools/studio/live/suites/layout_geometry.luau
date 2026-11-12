@@ -648,7 +648,7 @@ add("hud-goals-card-fits-every-device", {}, function(t)
 			local stage = t.mount(function(UI: FacetControls)
 				return goalsHud(UI, ordering)
 			end, { size = device.size, environment = device.environment, frames = 30 })
-			local audit = VerifyRoblox.uiAudit.analyze(VerifyRoblox.uiAudit.collect { roots = { stage } })
+			local audit = VerifyRoblox.uiAudit.analyze(VerifyRoblox.uiAudit.collect { roots = { stage }, game = game })
 			local blocking = {}
 			for _, violation in audit.violations do
 				local measured = studio
@@ -665,7 +665,7 @@ add("hud-goals-card-fits-every-device", {}, function(t)
 			t.check(where .. ": the HUD text fits and stays on screen", #blocking == 0, blocking)
 			local zones: { { path: string, rect: { x: number, y: number, width: number, height: number }, visible: boolean } } =
 				{}
-			for _, element in VerifyRoblox.uiAudit.collect({ roots = { stage } }).elements do
+			for _, element in VerifyRoblox.uiAudit.collect({ roots = { stage }, game = game }).elements do
 				table.insert(zones, { path = element.path, rect = element.rect, visible = element.visible })
 			end
 			local covered = HudView.problems(zones)

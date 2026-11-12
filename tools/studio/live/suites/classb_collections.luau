@@ -244,7 +244,7 @@ add("purchase-card-keeps-its-paint-inside-the-row", {}, function(t)
 				end
 				table.insert(geometry, entry)
 			end
-			local audit = VerifyRoblox.uiAudit.analyze(VerifyRoblox.uiAudit.collect { roots = { stage } })
+			local audit = VerifyRoblox.uiAudit.analyze(VerifyRoblox.uiAudit.collect { roots = { stage }, game = game })
 			t.check(motion .. "/" .. phase .. " samples the atomic row paint boundary", clippingGroups > 0)
 			t.check(motion .. "/" .. phase .. " paints the prepared card", t.visible(card))
 			t.check(motion .. "/" .. phase .. " publishes the atomic paint group", paint.GroupTransparency == 0)
