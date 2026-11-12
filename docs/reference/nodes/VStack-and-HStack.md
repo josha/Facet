@@ -31,6 +31,12 @@ regardless, for example in a row that scrolls or clips on purpose. A hugging HSt
 so it never wraps by itself. A wrapped row needs room to grow downward: give it
 no fixed height.
 
+A fill-width row in a parent that hugs (a Button with child content, a stack
+with no `width`) has no width to fill. Its `UI.fill()` child takes the width
+of its content, a wrapped text as one line up to 320 pixels, within the room
+of the nearest ancestor with a width. Give the parent a width or
+`align = "stretch"` on its list to span the list.
+
 `maxWidth` and `maxHeight` accept bound finite numbers of pixels, zero or more.
 They set a native `UISizeConstraint`; an omitted maximum leaves that axis
 unbounded. They cap the frame, but do not scroll its children. Use

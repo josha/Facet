@@ -256,6 +256,7 @@ return function(verifyHarness: Verify.Harness)
 			run = function()
 				local root, engine, stop = build(nil, function(UI, Host)
 					return UI.VStack "Page" {
+						width = "fill",
 						UI.HStack "Row" {
 							width = "fill",
 							gap = 0,
