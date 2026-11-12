@@ -74,18 +74,20 @@ local function worker(path: string)
 		local runner = fields.runner == true
 		local progressToken = Detached.tokenFor(runId)
 		local request = if runner
-			then "game:GetService('ReplicatedStorage'):SetAttribute("
-				.. string.format("%q", Detached.REQUEST)
-				.. ", "
-				.. string.format(
-					"%q",
-					Detached.request(
-						runId,
-						if fields.players ~= nil then "Multiplayer" else textField "context",
-						if type(fields.progressFile) == "string" then progressToken else nil
-					)
+			then "local RS = game:GetService('ReplicatedStorage'); local stale = RS:FindFirstChild(" .. string.format(
+				"%q",
+				Detached.REQUEST
+			) .. "); if stale then stale:Destroy() end; local holder = Instance.new('StringValue'); holder.Name = " .. string.format(
+				"%q",
+				Detached.REQUEST
+			) .. "; holder.Value = " .. string.format(
+				"%q",
+				Detached.request(
+					runId,
+					if fields.players ~= nil then "Multiplayer" else textField "context",
+					if type(fields.progressFile) == "string" then progressToken else nil
 				)
-				.. "); "
+			) .. "; holder.Parent = RS; "
 			else ""
 		local edit = Reply.texts(call("execute_luau", {
 			studio_id = id,
@@ -160,6 +162,8 @@ local function worker(path: string)
 		else
 			call("start_stop_play", { studio_id = id, is_start = true })
 			datamodel = textField "context"
+			local reachable = session.ready(datamodel, 30)
+			assert(reachable.ok, "Studio " .. datamodel .. " datamodel did not start: " .. tostring(reachable.detail))
 			code = "assert(game:GetService('ReplicatedStorage'):GetAttribute('VerifyRun') == "
 				.. attribute
 				.. ", 'wrong Verify run'); local runId = "

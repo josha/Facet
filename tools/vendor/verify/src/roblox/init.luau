@@ -16,6 +16,9 @@ local FixtureBridge = require "@self/fixture-bridge"
 local ReflectionSnapshot = require "@self/reflection-snapshot"
 local Multiplayer = require "@self/multiplayer"
 local InputHost = require "@self/input-host"
+local ControllerHost = require "@self/controller-host"
+local PathfindingHost = require "@self/pathfinding-host"
+local PromptHost = require "@self/prompt-host"
 local ProgressChannel = require "@self/progress-channel"
 local ReportChannel = require "@self/report-channel"
 local InstanceHost = require "@self/instance-host"
@@ -34,6 +37,7 @@ export type CaseEntryFactory = CaseEntry.Factory
 export type CaseHostName = CaseEntry.Host
 export type MultiplayerConnection = Multiplayer.Connection
 export type MultiplayerPlayer = Multiplayer.Player
+export type MultiplayerDeliveryReason = Multiplayer.DeliveryReason
 export type EnvironmentEvent = Environment.Event
 export type EnvironmentObserveFilter = Environment.ObserveFilter
 export type EnvironmentClass<P = { [string]: unknown }, M = { [string]: unknown }> = Environment.ClassSpec<P, M>
@@ -96,6 +100,9 @@ return {
 	reflectionSnapshot = ReflectionSnapshot,
 	multiplayer = Multiplayer,
 	inputHost = InputHost,
+	controllerHost = ControllerHost,
+	pathfindingHost = PathfindingHost,
+	promptHost = PromptHost,
 	reportChannel = ReportChannel,
 	progressChannel = ProgressChannel,
 	instanceHost = InstanceHost,
