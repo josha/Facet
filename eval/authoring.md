@@ -20,7 +20,9 @@ Do these in order. Each one ends with a result that you can observe.
    is play with its interface over it. With an image tool, generate two or
    three whole-screen compositions and choose one. Without one, block the
    screen in: its ground, its main subject at its size and its main action,
-   with fixed sample data and no game logic, and capture it. This picture is
+   with fixed sample data and no game logic, and capture it. In a 3D game
+   the ground is the world: its sky and its light belong to the picture, and
+   the sky that the engine starts with is no direction. This picture is
    the first capture of the work, and it comes in the first few minutes.
    Change the composition until it is strong, and say in one message what
    you chose. Skip this step when the brief asks for an established look.

@@ -159,9 +159,9 @@ finish them here, before a second screen calls them.
   [Finish](references/finish.md#edge-and-depth) has the levers.
 - **A record.** One item with its visual, its name, the value that decides
   and its state, in a full form and a short form. When the whole record is
-  one Button with content of its own, give the Button its width first, with
-  `align = "stretch"` on the list or a `Size` with a width. A Button hugs
-  its content, so a row that fills inside it has no width to fill.
+  one Button with content of its own, the Button hugs that content, so the
+  records of one list differ in width. Use `align = "stretch"` on the list,
+  or a `Size` with a width, to make each record span the list.
 - **A readout.** A value that the player watches during the task, such as a
   place, a time or a balance, is a number in the `numeral` role with its
   label as a caption. It is the largest type in its region. One line of
@@ -176,12 +176,17 @@ finish them here, before a second screen calls them.
   stack that hugs one corner of a large surface is not a body.
 - **The text.** `wrap = true` is for a sentence. A name, a value, a label
   and a heading are one line. A helper that wraps every text lets a value
-  break in the middle when its part is narrow.
+  break in the middle when its part is narrow. A text with no `textRole` is
+  body text, so a helper that sets no role gives every screen one size.
+  Each text names its role: `title`, `heading`, `numeral`, `strong`, `label`
+  or `caption`.
 
 **Build it in layers.**
 
 1. **Ground.** It reaches every edge of the glass on every device. A flat
-   neutral fill is correct only when the card says so.
+   neutral fill is correct only when the card says so. When the ground is
+   the 3D world, its sky and its light are the ground: set them from the
+   card. The sky that the engine starts with is the neutral ground.
 2. **Lead.** The subject at the size on the card, scaled from the room. Its
    objects are the largest things on the screen.
 3. **Controls.** Real Facet controls in the theme's materials, placed where the

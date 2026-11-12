@@ -46,8 +46,12 @@ tool or a plugin can keep persistent facts when users need them.
 
 A shorter form keeps a route to everything that the fuller form offered. In a
 `Composition`, a region that shows a reduced form opens its fullest form in a
-Popover on a press, and a region with `mayDrop = true` leaves a "…" badge that
+Popover on a press, and a region with `mayDrop = true` leaves a badge that
 does the same; `Composition.regions` describes `reveal`, `expand` and `form`.
+Give each region that can hide a `label`, and an `icon` when the theme has
+one: the badge shows them. Without them the badge is "…", and two of those on
+one screen tell the player nothing. A readout whose shorter form loses
+nothing takes `reveal = false` and has no badge.
 A button of your own on a short form consumes that press, so it must open the
 whole task itself, in a Popover or a Sheet. It must not only set the state
 that the fuller form shows, because that form is not on the screen. Keep
