@@ -6,6 +6,8 @@ local textMeasure = require("./text_measure")
 type Poll = { steps: { [() -> ()]: boolean }, queue: { () -> () }, count: number, stop: (() -> ())? }
 local polls: { [unknown]: Poll } = setmetatable({}, { __mode = "k" })
 
+local REVEAL_DEADLINE = 120
+
 local function painted(node: Instance): boolean
 	if node:IsA("GuiObject") then
 		if not node.Visible then
@@ -116,6 +118,7 @@ return function(
 	local frames = ctx.runtime.host.frames
 	local signalled = rowSignals == true or (not render and not frames)
 	local waiting, closed = false, false
+	local attempts = 0
 	local poll: Poll? = nil
 	local geometry: { RBXScriptConnection } = {}
 	local prepare: () -> ()
@@ -196,7 +199,8 @@ return function(
 			end
 			return
 		end
-		if sample() then
+		attempts += 1
+		if sample() or attempts >= REVEAL_DEADLINE then
 			ready:set(true)
 			if signalled then
 				halt()
