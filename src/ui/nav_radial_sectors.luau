@@ -23,6 +23,7 @@ export type Paint<V> = {
 }
 
 local PATH_THICKNESS_LIMIT = 100
+local REVEAL_FRAMES = 10
 
 return function<V>(
 	ctx: Types.Context,
@@ -163,6 +164,25 @@ return function<V>(
 		end
 		return math.min(width, math.max(0, use(arrangement.viewport).X - 32))
 	end)
+	local frames = ctx.runtime.host.frames
+	local measureDeadline = Compose.cell(frames == nil or ctx.config.services.TextService == nil)
+	if frames and not measureDeadline:peek() then
+		Compose.watch(function(use: ComposeTypes.Use)
+			if not use(fallback) or measureDeadline:peek() then
+				return
+			end
+			local count = 0
+			local stop: () -> ()
+			stop = frames.onFrame(function()
+				count += 1
+				if count >= REVEAL_FRAMES then
+					stop()
+					measureDeadline:set(true)
+				end
+			end)
+			Compose.cleanup(stop)
+		end)
+	end
 	local attributes: Types.Attributes = {
 		Presentation = function(use: ComposeTypes.Use)
 			return if use(fallback) then "list" else "radial"
@@ -198,6 +218,19 @@ return function<V>(
 			return if use(fallback) then 6 else 0
 		end,
 		Attributes = attributes,
+		Visible = function(use: ComposeTypes.Use): boolean
+			if not use(fallback) or use(measureDeadline) then
+				return true
+			end
+			local words = use(wordWidths)
+			for _, sector in use(sectors) do
+				local label = ctx.read<<string>>(sector.item.label, use)
+				if label ~= "" and words[sector.key] == nil then
+					return false
+				end
+			end
+			return true
+		end,
 		listHeader,
 		Compose.show(fallback, function()
 			return Compose.fragment(function()
