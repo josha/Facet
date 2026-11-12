@@ -1,5 +1,13 @@
 # Current package
 
+A `UI.Text` with `wrap = true` in a parent that hugs its width no longer
+collapses. In a stack with no width it had nothing to fill: in a VStack it
+was 0 pixels wide, and in a HUD Region it wrapped to the narrowest slot that
+the Composition ever gave it and stayed there, so a plate of "ION // RUN"
+became 44 pixels wide and four lines tall. The text is now as wide as its
+line, up to 320 pixels, and wraps past that. A wrapped text in a parent with
+a width, in a bounded HStack and with its own `Size` is sized as before.
+
 A `UI.Text` with `wrap = true` in an HStack that has a bounded width stays
 inside the row. It took the full width of the row, whatever stood beside it:
 after a 40 pixel Avatar in a 276 pixel row it ran 48 pixels past the end, and

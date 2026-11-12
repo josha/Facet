@@ -93,6 +93,45 @@ return function(harness: Verify.Harness)
 		runtime:dispose()
 		t:expect(engine.census().connections):toBe(0)
 	end)
+	harness:case("wrapped text in a parent that hugs takes the width of its line up to a measure", function(t)
+		local engine = engineLib.new()
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local service: TextService = engine.new("TextService")
+		engine.environment.fake("TextService.GetTextBoundsAsync", function(_self: unknown, params: GetTextBoundsParams)
+			return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+		end)
+		local UI = Facet.controls(runtime, { types = engine.types, services = { TextService = service } })
+		local E, D2 = engine.types.Enum, engine.types.UDim2
+		local words = Facet.Compose.cell("Ready")
+		local loose: GuiObject? = nil
+		local held: GuiObject? = nil
+		local stop = runtime.mount(function()
+			local Host = runtime.constructors
+			local first = UI.Text { text = words, wrap = true }
+			local second = UI.Text { text = words, wrap = true }
+			loose, held = first, second
+			return Host.Frame {
+				Size = D2.fromOffset(600, 400),
+				Host.Frame { AutomaticSize = E.AutomaticSize.XY, first },
+				Host.Frame { Size = D2.fromOffset(200, 0), AutomaticSize = E.AutomaticSize.Y, second },
+			}
+		end, engine.new("ScreenGui"))
+		t:defer(function()
+			stop()
+			runtime:dispose()
+			t:expect(engine.census().connections):toBe(0)
+		end)
+		local node, other = assert(loose), assert(held)
+		assert(node:IsA("TextLabel"))
+		t:expect(node.Size):toEqual(D2.fromOffset(math.min(5 * node.TextSize + 1, 320), 0))
+		t:expect(node.AutomaticSize):toBe(E.AutomaticSize.Y)
+		t:expect(other.Size):toEqual(D2.fromScale(1, 0))
+		t:expect(other.AutomaticSize):toBe(E.AutomaticSize.Y)
+		words:set("A caption that is far too long to stay on one line of a small plate")
+		t:expect(node.Size):toEqual(D2.fromOffset(320, 0))
+		t:expect(node.AutomaticSize):toBe(E.AutomaticSize.Y)
+		t:expect(other.Size):toEqual(D2.fromScale(1, 0))
+	end)
 	harness:case("deferred text floors keep their owner across nested callback threads", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)
