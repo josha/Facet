@@ -158,7 +158,16 @@ finish them here, before a second screen calls them.
   new colors: every plate stays a flat fill.
   [Finish](references/finish.md#edge-and-depth) has the levers.
 - **A record.** One item with its visual, its name, the value that decides
-  and its state, in a full form and a short form.
+  and its state, in a full form and a short form. When the whole record is
+  one Button with content of its own, give the Button its width first, with
+  `align = "stretch"` on the list or a `Size` with a width. A Button hugs
+  its content, so a row that fills inside it has no width to fill.
+- **A readout.** A value that the player watches during the task, such as a
+  place, a time or a balance, is a number in the `numeral` role with its
+  label as a caption. It is the largest type in its region. One line of
+  body text that joins every fact is a sentence about the state, and the
+  player cannot find the one value in it at a glance.
+  [Information display](references/information-display.md) has the forms.
 - **The actions.** The main action is the strongest thing in its column, in
   `emphasis` and at the column's width when it stands alone. The lesser
   actions are quieter.
@@ -326,6 +335,9 @@ finding is work too. `hollow-plate`, `joined-facts`, `flat-hierarchy`,
 generic composition reads in numbers: a plate with its content in one
 corner, a line that joins every fact, records that differ only by name.
 Repair each one at its cause, or note in one line why the design keeps it.
+A reason belongs to one finding: it names the part and what the player
+gains from it as it is. One reason for a whole rule, or for every finding
+on a screen, means that the findings were not looked at.
 `low` findings are prompts to look. A clean report covers only the state
 that was mounted, and it does not judge identity.
 
