@@ -580,6 +580,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			fillsGlyph, markRow = buttonContent(ctx, kit, spec, p, iconState, bounded, sized, rowHint)
 		end
 		local captionFits = if ctx.config.theme ~= nil then Compose.cell(true) else nil
+		local tighten: (() -> ())? = nil
 		local keyboardAttached = false
 		local hapticSwitch = p.PressHapticEffect == nil and dynamic(spec.haptic)
 		if p.PressHapticEffect == nil and not hapticSwitch then
@@ -626,12 +627,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				local owner = assert(Compose.currentOwner())
 				local detach: ComposeTypes.Dispose?
 				local attached = false
+				local fitting: RBXScriptConnection? = nil
 				local function attach()
 					local grows = node.AutomaticSize
 					if attached or grows == E.AutomaticSize.X or grows == E.AutomaticSize.XY then
 						return
 					end
 					attached = true
+					if fitting then
+						fitting:Disconnect()
+						fitting = nil
+					end
 					if detach then
 						detach()
 						detach = nil
@@ -704,9 +710,20 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 						end, node)
 					end)
 				end
-				detach =
-					Compose.cleanup(assert(runtime.host.observation).observeProperty(node, "AutomaticSize", attach))
-				attach()
+				tighten = attach
+				if node.TextFits then
+					local connection = node:GetPropertyChangedSignal("TextFits"):Connect(function()
+						if not node.TextFits then
+							attach()
+						end
+					end)
+					fitting = connection
+					detach = Compose.cleanup(function()
+						connection:Disconnect()
+					end)
+				else
+					attach()
+				end
 			end
 		end
 		if hapticSwitch then
@@ -854,7 +871,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 				Compose.watch(function(use: ComposeTypes.Use)
 					use(size)
 					use(fits)
-					assert(captionFits):set(not needsCaption(use) or label.TextFits)
+					local whole = not needsCaption(use) or label.TextFits
+					assert(captionFits):set(whole)
+					if not whole and tighten then
+						tighten()
+					end
 				end)
 				local boundary = decoration(Compose, runtime, ctx.types, node, label, { inset = true })
 				Compose.watch(function(use: ComposeTypes.Use)
