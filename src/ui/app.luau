@@ -8,6 +8,7 @@ local Engine = require("./engine_types")
 local Overlay = require("./overlay_types")
 local freeze = require("./freeze")
 local OverlayProps = require("./overlay_props")
+local specimenView = require("./specimen")
 
 export type Component = () -> ComposeTypes.Child
 export type AppOptions = {
@@ -65,6 +66,7 @@ export type App = {
 	runtime: Types.Runtime,
 	UI: ControlTypes.Controls,
 	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
+	specimen: (parent: Instance?) -> (() -> (), ScreenGui),
 	refusal: (control: string, spec: unknown) -> string?,
 	construct: (control: string, spec: unknown) -> Instance,
 	controlNames: () -> { string },
@@ -329,6 +331,11 @@ return function(
 		runtime = runtime,
 		UI = UI,
 		mount = mount,
+		specimen = function(parent: Instance?): (() -> (), ScreenGui)
+			return mount(function(): ComposeTypes.Child
+				return specimenView(UI, Compose)
+			end, parent)
+		end,
 		refusal = refusal,
 		construct = construct,
 		controlNames = controlNames,

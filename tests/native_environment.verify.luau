@@ -2071,6 +2071,57 @@ return function(verifyHarness: Verify.Harness)
 		})
 	end)
 
+	verifyHarness:suite("theme specimen", function()
+		verifyHarness:case("an app mounts a specimen of its theme and removes it", {
+			id = "native_environment::theme specimen::an app mounts a specimen of its theme and removes it",
+			run = function()
+				local engine: any = require("./lib/native_engine").new()
+				local gui, input = engine.new("GuiService"), engine.new("UserInputService")
+				input.GetFocusedTextBox = function()
+					return nil
+				end
+				local playerGui = engine.new("PlayerGui")
+				local app = Facet.app({
+					runtime = Facet.Roblox.createRuntime(engine),
+					types = engine.types,
+					parent = playerGui,
+					guiService = gui,
+					services = { GuiService = gui, UserInputService = input },
+				} :: any)
+				local stop, screen = app.specimen()
+				local sheet = screen:FindFirstChild("Specimen", true)
+				Verify.expect(sheet ~= nil):toBe(true)
+				local plates: { string } = {}
+				for _, plate in sheet:FindFirstChild("Plates"):GetChildren() do
+					if plate:IsA("Frame") and plate:HasTag("facet-panel") then
+						table.insert(plates, plate.Name)
+					end
+				end
+				table.sort(plates)
+				Verify.expect(plates):toEqual({ "Actions", "Records", "Type" })
+				local roles: { [string]: boolean } = {}
+				for _, node in sheet:GetDescendants() do
+					for _, role in { "title", "heading", "numeral", "strong", "label", "caption" } do
+						if node:HasTag("facet-type-" .. role) then
+							roles[role] = true
+						end
+					end
+				end
+				Verify.expect(roles):toEqual({
+					title = true,
+					heading = true,
+					numeral = true,
+					strong = true,
+					label = true,
+					caption = true,
+				})
+				stop()
+				Verify.expect(screen.Parent):toBe(nil)
+				app.dispose()
+			end,
+		})
+	end)
+
 	verifyHarness:suite("failed drop feedback", function()
 		verifyHarness:case(
 			"returns a rejected preview through shared travel, skips motion when reduced, and cleans up on unmount",

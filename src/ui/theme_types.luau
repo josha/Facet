@@ -315,8 +315,21 @@ export type ReadOnlyThemePackage = {
 	icons: { [string]: IconEntry }?,
 	rules: { Rule }?,
 }
+export type FinishEdge = { width: number, role: string?, transparency: number? }
+export type FinishDepth = {
+	lift: number,
+	glow: number,
+	sheen: number,
+	blur: number?,
+	side: number?,
+	role: string?,
+	strength: number?,
+	controls: boolean?,
+}
+export type Finish = { edge: FinishEdge, depth: FinishDepth }
 export type ThemeDefinition = {
 	base: ThemePackage?,
+	finish: Finish?,
 	schema: string?,
 	identity: IdentityPatch?,
 	style: { defaultTheme: string?, themes: { PalettePatch }?, shadows: { [string]: Shadow }? }?,

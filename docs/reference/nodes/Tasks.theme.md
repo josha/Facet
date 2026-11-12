@@ -12,7 +12,8 @@ Copy the example into a LocalScript in `StarterPlayerScripts` with Facet
 installed. In Studio, read the source in Edit under
 `ServerStorage.FacetDocs.skills["use-facet"].assets["native-direction.luau"]`.
 
-`define` starts from Facet Neutral when you omit `base`. Check the returned
+`define` starts from Facet Neutral when you omit `base`. State the edge and
+the depth of the plates in [the finish block](Themes.finish.md). Check the returned
 theme and repair any reported errors. Inspect `report.advice` against the task.
 Pass the result to `Facet.app({ theme = theme })` and use `app.UI`. The theme
 supplies both the stylesheet paint and the control metrics and chrome.

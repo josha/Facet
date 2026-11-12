@@ -294,6 +294,7 @@ export type TouchReservation = SharedTypes.TouchReservation
 export type ThemePackage = ThemeTypes.ThemePackage
 export type ReadOnlyThemePackage = ThemeTypes.ReadOnlyThemePackage
 export type ThemeDefinition = ThemeTypes.ThemeDefinition
+export type ThemeFinish = ThemeTypes.Finish
 export type IconEntry = ThemeTypes.IconEntry
 export type IconGlyph = ThemeTypes.IconGlyph
 export type PalettePatch = ThemeTypes.PalettePatch
