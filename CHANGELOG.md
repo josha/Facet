@@ -1,5 +1,16 @@
 # Current package
 
+A theme states its edge and its depth as values. `finish` on a theme
+definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
+side, glow, sheen, role, strength, controls), and `define` writes them into
+the theme's stroke rule, its plate shadow and its plate gradient. The same
+block gives a quiet interface with zeros, a neon one with a bright edge and
+a wide glow, and a hard-edged one with a thick line and a hard shadow. A
+definition without `finish` is accepted as before and gets a `finish` entry
+in `report.advice`. `app.specimen(parent?)` mounts one screen of the theme
+(type roles, actions in each state, a field and records) to capture beside
+a concept before the first screen is built.
+
 `Facet.review` reports `joined-facts` as high when the joined line has a
 number and is the largest text of a HUD Region, such as
 "P4 / 4 • LAP 1 / 2 • 0 km/h" alone on a plate. The player reads a HUD value
