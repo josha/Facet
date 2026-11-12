@@ -673,7 +673,7 @@ return function(verifyHarness: Verify.Harness)
 							Color = {
 								colorSequence = {
 									{ time = 0, color = "#ff0000" },
-									{ time = 0.5, color = { r = 0, g = 255, b = 0 } },
+									{ time = 0.5, color = { r = 0, g = 1, b = 0 } },
 									{ time = 1, color = { role = "accent" } },
 								},
 							},

@@ -38,7 +38,7 @@ are absent, such as under Lute:
 - `{ vector2 = { x, y } }` for a Vector2.
 - `{ colorSequence = { { time = 0, color = "#ff8800" }, { time = 1, color = { role = "accent" } } } }`
   for a ColorSequence. A color is a `#hex` string, a palette role or
-  `{ r = 0, g = 128, b = 255 }`.
+  `{ r = 0, g = 0.5, b = 1 }` with channels from 0 to 1, like palette colors.
 - `{ numberSequence = { { time = 0, value = 0 }, { time = 1, value = 0.5 } } }`
   for a NumberSequence.
 

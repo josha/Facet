@@ -115,7 +115,12 @@ return function(
 	end
 	local function ruleColor(key: string, value: unknown): Color3
 		if type(value) == "string" then
-			return types.Color3.fromHex(value)
+			local digits = string.match(value, "^#?(%x%x%x%x%x%x)$")
+			assert(digits ~= nil, `Facet theme rule: {key} hex colors must be #RRGGBB`)
+			local function channel(at: number): number
+				return (tonumber(string.sub(digits, at, at + 1), 16) :: number) / 255
+			end
+			return assert(color(types, { r = channel(1), g = channel(3), b = channel(5) }))
 		elseif type(value) == "table" then
 			local record = value :: { role: unknown, r: unknown, g: unknown, b: unknown }
 			if type(record.role) == "string" then
@@ -124,7 +129,7 @@ return function(
 					`Facet theme rule: {key} names unknown role {record.role}`
 				)
 			elseif type(record.r) == "number" and type(record.g) == "number" and type(record.b) == "number" then
-				return types.Color3.fromRGB(record.r, record.g, record.b)
+				return assert(color(types, { r = record.r, g = record.g, b = record.b }))
 			end
 		end
 		error(`Facet theme rule: {key} colors must be a #hex string, a role or r, g and b`, 0)
