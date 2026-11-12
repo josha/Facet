@@ -958,7 +958,8 @@ return function<V, K>(
 					end
 				end
 				local previous = measured:peek()[keyCell:peek()]
-				if previous and liftScale ~= 1 and math.abs(extent - previous) <= 1 then
+				local lifting = liftScale ~= 1 and measuredNode:GetAttribute("FacetLifting") ~= nil
+				if previous and (lifting or (liftScale ~= 1 and math.abs(extent - previous) <= 1)) then
 					return
 				end
 				if extent > 0 and previous ~= extent then
