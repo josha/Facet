@@ -26,6 +26,10 @@ Theme readers accept `Facet.ReadOnlyThemePackage`, the shallow readonly view of
 `Facet.ThemePackage`. Theme authoring keeps the mutable package type. A frozen
 package does not need a copy before a control reads it.
 
+`Facet.ThemeFinish` types the `finish` field of a `Facet.ThemeDefinition`:
+the edge and the depth of every plate as values. See
+[Themes.finish](nodes/Themes.finish.md).
+
 `UI.Group` returns a native CanvasGroup. Its `groupTransparency` option accepts
 a readable number and fades the children together. `Facet.GroupProps` types
 its properties. See [Group](nodes/Group.reference.md) for clipping, texture
