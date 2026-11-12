@@ -139,6 +139,8 @@ export type RegionOptions = {
 	form: Types.Value<number>?,
 	expand: (() -> Instance)?,
 	reveal: boolean?,
+	label: string?,
+	icon: string?,
 	leading: boolean?,
 	trailing: boolean?,
 }

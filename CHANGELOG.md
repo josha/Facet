@@ -1,11 +1,35 @@
 # Current package
 
+`Facet.review` reports `joined-facts` as high when the joined line has a
+number and is the largest text of a HUD Region, such as
+"P4 / 4 • LAP 1 / 2 • 0 km/h" alone on a plate. The player reads a HUD value
+at a glance during play, and in that line no value leads. The same line under
+a larger text in its region, and a joined line outside a Composition, stay
+medium.
+
+A Region takes `label` and `icon`. A region that the screen has no room for
+showed as a "…" badge, and three of them on a phone in portrait said nothing
+about what each one held. The region's `Reveal` badge and the zone's
+`ZoneReveal` button now show the label and the icon that the region has,
+and the Popover that holds several hidden regions puts each label above its
+region. A region with neither keeps the "…" mark, and `Facet.review` has a
+new medium rule, `unnamed-reveal`, for a mark that is on the screen.
+
+A row with `width = "fill"` inside a parent that hugs keeps its content. A
+Button with child content hugs it, so a row inside that asked to fill was as
+wide as its fixed parts, and its `UI.fill()` child was 0 pixels wide: a
+record of a thumbnail and two captions showed the thumbnail alone. The fill
+child now takes the width of its content, with a wrapped text counted as one
+line up to 320 pixels, and no more than the room that the nearest ancestor
+with a width leaves. The same holds in a stack with no `width`. A row in a
+parent with a width, and a parent in a list with `align = "stretch"`, are
+sized as before. A stack with no `width` that held such a row beside a wider
+child gave the row the width of that child; the row can now make the stack
+wider.
+
 `Facet.review` has a new rule. `collapsed-text` (high) finds a text that is
-0 pixels wide inside a holder that is on the screen. It is most often a row
-with `width = "fill"` inside a Button or a stack that hugs: the row takes
-the width of its content, and the part of the row that fills gets none.
-[Button.records](docs/reference/nodes/Button.records.md) says how to give
-such a Button its width.
+0 pixels wide inside a holder that is on the screen: the holder is as wide
+as its content, and the content waits for a width from the holder.
 
 A Popover stays inside the screen when its content has a pixel width that is
 wider than the screen. The body carried a size constraint with the right

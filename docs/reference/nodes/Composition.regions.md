@@ -41,6 +41,12 @@ a stable stack or frame form, not around the Region.
   node. `false` turns the affordance and the badges off, for a region whose
   reduced forms lose nothing. The badge is the last form, so
   `form` reads one past the authored forms while it shows.
+- `label` and `icon`: a string and an icon name. They name the region where
+  it is not on the screen. Its `Reveal` badge shows them. The zone's button
+  shows them when one region is hidden, and the Popover of several puts
+  each label above its region. An icon that the theme does not have is left
+  out. With neither, the mark is "…" and `Facet.review` reports
+  `unnamed-reveal`.
 - `expand`: an optional function that returns content for the Popover in
   place of the region's own form 1.
 - The children are the forms of the region, richest first. At least one form

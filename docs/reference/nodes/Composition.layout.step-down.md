@@ -36,6 +36,9 @@ Form selection, zone fallback, fit warnings and resize motion.
   size and the regions. A region that opens its fullest form in a Popover
   also fails when that form is wider than the area. `Facet.review` reports
   it as `composition-unfit`.
+- A visible "…" mark for a region with no `label` and no `icon` carries the
+  `FacetReveal` attribute with the region names. `Facet.review` reports it as
+  `unnamed-reveal` (medium).
 - Each Composition lays out only its own regions. Two Compositions are on
   one screen when their layers are the same or have the same parent. When
   two Compositions on one screen place visible regions in the same zone for

@@ -1,4 +1,6 @@
 --!strict
+local CharacterFakes = require "./character-fakes"
+local SimulationFakes = require "./simulation-fakes"
 local Vm = require "./value"
 
 local Types = require "./place-types"
@@ -126,6 +128,9 @@ local function install<B>(
 			return humanoidStates[object] or engine.datatypes.Enum.HumanoidStateType.Running
 		end
 		overrides.Humanoid = {
+			ReplaceBodyPartR15 = function(humanoid: Instance, bodyPart: unknown, replacement: Instance): boolean
+				return CharacterFakes.replace(engine, humanoid, bodyPart, replacement)
+			end,
 			GetState = humanoidState,
 			GetStateEnabled = function(object: Instance, state: Datatypes.EnumMember): boolean
 				validateHumanoidState(state)
@@ -158,6 +163,7 @@ local function install<B>(
 			end,
 		}
 		overrides.RunService = {
+			BindToSimulation = SimulationFakes.create(engine),
 			IsServer = function(): boolean
 				return context() == "server"
 			end,
@@ -318,6 +324,11 @@ local function install<B>(
 				end
 			end,
 		}
+		overrides.Player = {
+			LoadCharacterAsync = function(player: Instance)
+				CharacterFakes.load(engine, player)
+			end,
+		}
 		overrides.Players = {
 			GetPlayers = function(service: Instance): { Instance }
 				local out: { Instance } = {}
@@ -359,13 +370,25 @@ local function install<B>(
 		end
 		overrides.RemoteEvent = {
 			FireServer = function(object: Instance, ...: unknown)
-				signalOn(object, "OnServerEvent"):Fire(runtime.localPlayer, ...)
+				local signal = signalOn(object, "OnServerEvent")
+				local arguments = table.pack(...)
+				environment.scheduler.defer(function()
+					signal:Fire(runtime.localPlayer, table.unpack(arguments, 1, arguments.n))
+				end)
 			end,
 			FireClient = function(object: Instance, _player: unknown, ...: unknown)
-				signalOn(object, "OnClientEvent"):Fire(...)
+				local signal = signalOn(object, "OnClientEvent")
+				local arguments = table.pack(...)
+				environment.scheduler.defer(function()
+					signal:Fire(table.unpack(arguments, 1, arguments.n))
+				end)
 			end,
 			FireAllClients = function(object: Instance, ...: unknown)
-				signalOn(object, "OnClientEvent"):Fire(...)
+				local signal = signalOn(object, "OnClientEvent")
+				local arguments = table.pack(...)
+				environment.scheduler.defer(function()
+					signal:Fire(table.unpack(arguments, 1, arguments.n))
+				end)
 			end,
 		}
 		overrides.UnreliableRemoteEvent = overrides.RemoteEvent
@@ -516,6 +539,19 @@ local function install<B>(
 				scheduler.delay(lifetime or 10, function()
 					object:Destroy()
 				end)
+			end,
+		}
+		overrides.ParticleEmitter = {
+			Emit = function(_object: Instance, requested: unknown)
+				local count = if requested == nil then 16 else requested
+				assert(
+					type(count) == "number" and count >= 0 and count < math.huge and count % 1 == 0,
+					"particle count must be a finite nonnegative integer"
+				)
+				engine.record("effect", "ParticleEmitter.Emit count=" .. tostring(count), engine.currentSource())
+			end,
+			Clear = function(_object: Instance)
+				engine.record("effect", "ParticleEmitter.Clear", engine.currentSource())
 			end,
 		}
 		overrides.ContentProvider = {

@@ -31,6 +31,8 @@ export type ReviewElement = {
 	ground: boolean?,
 	text: ReviewText?,
 	unfit: string?,
+	reveal: string?,
+	region: boolean?,
 }
 export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"
@@ -64,7 +66,7 @@ local MEDIUM_NOTE =
 	"  %d medium rule(s): each one names a generic or unfinished part. On a new interface, repair it or note why the design keeps it before you build the next screen."
 
 local fixes: { [string]: string } = {
-	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. "
+	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. In a HUD region the player reads a value at a glance during play, so a joined line that leads its region is high. "
 		.. RECIPES,
 	["numbers-unemphasized"] = "The numbers on this screen are no larger or heavier than the text around them. Put the value that drives the decision in the numeral role, larger than body text, with its unit or label smaller. "
 		.. RECIPES,
@@ -81,9 +83,10 @@ local fixes: { [string]: string } = {
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["composition-unfit"] = "A HUD Composition does not fit this screen or a phone screen: the named regions overlap there even at their last form, or their fullest form is wider than that screen, so the Popover that shows it runs past the edge. Give each of them a compact second form, such as one Menu circle for the destinations, a fullest form that hugs its content in place of a pixel width, or mayDrop = true for an optional region.",
+	["unnamed-reveal"] = 'A HUD region that the screen has no room for shows as a "..." mark, and the mark does not say what is behind it. Give the Region a label, an icon or both: the mark shows them, and the popover of several regions names each one. For a readout whose shorter form loses nothing, set reveal = false.',
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
-	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder: a Button or a stack that hugs, with a row inside that fills. Give the holder a width: align = "stretch" on the list that holds it, a Size with a width, or the row option of the Button.',
+	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder. Give the holder a width: a width in pixels or fill, a Size with a width, or align = "stretch" on the list that holds it.',
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
@@ -405,7 +408,37 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			end
 		end
 		if digits then
-			add("joined-facts", "medium", element, ("%s joins %d facts"):format(quote(content), #parts))
+			local region: ReviewElement? = nil
+			local parent = prepared.parentOf(element)
+			while parent ~= nil and region == nil do
+				local ancestor = prepared.byIndex[parent]
+				if ancestor == nil then
+					break
+				end
+				if ancestor.region then
+					region = ancestor
+				end
+				parent = prepared.parentOf(ancestor)
+			end
+			local leads = region ~= nil
+			if region then
+				for _, other in prepared.descendantTexts(region) do
+					if textOf(other).size > textOf(element).size then
+						leads = false
+						break
+					end
+				end
+			end
+			if leads then
+				add(
+					"joined-facts",
+					"high",
+					element,
+					("%s joins %d facts and leads a HUD region"):format(quote(content), #parts)
+				)
+			else
+				add("joined-facts", "medium", element, ("%s joins %d facts"):format(quote(content), #parts))
+			end
 		elseif #parts >= 3 then
 			add("joined-facts", "low", element, ("%s joins %d phrases"):format(quote(content), #parts))
 		end
@@ -1300,9 +1333,14 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		)
 	end
 
+	local marks = 0
 	for _, element in snapshot.elements do
 		if element.unfit then
 			add("composition-unfit", "high", element, `does not fit {element.unfit}`)
+		end
+		if element.reveal and element.visible and marks < 3 and area(element.rect) > 0 then
+			add("unnamed-reveal", "medium", element, `the mark does not say that it holds {element.reveal}`)
+			marks += 1
 		end
 	end
 

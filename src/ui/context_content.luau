@@ -1123,6 +1123,12 @@ return function(
 		end
 		return package
 	end
+	function ctx.iconShows(name: string): boolean
+		if name == "" then
+			return false
+		end
+		return string.match(name, "^rbx") ~= nil or themes.resolveIcon(registry(), name, "default") ~= nil
+	end
 	function ctx.iconVaries(name: Shared.Input<Theme.ResolvedIcon?>?): boolean
 		if name == nil then
 			return false

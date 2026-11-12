@@ -37,6 +37,7 @@ export type Kit = {
 	liftTarget: (GuiObject) -> GuiObject,
 	intrinsic: (GuiObject, boolean, number) -> number,
 	rigid: (GuiObject, number) -> number,
+	natural: (GuiObject, number, (TextLabel | TextButton | TextBox) -> number) -> number,
 	hold: (GuiObject) -> (number, boolean) -> boolean,
 	lifter: (GuiObject, "x" | "y") -> (number) -> boolean,
 	follow: (GuiObject, "x" | "y", (ComposeTypes.Use?) -> number) -> () -> boolean,
@@ -642,15 +643,21 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		return floor ~= nil and (if horizontal then floor.x:peek() else floor.y:peek()) > 0
 	end
 	local RIGID_PARTS = 128
-	local function rigid(node: GuiObject, scale: number, budget: { number }): number
+	local LOOSE_MEASURE = 320
+	type Lettered = TextLabel | TextButton | TextBox
+	local function rigid(node: GuiObject, scale: number, budget: { number }, line: ((Lettered) -> number)?): number
 		if node:HasTag("facet-fixed-width") then
 			return node.Size.X.Offset
 		end
 		local pad = node:FindFirstChildWhichIsA("UIPadding")
 		local sides = if pad then pad.PaddingLeft.Offset + pad.PaddingRight.Offset else 0
 		if (node:IsA("TextLabel") or node:IsA("TextButton") or node:IsA("TextBox")) and node.Text ~= "" then
-			local bends = node.TextWrapped or node.TextScaled or node.TextTruncate ~= Enum.TextTruncate.None
-			return if bends then sides else node.TextBounds.X / scale + sides
+			local cut = node.TextScaled or node.TextTruncate ~= Enum.TextTruncate.None
+			if not cut and not node.TextWrapped then
+				return node.TextBounds.X / scale + sides
+			end
+			local natural = if line and not cut then line(node) else 0
+			return if natural > 0 then math.min(math.ceil(natural) + 1, LOOSE_MEASURE) + sides else sides
 		end
 		if node:IsA("ScrollingFrame") and node.ScrollingDirection ~= Enum.ScrollingDirection.Y then
 			return 0
@@ -665,7 +672,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			end
 			if child:IsA("GuiObject") and child.Visible then
 				budget[1] -= 1
-				local extent = rigid(child, scale, budget)
+				local extent = rigid(child, scale, budget, line)
 				if along and not folds then
 					total += extent
 					count += 1
@@ -681,6 +688,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	end
 	function kit.rigid(node: GuiObject, scale: number): number
 		return rigid(node, scale, { RIGID_PARTS })
+	end
+	function kit.natural(node: GuiObject, scale: number, line: (Lettered) -> number): number
+		return rigid(node, scale, { RIGID_PARTS }, line)
 	end
 	function kit.intrinsic(node: GuiObject, horizontal: boolean, scale: number): number
 		local function pixels(value: Vector2): number

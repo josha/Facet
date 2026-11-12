@@ -326,6 +326,7 @@ export type Context = {
 	listRow: (ListRow) -> (Frame, Input<UDim2>, (GuiObject) -> ()),
 	icon: (Input<Theme.ResolvedIcon?>, ImageLabelNativeProps?, Input<Theme.SkinState>?) -> ImageLabel,
 	iconVaries: (Input<Theme.ResolvedIcon?>?) -> boolean,
+	iconShows: (string) -> boolean,
 	modalScopes: Value<{ Instance }>,
 	modalReturn: { target: GuiObject? },
 	modalPortals: Value<{ ModalPortal }>,
