@@ -6,6 +6,7 @@ with `width = "fill"` inside a Button or a stack that hugs: the row takes
 the width of its content, and the part of the row that fills gets none.
 [Button.records](docs/reference/nodes/Button.records.md) says how to give
 such a Button its width.
+
 A Popover stays inside the screen when its content has a pixel width that is
 wider than the screen. The body carried a size constraint with the right
 maximum, but the engine does not apply a maximum to an automatic size, so a
