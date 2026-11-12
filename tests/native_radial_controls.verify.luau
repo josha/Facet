@@ -42,7 +42,8 @@ return function(verifyHarness: Verify.Harness)
 		spec: RadialProps.RadialMenuSpec<string> | ((engines.Engine) -> RadialProps.RadialMenuSpec<string>),
 		animated: boolean?,
 		environment: Shared.EnvironmentPreview?,
-		nativeOptions: engines.Options?
+		nativeOptions: engines.Options?,
+		measuresText: boolean?
 	): World
 		local engine, bridge = engines.new(nativeOptions)
 		local now = 0
@@ -73,7 +74,11 @@ return function(verifyHarness: Verify.Harness)
 		local runtime: ComposeRuntime = Roblox.createRuntime(engine)
 		local UI = controls(Compose, runtime, {
 			types = engine.types,
-			services = { GuiService = gui, UserInputService = input },
+			services = {
+				GuiService = gui,
+				UserInputService = input,
+				TextService = if measuresText then engine.new("TextService") else nil,
+			},
 			motionLevel = if not animated then "none" else "normal",
 			environment = environment,
 			icons = StandardIcons.apply(Facet.themes.neutralPackage()).icons,
@@ -198,6 +203,54 @@ return function(verifyHarness: Verify.Harness)
 				expect(world.find("plow").BackgroundTransparency):toBe(1)
 				expect(world.find("plow"):HasTag("facet-radial-row")):toBe(false)
 				world.stop()
+			end,
+		})
+		it("shows the native list fallback only once its labels are measured", {
+			id = "native_radial_controls::radial label fit::shows the native list fallback only once its labels are measured",
+			run = function()
+				local selected = Compose.cell("plant")
+				local function open(measure: boolean): World
+					local world = setup(
+						{
+							items = {
+								choice({ id = "plow", label = "Plow", selected = selected, value = "plow" }),
+								choice({ id = "plant", label = "Plant", selected = selected, value = "plant" }),
+								choice({ id = "harvest", label = "Harvest", selected = selected, value = "harvest" }),
+							},
+						},
+						nil,
+						nil,
+						if measure
+							then {
+								measureText = function(node: any): any
+									local text = node.Text or ""
+									return engines.types.Vector2.new(#text * 9, if #text > 0 then 18 else 0)
+								end,
+							}
+							else nil,
+						true
+					)
+					world.engine.environment.poke(
+						world.find("Modal"),
+						"AbsoluteSize",
+						world.engine.types.Vector2.new(180, 180)
+					)
+					return world
+				end
+				local measured = open(true)
+				local panel = measured.find("RadialPanel")
+				expect(panel:GetAttribute("Presentation")):toBe("list")
+				expect(panel.Visible):toBe(true)
+				measured.stop()
+				local unmeasured = open(false)
+				panel = unmeasured.find("RadialPanel")
+				expect(panel:GetAttribute("Presentation")):toBe("list")
+				expect(panel.Visible):toBe(false)
+				for _ = 1, 10 do
+					unmeasured.step(1 / 60)
+				end
+				expect(panel.Visible):toBe(true)
+				unmeasured.stop()
 			end,
 		})
 		it("captions name icon buttons below each target", {
