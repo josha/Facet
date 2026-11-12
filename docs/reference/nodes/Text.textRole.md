@@ -24,7 +24,9 @@ Text.textRole option values and behavior.
   bounded width, a wrapped text takes the size of its words and shrinks into
   the room that the other parts leave, so it wraps there and stays inside
   the row. Two wrapped texts share the shortage. A wrapped text with its own
-  `UI.fill()` keeps the full-width default and fills the room. Explicit native
+  `UI.fill()` keeps the full-width default and fills the room. In a parent
+  that hugs its width, a wrapped text is as wide as its line, up to 320
+  pixels, and wraps past that. Explicit native
   `Size` and `AutomaticSize` take precedence. Fitted text keeps its fitting
   defaults. A native `TextWrapped = false` overrides `wrap = true`.
 - A wrapped text with automatic height measures its lines with
