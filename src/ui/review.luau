@@ -432,6 +432,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					local message = if found then text(read(details, "Value")) else nil
 					element.unfit = message or "composition does not fit"
 				end
+				local hasForm, form = call(child, "GetAttribute", "FacetForm")
+				if hasForm and type(form) == "number" then
+					element.region = true
+				end
 				local hasReveal, reveal = call(child, "GetAttribute", "FacetReveal")
 				if hasReveal and type(reveal) == "string" and reveal ~= "" then
 					element.reveal = reveal

@@ -126,6 +126,34 @@ return function(harness: Verify.Harness)
 		t:expect(counts["numbers-unemphasized"]):toBe(nil)
 	end)
 
+	harness:case("a joined line that leads a HUD region is high", function(t)
+		local add, snapshot = scene()
+		local race = add(nil, "Frame", 600, 20, 420, 40, { opaque = true, fill = PANEL })
+		local line = add(race, "TextLabel", 612, 30, 300, 20, { text = "P4 / 4 • LAP 1 / 2 • 0 km/h", size = 17 })
+		local identity = add(nil, "Frame", 20, 20, 280, 60, { opaque = true, fill = PANEL })
+		add(identity, "TextLabel", 32, 26, 200, 24, { text = "ION RUN", size = 23, bold = true })
+		add(identity, "TextLabel", 32, 54, 200, 16, { text = "LV 1 • 0 RACES", size = 14 })
+		local function severities(shot: Rules.ReviewSnapshot): { [string]: number }
+			local counts: { [string]: number } = {}
+			for _, finding in Rules.analyze(shot).findings do
+				if finding.rule == "joined-facts" then
+					counts[finding.severity] = (counts[finding.severity] or 0) + 1
+				end
+			end
+			return counts
+		end
+		t:expect(severities(snapshot())):toEqual({ medium = 2 })
+		local hud = snapshot()
+		hud.elements[race].region = true
+		hud.elements[identity].region = true
+		t:expect(severities(hud)):toEqual({ high = 1, medium = 1 })
+		local report = Rules.analyze(hud)
+		t:expect(string.find(report.text, "leads a HUD region", 1, true) ~= nil):toBe(true)
+		add(race, "TextLabel", 612, 30, 100, 34, { text = "4th", size = 30, bold = true })
+		hud.elements[line].rect.y = 44
+		t:expect(severities(snapshot())):toEqual({ medium = 2 })
+	end)
+
 	harness:case("phrases without numbers are low and short hints pass", function(t)
 		local add, snapshot = scene()
 		add(nil, "TextLabel", 0, 0, 400, 20, { text = "Drag to explore · Pinch to zoom" })
