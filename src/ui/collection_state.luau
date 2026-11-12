@@ -245,6 +245,7 @@ local function create<V, K>(
 				preparing[node] = nil
 				local settle = entry.settle
 				if settle then
+					entry.settle = nil
 					settle()
 				end
 			end

@@ -5,6 +5,7 @@ Review rules for parts that collide or that leave the Facet layout.
 | Rule | Finds |
 |---|---|
 | `overlapping-text` | Two different texts whose glyphs cover each other by a fifth or more of the smaller text. High. A text that is hidden by a clip, or under an opaque plate or image such as the next card of a fanned hand, does not count. |
+| `offscreen-text` | A text with less than half of its glyphs on the screen, while the stack that holds it is on the screen. High. A text inside a clip or a scrolling view does not count, and neither does a text whose holder is itself off the screen, such as a panel that waits beside the screen. |
 | `covered-text` | A text with half or more of its glyphs under a plate or the paint of an image from another part, such as a banner that is wider than its slot. A cover that hides three or more texts is an overlay and does not count. A stack with a negative `gap` is a fan and does not count. |
 | `escaped-text` | A text whose glyphs run past the edge of the plate or the paint of the image that it sits on, or that a clip cuts. A scrolling view does not count as a clip. An image counts only when it is built beside the text, within three levels. A text that still sits inside a larger plate does not count. |
 | `native-text` | Three or more texts that are native labels and not `UI.Text`. They miss the type roles of the theme, the text size of the player and the ten-foot scale. |

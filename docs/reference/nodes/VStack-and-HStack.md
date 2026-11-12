@@ -36,6 +36,10 @@ They set a native `UISizeConstraint`; an omitted maximum leaves that axis
 unbounded. They cap the frame, but do not scroll its children. Use
 [ScrollView](ScrollView.reference.md) when overflow must stay reachable.
 
+`grow`, a positive weight, makes a VStack, HStack, ZStack, Group, ScrollView or
+Grid share its parent's main axis with a native `UIFlexItem`, like a
+`UI.fill(weight)` child. Design modules use it for growing containers.
+
 Bound a form or collection body with `width = "fill"`. A fill-width field
 needs a parent with a defined width; placing two such fields in a hugging
 HStack does not divide the available width. Stack fields vertically, or give

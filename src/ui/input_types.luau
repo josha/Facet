@@ -26,6 +26,7 @@ export type Row = {
 export type Shortcut = { read keyCode: string, read modifiers: { shift: boolean? }? }
 export type HelpSpec = {
 	read title: Shared.ValueString?,
+	read titleTone: string?,
 	read body: Shared.ValueString,
 	read rows: { read [number]: HelpRow }?,
 	read cost: Shared.ValueString?,
@@ -35,7 +36,7 @@ export type HelpSpec = {
 	read edge: ("top" | "bottom" | "leading" | "trailing")?,
 	read align: ("start" | "center" | "end")?,
 }
-export type HelpRow = { read label: Shared.ValueString, read value: Shared.ValueString }
+export type HelpRow = { read label: Shared.ValueString, read value: Shared.ValueString, read tone: string? }
 export type Cooldown = { read remaining: Shared.ValueNumber, read total: Shared.ValueNumber }
 export type Help = Shared.ValueString | HelpSpec
 export type ButtonCorners = "pill" | "square"
@@ -138,6 +139,7 @@ export type TextInputOptions = {
 	placeholder: TextValue?,
 	multiline: boolean?,
 	visibleLines: number?,
+	minHeight: Input<number>?,
 	validate: ((string) -> string?)?,
 	maxLength: number?,
 	invalid: ComposeTypes.ReadOnlyValue<boolean>?,

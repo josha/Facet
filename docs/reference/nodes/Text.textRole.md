@@ -20,7 +20,11 @@ Text.textRole option values and behavior.
 - `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
   be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
 - `wrap = true` or native `TextWrapped = true` defaults to full parent width
-  and automatic height. Give the parent a bounded width. Explicit native
+  and automatic height. Give the parent a bounded width. In an HStack with a
+  bounded width, a wrapped text takes the size of its words and shrinks into
+  the room that the other parts leave, so it wraps there and stays inside
+  the row. Two wrapped texts share the shortage. A wrapped text with its own
+  `UI.fill()` keeps the full-width default and fills the room. Explicit native
   `Size` and `AutomaticSize` take precedence. Fitted text keeps its fitting
   defaults. A native `TextWrapped = false` overrides `wrap = true`.
 - A wrapped text with automatic height measures its lines with

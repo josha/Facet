@@ -149,6 +149,37 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("lets wrapped Text shrink into the room that a bounded row leaves", {
+			id = "native_layout::native composition rest measurements::lets wrapped Text shrink into the room that a bounded row leaves",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack "Page" {
+						UI.HStack "Row" {
+							width = "fill",
+							Host.Frame "Mark" {},
+							UI.Text "Name" { text = "A name that can wrap", wrap = true },
+							UI.Text "Filler" { text = "A filler that can wrap", wrap = true, UI.fill() },
+							UI.Text "Value" { text = "12" },
+						},
+					}
+				end)
+				local E, D2 = engine.types.Enum, engine.types.UDim2
+				local name = root:FindFirstChild("Name", true)
+				local bend = name:FindFirstChildWhichIsA("UIFlexItem")
+				expect(name.Size):toBe(D2.fromScale(0, 0))
+				expect(name.AutomaticSize):toBe(E.AutomaticSize.XY)
+				expect(name.TextWrapped):toBe(true)
+				expect(bend ~= nil):toBe(true)
+				expect(bend.FlexMode):toBe(E.UIFlexMode.Shrink)
+				local filler = root:FindFirstChild("Filler", true)
+				expect(filler.Size):toBe(D2.fromScale(1, 0))
+				expect(filler.AutomaticSize):toBe(E.AutomaticSize.Y)
+				expect(filler:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(E.UIFlexMode.Fill)
+				local value = root:FindFirstChild("Value", true)
+				expect(value:FindFirstChildWhichIsA("UIFlexItem")):toBe(nil)
+				stop()
+			end,
+		})
 		it("wraps a bounded row only while its children do not fit on one line", {
 			id = "native_layout::native composition rest measurements::wraps a bounded row only while its children do not fit on one line",
 			run = function()
@@ -187,6 +218,37 @@ return function(verifyHarness: Verify.Harness)
 				expect(kept:FindFirstChildWhichIsA("UIListLayout").Wraps):toBe(false)
 				expect(root:FindFirstChild("Hug"):FindFirstChildWhichIsA("UIListLayout").Wraps == true):toBe(false)
 				stop()
+			end,
+		})
+		it("grows a container along its parent's axis with grow", {
+			id = "native_layout::native composition rest measurements::grows a container along its parent's axis with grow",
+			run = function()
+				local root, _, stop = build(nil, function(UI)
+					return UI.HStack "Row" {
+						width = "fill",
+						UI.ZStack "Meter" { grow = 1 },
+						UI.VStack "Shared" { grow = 2 },
+						UI.Group "Mask" { grow = 1 },
+						UI.HStack "Fixed" {},
+					}
+				end)
+				local function flex(name: string): UIFlexItem?
+					return assert(root:FindFirstChild(name)):FindFirstChildWhichIsA("UIFlexItem")
+				end
+				local meter = assert(flex("Meter"))
+				local shared = assert(flex("Shared"))
+				expect(meter.Name):toBe("Grow")
+				expect(meter.FlexMode.Name):toBe("Custom")
+				expect(meter.GrowRatio):toBe(1)
+				expect(shared.GrowRatio):toBe(2)
+				expect(shared.ShrinkRatio):toBe(2)
+				expect(flex("Mask") ~= nil):toBe(true)
+				expect(flex("Fixed")):toBe(nil)
+				stop()
+				local zero = refusal(function(UI): Instance
+					return UI.VStack "Zero" { grow = 0 }
+				end)
+				expect(mentions(zero, "Facet grow must be a positive finite number")):toBe(true)
 			end,
 		})
 		it("spills a row when the fixed content of its fill child does not fit beside the next part", {
@@ -794,6 +856,40 @@ return function(verifyHarness: Verify.Harness)
 					return UI.VStack "Negative" { surface = "panel", corners = -2 }
 				end)
 				expect(mentions(negative, "corners must be pill, square, control, panel")):toBe(true)
+			end,
+		})
+
+		it("rounds a Group mask and a ZStack with the same corner names", {
+			id = "native_layout::stack corners option::rounds a Group mask and a ZStack with the same corner names",
+			run = function()
+				local theme = Compose.cell(Facet.themes.neutralPackage())
+				local shape = Compose.cell("pill" :: Corners)
+				local root, _, stop = build({ theme = theme }, function(UI)
+					return UI.VStack "Holder" {
+						UI.Group "Mask" { corners = shape, width = 64, height = 64 },
+						UI.ZStack "Portrait" { corners = "panel", width = 64, height = 64 },
+						UI.ZStack "Plain" { width = 64, height = 64 },
+					}
+				end)
+				local mask = assert(root:FindFirstChild("Mask"))
+				local portrait = assert(root:FindFirstChild("Portrait"))
+				expect(mask.ClassName):toBe("CanvasGroup")
+				local maskCorner = assert(mask:FindFirstChild("Corners")) :: UICorner
+				local portraitCorner = assert(portrait:FindFirstChild("Corners")) :: UICorner
+				expect(tostring(maskCorner.CornerRadius)):toBe("1, 0")
+				expect(tostring(portraitCorner.CornerRadius)):toBe("0, 12")
+				shape:set("square")
+				expect(tostring(maskCorner.CornerRadius)):toBe("0, 0")
+				local rounder = Facet.themes.neutralPackage()
+				rounder.metrics.radii.panel = 20
+				theme:set(rounder)
+				expect(tostring(portraitCorner.CornerRadius)):toBe("0, 20")
+				expect(assert(root:FindFirstChild("Plain")):FindFirstChild("Corners")):toBe(nil)
+				stop()
+				local odd = refusal(function(UI): Instance
+					return UI.Group "Odd" { corners = ("round" :: unknown) :: number }
+				end)
+				expect(mentions(odd, "Facet Group: corners must be pill, square, control, panel")):toBe(true)
 			end,
 		})
 	end)

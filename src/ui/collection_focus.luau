@@ -212,6 +212,7 @@ return function<V, K>(
 	local function restoreFocus(key: K?): ()
 		if
 			gui == nil
+			or spec.restoreFocus == false
 			or root.Parent == nil
 			or not view.focusOwned
 			or key == nil
@@ -302,9 +303,7 @@ return function<V, K>(
 			end)
 		end
 	end
-	if gui == nil or spec.mode == "all" then
-		Compose.cleanup(ctx.selection.changed(followSelection))
-	end
+	Compose.cleanup(ctx.selection.changed(followSelection))
 	Compose.cleanup(function()
 		if gained then
 			gained:Disconnect()

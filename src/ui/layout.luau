@@ -89,8 +89,27 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		Compose.cleanup(release)
 		attach()
 	end
+	local function growth(weight: unknown): UIFlexItem
+		assert(
+			type(weight) == "number" and weight > 0 and weight < math.huge,
+			"Facet grow must be a positive finite number"
+		)
+		return Host.UIFlexItem {
+			Name = "Grow",
+			FlexMode = E.UIFlexMode.Custom,
+			GrowRatio = weight,
+			ShrinkRatio = weight,
+		}
+	end
 	local function containerProps(spec: unknown, keys: { string }): ({ [unknown]: unknown }, UISizeConstraint?)
-		local limits = spec :: { maxWidth: Types.ValueNumber?, maxHeight: Types.ValueNumber? }
+		local limits = spec :: { maxWidth: Types.ValueNumber?, maxHeight: Types.ValueNumber?, grow: number? }
+		if limits.grow ~= nil then
+			local trimmed = table.clone(spec :: { [unknown]: unknown })
+			trimmed.grow = nil
+			local properties, constraint = containerProps(trimmed, keys)
+			properties[#properties + 1] = growth(limits.grow)
+			return properties, constraint
+		end
 		if limits.maxWidth == nil and limits.maxHeight == nil then
 			return ctx.props(spec, keys) :: { [unknown]: unknown }, nil
 		end
@@ -173,6 +192,34 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			return { top = grown.top, right = grown.right, bottom = grown.bottom, left = grown.left }
 		end
 	end
+	local function cornerShape(corners: Types.Input<Layout.StackCorners>?, owner: string, use: ComposeTypes.Use?): UDim
+		local value = read(corners, use)
+		if value == "pill" then
+			return D.new(1, 0)
+		elseif value == "square" then
+			return D.new(0, 0)
+		elseif value == "control" or value == "panel" then
+			return D.new(0, ctx.metric(if value == "panel" then "radii.panel" else "radii.control", use))
+		end
+		assert(
+			type(value) == "number" and value >= 0 and value < math.huge,
+			`Facet {owner}: corners must be pill, square, control, panel or a finite number of pixels, 0 or more`
+		)
+		return D.new(0, value)
+	end
+	local function cornerNode(corners: Types.Input<Layout.StackCorners>, owner: string): UICorner
+		local constant = (type(corners) == "string" or type(corners) == "number")
+			and corners ~= "control"
+			and corners ~= "panel"
+		return Host.UICorner {
+			Name = "Corners",
+			CornerRadius = if constant
+				then cornerShape(corners, owner)
+				else function(use: ComposeTypes.Use): UDim
+					return cornerShape(corners, owner, use)
+				end,
+		}
+	end
 	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
 		local plate = PLATES[spec.surface or ""]
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
@@ -181,19 +228,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local properties, children = split(spec, flowKeys)
 		local metric = CORNERS[spec.surface or ""]
 		local function shape(use: ComposeTypes.Use?): UDim
-			local value = read(corners, use)
-			if value == "pill" then
-				return D.new(1, 0)
-			elseif value == "square" then
-				return D.new(0, 0)
-			elseif value == "control" or value == "panel" then
-				return D.new(0, ctx.metric(if value == "panel" then "radii.panel" else "radii.control", use))
-			end
-			assert(
-				type(value) == "number" and value >= 0 and value < math.huge,
-				"Facet stack: corners must be pill, square, control, panel or a finite number of pixels, 0 or more"
-			)
-			return D.new(0, value)
+			return cornerShape(corners, "stack", use)
 		end
 		local fixed = type(corners) == "string" or type(corners) == "number"
 		local measures = spec.padding ~= nil and (corners == "pill" or (corners ~= nil and not fixed))
@@ -500,8 +535,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	UI.Group = ctx.construct("Group", function(spec: LayoutProps.GroupProps): CanvasGroup
-		local properties, children = split(spec, { "groupTransparency", "width", "height", "padding" })
+		local properties, children = split(spec, { "groupTransparency", "width", "height", "padding", "corners" })
 		local size, automatic = kit.extent(spec, "hug", "hug")
+		if spec.corners ~= nil then
+			properties[#properties + 1] = cornerNode(spec.corners, "Group")
+		end
 		local native: Engine.CanvasGroupNativeProps = {
 			BorderSizePixel = 0,
 			Size = size,
@@ -515,7 +553,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	UI.ZStack = ctx.construct("ZStack", function(spec: LayoutProps.ZStackProps): Frame
-		local properties, children = split(spec, { "padding", "width", "height", "alignH", "alignV", "ground" })
+		local properties, children =
+			split(spec, { "padding", "width", "height", "alignH", "alignV", "ground", "corners" })
+		if spec.corners ~= nil then
+			properties[#properties + 1] = cornerNode(spec.corners, "ZStack")
+		end
 		local size, automatic = kit.extent(spec, "hug", "hug")
 		local art = spec.ground
 		assert(

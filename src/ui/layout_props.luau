@@ -79,6 +79,8 @@ export type GroupProps = {
 	height: Types.Input<Layout.Extent>?,
 	maxWidth: Types.ValueNumber?,
 	padding: Types.Input<Layout.Padding>?,
+	corners: Types.Input<Layout.StackCorners>?,
+	grow: number?,
 	[number]: Compose.Child?,
 }
 export type GroupPropsInput = {
@@ -154,6 +156,8 @@ export type GroupPropsInput = {
 	read height: Types.Input<Layout.Extent>?,
 	read maxWidth: Types.ValueNumber?,
 	read padding: Types.Input<Layout.Padding>?,
+	read corners: Types.Input<Layout.StackCorners>?,
+	read grow: number?,
 	read [number]: Compose.Child?,
 }
 export type StackProps = {
@@ -236,6 +240,7 @@ export type StackProps = {
 	align: Types.Input<Layout.Align>?,
 	distribute: Types.Input<Layout.Distribute>?,
 	wrap: Types.ValueBoolean?,
+	grow: number?,
 	[number]: Compose.Child?,
 }
 export type StackPropsInput = {
@@ -318,6 +323,7 @@ export type StackPropsInput = {
 	read align: Types.Input<Layout.Align>?,
 	read distribute: Types.Input<Layout.Distribute>?,
 	read wrap: Types.ValueBoolean?,
+	read grow: number?,
 	read [number]: Compose.Child?,
 }
 export type ScreenProps = {
@@ -553,6 +559,8 @@ export type ZStackProps = {
 	height: Types.Input<Layout.Extent>?,
 	alignH: Types.Input<Layout.Edge>?,
 	alignV: Types.Input<Layout.Edge>?,
+	corners: Types.Input<Layout.StackCorners>?,
+	grow: number?,
 	[number]: Compose.Child?,
 }
 export type ZStackPropsInput = {
@@ -630,6 +638,8 @@ export type ZStackPropsInput = {
 	read height: Types.Input<Layout.Extent>?,
 	read alignH: Types.Input<Layout.Edge>?,
 	read alignV: Types.Input<Layout.Edge>?,
+	read corners: Types.Input<Layout.StackCorners>?,
+	read grow: number?,
 	read [number]: Compose.Child?,
 }
 export type ScrollViewProps = {
@@ -725,6 +735,7 @@ export type ScrollViewProps = {
 	gap: Types.Input<Layout.Space>?,
 	align: Types.Input<Layout.Align>?,
 	distribute: Types.Input<Layout.Distribute>?,
+	grow: number?,
 	[number]: Compose.Child?,
 }
 export type ScrollViewPropsInput = {
@@ -820,6 +831,7 @@ export type ScrollViewPropsInput = {
 	read gap: Types.Input<Layout.Space>?,
 	read align: Types.Input<Layout.Align>?,
 	read distribute: Types.Input<Layout.Distribute>?,
+	read grow: number?,
 	read [number]: Compose.Child?,
 }
 export type GridProps = {
@@ -900,6 +912,7 @@ export type GridProps = {
 	cellHeight: Types.ValueNumber?,
 	aspectRatio: Types.ValueNumber?,
 	align: Types.Input<Layout.Edge>?,
+	grow: number?,
 	[number]: Compose.Child?,
 }
 export type GridPropsInput = {
@@ -980,6 +993,7 @@ export type GridPropsInput = {
 	read cellHeight: Types.ValueNumber?,
 	read aspectRatio: Types.ValueNumber?,
 	read align: Types.Input<Layout.Edge>?,
+	read grow: number?,
 	read [number]: Compose.Child?,
 }
 export type AdaptiveStackProps = {

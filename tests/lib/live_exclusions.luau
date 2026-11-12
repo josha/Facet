@@ -36,7 +36,6 @@ local EXCLUSIONS: { [string]: { string } } = {
 		"sweep_b/click-sweep-phone",
 	},
 	["behavioral mismatch requiring native comparison"] = {
-		"classb_collections/purchase-card-keeps-its-paint-inside-the-row",
 		"classb_navigation/pageview-fractional-window-keeps-keyboard-routes",
 		"frame_stability/collections/rows/swipe/phone/Largest",
 		"frame_stability/native-calendar-time-validation-placement/Largest",

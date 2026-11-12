@@ -37,6 +37,7 @@ local TEXT_KEYS = table.freeze({
 	"placeholder",
 	"multiline",
 	"visibleLines",
+	"minHeight",
 	"onChange",
 	"onCommit",
 	"onCancel",
@@ -116,6 +117,17 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 		runtime.decorate(node, { Attributes = values })
 	end
 	local function build(control: string, spec: Spec): TextBox | Frame
+		local function floorHeight(use: ComposeTypes.Use, fallback: number): number
+			local chosen = read<<number?>>(spec.minHeight, use)
+			if chosen == nil then
+				return fallback
+			end
+			assert(
+				type(chosen) == "number" and chosen >= 0 and chosen < math.huge,
+				`Facet.{control}: minHeight must be a finite number of pixels, 0 or more`
+			)
+			return chosen
+		end
 		local invalidSource: ComposeTypes.ReadOnlyValue<boolean>? = spec.invalid
 		assert(type(read<<string>>(spec.value)) == "string", `Facet.{control}: value must resolve to a string`)
 		assert(
@@ -517,7 +529,8 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			nativeProps.Size = if spec.visibleLines
 				then D2.new(1, 0, 0, 0)
 				else function(use: ComposeTypes.Use)
-					local minimum = if spec.multiline == true then 96 elseif spec.controlSize then 0 else 36
+					local minimum =
+						floorHeight(use, if spec.multiline == true then 96 elseif spec.controlSize then 0 else 36)
 					return D2.new(
 						0,
 						0,
@@ -534,7 +547,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls): ()
 			nativeProps.Size = nativeProps.Size
 				or function(use: ComposeTypes.Use)
 					local message = if use(validationMessage) ~= "" then use(messageHeight) else 0
-					local minimum = if spec.multiline == true then 96 else 44
+					local minimum = floorHeight(use, if spec.multiline == true then 96 else 44)
 					return D2.new(1, 0, 0, math.max(minimum, use(textHeight) + message + 16))
 				end
 		end

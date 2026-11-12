@@ -166,6 +166,53 @@ return function(harness: Verify.Harness)
 			end
 		end,
 	})
+	harness:case("help lines carry theme tones and drop an empty value", {
+		id = "native_game_hud::help-tones",
+		run = function()
+			local help: Facet.HelpSpec = {
+				title = "Ashen Longsword",
+				titleTone = "rare",
+				body = "Two-hand sword",
+				rows = {
+					{ label = "+4 Strength", value = "", tone = "positive" },
+					{ label = "Requires level 12", value = "", tone = "negative" },
+					{ label = "Range", value = "Near" },
+				},
+			}
+			local w = overlay.new(function(UI: Facet.Controls)
+				return UI.Button "Item" { label = "Item", help = help }
+			end, { motionLevel = "none" })
+			local anchor = w.find("Item")
+			w.engine.environment.poke(anchor, "GuiState", w.Enum.GuiState.Hover)
+			w.advance(0.5)
+			Verify.expect(w.find("HelpTitle"):HasTag("facet-tone-rare")):toBe(true)
+			Verify.expect(w.find("HelpRow1").Text):toBe("+4 Strength")
+			Verify.expect(w.find("HelpRow1"):HasTag("facet-tone-positive")):toBe(true)
+			Verify.expect(w.find("HelpRow2").Text):toBe("Requires level 12")
+			Verify.expect(w.find("HelpRow2"):HasTag("facet-tone-negative")):toBe(true)
+			Verify.expect(w.find("HelpRow3").Text):toBe("Range: Near")
+			for _, tag in w.find("HelpRow3"):GetTags() do
+				Verify.expect(string.sub(tag, 1, 11) == "facet-tone-"):toBe(false)
+			end
+			w.stop()
+			for _, bad in
+				{
+					{ title = "A", titleTone = "", body = "B" },
+					{ title = "A", titleTone = "2nd", body = "B" },
+					{ body = "B", rows = { { label = "L", value = "V", tone = 4 } } },
+					{ body = "B", rows = { { label = "L", value = "V", colour = "red" } } },
+				}
+			do
+				local raised = pcall(function()
+					local probe = overlay.new(function(UI: Facet.Controls)
+						return UI.Button "Bad" { label = "Bad", help = (bad :: unknown) :: Facet.HelpSpec }
+					end, { motionLevel = "none" })
+					probe.stop()
+				end)
+				Verify.expect(raised):toBe(false)
+			end
+		end,
+	})
 	harness:case("world portals share the sheet provider and lifetime for both surfaces", {
 		id = "native_game_hud::world-surfaces",
 		run = function()

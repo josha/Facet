@@ -96,7 +96,8 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 	local function arrive(
 		build: () -> Instance,
 		arrived: ComposeTypes.Value<boolean>,
-		phase: Nav.PresencePhase
+		phase: Nav.PresencePhase,
+		anchor: Instance
 	): Instance
 		local frames = ctx.config.services and ctx.config.services.RunService
 		local built: Instance? = nil
@@ -210,6 +211,19 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			end))
 			table.insert(depths, depth)
 		end
+		local host = anchor:FindFirstAncestor("OverlayArrival")
+		if host and host:IsA("GuiObject") then
+			local hostDepth = Compose.cell(host.ZIndex)
+			Compose.cleanup(assert(runtime.host.observation).observeProperty(host, "ZIndex", function()
+				hostDepth:set(host.ZIndex)
+			end))
+			table.insert(
+				depths,
+				Compose.formula(function(use: ComposeTypes.Use): number
+					return use(hostDepth) + 1
+				end)
+			)
+		end
 		local group = assert(wrapper)
 		runtime.decorate(group, {
 			ZIndex = function(use: ComposeTypes.Use): number
@@ -308,7 +322,7 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 							scope = scope.Parent
 						end
 						return node
-					end, arrived, entering)
+					end, arrived, entering, anchor)
 				end
 				local failureHandler = options and options.failure
 				if failureHandler then

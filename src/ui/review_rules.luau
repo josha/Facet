@@ -83,6 +83,7 @@ local fixes: { [string]: string } = {
 	["composition-unfit"] = "A HUD Composition does not fit this screen or a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
+	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
@@ -1169,6 +1170,41 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			("%s runs past the edge of %s"):format(quote(clean(text.content)), leaf(nearest))
 		)
 		escapes += 1
+	end
+
+	local screen: ReviewRect = { x = 0, y = 0, width = snapshot.width, height = snapshot.height }
+	local strays = 0
+	for _, element in snapshot.elements do
+		if strays >= 3 then
+			break
+		end
+		local text = element.text
+		if text == nil or not element.visible or text.size < 8 or clean(text.content) == "" then
+			continue
+		end
+		local ink = text.ink or element.rect
+		local seen = overlap(ink, screen)
+		if ink.width < 4 or ink.height < 4 or (seen ~= nil and area(seen) >= 0.5 * area(ink)) then
+			continue
+		end
+		local chain = lineage(element)
+		local holder = chain[1]
+		local held = if holder then overlap(holder.rect, screen) else nil
+		if holder == nil or held == nil or area(held) < 0.5 * area(holder.rect) then
+			continue
+		end
+		local clipped = false
+		for _, ancestor in chain do
+			if ancestor.clips or not ancestor.visible then
+				clipped = true
+				break
+			end
+		end
+		if clipped then
+			continue
+		end
+		add("offscreen-text", "high", element, ("%s is outside the screen"):format(quote(clean(text.content))))
+		strays += 1
 	end
 
 	local foreign: { ReviewElement } = {}

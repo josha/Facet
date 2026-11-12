@@ -73,6 +73,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 		"focus",
 		"initialFocus",
 		"focusPolicy",
+		"restoreFocus",
 		"autoFocus",
 		"wrapFocus",
 		"disabled",

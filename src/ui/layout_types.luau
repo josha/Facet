@@ -19,6 +19,8 @@ export type GroupOptions = {
 	height: Types.Input<Extent>?,
 	maxWidth: Types.ValueNumber?,
 	padding: Types.Input<Padding>?,
+	corners: Types.Input<StackCorners>?,
+	grow: number?,
 }
 export type StackOptions = {
 	padding: Types.Input<Padding>?,
@@ -34,6 +36,7 @@ export type StackOptions = {
 	align: Types.Input<Align>?,
 	distribute: Types.Input<Distribute>?,
 	wrap: Types.ValueBoolean?,
+	grow: number?,
 }
 export type ScreenOptions = {
 	chrome: ("device" | "band" | "edge")?,
@@ -56,6 +59,8 @@ export type ZStackOptions = {
 	height: Types.Input<Extent>?,
 	alignH: Types.Input<Edge>?,
 	alignV: Types.Input<Edge>?,
+	corners: Types.Input<StackCorners>?,
+	grow: number?,
 }
 export type ScrollViewOptions = {
 	padding: Types.Input<Padding>?,
@@ -67,6 +72,7 @@ export type ScrollViewOptions = {
 	gap: Types.Input<Space>?,
 	align: Types.Input<Align>?,
 	distribute: Types.Input<Distribute>?,
+	grow: number?,
 }
 export type GridOptions = {
 	padding: Types.Input<Padding>?,
@@ -80,6 +86,7 @@ export type GridOptions = {
 	cellHeight: Types.ValueNumber?,
 	aspectRatio: Types.ValueNumber?,
 	align: Types.Input<Edge>?,
+	grow: number?,
 }
 export type AdaptiveStackOptions = {
 	padding: Types.Input<Padding>?,

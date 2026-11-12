@@ -939,6 +939,28 @@ return function(harness: Verify.Harness)
 		t:expect(rules(Rules.analyze(snapshot()))["touch-control-overlap"]):toBe(nil)
 	end)
 
+	harness:case("a text that its row pushes off the screen is reported", function(t)
+		local add, snapshot = scene()
+		local row = add(nil, "Frame", 1624, 100, 276, 56)
+		add(row, "TextLabel", 1684, 110, 252, 19, { text = "1. Driver" })
+		local lap = add(row, "TextLabel", 1944, 110, 252, 15, { text = "Lap 1 / 2" })
+		local report = Rules.analyze(snapshot())
+		t:expect(rules(report)["offscreen-text"]):toBe(1)
+		t:expect(string.find(report.text, '"Lap 1 / 2" is outside the screen', 1, true) ~= nil):toBe(true)
+		t:expect(report.fixes["offscreen-text"] ~= nil):toBe(true)
+		local hidden = snapshot()
+		hidden.elements[lap].visible = false
+		t:expect(rules(Rules.analyze(hidden))["offscreen-text"]):toBe(nil)
+		hidden.elements[lap].visible = true
+		local clipped = snapshot()
+		clipped.elements[row].clips = true
+		t:expect(rules(Rules.analyze(clipped))["offscreen-text"]):toBe(nil)
+		local parked, parkedSnapshot = scene()
+		local panel = parked(nil, "Frame", 1930, 100, 300, 400)
+		parked(panel, "TextLabel", 1950, 110, 200, 19, { text = "Waiting panel" })
+		t:expect(rules(Rules.analyze(parkedSnapshot()))["offscreen-text"]):toBe(nil)
+	end)
+
 	harness:case("a Composition that does not fit a phone is reported with its regions", function(t)
 		local add, snapshot = scene()
 		local hub = add(nil, "Frame", 0, 0, 1920, 1080)

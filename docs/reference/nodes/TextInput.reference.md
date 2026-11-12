@@ -37,6 +37,9 @@ The clear button is a 44 by 44 `utility` Button named `Clear`. It shows the
   during focus applies at the next focus. A live value that is not one of the
   three words causes an error, and the control keeps the last correct word. The
   TextBox has the `selectOnFocus` attribute only when you supply the option.
+- `minHeight`: a finite number of pixels, 0 or more, or a readable number. It
+  replaces the field's built-in minimum height; the field still grows to fit
+  its text.
 - `visibleLines`: a whole number of at least 1, for a multiline field only. The
   field shows that number of body lines in a native ScrollingFrame named
   `Viewport`. Longer text scrolls in the viewport, and the viewport keeps its
