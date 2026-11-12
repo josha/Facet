@@ -132,6 +132,78 @@ return function(harness: Verify.Harness)
 		t:expect(node.AutomaticSize):toBe(E.AutomaticSize.Y)
 		t:expect(other.Size):toEqual(D2.fromScale(1, 0))
 	end)
+	harness:case(
+		"a row that fills inside a parent that hugs gives its filling part the width of its content",
+		function(t)
+			local engine = engineLib.new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local service: TextService = engine.new("TextService")
+			engine.environment.fake(
+				"TextService.GetTextBoundsAsync",
+				function(_self: unknown, params: GetTextBoundsParams)
+					return engine.types.Vector2.new(#params.Text * params.Size, params.Size)
+				end
+			)
+			local UI = Facet.controls(runtime, { types = engine.types, services = { TextService = service } })
+			local E, D2, V2 = engine.types.Enum, engine.types.UDim2, engine.types.Vector2
+			local words = Facet.Compose.cell("Pulse")
+			local stretch = Facet.Compose.cell("start" :: "start" | "stretch")
+			local root: GuiObject? = nil
+			local stop = runtime.mount(function()
+				local Host = runtime.constructors
+				local list = UI.VStack "List" {
+					width = "fill",
+					align = stretch,
+					UI.Button "Record" {
+						onActivate = function() end,
+						UI.HStack "Line" {
+							width = "fill",
+							gap = 0,
+							Host.Frame "Thumb" { Size = D2.fromOffset(90, 40) },
+							UI.VStack "Facts" { UI.fill(), UI.Text "Name" { text = words, wrap = true } },
+						},
+					},
+				}
+				root = list
+				return Host.Frame "Bound" { Size = D2.fromOffset(480, 400), list }
+			end, engine.new("ScreenGui"))
+			t:defer(function()
+				stop()
+				runtime:dispose()
+				t:expect(engine.census().connections):toBe(0)
+			end)
+			local bound = assert(root)
+			local function part(name: string): GuiObject
+				local found = bound:FindFirstChild(name, true)
+				assert(found and found:IsA("GuiObject"))
+				return found
+			end
+			local function floor(): number
+				local lift = part("Facts"):FindFirstChild("Lift")
+				return if lift and lift:IsA("UISizeConstraint") then lift.MinSize.X else 0
+			end
+			local function room(width: number)
+				engine.environment.poke(VerifyRoblox.assertInstance(bound), "AbsoluteSize", V2.new(width, 400))
+			end
+			local name = part("Name")
+			assert(name:IsA("TextLabel"))
+			local pad = part("Record"):FindFirstChildWhichIsA("UIPadding")
+			local sides = if pad then pad.PaddingLeft.Offset + pad.PaddingRight.Offset else 0
+			local line = part("Line"):FindFirstChildWhichIsA("UIListLayout")
+			engine.environment.poke(VerifyRoblox.assertInstance(part("Thumb")), "AbsoluteSize", V2.new(90, 40))
+			room(480)
+			t:expect(floor()):toBe(5 * name.TextSize + 1)
+			words:set("A caption that is far too long to stay on one line of a small plate")
+			t:expect(floor()):toBe(320)
+			room(300)
+			t:expect(floor()):toBe(300 - sides - 90)
+			t:expect(line ~= nil and line.Wraps):toBe(false)
+			stretch:set("stretch")
+			engine.environment.poke(VerifyRoblox.assertInstance(part("Line")), "AbsoluteSize", V2.new(300 - sides, 40))
+			t:expect(floor()):toBe(0)
+			t:expect(part("Facts").AutomaticSize):toBe(E.AutomaticSize.Y)
+		end
+	)
 	harness:case("deferred text floors keep their owner across nested callback threads", function(t)
 		local engine = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime(engine)

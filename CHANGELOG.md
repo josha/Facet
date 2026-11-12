@@ -1,11 +1,20 @@
 # Current package
 
+A row with `width = "fill"` inside a parent that hugs keeps its content. A
+Button with child content hugs it, so a row inside that asked to fill was as
+wide as its fixed parts, and its `UI.fill()` child was 0 pixels wide: a
+record of a thumbnail and two captions showed the thumbnail alone. The fill
+child now takes the width of its content, with a wrapped text counted as one
+line up to 320 pixels, and no more than the room that the nearest ancestor
+with a width leaves. The same holds in a stack with no `width`. A row in a
+parent with a width, and a parent in a list with `align = "stretch"`, are
+sized as before. A stack with no `width` that held such a row beside a wider
+child gave the row the width of that child; the row can now make the stack
+wider.
+
 `Facet.review` has a new rule. `collapsed-text` (high) finds a text that is
-0 pixels wide inside a holder that is on the screen. It is most often a row
-with `width = "fill"` inside a Button or a stack that hugs: the row takes
-the width of its content, and the part of the row that fills gets none.
-[Button.records](docs/reference/nodes/Button.records.md) says how to give
-such a Button its width.
+0 pixels wide inside a holder that is on the screen: the holder is as wide
+as its content, and the content waits for a width from the holder.
 
 A Popover stays inside the screen when its content has a pixel width that is
 wider than the screen. The body carried a size constraint with the right

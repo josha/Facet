@@ -14,6 +14,7 @@ local artGround = require("./art_ground")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
+local textMeasure = require("./text_measure")
 
 local ROW_RETURN_MARGIN = 8
 local hugWarned: { [string]: boolean } = {}
@@ -84,6 +85,105 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			table.insert(connections, layout:GetPropertyChangedSignal("FillDirection"):Connect(update))
 			table.insert(connections, holder:GetPropertyChangedSignal("AutomaticSize"):Connect(update))
 			update()
+		end
+		runtime.connect(node, "AncestryChanged", attach)
+		Compose.cleanup(release)
+		attach()
+	end
+	local function looseRoom(node: Frame, free: ComposeTypes.Value<boolean>, span: ComposeTypes.Value<Vector2>)
+		local connections: { RBXScriptConnection } = {}
+		local function release()
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			table.clear(connections)
+		end
+		local function settle(loose: boolean, extent: Vector2)
+			if free:peek() ~= loose then
+				free:set(loose)
+			end
+			if span:peek() ~= extent then
+				span:set(extent)
+			end
+		end
+		local function hugs(holder: GuiObject): boolean
+			local hug = holder.AutomaticSize
+			return not holder:IsA("ScrollingFrame") and (hug == E.AutomaticSize.X or hug == E.AutomaticSize.XY)
+		end
+		local attach: () -> ()
+		local function stretched(holder: GuiObject): boolean
+			local upper = holder.Parent
+			local layout = if upper then upper:FindFirstChildWhichIsA("UIListLayout") else nil
+			if layout == nil then
+				return false
+			end
+			for _, property in { "FillDirection", "HorizontalFlex", "ItemLineAlignment" } do
+				table.insert(connections, layout:GetPropertyChangedSignal(property):Connect(attach))
+			end
+			if layout.FillDirection == E.FillDirection.Horizontal then
+				return holder:FindFirstChildWhichIsA("UIFlexItem") ~= nil
+			end
+			return layout.HorizontalFlex ~= E.UIFlexAlignment.None
+				or layout.ItemLineAlignment == E.ItemLineAlignment.Stretch
+		end
+		attach = function()
+			release()
+			if node.Size.X.Scale <= 0 then
+				settle(false, V2.zero)
+				return
+			end
+			local at: GuiObject = node
+			while true do
+				local holder = at.Parent
+				if holder == nil or not holder:IsA("GuiObject") then
+					settle(false, V2.zero)
+					return
+				end
+				table.insert(connections, holder:GetPropertyChangedSignal("AutomaticSize"):Connect(attach))
+				if not hugs(holder) then
+					settle(false, V2.zero)
+					return
+				end
+				if not stretched(holder) then
+					break
+				end
+				at = holder
+			end
+			local inset = 0
+			local holder = node.Parent
+			local cursor: Instance? = if holder then holder.Parent else nil
+			local bound: (GuiObject | LayerCollector)? = nil
+			while cursor ~= nil do
+				if cursor:IsA("LayerCollector") then
+					bound = cursor
+					break
+				elseif not cursor:IsA("GuiObject") then
+					break
+				end
+				local pad = cursor:FindFirstChildWhichIsA("UIPadding")
+				if pad then
+					inset += pad.PaddingLeft.Offset + pad.PaddingRight.Offset
+				end
+				if not hugs(cursor) then
+					bound = cursor
+					break
+				end
+				cursor = cursor.Parent
+			end
+			local edge = bound
+			if edge == nil or holder == nil or not holder:IsA("GuiObject") then
+				settle(true, V2.new(math.huge, inset))
+				return
+			end
+			local function measure()
+				local own = node.AbsoluteSize.X
+				local rim = if own > 0 then math.max(0, holder.AbsoluteSize.X - own) else 0
+				settle(true, V2.new(edge.AbsoluteSize.X - rim, inset))
+			end
+			for _, part in { edge, holder, node } do
+				table.insert(connections, part:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure))
+			end
+			measure()
 		end
 		runtime.connect(node, "AncestryChanged", attach)
 		Compose.cleanup(release)
@@ -291,6 +391,13 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local fillers: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
 			local holds: { [GuiObject]: (number, boolean) -> boolean } = {}
 			local fills = false
+			local free, span = Compose.cell(false), Compose.cell(V2.zero)
+			local lines: { [Instance]: ComposeTypes.ReadOnlyValue<Vector2> } = {}
+			local measured = Compose.bindOwner(
+				function(label: TextLabel | TextButton | TextBox): ComposeTypes.ReadOnlyValue<Vector2>
+					return textMeasure.natural(ctx, label)
+				end
+			)
 			for _, child in frame:GetChildren() do
 				if child:IsA("GuiObject") and child:FindFirstChildWhichIsA("UIFlexItem") then
 					fills = true
@@ -301,12 +408,16 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					end
 				end
 			end
+			if fills then
+				looseRoom(frame, free, span)
+			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				local width, used = use(outer).X, use(content).X
 				for _, inner in fillers do
 					use(inner)
 				end
-				if width <= 0 then
+				local loose, bound = use(free), use(span)
+				if width <= 0 and not loose then
 					return
 				end
 				local scale = 1
@@ -325,24 +436,52 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					else 0
 				local spills: boolean
 				if fills then
-					local room = math.max(0, (width - sides) / scale)
+					local room = if loose
+						then math.max(0, (bound.X - sides) / scale - bound.Y)
+						else math.max(0, (width - sides) / scale)
 					local need, count = 0, 0
 					local owns: { [GuiObject]: number } = {}
+					local wants: { [GuiObject]: number } = {}
+					local function line(label: TextLabel | TextButton | TextBox): number
+						local known = lines[label]
+						if known == nil then
+							known = measured(label)
+							lines[label] = known
+						end
+						local natural = use(known).X
+						return if natural < math.huge then natural else 0
+					end
 					for _, child in frame:GetChildren() do
 						if child:IsA("GuiObject") and child.Visible then
 							local own = child.AbsoluteSize.X / scale
 							if holds[child] then
 								own = kit.rigid(child, scale)
 								owns[child] = own
+								if loose then
+									wants[child] = math.max(own, kit.natural(child, scale, line))
+								end
 							end
 							need += own
 							count += 1
 						end
 					end
 					need += list.Padding.Offset * math.max(count - 1, 0)
-					spills = need * scale + sides > width + 0.5
-					for child, hold in holds do
-						hold(if spills then math.min(owns[child] or 0, room) else 0, spills)
+					if loose then
+						spills = need > room + 0.5
+						local spare, extra = math.max(0, room - need), 0
+						for child, want in wants do
+							extra += want - (owns[child] or 0)
+						end
+						local share = if extra > 0 then math.min(1, spare / extra) else 0
+						for child, hold in holds do
+							local own = owns[child] or 0
+							hold(math.min(own + ((wants[child] or own) - own) * share, room), true)
+						end
+					else
+						spills = need * scale + sides > width + 0.5
+						for child, hold in holds do
+							hold(if spills then math.min(owns[child] or 0, room) else 0, spills)
+						end
 					end
 				else
 					spills = (list.Wraps or used + sides > width + 0.5)
