@@ -244,13 +244,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
 			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
 			local appliedSize, appliedMode = label.Size, label.AutomaticSize
-			local connection: (() -> ())? = nil
+			local listening = false
+			local onParent: (string) -> ()
 			local bend: UIFlexItem? = nil
 			local function hug()
 				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
-					if connection then
-						connection()
-						connection = nil
+					if listening then
+						listening = false
+						textChanges.stop(label, onParent)
 					end
 					return
 				end
@@ -293,11 +294,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						else E.TextXAlignment.Left
 				end
 			end
-			connection = textChanges(ctx, label, function(property: string)
+			function onParent(property: string)
 				if property == "Parent" then
 					hug()
 				end
-			end)
+			end
+			listening = true
+			textChanges.watch(ctx, label, onParent)
 			hug()
 		end
 		if lines then

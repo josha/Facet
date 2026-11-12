@@ -224,7 +224,7 @@ local function attachMeasuredLayout(
 		invalidate(true)
 	end
 	local styled = label.StyledPropertiesChanged:Connect(styleChanged)
-	local changed = textChanges(ctx, label, function(property: string)
+	local function onChanged(property: string)
 		if property == "FontFace" or property == "TextSize" then
 			styleChanged()
 		elseif property == "AbsoluteSize" or property == "TextBounds" then
@@ -255,7 +255,8 @@ local function attachMeasuredLayout(
 		then
 			invalidate()
 		end
-	end)
+	end
+	textChanges.watch(ctx, label, onChanged)
 	refreshMetrics()
 	if watchPadding then
 		local function observePadding(child: Instance)
@@ -654,7 +655,7 @@ local function attachMeasuredLayout(
 	Compose.cleanup(function()
 		alive = false
 		styled:Disconnect()
-		changed()
+		textChanges.stop(label, onChanged)
 
 		if pending then
 			pending:Disconnect()
@@ -735,8 +736,7 @@ local function attachLayout(
 		local attach = ctx.Compose.bindOwner(function()
 			attachLayout(ctx, label, stable, watchPadding, lazy, warm)
 		end)
-		local stop: (() -> ())? = nil
-		stop = textChanges(ctx, label, function(property: string)
+		local function onLayout(property: string)
 			if refreshing then
 				return
 			end
@@ -748,14 +748,11 @@ local function attachLayout(
 				and needsMeasurement()
 			then
 				clearPending()
-				local detach = stop
-				stop = nil
-				if detach then
-					detach()
-				end
+				textChanges.stop(label, onLayout)
 				attach()
 			end
-		end, function()
+		end
+		textChanges.watch(ctx, label, onLayout, function()
 			alive = false
 			clearPending()
 		end)
@@ -768,12 +765,13 @@ local function attachLayout(
 			local Compose, E = ctx.Compose, ctx.types.Enum
 			local owner = assert(Compose.currentOwner())
 			local text = label.Text
-			local changed: (() -> ())?, styled: RBXScriptConnection?
+			local watching, styled: RBXScriptConnection? = false, nil
+			local onText: (string) -> ()
 			local checking = false
 			local function release()
-				if changed then
-					changed()
-					changed = nil
+				if watching then
+					watching = false
+					textChanges.stop(label, onText)
 				end
 				if styled then
 					styled:Disconnect()
@@ -832,17 +830,19 @@ local function attachLayout(
 				end)
 			end
 			local laidOut = ctx.afterLayout(function()
-				if changed then
+				if watching then
 					start("AbsoluteSize")
 				end
 			end)
-			changed = textChanges(ctx, label, function(property: string)
+			function onText(property: string)
 				if property == "AbsoluteSize" or property == "TextBounds" then
 					laidOut()
 				else
 					start(property)
 				end
-			end)
+			end
+			watching = true
+			textChanges.watch(ctx, label, onText)
 			styled = label.StyledPropertiesChanged:Connect(start)
 			Compose.cleanup(release)
 			start("AbsoluteSize")

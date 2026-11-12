@@ -44,18 +44,19 @@ return function(harness: Verify.Harness)
 		local ctx = ({ Compose = Compose } :: unknown) :: Types.Context
 		local label = engine.new("TextLabel")
 		local seen: { string } = {}
-		local stopSecond: (() -> ())? = nil
+		local second: ((string) -> ())? = nil
 		local late = 0
 		local owner = Compose.createOwner(runtime.reactor)
 		Compose.withOwner(owner, function()
-			textChanges(ctx, label, function(property: string)
+			textChanges.watch(ctx, label, function(property: string)
 				if property == "Text" then
 					table.insert(seen, "first:" .. label.Text)
-					if label.Text == "two" and stopSecond then
-						stopSecond()
-						stopSecond = nil
+					local registered = second
+					if label.Text == "two" and registered then
+						textChanges.stop(label, registered)
+						second = nil
 						Compose.withOwner(owner, function()
-							textChanges(ctx, label, function(changed: string)
+							textChanges.watch(ctx, label, function(changed: string)
 								if changed == "Text" then
 									late += 1
 								end
@@ -64,11 +65,13 @@ return function(harness: Verify.Harness)
 					end
 				end
 			end)
-			stopSecond = textChanges(ctx, label, function(property: string)
+			local function onSecond(property: string)
 				if property == "Text" then
 					table.insert(seen, "second:" .. label.Text)
 				end
-			end)
+			end
+			second = onSecond
+			textChanges.watch(ctx, label, onSecond)
 		end)
 		label.Text = "one"
 		Verify.expect(seen):toEqual({ "first:one", "second:one" })
@@ -97,7 +100,7 @@ return function(harness: Verify.Harness)
 		local seen: { string } = {}
 		local owner = Compose.createOwner(runtime.reactor)
 		Compose.withOwner(owner, function()
-			textChanges(ctx, label, function(property: string)
+			textChanges.watch(ctx, label, function(property: string)
 				table.insert(seen, property)
 			end)
 		end)
