@@ -19,6 +19,11 @@ record key. In a measured VirtualList, the button's subtitle contributes to its
 height. An external `caption` does not. The row wrapper does not resize a
 hugging child to fill its width.
 
+A Button with child content in place of a label hugs that content. A row with
+`width = "fill"` inside it then has only the width of its fixed parts, and
+its `UI.fill()` part has none. Give the Button its width first, with the
+`Size` above or with `align = "stretch"` on the list that holds it.
+
 Selection marks the current record; focus marks the next input target. Keep
 both visible without giving every row primary-action emphasis. Let the theme
 supply these states. For custom record content, reserve space between its
