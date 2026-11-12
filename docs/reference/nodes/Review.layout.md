@@ -42,4 +42,8 @@ The layers of a ZStack do not make room for each other, and a child that is
 wider than its slot in a stack runs over its neighbor. Put the parts that must
 not cover each other in one stack.
 
+When a report has medium findings, `text` ends its list with their count and
+says what a new interface owes them: a repair, or a noted reason to keep the
+design.
+
 Back to [Review](Review.md).

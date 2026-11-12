@@ -32,7 +32,7 @@ Region measurement, authored sizes and layout boundaries.
   while a rank 2 center region steps down.
 - The `bottomLeft`, `bottom` and `bottomRight` zones share one baseline.
   On touch, the Composition reserves the bottom band occupied by visible
-  TouchGui buttons and thumbstick regions. See [safe layout](Tasks.safe-layout.md).
+  TouchGui buttons and the resting thumbstick. See [safe layout](Tasks.safe-layout.md).
   Content that hangs below a bottom region, such as a Button `caption` or
   the shortcut hint on a circle, takes no room in the layout. Facet measures
   the largest overhang in the bottom row and lifts all three zones by that

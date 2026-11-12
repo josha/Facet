@@ -10,6 +10,13 @@ local paper = rgb(255, 247, 231)
 local vermilion = rgb(156, 40, 30)
 local ultramarine = rgb(36, 58, 131)
 local serif = { family = "Merriweather", weight = "Bold" }
+local function edge(selector: string, role: string, thickness: number): Facet.ThemeRule
+	local properties: Facet.ThemeRuleProperties = {}
+	properties.Color = { role = role }
+	properties.Thickness = thickness
+	return { selector = selector, properties = properties }
+end
+local rules: { Facet.ThemeRule } = { edge(".facet-panel::UIStroke", "content", 2) }
 local definition: Facet.ThemeDefinition = {
 	identity = { id = "proof-press", displayName = "Proof Press" },
 	style = {
@@ -52,6 +59,7 @@ local definition: Facet.ThemeDefinition = {
 		panel = { kind = "native", shadow = "raised" },
 		focus = { kind = "ring", thickness = 3, color = rgb(97, 54, 99) },
 	},
+	rules = rules,
 }
 local theme, report = Facet.themes.define(definition)
 assert(theme, report.errors[1] and report.errors[1].message)

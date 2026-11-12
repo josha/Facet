@@ -40,13 +40,15 @@ screen copies them. A fault that stays in the first screen is repeated in
 each one. Steps 1 to 4 are one screen of work, not a polish pass for the end,
 and a theme definition alone does not complete them. In a product with many
 screens, the number of screens that work is easy to count and the finish of
-the first one is not. [Step 2](#know-when-it-is-done) gives it a test that
-you can count.
+the first one is not. [Step 2](#know-when-it-is-done) gives it three tests
+that you can count.
 
 ## 1. Decide the direction
 
-Write this card in the working notes before any code. Keep it to about ten
-lines. Each line names something that a player can see, not a mood.
+Write this card before any other code, as a comment at the head of the
+module that defines the theme. It stays in the source there, and you meet it
+at every edit. Keep it to about ten lines. Each line names something that a
+player can see, not a mood.
 
 | Line | Decide |
 | --- | --- |
@@ -118,9 +120,9 @@ One screen with no navigation needs only `UI.Screen`.
 
 The owner moves the selection to the first usable control when the surface
 opens, and it skips disabled and hidden controls. It returns the selection to
-the opener when the surface closes, and it routes Back and gamepad B. With
-`suspendGameplay = true` it also turns off the game's input and the touch
-controls while the surface is open. A cell that swaps one `Screen` for
+the opener when the surface closes, and it routes Back and gamepad B. In an
+app made with `Facet.app({ suspendGameplay = true })` it also turns off the
+game's input and the touch controls while the surface is open. A cell that swaps one `Screen` for
 another through `C.show` or `C.switch` is not an owner: the selection is not
 moved in or returned, Back has no route and play is not suspended. Do not
 repair that with a search through the descendants for a button to select:
@@ -129,6 +131,26 @@ its owner. Set `GuiService.SelectedObject` yourself only
 on a named control whose state you know; [runtime essentials](references/runtime.md#input)
 has the case. The owner decides behavior, not appearance: its node shows a
 structure, and the composition stays yours.
+
+**Build the shared parts on this screen.** In a product with many screens, a
+few functions of your own draw most of them: the one that makes an action, a
+record, a section and the body of a page. Every screen gets what those
+return and little else. They are the product's design system, and a plain
+helper makes every screen plain. Write them as the project's components and
+finish them here, before a second screen calls them.
+
+- **The theme.** It has an edge and a depth as well as colors and type. A
+  definition that sets only colors, fonts and radii is the neutral theme in
+  new colors: every plate stays a flat fill.
+  [Finish](references/finish.md#edge-and-depth) has the levers.
+- **A record.** One item with its visual, its name, the value that decides
+  and its state, in a full form and a short form.
+- **The actions.** The main action is the strongest thing in its column, in
+  `emphasis` and at the column's width when it stands alone. The lesser
+  actions are quieter.
+- **The body of a page.** It uses the width of its surface: a bounded
+  column, a `Grid` whose column count follows the room, or two panes. A
+  stack that hugs one corner of a large surface is not a body.
 
 **Build it in layers.**
 
@@ -163,14 +185,22 @@ cards leaves the task unchanged.
 
 ### Know when it is done
 
-Put the card beside the desktop capture and mark each line present or absent:
-the ground, the lead at its share of the screen, the palette roles, the two
-type families, the shared edge, the material of the controls, the signature
-and the response. An absent line is work to do. Do not remove it from the
-card to pass. The first screen is done when every line is present, it holds
-at each form in [step 3](#3-make-one-build-fit-every-screen), and the checks
-of [step 4](#4-look-then-repair) pass. A quiet interface marks the same lines
-with its quiet answers.
+The first screen is done when three tests pass on one revision. Do not build
+a second screen before they do.
+
+1. **The card.** Put the card beside the desktop capture and mark each line
+   present or absent: the ground, the lead at its share of the screen, the
+   palette roles, the two type families, the shared edge, the material of
+   the controls, the signature and the response. An absent line is work to
+   do. Do not remove it from the card to pass. A quiet interface marks the
+   same lines with its quiet answers.
+2. **The forms.** That revision is captured on a desktop, a phone in
+   portrait and the same phone in landscape, as
+   [step 3](#3-make-one-build-fit-every-screen) describes, and nothing
+   overlaps or is cut in any of them.
+3. **The review.** `Facet.review.screen().text` at each of those sizes has
+   no `high` finding, and each `medium` finding is repaired or has a reason
+   in one line, as [step 4](#4-look-then-repair) describes.
 
 ## 3. Make one build fit every screen
 
@@ -263,9 +293,14 @@ Run `Facet.review.screen().text` in the Client data model on each changed
 screen, at each size that you capture and in each state that has its own
 message or its own rows, such as the empty state, the filled list and the
 result. Fix `empty-screen`, `build-failed`, `runtime-error` and each `high`
-finding before building the next screen. Treat other findings as prompts to
-look, not as verdicts. A clean report covers only the state that was mounted,
-and it does not judge identity.
+finding before building the next screen. On a new interface, each `medium`
+finding is work too. `hollow-plate`, `joined-facts`, `flat-hierarchy`,
+`record-without-visual`, `competing-peaks` and `nested-surface` are how a
+generic composition reads in numbers: a plate with its content in one
+corner, a line that joins every fact, records that differ only by name.
+Repair each one at its cause, or note in one line why the design keeps it.
+`low` findings are prompts to look. A clean report covers only the state
+that was mounted, and it does not judge identity.
 
 ## 5. Build the other screens
 
@@ -273,7 +308,9 @@ Build each remaining screen from what the first one settled: the theme, the
 owners and the project's own components. Give each screen the composition
 that its task needs, with its own lead, action and arrangement. One `Screen`
 with a header and a scrolling column, used again for every destination, makes
-every task a form, and the finish of the first screen does not reach it. The
+every task a form, and the finish of the first screen does not reach it. Size
+each surface to its task: a short task hugs its content, and a surface that
+you make large is filled by a body that uses its width. The
 examples in [Find the implementation route](#find-the-implementation-route)
 compose a collection, an inspection, an outcome and settings differently.
 

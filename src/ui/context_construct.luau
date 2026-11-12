@@ -68,7 +68,10 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			then ""
 			elseif #names <= 14 then ` Its options include {table.concat(names, ", ")}.`
 			else ` Read the {building or "control"} reference for its options.`
-		return `Facet UI.{building or "control"}: unknown option '{key}'.{contract}`
+		local plate = if key == "surface"
+			then " A plate belongs to a VStack, an HStack or a Screen: put this control in one that has the surface."
+			else ""
+		return `Facet UI.{building or "control"}: unknown option '{key}'.{contract}{plate}`
 	end
 	local consumedSets: { [unknown]: { [string]: boolean } } = setmetatable({}, { __mode = "k" })
 	local function consumedFor(behavioralKeys: { string } | { [string]: boolean }?): { [string]: boolean }

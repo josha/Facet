@@ -495,6 +495,7 @@ return function(verifyHarness: Verify.Harness)
 				local listed =
 					"Facet UI.ZStack: unknown option 'surface'. Its options include alignH, alignV, ground, height, padding, width."
 				expect(string.find(tostring(unlisted), listed, 1, true) ~= nil):toBe(true)
+				expect(string.find(tostring(unlisted), "A plate belongs to a VStack", 1, true) ~= nil):toBe(true)
 				stop()
 				app.dispose()
 				runtime:dispose()

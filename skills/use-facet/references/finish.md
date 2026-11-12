@@ -16,7 +16,7 @@ its hover, pressed, selected and ten-foot forms.
 | Ground | `UI.Screen { ground = UI.Image { ... } }` draws art behind the content and continues it to every glass edge. `surface = "surface"` does the same with the `surface` color, and `extra.chromeGradient.surface` makes that plate a gradient; see [the ground](#the-ground) | `Screen.reference`, `Themes.palette` |
 | Palette | `style.themes[n].colors`: `surface`, `surfaceStrong`, `content`, `accent`, `onAccent`, and the status pairs. `extra`: `control`, `controlSelected`, `onSelected`, `selection`, `contentSecondary`, `hairline` | `Theme-identity`, `Themes.palette` |
 | Type | `metrics.typography`: `title`, `heading`, `numeral`, `strong`, `label`, `control`, `body`, `caption`. Each role takes `size` and `font = { family, weight }`; `family` is a name from the table below or a full font path | `Tasks.theme` |
-| Shape and edge | `metrics.radii` (`control`, `panel`), `metrics.strokes`, `chrome.panel.shadow` and `chrome.control.shadow` (`"raised"`, `"overlay"` or a shadow table), `extra.chromeGradient.panel`, and `rules` for strokes | `Themes.definition`, `Theme-identity` |
+| Shape and edge | `metrics.radii` (`control`, `panel`), `chrome.panel.shadow` and `chrome.control.shadow` (`"raised"`, `"overlay"` or a shadow table), `extra.chromeGradient.panel`, and `rules` for an edge on every plate; see [edge and depth](#edge-and-depth) | `Themes.definition`, `Theme-identity` |
 | Controls | `chrome.control`, `chrome.panel`, `chrome.field`, `chrome.badge`: `native`, `nineSlice`, `tile`, `frame` or `layered` art with per-state assets and `contentInsets` | `Themes.art`, `Themes.chrome` |
 | Focus and selection | `chrome.focus`: `ring`, `glow`, `brackets` or `nineSlice`. `extra.controlSelected` and the control's `selected` art | `Themes.chrome` |
 | Main action | `appearance = "emphasis"` uses `accent` and `onAccent`. A uniquely shaped action is one `UI.Button` with an authored face; see [worked translations](visual-translations/guide.md#use-the-control-contracts) | `Button.appearance` |
@@ -29,8 +29,48 @@ contrast of 4.5:1. Give the first task its theme through
 `Facet.app({ name = ..., theme = theme })`.
 
 A definition that changes only `accent` leaves the neutral theme in place.
-A definition that sets the ground, two type families, the radii, one edge or
-depth treatment and the selected state has already left it.
+So does one that sets only colors, fonts and radii: every plate is still a
+flat fill with no edge. A definition that sets the ground, two type families,
+the radii, one edge or depth treatment and the selected state has left it.
+
+## Edge and depth
+
+The neutral plates are flat fills, and a plate close to the color of the
+ground disappears into it. The theme gives every plate its edge and its depth
+at once. Choose what the card's shape and edge line needs; one or two of
+these are enough.
+
+- **An edge.** A theme rule draws a stroke on every panel and every Sheet.
+  `role` names a palette color, so the edge follows the palette:
+
+  ```luau
+  local function edge(selector: string, role: string, thickness: number): Facet.ThemeRule
+      local properties: Facet.ThemeRuleProperties = {}
+      properties.Color = { role = role }
+      properties.Thickness = thickness
+      return { selector = selector, properties = properties }
+  end
+  local rules: { Facet.ThemeRule } = { edge(".facet-panel::UIStroke, .facet-sheet::UIStroke", "accent", 1.5) }
+  ```
+
+  Pass it as `rules = rules` in the definition. Add
+  `properties.Transparency` for a quieter line. `.facet-panel` is a stack
+  with `surface = "panel"` and `.facet-sheet` is a Sheet's plate. Keep the
+  strong edge for the plates; equal bright strokes on every nested part
+  erase the hierarchy.
+- **A lit plate.** `extra.chromeGradient.panel` takes the same table as
+  [the ground](#the-ground). With `alpha = { { t = 0, v = 0.2 }, { t = 1, v = 0 } }`
+  it becomes a sheen over the plate color.
+- **Depth.** `chrome.panel.shadow` and `chrome.control.shadow` lift a plate
+  off a light ground. On a dark ground a shadow does not show; use the edge
+  or a glow.
+- **Focus.** `chrome.focus = { kind = "glow", color = "$Accent" }` in place
+  of the ring, or `brackets` for a hard-edged world.
+- **Art.** `chrome.panel` and `chrome.control` take nine-slice art when the
+  material is drawn; see `Themes.art`.
+
+Check the result in a capture over the real ground. An edge that reads on a
+plain backdrop can vanish over a bright scene.
 
 ## Type
 

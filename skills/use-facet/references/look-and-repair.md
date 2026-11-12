@@ -74,8 +74,12 @@ high: two texts collide at this size. `covered-text` names a label that is
 under a plate from another part at this size, and `escaped-text` names a
 label that runs past its backing or that a clip cuts; repair them unless the
 effect is deliberate. `native-text` names labels that were built outside
-Facet; rebuild them with `UI.Text`. Treat other findings as prompts to look,
-not as verdicts. For an image, the review uses the painted bounds, which it
+Facet; rebuild them with `UI.Text`. On a new interface each other `medium`
+finding is work too: repair it at its cause, or note in one line why the
+design keeps it. `composition-unfit` names the regions of a HUD that are
+drawn over each other at this size or on a phone; give each a shorter form
+or `mayDrop = true`. Treat `low` findings as prompts to look, not as
+verdicts. For an image, the review uses the painted bounds, which it
 reads from the pixels in Studio, so a label that runs over the edge of the
 paint is found. It does not find a label that is mostly on the transparent
 margin, on a soft shadow or over a hole in the paint, and it uses the

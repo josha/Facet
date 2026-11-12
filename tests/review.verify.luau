@@ -960,6 +960,7 @@ return function(harness: Verify.Harness)
 		local report = Rules.analyze(snapshot())
 		local detail = "2 control(s) up to 290 px tall in a scroll area 167 px tall"
 		t:expect(rules(report)["oversized-target"]):toBe(1)
+		t:expect(string.find(report.text, "medium rule(s): each one names", 1, true) ~= nil):toBe(true)
 		t:expect(string.find(report.text, detail, 1, true) ~= nil):toBe(true)
 		t:expect(report.fixes["oversized-target"] ~= nil):toBe(true)
 	end)

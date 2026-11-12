@@ -1126,6 +1126,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local chosen, down, moved, overflow, packed =
 				result.chosen, result.down, result.moved, result.overflow, result.packed
 			local unfit: { string } = {}
+			if #overflow > 0 then
+				local names: { string } = {}
+				for _, index in overflow do
+					table.insert(names, regions[index].Name)
+				end
+				table.insert(unfit, `{math.floor(extent.X)} by {math.floor(extent.Y)} now: {table.concat(names, ", ")}`)
+			end
 			for _, phone in PHONES do
 				if extent.X > phone.X or extent.Y > phone.Y then
 					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil).overflow

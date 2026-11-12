@@ -20,8 +20,8 @@ for exact options.
 
 Each starting point is a Facet presenter, and the presenter owns what a
 surface needs when it opens and closes: the entry selection, Back and gamepad
-B, the return of the selection to the opener, and with
-`suspendGameplay = true` the game's input and touch controls. Nodes
+B, the return of the selection to the opener, and in an app made with
+`Facet.app({ suspendGameplay = true })` the game's input and touch controls. Nodes
 `Tasks.hud`, `Tasks.pages` and `Tasks.sheet` show each structure. A page that
 the game swaps in with its own cell has no presenter, so the game would have
 to write all of that, and a hand-written version usually selects a disabled
@@ -30,8 +30,8 @@ your own.
 
 Opening from a HUD does not require a centered Sheet. Decide how much world
 context and input access the task needs. A modal owns input; visible gameplay
-behind it is not necessarily interactive or paused. Use `suspendGameplay = true`
-and gate game commands with `UI.environment().gameplaySuspended` when the app
+behind it is not necessarily interactive or paused. Make the app with
+`suspendGameplay = true` and gate game commands with `UI.environment().gameplaySuspended` when the app
 should suspend them. A Studio plugin uses its host's mounting and input model;
 read `Mounting` and [runtime details](runtime-details.md) for that case.
 

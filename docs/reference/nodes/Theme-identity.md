@@ -40,7 +40,11 @@ conditional design choices, not required colors, type sizes or surface treatment
   and `chrome.control.shadow` can differ when panels and controls have different
   roles. Flat surfaces can also work; judge separation in the actual task.
 - `rules` add native StyleSheet rules. `{ role = "accent" }` and
-  `{ metric = "..." }` follow palette and distance changes.
+  `{ metric = "..." }` follow palette and distance changes. For an edge on
+  every plate, use
+  `{ selector = ".facet-panel::UIStroke, .facet-sheet::UIStroke", properties = { Color = { role = "accent" }, Thickness = 1.5 } }`.
+  `.facet-panel` is a stack with `surface = "panel"`; `.facet-sheet` is a
+  Sheet's plate. The Proof Press example has a typed form.
 - Check `report` before you pass the package to the app.
 
 Back to [Tasks.theme](Tasks.theme.md).

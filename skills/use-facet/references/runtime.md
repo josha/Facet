@@ -161,8 +161,10 @@ the actual input. Call it once at the top of a screen function
 (`local env = UI.environment()`) and read `use(env.viewportWidth)` in
 property functions.
 
-`suspendGameplay = true` applies to modal surfaces and a nonempty
-NavigationStack path; it does not suspend gameplay for a root Screen alone.
+`suspendGameplay` is an option of the app, not of a surface:
+`Facet.app({ name = "Game", theme = theme, suspendGameplay = true })`. It
+applies to modal surfaces and a nonempty NavigationStack path; it does not
+suspend gameplay for a root Screen alone.
 While one is open, Facet turns off the touch controls and
 `UI.environment().gameplaySuspended` is true. Derive the game's own input
 from it. Do not turn the touch controls or an input context on and off by

@@ -1,5 +1,32 @@
 # Current package
 
+On touch, `UI.Screen` and `UI.Composition` reserve less room for the dynamic
+thumbstick. The band was as tall as the region that takes the drag, which is
+two thirds of a phone in landscape: 228 of 331 pixels on an iPhone 14, so a
+HUD kept 79 pixels and its regions were drawn over each other. The band is
+now as tall as the stick where it rests, 111 pixels there, the same band that
+the Jump button needs. A classic thumbstick, a thumbpad and a game's own
+`touchReservations` are reserved as before.
+
+A Composition whose regions do not fit the size it has now sets `FacetUnfit`
+and names that size and the regions in `FacetUnfitDetails`, so `Facet.review`
+reports `composition-unfit` on the device where the overlap shows. Before,
+the review reported only the two phone areas from a larger screen, and an
+overlap on the phone itself reached only the output as a warning.
+
+When a `Facet.review` report has medium findings, its `text` ends the list
+with their count and says what a new interface owes each one: a repair, or a
+noted reason to keep the design.
+
+The Proof Press example gives its theme an edge through `rules`: a 2 pixel
+stroke in the `content` color on every panel. The finish reference of the
+use-facet skill has an "Edge and depth" section with the rule, the plate
+gradient, the shadow and the focus glow.
+
+The unknown-option error for `surface` says where the plate belongs: `A plate
+belongs to a VStack, an HStack or a Screen: put this control in one that has
+the surface.`
+
 `Facet.review` has the rule `oversized-target`. It finds buttons that are
 taller or wider than the scroll view that holds them, such as a record card
 of 290 pixels in a list that has 170 pixels of room on a phone in landscape.

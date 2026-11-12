@@ -18,8 +18,9 @@ through Studio MCP in Edit mode.
   Batch related queries in one call.
 - Read a complete contract with `search.read(path)` before the first use of a
   control or of an option on that control; a search result is not always the
-  complete contract. Read a whole guide or example only when the skill names
-  it for the step in hand.
+  complete contract. Read the contracts of the screen in hand; those of a
+  later screen wait until you build it. Read a whole guide or example only
+  when the skill names it for the step in hand.
 - Do not dump the control index, unrelated examples or the Compose skill.
   `runtime.md` has the Compose calls that a screen needs.
 

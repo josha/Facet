@@ -223,6 +223,20 @@ return function(verifyHarness: Verify.Harness)
 			jump.Parent = native
 			settle()
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			thumb.Visible = true
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+			local art: ImageLabel = engine.new("ImageLabel")
+			art.Name, art.Image = "ThumbstickStart", "rbxassetid://1"
+			art.Size, art.Position = T.UDim2.fromOffset(60, 60), T.UDim2.new(0, 30, 1, -80)
+			art.Parent = thumb
+			settle()
+			expect(button.AbsolutePosition.Y > thumb.AbsolutePosition.Y):toBe(true)
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= art.AbsolutePosition.Y):toBe(true)
+			art.Parent = nil
+			thumb.Visible = false
+			settle()
 			engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", false)
 			settle()
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > jump.AbsolutePosition.Y):toBe(true)
@@ -450,6 +464,25 @@ return function(verifyHarness: Verify.Harness)
 						expect(#value <= 50):toBe(true)
 					end
 				end
+				stop()
+			end,
+		})
+
+		it("names the regions that do not fit the size it has now", {
+			id = "native_composition::Composition::names the regions that do not fit the size it has now",
+			run = function()
+				local root, engine, stop = actionRow({ captions = false })
+				sized(engine, root:FindFirstChild("Zones"), 1920, 1080)
+				expect(root:GetAttribute("FacetUnfit")):toBeNil()
+				sized(engine, root:FindFirstChild("Zones"), 100, 700)
+				local details = root:FindFirstChild("FacetUnfitDetails")
+				assert(details and details:IsA("StringValue"))
+				expect(root:GetAttribute("FacetUnfit")):toBe(true)
+				expect(string.find(details.Value, "100 by 700 now: ", 1, true) ~= nil):toBe(true)
+				expect(string.find(details.Value, "Actions", 1, true) ~= nil):toBe(true)
+				sized(engine, root:FindFirstChild("Zones"), 1920, 1080)
+				expect(root:GetAttribute("FacetUnfit")):toBeNil()
+				expect(details.Value):toBe("")
 				stop()
 			end,
 		})

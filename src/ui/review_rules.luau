@@ -60,6 +60,8 @@ export type ReviewReport = {
 local SEPARATORS = { " · ", " • ", " | ", " / ", " – " }
 local SEVERITY_RANK: { [ReviewSeverity]: number } = { high = 1, medium = 2, low = 3 }
 local RECIPES = "See the information-display reference in the use-facet skill."
+local MEDIUM_NOTE =
+	"  %d medium rule(s): each one names a generic or unfinished part. On a new interface, repair it or note why the design keeps it before you build the next screen."
 
 local fixes: { [string]: string } = {
 	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. "
@@ -78,7 +80,7 @@ local fixes: { [string]: string } = {
 	["lopsided-page"] = 'The page content sits on one side of a wide surface and leaves the other side empty. Center a bounded column (width = "fill" with maxWidth, align = "center" on the Screen), or use the room for a second pane such as the selected item\'s detail.',
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
-	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
+	["composition-unfit"] = "A HUD Composition does not fit this screen or a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
@@ -1469,6 +1471,15 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			end
 			table.insert(lines, "      " .. finding.detail)
 		end
+	end
+	local medium = 0
+	for _, rule in order do
+		if grouped[rule][1].severity == "medium" then
+			medium += 1
+		end
+	end
+	if medium > 0 then
+		table.insert(lines, MEDIUM_NOTE:format(medium))
 	end
 	table.insert(lines, "  most prominent text:")
 	for index, item in prominence do

@@ -22,18 +22,26 @@ Do these in order. Each one ends with a result that you can observe.
    result real. An open page, a changed label or a successful tool call does
    not prove this route.
 2. **Its screen is finished.** For a new visual direction, finish the look of
-   that one route before you build the interface of a second route: its
-   composition, subject treatment, type hierarchy and action emphasis, with
-   representative data. Capture it at each supported form: wide, narrow and
-   short. A phone brief covering both orientations needs both portrait and
-   landscape here; one compact preset cannot prove both. Repair what the
-   captures show, then check the screen with controller-only focus when a
-   controller is supported. This step covers one screen. It is not polish:
-   every later route copies what this screen settles, so a fault left here is
-   repeated in each of them. A theme definition alone does not complete it.
-   The screen can be resolved with static data before step 1; static data
-   does not count as the accepted game effect. Skip this step when the brief
-   asks for an established look or supports one form factor and one input.
+   one screen before you build the interface of a second route. A route can
+   span several screens. Take the one that the player sees most; when the
+   product also has destinations that cover or replace play, finish one of
+   those in the same way. Finish its composition, subject treatment, type
+   hierarchy and action emphasis, with representative data. Finish with it
+   the parts that later routes will call: the style or theme, one record, the
+   actions and the body of a page. Those parts draw every later route, so a
+   plain part makes every route plain. Capture one revision at each
+   supported form: wide, narrow and short. A phone brief covering both
+   orientations needs both portrait and landscape here; one compact preset
+   cannot prove both. Repair what the captures show, then check the screen
+   with controller-only focus when a controller is supported. Then state in
+   one message, one line each, what the captures show of the ground, the
+   main subject, the type, the edge of the surfaces and the main action. A
+   line that you cannot point to in a capture is work to do before the next
+   route. This step is not polish: a fault left here is repeated in every
+   later route, and a theme definition alone does not complete it. The
+   screen can be resolved with static data before step 1; static data does
+   not count as the accepted game effect. Skip this step when the brief asks
+   for an established look or supports one form factor and one input.
 3. **Every route has an entry and a result.** Give each remaining required
    route a minimal working entry and result before you deepen a route that
    already works. Build each from what the first screen settled, with a
