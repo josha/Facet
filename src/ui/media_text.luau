@@ -255,6 +255,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					return
 				end
 				local parent = label.Parent
+				if parent == nil then
+					return
+				end
 				local frame = parent ~= nil and parent:IsA("GuiObject")
 				local automatic = if parent and frame then (parent :: GuiObject).AutomaticSize else nil
 				local list = if parent then parent:FindFirstChildWhichIsA("UIListLayout") else nil
