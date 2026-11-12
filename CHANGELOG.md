@@ -1,5 +1,13 @@
 # Current package
 
+A Region takes `label` and `icon`. A region that the screen has no room for
+showed as a "…" badge, and three of them on a phone in portrait said nothing
+about what each one held. The region's `Reveal` badge and the zone's
+`ZoneReveal` button now show the label and the icon that the region has,
+and the Popover that holds several hidden regions puts each label above its
+region. A region with neither keeps the "…" mark, and `Facet.review` has a
+new medium rule, `unnamed-reveal`, for a mark that is on the screen.
+
 A row with `width = "fill"` inside a parent that hugs keeps its content. A
 Button with child content hugs it, so a row inside that asked to fill was as
 wide as its fixed parts, and its `UI.fill()` child was 0 pixels wide: a

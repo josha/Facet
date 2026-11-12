@@ -997,6 +997,24 @@ return function(harness: Verify.Harness)
 		t:expect(string.find(report.text, "Destinations, Race", 1, true) ~= nil):toBe(true)
 	end)
 
+	harness:case("a reveal mark that does not name its region is reported", function(t)
+		local add, snapshot = scene()
+		local hud = add(nil, "Frame", 0, 0, 1920, 1080)
+		local mark = add(hud, "Frame", 20, 20, 28, 20)
+		local zone = add(hud, "TextButton", 1800, 20, 44, 44, { interactive = true })
+		t:expect(rules(Rules.analyze(snapshot()))["unnamed-reveal"]):toBe(nil)
+		local unnamed = snapshot()
+		unnamed.elements[mark].reveal = "Wallet"
+		unnamed.elements[zone].reveal = "Identity, Hub"
+		local report = Rules.analyze(unnamed)
+		t:expect(rules(report)["unnamed-reveal"]):toBe(2)
+		t:expect(string.find(report.text, "it holds Identity, Hub", 1, true) ~= nil):toBe(true)
+		t:expect(report.fixes["unnamed-reveal"] ~= nil):toBe(true)
+		unnamed.elements[mark].visible = false
+		unnamed.elements[zone].visible = false
+		t:expect(rules(Rules.analyze(unnamed))["unnamed-reveal"]):toBe(nil)
+	end)
+
 	harness:case("a subject image counts toward the used area of a surface", function(t)
 		local add, snapshot = scene()
 		local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })

@@ -30,6 +30,8 @@ type Declared = {
 	trailing: boolean,
 	animate: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
+	label: string?,
+	icon: string?,
 }
 type Resolution = {
 	chosen: { number },
@@ -207,6 +209,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		return reach
 	end
 
+	local function mark(name: string, label: string?, icon: string?, region: string): Instance
+		return UI.Badge(name)({ label = label, icon = icon, name = label or region })
+	end
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
@@ -227,6 +232,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			"Facet Region expand must be a function that returns the richest content"
 		)
 		assert(spec.reveal == nil or type(spec.reveal) == "boolean", "Facet Region reveal must be a boolean")
+		assert(spec.label == nil or type(spec.label) == "string", "Facet Region label must be a string")
+		assert(spec.icon == nil or type(spec.icon) == "string", "Facet Region icon must be an icon name")
+		local label = if spec.label ~= "" then spec.label else nil
+		local icon = if spec.icon and ctx.iconShows(spec.icon) then spec.icon else nil
 		assert(
 			spec.leading == nil or (type(spec.leading) == "boolean" and (spec.leading == false or zone == "topbar")),
 			"Facet Region leading must be a boolean, and only a topbar region can lead"
@@ -266,7 +275,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local lift = Compose.cell(0)
 		local properties: Types.FrameProps = ctx.props(
 			spec,
-			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "leading", "trailing" },
+			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "label", "icon", "leading", "trailing" },
 			{
 				BorderSizePixel = 0,
 				Size = D2.new(),
@@ -278,19 +287,27 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		)
 		local open, hosted = Compose.cell(false), Compose.cell(false)
 		local richest: GuiObject? = nil
+		local unnamed: Frame? = nil
 		if spec.mayDrop == true and spec.reveal ~= false then
-			properties[#properties + 1] = ctx.styled(
-				Host.Frame "Reveal" {
-					Size = D2.fromOffset(28, 20),
-					Host.UICorner { CornerRadius = ctx.round },
-					ctx.icon("more", {
-						AnchorPoint = V2.new(0.5, 0.5),
-						Position = D2.fromScale(0.5, 0.5),
-						Size = D2.fromOffset(16, 16),
-					}),
-				},
-				"badge"
-			)
+			if label or icon then
+				local named = if type(spec.Name) == "string" then spec.Name else "Region"
+				properties[#properties + 1] = mark("Reveal", label, icon, named)
+			else
+				local generic = ctx.styled(
+					Host.Frame "Reveal" {
+						Size = D2.fromOffset(28, 20),
+						Host.UICorner { CornerRadius = ctx.round },
+						ctx.icon("more", {
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							Size = D2.fromOffset(16, 16),
+						}),
+					},
+					"badge"
+				)
+				unnamed = generic
+				properties[#properties + 1] = generic
+			end
 		end
 		local sizes: { ComposeTypes.Value<Vector2> } = {}
 		local hangs: { ComposeTypes.Value<number> } = {}
@@ -417,6 +434,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 		end
 		local node = kit.plain(Host.Frame(properties), spec)
+		if unnamed then
+			unnamed:SetAttribute("FacetReveal", node.Name)
+		end
 		local authored = spec.Visible
 		regionPresence[node] = Compose.formula(function(use: ComposeTypes.Use): boolean
 			return not use(absent) and read(authored, use) ~= false
@@ -454,6 +474,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			reveal = if spec.reveal ~= false and spec.mayDrop == true
 				then { host = hostInto, back = returnHome }
 				else nil,
+			label = label,
+			icon = icon,
 		}
 		return node
 	end)
@@ -911,6 +933,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 				return list
 			end)
+			local lone = Compose.formula(function(use: ComposeTypes.Use): Frame?
+				local list = use(dropped)
+				local only = list[1]
+				local entry = if #list == 1 and only then declared[only] else nil
+				return if entry and (entry.label or entry.icon) then only else nil
+			end)
 			local open = Compose.cell(false)
 			local hosting: { Frame } = {}
 			local function release()
@@ -948,6 +976,81 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
 			end
 			runtime.mount(function()
+				local marks: { { region: Frame, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
+				local parts: Types.TextButtonProps = {
+					Text = "",
+					BackgroundTransparency = 1,
+					ZIndex = 5,
+					Position = function(use: ComposeTypes.Use): UDim2
+						return (place(use))
+					end,
+					AnchorPoint = function(use: ComposeTypes.Use): Vector2
+						local _, anchor = place(use)
+						return anchor
+					end,
+					Visible = function(use: ComposeTypes.Use): boolean
+						return #use(dropped) > 0
+					end,
+					ctx.styled(
+						Host.Frame "Badge" {
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							Size = D2.fromOffset(28, 20),
+							Visible = function(use: ComposeTypes.Use): boolean
+								return use(lone) == nil
+							end,
+							Host.UICorner { CornerRadius = ctx.round },
+							ctx.icon("more", {
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.fromOffset(16, 16),
+							}),
+						},
+						"badge"
+					),
+				}
+				for _, region in children do
+					local entry = declared[region]
+					if entry.reveal and (entry.label or entry.icon) then
+						local named = Host.Frame("Mark" .. region.Name)({
+							BackgroundTransparency = 1,
+							AnchorPoint = V2.new(0.5, 0.5),
+							Position = D2.fromScale(0.5, 0.5),
+							Size = D2.new(),
+							AutomaticSize = E.AutomaticSize.XY,
+							Visible = function(use: ComposeTypes.Use): boolean
+								return use(lone) == region
+							end,
+							mark("Mark", entry.label, entry.icon, region.Name),
+						})
+						parts[#parts + 1] = named
+						table.insert(marks, { region = region, size = ctx.observe.AbsoluteSize(named) })
+					end
+				end
+				parts.Size = function(use: ComposeTypes.Use): UDim2
+					local side = floor(use)
+					local wide = side
+					local only = use(lone)
+					for _, named in marks do
+						if named.region == only then
+							wide = math.max(wide, use(named.size).X / use(safeUnit))
+						end
+					end
+					return D2.fromOffset(wide, side)
+				end
+				local trigger = Host.TextButton("ZoneReveal" .. frame.Name)(parts)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local names: { string } = {}
+					if use(lone) == nil then
+						for _, region in use(dropped) do
+							local entry = declared[region]
+							if not (entry.label or entry.icon) then
+								table.insert(names, region.Name)
+							end
+						end
+					end
+					trigger:SetAttribute("FacetReveal", if #names > 0 then table.concat(names, ", ") else nil)
+				end)
 				return UI.Popover("Hidden" .. frame.Name)({
 					isPresented = open,
 					onPresentedChange = function(value: boolean)
@@ -971,11 +1074,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						}
 						local slotFrames = {}
 						for index, region in dropped:peek() do
+							local title = declared[region].label
 							local slot = Host.Frame("Hidden" .. region.Name)({
 								LayoutOrder = index,
 								BackgroundTransparency = 1,
 								Size = D2.new(),
 								AutomaticSize = E.AutomaticSize.XY,
+								if title then Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder } else nil,
+								if title
+									then UI.Text "Label" { text = title, textRole = "caption", LayoutOrder = -1 }
+									else nil,
 							})
 							slots[#slots + 1] = slot
 							slotFrames[region] = slot
@@ -988,38 +1096,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						Compose.cleanup(release)
 						return holder
 					end,
-					trigger = Host.TextButton("ZoneReveal" .. frame.Name)({
-						Text = "",
-						BackgroundTransparency = 1,
-						ZIndex = 5,
-						Size = function(use: ComposeTypes.Use): UDim2
-							return D2.fromOffset(floor(use), floor(use))
-						end,
-						Position = function(use: ComposeTypes.Use): UDim2
-							return (place(use))
-						end,
-						AnchorPoint = function(use: ComposeTypes.Use): Vector2
-							local _, anchor = place(use)
-							return anchor
-						end,
-						Visible = function(use: ComposeTypes.Use): boolean
-							return #use(dropped) > 0
-						end,
-						ctx.styled(
-							Host.Frame "Badge" {
-								AnchorPoint = V2.new(0.5, 0.5),
-								Position = D2.fromScale(0.5, 0.5),
-								Size = D2.fromOffset(28, 20),
-								Host.UICorner { CornerRadius = ctx.round },
-								ctx.icon("more", {
-									AnchorPoint = V2.new(0.5, 0.5),
-									Position = D2.fromScale(0.5, 0.5),
-									Size = D2.fromOffset(16, 16),
-								}),
-							},
-							"badge"
-						),
-					}),
+					trigger = trigger,
 				})
 			end, safe)
 		end
