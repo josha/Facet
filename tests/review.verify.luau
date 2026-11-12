@@ -939,6 +939,30 @@ return function(harness: Verify.Harness)
 		t:expect(rules(Rules.analyze(snapshot()))["touch-control-overlap"]):toBe(nil)
 	end)
 
+	harness:case("a text with no width inside a visible holder is reported", function(t)
+		local add, snapshot = scene()
+		local button = add(nil, "TextButton", 100, 100, 130, 75, { interactive = true })
+		local row = add(button, "Frame", 112, 100, 106, 75)
+		local facts = add(row, "Frame", 218, 100, 0, 52)
+		add(facts, "TextLabel", 218, 100, 0, 16, { text = "Pulse / 01" })
+		add(row, "TextLabel", 112, 150, 90, 16, { text = "Shown" })
+		local report = Rules.analyze(snapshot())
+		t:expect(rules(report)["collapsed-text"]):toBe(1)
+		t:expect(string.find(report.text, '"Pulse / 01" has no width', 1, true) ~= nil):toBe(true)
+		t:expect(report.fixes["collapsed-text"] ~= nil):toBe(true)
+		local scrolled = snapshot()
+		scrolled.elements[row].clips = true
+		t:expect(rules(Rules.analyze(scrolled))["collapsed-text"]):toBe(1)
+		scrolled.elements[row].clips = nil
+		local folded = snapshot()
+		folded.elements[facts].clips = true
+		t:expect(rules(Rules.analyze(folded))["collapsed-text"]):toBe(nil)
+		folded.elements[facts].clips = nil
+		local hidden = snapshot()
+		hidden.elements[facts].visible = false
+		t:expect(rules(Rules.analyze(hidden))["collapsed-text"]):toBe(nil)
+	end)
+
 	harness:case("a text that its row pushes off the screen is reported", function(t)
 		local add, snapshot = scene()
 		local row = add(nil, "Frame", 1624, 100, 276, 56)

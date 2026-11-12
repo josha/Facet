@@ -81,6 +81,7 @@ local fixes: { [string]: string } = {
 	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
+	["collapsed-text"] = "A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder: a Button or a stack that hugs, with a row inside that fills. Give the holder a width: align = \"stretch\" on the list that holds it, a Size with a width, or the row option of the Button.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
@@ -1169,38 +1170,47 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 	end
 
 	local screen: ReviewRect = { x = 0, y = 0, width = snapshot.width, height = snapshot.height }
-	local strays = 0
+	local strays, flats = 0, 0
 	for _, element in snapshot.elements do
-		if strays >= 3 then
+		if strays >= 3 and flats >= 3 then
 			break
 		end
 		local text = element.text
 		if text == nil or not element.visible or text.size < 8 or clean(text.content) == "" then
 			continue
 		end
+		local flat = element.rect.width < 1 and element.rect.height >= 4
 		local ink = text.ink or element.rect
 		local seen = overlap(ink, screen)
-		if ink.width < 4 or ink.height < 4 or (seen ~= nil and area(seen) >= 0.5 * area(ink)) then
+		local away = ink.width >= 4 and ink.height >= 4 and (seen == nil or area(seen) < 0.5 * area(ink))
+		if not flat and not away then
 			continue
 		end
 		local chain = lineage(element)
-		local holder = chain[1]
-		local held = if holder then overlap(holder.rect, screen) else nil
-		if holder == nil or held == nil or area(held) < 0.5 * area(holder.rect) then
-			continue
-		end
+		local holder = if flat then nil else chain[1]
 		local clipped = false
 		for _, ancestor in chain do
-			if ancestor.clips or not ancestor.visible then
+			local empty = area(ancestor.rect) <= 0
+			if not ancestor.visible or (ancestor.clips and (empty or not flat)) then
 				clipped = true
 				break
 			end
+			if holder == nil and not empty then
+				holder = ancestor
+			end
 		end
-		if clipped then
+		local held = if holder then overlap(holder.rect, screen) else nil
+		if clipped or holder == nil or held == nil or area(held) < 0.5 * area(holder.rect) then
 			continue
 		end
-		add("offscreen-text", "high", element, ("%s is outside the screen"):format(quote(clean(text.content))))
-		strays += 1
+		local words = quote(clean(text.content))
+		if flat and flats < 3 then
+			add("collapsed-text", "high", element, ("%s has no width"):format(words))
+			flats += 1
+		elseif away and strays < 3 then
+			add("offscreen-text", "high", element, ("%s is outside the screen"):format(words))
+			strays += 1
+		end
 	end
 
 	local foreign: { ReviewElement } = {}
