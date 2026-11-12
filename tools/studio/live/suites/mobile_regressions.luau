@@ -227,7 +227,7 @@ table.insert(cases, {
 		for index = 1, 40 do
 			RunService.RenderStepped:Wait()
 			local center = t.find(stage, "Center")
-			if center then
+			if center and t.visible(center) then
 				local at = center.AbsolutePosition + center.AbsoluteSize / 2
 				table.insert(frames, at)
 				local gear = t.find(stage, "gear")

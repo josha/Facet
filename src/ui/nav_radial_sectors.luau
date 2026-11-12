@@ -198,6 +198,19 @@ return function<V>(
 			return if use(fallback) then 6 else 0
 		end,
 		Attributes = attributes,
+		Visible = function(use: ComposeTypes.Use): boolean
+			if not use(fallback) then
+				return true
+			end
+			local words = use(wordWidths)
+			for _, sector in use(sectors) do
+				local label = ctx.read<<string>>(sector.item.label, use)
+				if label ~= "" and words[sector.key] == nil then
+					return false
+				end
+			end
+			return true
+		end,
 		listHeader,
 		Compose.show(fallback, function()
 			return Compose.fragment(function()
