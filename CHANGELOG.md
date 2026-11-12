@@ -1,5 +1,19 @@
 # Current package
 
+A `UI.Text` with `wrap = true` in an HStack that has a bounded width stays
+inside the row. It took the full width of the row, whatever stood beside it:
+after a 40 pixel Avatar in a 276 pixel row it ran 48 pixels past the end, and
+the part after it was drawn outside the plate or off the screen. A long text
+made the row spill, so the text dropped under the Avatar. Now the text takes
+the size of its words and shrinks into the room that the other parts leave,
+where it wraps. Two wrapped texts in one row share the shortage. A wrapped
+text with its own `UI.fill()`, a wrapped text in a VStack and a wrapped text
+in a row that hugs are sized as before.
+
+`Facet.review` has a new rule. `offscreen-text` (high) finds a text with less
+than half of its glyphs on the screen while the stack that holds it is on the
+screen. A text inside a clip or a scrolling view does not count.
+
 `UI.Screen` takes `ground`: one GuiObject, most often a `UI.Image` or a
 `UI.ZStack` of images, that Facet draws behind the content and continues to
 every edge of the glass, while the content stays in the safe area. `UI.Image`

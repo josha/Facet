@@ -245,6 +245,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
 			local appliedSize, appliedMode = label.Size, label.AutomaticSize
 			local connection: (() -> ())? = nil
+			local bend: UIFlexItem? = nil
 			local function hug()
 				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
 					if connection then
@@ -268,6 +269,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 							or automatic == E.AutomaticSize.XY
 							or (list == nil and (placed or label:GetAttribute("FacetPlaced") == true))
 						)
+				local own = bend ~= nil and bend.Parent == label
+				local bends = wrapped
+					and across
+					and not row
+					and (own or label:FindFirstChildWhichIsA("UIFlexItem") == nil)
+				if bends and not own then
+					local item = bend or Host.UIFlexItem { Name = "Bend", FlexMode = E.UIFlexMode.Shrink }
+					bend = item
+					item.Parent = label
+				elseif bend and not bends then
+					bend.Parent = nil
+				end
+				row = row or bends
 				appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
 				appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
 				label.Size = appliedSize

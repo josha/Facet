@@ -149,6 +149,37 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("lets wrapped Text shrink into the room that a bounded row leaves", {
+			id = "native_layout::native composition rest measurements::lets wrapped Text shrink into the room that a bounded row leaves",
+			run = function()
+				local root, engine, stop = build(nil, function(UI, Host)
+					return UI.VStack "Page" {
+						UI.HStack "Row" {
+							width = "fill",
+							Host.Frame "Mark" {},
+							UI.Text "Name" { text = "A name that can wrap", wrap = true },
+							UI.Text "Filler" { text = "A filler that can wrap", wrap = true, UI.fill() },
+							UI.Text "Value" { text = "12" },
+						},
+					}
+				end)
+				local E, D2 = engine.types.Enum, engine.types.UDim2
+				local name = root:FindFirstChild("Name", true)
+				local bend = name:FindFirstChildWhichIsA("UIFlexItem")
+				expect(name.Size):toBe(D2.fromScale(0, 0))
+				expect(name.AutomaticSize):toBe(E.AutomaticSize.XY)
+				expect(name.TextWrapped):toBe(true)
+				expect(bend ~= nil):toBe(true)
+				expect(bend.FlexMode):toBe(E.UIFlexMode.Shrink)
+				local filler = root:FindFirstChild("Filler", true)
+				expect(filler.Size):toBe(D2.fromScale(1, 0))
+				expect(filler.AutomaticSize):toBe(E.AutomaticSize.Y)
+				expect(filler:FindFirstChildWhichIsA("UIFlexItem").FlexMode):toBe(E.UIFlexMode.Fill)
+				local value = root:FindFirstChild("Value", true)
+				expect(value:FindFirstChildWhichIsA("UIFlexItem")):toBe(nil)
+				stop()
+			end,
+		})
 		it("wraps a bounded row only while its children do not fit on one line", {
 			id = "native_layout::native composition rest measurements::wraps a bounded row only while its children do not fit on one line",
 			run = function()

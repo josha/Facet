@@ -14,7 +14,7 @@ Text fills the width that its parent gives and grows vertically, so a title in
 a fixed-width cell keeps the cell's width. In a horizontal stack or a parent
 that hugs its width, one-line text hugs its words. For a paragraph, use
 `wrap = true`. Give the parent a numeric width, or `width = "fill"` inside a
-bounded parent. Explicit native `Size` and `AutomaticSize` override these
+bounded parent. In a bounded HStack it takes the room that is left. Explicit native `Size` and `AutomaticSize` override these
 defaults; `AutomaticSize = Enum.AutomaticSize.XY` makes the text hug in any
 parent.
 Text has no width option. See [Layout-options](Layout-options.md) for native sizing.
