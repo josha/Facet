@@ -86,6 +86,66 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		return band
 	end
 
+	type Hug = {
+		label: TextLabel,
+		types: Types.RobloxTypes,
+		appliedSize: UDim2,
+		appliedMode: Enum.AutomaticSize,
+		wrapped: boolean,
+		placed: boolean,
+		aligned: boolean,
+		listener: ((string) -> ())?,
+		bend: UIFlexItem?,
+	}
+	local function hug(fitting: Hug)
+		local label, E, D2 = fitting.label, fitting.types.Enum, fitting.types.UDim2
+		if label.Size ~= fitting.appliedSize or label.AutomaticSize ~= fitting.appliedMode then
+			local listener = fitting.listener
+			if listener then
+				fitting.listener = nil
+				textChanges.stop(label, listener)
+			end
+			return
+		end
+		local wrapped = fitting.wrapped
+		local parent = label.Parent
+		local frame = parent ~= nil and parent:IsA("GuiObject")
+		local automatic = if parent and frame then (parent :: GuiObject).AutomaticSize else nil
+		local list = if parent then parent:FindFirstChildWhichIsA("UIListLayout") else nil
+		local across = list ~= nil and list.FillDirection == E.FillDirection.Horizontal
+		local row = if wrapped
+			then automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY and across
+			else parent ~= nil
+				and (
+					not frame
+					or across
+					or automatic == E.AutomaticSize.X
+					or automatic == E.AutomaticSize.XY
+					or (list == nil and (fitting.placed or label:GetAttribute("FacetPlaced") == true))
+				)
+		local bend = fitting.bend
+		local own = bend ~= nil and bend.Parent == label
+		local bends = wrapped and across and not row and (own or label:FindFirstChildWhichIsA("UIFlexItem") == nil)
+		if bends and not own then
+			local item = bend or Host.UIFlexItem { Name = "Bend", FlexMode = E.UIFlexMode.Shrink }
+			fitting.bend = item
+			item.Parent = label
+		elseif bend and not bends then
+			bend.Parent = nil
+		end
+		row = row or bends
+		fitting.appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+		fitting.appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
+		label.Size = fitting.appliedSize
+		label.AutomaticSize = fitting.appliedMode
+		if not wrapped and not fitting.aligned and list ~= nil and not across then
+			label.TextXAlignment = if list.HorizontalAlignment == E.HorizontalAlignment.Center
+				then E.TextXAlignment.Center
+				elseif list.HorizontalAlignment == E.HorizontalAlignment.Right then E.TextXAlignment.Right
+				else E.TextXAlignment.Left
+		end
+	end
+
 	local TEXT_KEYS = table.freeze({
 		"text",
 		"textRole",
@@ -240,68 +300,25 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			ctx.textRole(label, roleSource)
 		end
 		if not lines and not cut and not fit and spec.Size == nil and spec.AutomaticSize == nil then
-			local wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true)
-			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
-			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
-			local appliedSize, appliedMode = label.Size, label.AutomaticSize
-			local listening = false
-			local onParent: (string) -> ()
-			local bend: UIFlexItem? = nil
-			local function hug()
-				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
-					if listening then
-						listening = false
-						textChanges.stop(label, onParent)
-					end
-					return
-				end
-				local parent = label.Parent
-				local frame = parent ~= nil and parent:IsA("GuiObject")
-				local automatic = if parent and frame then (parent :: GuiObject).AutomaticSize else nil
-				local list = if parent then parent:FindFirstChildWhichIsA("UIListLayout") else nil
-				local across = list ~= nil and list.FillDirection == E.FillDirection.Horizontal
-				local row = if wrapped
-					then automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY and across
-					else parent ~= nil
-						and (
-							not frame
-							or across
-							or automatic == E.AutomaticSize.X
-							or automatic == E.AutomaticSize.XY
-							or (list == nil and (placed or label:GetAttribute("FacetPlaced") == true))
-						)
-				local own = bend ~= nil and bend.Parent == label
-				local bends = wrapped
-					and across
-					and not row
-					and (own or label:FindFirstChildWhichIsA("UIFlexItem") == nil)
-				if bends and not own then
-					local item = bend or Host.UIFlexItem { Name = "Bend", FlexMode = E.UIFlexMode.Shrink }
-					bend = item
-					item.Parent = label
-				elseif bend and not bends then
-					bend.Parent = nil
-				end
-				row = row or bends
-				appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
-				appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
-				label.Size = appliedSize
-				label.AutomaticSize = appliedMode
-				if not wrapped and not aligned and list ~= nil and not across then
-					label.TextXAlignment = if list.HorizontalAlignment == E.HorizontalAlignment.Center
-						then E.TextXAlignment.Center
-						elseif list.HorizontalAlignment == E.HorizontalAlignment.Right then E.TextXAlignment.Right
-						else E.TextXAlignment.Left
-				end
-			end
-			function onParent(property: string)
+			local fitting: Hug = {
+				label = label,
+				types = ctx.types,
+				appliedSize = label.Size,
+				appliedMode = label.AutomaticSize,
+				wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true),
+				placed = spec.Position ~= nil or spec.AnchorPoint ~= nil,
+				aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil,
+				listener = nil,
+				bend = nil,
+			}
+			local function listener(property: string)
 				if property == "Parent" then
-					hug()
+					hug(fitting)
 				end
 			end
-			listening = true
-			textChanges.watch(ctx, label, onParent)
-			hug()
+			fitting.listener = listener
+			textChanges.watch(ctx, label, listener)
+			hug(fitting)
 		end
 		if lines then
 			ctx.clampLines(label, lines)
