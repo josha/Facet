@@ -7,8 +7,7 @@ Layout-options option values and behavior.
 These options belong to containers. Button sizes to its content.
 For a leaf's width, set `align = "stretch"` on its parent VStack. For height,
 use that option on its parent HStack. Put `UI.fill()` inside a Button or a
-fixed leaf to share the parent's main axis. A container takes `grow = weight`
-for the same share, also in Design modules. For explicit width, use native
+fixed leaf to share the parent's main axis. For explicit width, use native
 `Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y`.
 For explicit height, use `Size = UDim2.fromOffset(0, 48),
 AutomaticSize = Enum.AutomaticSize.X`. For a fixed box use native Size and
