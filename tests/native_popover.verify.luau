@@ -460,6 +460,38 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("content wider than the safe box keeps the panel inside it and scrolls sideways", {
+			id = "native_popover::native Popover: sources, anchor loss and bounds::content wider than the safe box keeps the panel inside it and scrolls sideways",
+			run = function()
+				local w = mount(function(UI: FacetControls, Host: RobloxHost)
+					return {
+						isPresented = Compose.cell(true),
+						source = { rect = { x = 100, y = 20, w = 40, h = 40 } },
+						maxWidth = 220,
+						content = function(): Instance
+							return content(UI, Host)
+						end,
+					}
+				end)
+				local body, flow, card = w.find("Body"), w.find("Flow"), w.find("Card")
+				expect(body.AutomaticSize):toBe(w.Enum.AutomaticSize.X)
+				expect(flow.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
+				w.engine.environment.poke(card, "AbsoluteSize", Vector2.new(420, 60))
+				expect(body.AutomaticSize):toBe(w.Enum.AutomaticSize.None)
+				expect(body.Size.X.Offset):toBe(220 - 16)
+				expect(body.ScrollingDirection):toBe(w.Enum.ScrollingDirection.XY)
+				expect(body.CanvasSize.X.Offset):toBe(420)
+				expect(flow.Size.X.Offset):toBe(220 - 16)
+				expect(flow.AutomaticSize):toBe(w.Enum.AutomaticSize.Y)
+				w.engine.environment.poke(card, "AbsoluteSize", Vector2.new(120, 60))
+				expect(body.AutomaticSize):toBe(w.Enum.AutomaticSize.X)
+				expect(body.Size.X.Offset):toBe(0)
+				expect(body.ScrollingDirection):toBe(w.Enum.ScrollingDirection.Y)
+				expect(body.CanvasSize.X.Offset):toBe(0)
+				expect(flow.AutomaticSize):toBe(w.Enum.AutomaticSize.XY)
+				w.stop()
+			end,
+		})
 		it("the body is exactly as tall as its canvas while a presentation scale shrinks the panel", {
 			id = "native_popover::native Popover: sources, anchor loss and bounds::the body is exactly as tall as its canvas while a presentation scale shrinks the panel",
 			run = function()

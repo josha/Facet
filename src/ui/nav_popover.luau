@@ -309,25 +309,37 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			}
 			local list = Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder }
 			local laidOut = Compose.cell(0)
+			local closeUnit = ctx.layoutUnit(layer)
+			local closeContentSize: ComposeTypes.ReadOnlyValue<Vector2> = if content:IsA("GuiObject")
+				then ctx.observe.AbsoluteSize(content)
+				else Compose.cell(V2.zero)
+			local wide = Compose.formula(function(use: ComposeTypes.Use): number
+				if fills then
+					return 0
+				end
+				local natural = use(closeContentSize).X / use(closeUnit)
+				return if natural > cap(use).X + 0.5 then math.ceil(natural) else 0
+			end)
 			local bodyProps: Types.ScrollingFrameProps = {
 				Name = "Body",
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
 				Size = function(use: ComposeTypes.Use)
-					return D2.fromOffset(0, math.min(use(laidOut), cap(use).Y))
+					local limit = cap(use)
+					return D2.fromOffset(if use(wide) > 0 then limit.X else 0, math.min(use(laidOut), limit.Y))
 				end,
-				AutomaticSize = E.AutomaticSize.X,
-				ScrollingDirection = E.ScrollingDirection.Y,
+				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+					return if use(wide) > 0 then E.AutomaticSize.None else E.AutomaticSize.X
+				end,
+				ScrollingDirection = function(use: ComposeTypes.Use): Enum.ScrollingDirection
+					return if use(wide) > 0 then E.ScrollingDirection.XY else E.ScrollingDirection.Y
+				end,
 				ScrollBarThickness = 4,
 				VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
 				Selectable = false,
 			}
 			bodyProps[#bodyProps + 1] = limit
 			local children: { Types.Child } = { list, proposed, content }
-			local closeUnit = ctx.layoutUnit(layer)
-			local closeContentSize: ComposeTypes.ReadOnlyValue<Vector2> = if content:IsA("GuiObject")
-				then ctx.observe.AbsoluteSize(content)
-				else Compose.cell(V2.zero)
 			local closes = spec.cancelPolicy ~= "none"
 				and spec.closeButton ~= false
 				and (not chrome or spec.closeButton == true)
@@ -398,7 +410,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				end
 				table.insert(children, Host.Frame(row))
 			end
-			local body, _, _, extent, bodyRested = parts.scroller(ctx, bodyProps, children, { hug = true, rest = true })
+			local body, _, _, extent, bodyRested = parts.scroller(ctx, bodyProps, children, {
+				hug = true,
+				rest = true,
+				bound = {
+					wide = wide,
+					limit = function(use: ComposeTypes.Use): number
+						return cap(use).X
+					end,
+				},
+			})
 			Compose.watch(function(use: ComposeTypes.Use)
 				local height = use(extent)
 				if not use(bodyRested) or presence.travel(use) >= 1 then
