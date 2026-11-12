@@ -260,9 +260,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					return
 				end
 				local parent = label.Parent
-				if parent == nil then
-					return
-				end
 				local frame = parent ~= nil and parent:IsA("GuiObject")
 				local automatic = if parent and frame then (parent :: GuiObject).AutomaticSize else nil
 				local list = if parent then parent:FindFirstChildWhichIsA("UIListLayout") else nil
@@ -286,7 +283,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					local item = bend or Host.UIFlexItem { Name = "Bend", FlexMode = E.UIFlexMode.Shrink }
 					bend = item
 					item.Parent = label
-				elseif bend and not bends then
+				elseif bend and not bends and parent ~= nil then
 					bend.Parent = nil
 				end
 				row = row or bends
