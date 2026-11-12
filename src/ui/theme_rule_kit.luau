@@ -86,6 +86,7 @@ return function(
 		end
 		return value
 	end
+	local dataValue: (string, { [string]: unknown }) -> ThemeTypes.StyleValue
 	local function c(role: string): string?
 		local token = "FacetColor_" .. role
 		if tokens[token] == nil then
@@ -96,6 +97,95 @@ return function(
 			tokens[token] = value
 		end
 		return if tokens[token] ~= nil then "$" .. token else nil
+	end
+	local function numbers(key: string, form: string, value: unknown, count: number): { number }
+		assert(type(value) == "table", `Facet theme rule: {key}.{form} must be a list of {count} numbers`)
+		local list = value :: { unknown }
+		assert(#list == count, `Facet theme rule: {key}.{form} must be a list of {count} numbers`)
+		local result: { number } = {}
+		for index = 1, count do
+			local item = list[index]
+			assert(
+				type(item) == "number" and item == item and math.abs(item) < math.huge,
+				`Facet theme rule: {key}.{form} must be a list of {count} finite numbers`
+			)
+			result[index] = item
+		end
+		return result
+	end
+	local function ruleColor(key: string, value: unknown): Color3
+		if type(value) == "string" then
+			local digits = string.match(value, "^#?(%x%x%x%x%x%x)$")
+			assert(digits ~= nil, `Facet theme rule: {key} hex colors must be #RRGGBB`)
+			local function channel(at: number): number
+				return (tonumber(string.sub(digits, at, at + 1), 16) :: number) / 255
+			end
+			return assert(color(types, { r = channel(1), g = channel(3), b = channel(5) }))
+		elseif type(value) == "table" then
+			local record = value :: { role: unknown, r: unknown, g: unknown, b: unknown }
+			if type(record.role) == "string" then
+				return assert(
+					color(types, source(record.role)),
+					`Facet theme rule: {key} names unknown role {record.role}`
+				)
+			elseif type(record.r) == "number" and type(record.g) == "number" and type(record.b) == "number" then
+				return assert(color(types, { r = record.r, g = record.g, b = record.b }))
+			end
+		end
+		error(`Facet theme rule: {key} colors must be a #hex string, a role or r, g and b`, 0)
+	end
+	local function keypoints(key: string, form: string, value: unknown): { { [string]: unknown } }
+		assert(
+			type(value) == "table" and #(value :: { unknown }) >= 2,
+			`Facet theme rule: {key}.{form} needs at least two keypoints`
+		)
+		local list = value :: { unknown }
+		local previous = -1
+		for index, item in list do
+			assert(type(item) == "table", `Facet theme rule: {key}.{form} keypoints must be tables`)
+			local time = (item :: { time: unknown }).time
+			assert(
+				type(time) == "number" and time >= 0 and time <= 1 and time > previous,
+				`Facet theme rule: {key}.{form} times must rise from 0 to 1`
+			)
+			assert(index > 1 or time == 0, `Facet theme rule: {key}.{form} must start at time 0`)
+			assert(index < #list or time == 1, `Facet theme rule: {key}.{form} must end at time 1`)
+			previous = time
+		end
+		return list :: { { [string]: unknown } }
+	end
+	function dataValue(key: string, value: { [string]: unknown }): ThemeTypes.StyleValue
+		if value.udim ~= nil then
+			local parts = numbers(key, "udim", value.udim, 2)
+			return types.UDim.new(parts[1], parts[2])
+		elseif value.udim2 ~= nil then
+			local parts = numbers(key, "udim2", value.udim2, 4)
+			return types.UDim2.new(parts[1], parts[2], parts[3], parts[4])
+		elseif value.vector2 ~= nil then
+			local parts = numbers(key, "vector2", value.vector2, 2)
+			return types.Vector2.new(parts[1], parts[2])
+		elseif value.colorSequence ~= nil then
+			local points: { ColorSequenceKeypoint } = {}
+			for _, item in keypoints(key, "colorSequence", value.colorSequence) do
+				table.insert(points, types.ColorSequenceKeypoint.new(item.time :: number, ruleColor(key, item.color)))
+			end
+			return types.ColorSequence.new(points)
+		elseif value.numberSequence ~= nil then
+			local points: { NumberSequenceKeypoint } = {}
+			for _, item in keypoints(key, "numberSequence", value.numberSequence) do
+				local amount = item.value
+				assert(
+					type(amount) == "number" and amount == amount and math.abs(amount) < math.huge,
+					`Facet theme rule: {key}.numberSequence values must be finite numbers`
+				)
+				table.insert(points, types.NumberSequenceKeypoint.new(item.time :: number, amount))
+			end
+			return types.NumberSequence.new(points)
+		end
+		error(
+			`Facet theme rule: {key} must be a native value, a role, a metric, udim, udim2, vector2, colorSequence or numberSequence`,
+			0
+		)
 	end
 	local function derived(name: string, value: Color3?): string?
 		if value == nil then
@@ -186,6 +276,8 @@ return function(
 						support.numericMetric(package.metrics, path),
 						`Facet theme rule: invalid numeric metric {tostring(path)}`
 					)
+				elseif typeof(value) == "table" and getmetatable(value :: {}) == nil then
+					properties[key] = dataValue(key, value :: { [string]: unknown })
 				else
 					properties[key] = value :: ThemeTypes.StyleValue?
 				end

@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local support = require("./theme_support")
+local DATA_FORMS = table.freeze({ "udim", "udim2", "vector2", "colorSequence", "numberSequence" })
 
 local copy, merge, frozen, shadowPresets = support.copy, support.merge, support.frozen, support.shadowPresets
 local easings = (ComposeTypes.easing :: unknown) :: { read [string]: ((number) -> number)? }
@@ -401,6 +402,26 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		for index, rule in (package.rules or {}) :: { ThemeTypes.Rule } do
 			for property, value in (rule.properties or rule.props or {}) :: ThemeTypes.AuthoredRuleProperties do
+				if typeof(value) == "table" and getmetatable(value :: {}) == nil then
+					local form = (value :: unknown) :: { [string]: unknown }
+					local named = 0
+					for _, key in DATA_FORMS do
+						if form[key] ~= nil then
+							named += 1
+						end
+					end
+					if named == 0 and form.role == nil and form.metric == nil then
+						table.insert(errors, {
+							field = `rules.{index}.properties.{property}`,
+							message = "A rule value table must be a role, a metric, udim, udim2, vector2, colorSequence or numberSequence",
+						})
+					elseif named > 1 then
+						table.insert(errors, {
+							field = `rules.{index}.properties.{property}`,
+							message = "A rule value table must name one data form",
+						})
+					end
+				end
 				if type(value) == "table" then
 					local reference = (value :: unknown) :: { metric: unknown, role: unknown }
 					if

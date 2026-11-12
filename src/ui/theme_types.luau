@@ -276,7 +276,14 @@ export type StyleValue =
 	| CFrame
 	| NumberRange
 export type RuleProperties = { [string]: StyleValue? }
-export type AuthoredRuleProperties = { [string]: (StyleValue | { role: string } | { metric: string })? }
+export type RuleColor = string | { role: string } | { r: number, g: number, b: number }
+export type RuleData =
+	{ udim: { number } }
+	| { udim2: { number } }
+	| { vector2: { number } }
+	| { colorSequence: { { time: number, color: RuleColor } } }
+	| { numberSequence: { { time: number, value: number } } }
+export type AuthoredRuleProperties = { [string]: (StyleValue | { role: string } | { metric: string } | RuleData)? }
 export type Rule = { selector: string, properties: AuthoredRuleProperties?, props: AuthoredRuleProperties? }
 export type Identity =
 	{ id: string, displayName: string?, version: string?, schemaVersion: string?, rendering: string? }

@@ -650,6 +650,88 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		it("resolves authored data values for native types when the theme compiles", {
+			id = "native_themes_media::native themes and media::resolves authored data values for native types when the theme compiles",
+			run = function()
+				local engine, runtime = setup()
+				local definition = themes.neutralPackage()
+				definition.rules = {
+					{
+						selector = ".mask::UICorner",
+						properties = { CornerRadius = { udim = { 0.5, 0 } } } :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+					{
+						selector = ".mask",
+						properties = {
+							Size = { udim2 = { 1, -8, 0, 40 } },
+							AnchorPoint = { vector2 = { 0.5, 0.5 } },
+						} :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+					{
+						selector = ".mask::UIGradient",
+						properties = {
+							Color = {
+								colorSequence = {
+									{ time = 0, color = "#ff0000" },
+									{ time = 0.5, color = { r = 0, g = 1, b = 0 } },
+									{ time = 1, color = { role = "accent" } },
+								},
+							},
+							Transparency = {
+								numberSequence = { { time = 0, value = 0 }, { time = 1, value = 0.75 } },
+							},
+						} :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+				}
+				local package = assert((themes.define(definition)))
+				local stop, mounted = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themeState(package), { types = engine.types })
+				end, engine.new("ScreenGui"))
+				local sheet = mounted :: StyleSheet
+				local T = engine.types
+				expect(style(sheet, ".mask::UICorner").CornerRadius):toEqual(T.UDim.new(0.5, 0))
+				expect(style(sheet, ".mask").Size):toEqual(T.UDim2.new(1, -8, 0, 40))
+				expect(style(sheet, ".mask").AnchorPoint):toEqual(T.Vector2.new(0.5, 0.5))
+				local gradient = style(sheet, ".mask::UIGradient")
+				local colors = (gradient.Color :: ColorSequence).Keypoints
+				expect(#colors):toBe(3)
+				expect(colors[1].Value):toEqual(T.Color3.fromRGB(255, 0, 0))
+				expect(colors[2].Value):toEqual(T.Color3.fromRGB(0, 255, 0))
+				expect(colors[3].Time):toBe(1)
+				local fades = (gradient.Transparency :: NumberSequence).Keypoints
+				expect(fades[2].Value):toBe(0.75)
+				stop()
+				local broken = themes.neutralPackage()
+				broken.rules = {
+					{
+						selector = ".bad",
+						properties = { Size = { udim2 = { 1, 0 } } } :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+				}
+				local brokenPackage = assert((themes.define(broken)))
+				local ok, problem = pcall(function()
+					local stopBroken = runtime.mount(function()
+						return themes.createStyleSheet(runtime, themeState(brokenPackage), { types = engine.types })
+					end, engine.new("ScreenGui"))
+					stopBroken()
+				end)
+				expect(ok):toBe(false)
+				expect(string.find(tostring(problem), "Size.udim2 must be a list of 4 numbers", 1, true) ~= nil):toBe(
+					true
+				)
+				local unknown = themes.neutralPackage()
+				unknown.rules = {
+					{
+						selector = ".bad",
+						properties = ({ Size = { offset = 4 } } :: unknown) :: FixtureThemeTypes.AuthoredRuleProperties,
+					} :: FixtureThemeTypes.Rule,
+				}
+				local refused, report = themes.define(unknown)
+				expect(refused):toBe(nil)
+				expect(report.errors[1].field):toBe("rules.1.properties.Size")
+				runtime:dispose()
+			end,
+		})
 		it("rejects malformed or nonnumeric authored metric references", {
 			id = "native_themes_media::native themes and media::rejects malformed or nonnumeric authored metric references",
 			run = function()
