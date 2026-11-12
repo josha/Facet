@@ -29,5 +29,7 @@ is no second agent. Look at your tool list for an image generator. When it
 has one, use it for the concept of the first screen and for nothing else.
 When it has none, a skill that names one cannot run: block the first screen
 in, as step 1 of the skill describes, and make art from native shapes. Either
-way the concept is the first picture of the work.
+way the concept is the first picture of the work. The second picture is the
+theme alone: state `finish` in the theme, mount `app.specimen()`, and capture
+it beside the concept before the first screen.
 Use this installed library; do not add another UI library.

@@ -2,7 +2,7 @@
 
 Facet supplies familiar controls; the product supplies their visual character.
 The neutral package is a technical base and a possible professional style. It
-does not decide how a game looks. The skill's [direction card](../SKILL.md#1-decide-the-direction)
+does not decide how a game looks. The skill's [direction card](../SKILL.md#write-the-card)
 is the normal way to choose a direction. This page covers the cases around it:
 matching finish to the game, a target chosen from rendered concepts or supplied
 by the user, labels over artwork, and the theme and image contracts.

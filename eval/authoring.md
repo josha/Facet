@@ -14,8 +14,13 @@ elsewhere. Fix a defect that blocks later routes first.
 
 Do these in order. Each one ends with a result that you can observe.
 
-1. **The concept comes first.** For a new visual direction, look at the main
-   screen before you build the game behind it. Write the direction. Then
+1. **The concept comes first.** A precise reference from the user, such as
+   a screenshot or a chosen concept, is the target: match it, and skip the
+   rest of this step. A conceptual reference, such as a mood, a genre or a
+   named inspiration, is a direction: keep what makes it recognizable and
+   improve on it. With no reference, make one. For a new visual direction,
+   look at the main screen before you build the game behind it. Write the
+   direction. Then
    make a picture of the screen that the player sees most, which for a game
    is play with its interface over it. With an image tool, generate two or
    three whole-screen compositions and choose one. Without one, block the
@@ -34,7 +39,10 @@ Do these in order. Each one ends with a result that you can observe.
    result real. An open page, a changed label or a successful tool call does
    not prove this route.
 3. **Its screen is finished.** For a new visual direction, finish the look of
-   one screen before you build the interface of a second route. It is the
+   one screen before you build the interface of a second route. Settle the
+   style first: show its type sizes, its actions in each state and one
+   record on a single sheet, and compare that sheet with the concept before
+   the screen uses it. It is the
    screen of the concept: for a game, play with its interface over it. A
    sheet that opens over play does not stand in for it. When the product
    also has destinations that cover or replace play, finish one of those in

@@ -18,7 +18,7 @@ phone, a desktop and a television.
 | --- | --- |
 | A small edit to an established interface | Reuse its decisions and check the affected states. Go to [Find the implementation route](#find-the-implementation-route). |
 | A new interface or a visual redesign | Steps 1 to 5 below. Finish steps 1 to 4 on one screen before you build a second screen. |
-| The user supplied a reference image or selected a concept | That image is the target. Read [the target contract](references/game-themes.md#commit-to-the-visual-target) in place of step 1, then do steps 2 to 5. |
+| A new interface with a reference from the user | [Step 1](#start-from-the-reference) says how much the reference fixes. Then do steps 2 to 5. |
 | An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art as the concept; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
 | A wireframe, a functional spike or a tool in its host's style | Stop at the stated scope. Keep the host's conventions. |
 
@@ -43,7 +43,24 @@ screens, the number of screens that work is easy to count and the finish of
 the first one is not. [Step 2](#know-when-it-is-done) gives it three tests
 that you can count.
 
-## 1. Decide the direction
+## 1. Settle the concept, then the theme
+
+The order is: the reference, the card, the concept, the theme, the theme on
+one sheet. Then [step 2](#2-build-the-first-screen) builds a screen with it.
+Each part ends with something that you can look at.
+
+### Start from the reference
+
+What the user gave decides how much is open. Decide it from the user's
+words, not from how finished an image looks.
+
+| The user gave | Do |
+| --- | --- |
+| A precise reference: a screenshot, a mock, a chosen concept, the look of an existing product | Match it. It is the specification. Write the card from what it shows, and do not put a style of your own in its place. [The target contract](references/game-themes.md#commit-to-the-visual-target) has the rules. Skip the concept. |
+| A conceptual reference: a mood, a genre, a game named as inspiration, a rough sketch | Treat it as a direction, and improve on it. Keep what makes it recognizable. The card then gives it a stronger lead, a clearer hierarchy and a finish that the reference left open. A sketch fixes content and relationships only. |
+| No reference | Make one. Write the card, then make the concept, with an image when you can. |
+
+### Write the card
 
 Write this card before any other code, as a comment at the head of the
 module that defines the theme. It stays in the source there, and you meet it
@@ -100,13 +117,53 @@ before you say that a means is missing.
   the type of the card, and capture it. It has no game logic and no second
   surface.
 
+An image is needed when the card names something that the engine cannot
+draw: a texture, an illustration, a shaped or pixel-cut plate. Generate it
+when you have an image tool; [art](references/art.md) has the roles of the
+files. With no image tool, write that line of the card again in terms that
+the engine draws (a line, a shadow, a glow, a gradient, a font), and say in
+one message what the direction lost.
+
 View the concept. Change the composition until the lead and the world are
 strong, then say in one message which composition you chose and what you
 changed. Keep it: [step 2](#know-when-it-is-done) puts it beside the first
-screen that you build. A quiet tool, a text-led design and an established
-direction skip the concept.
+screen that you build. A quiet tool, a text-led design and a precise
+reference skip the concept.
 
 The card and the concept are internal decisions, not user approval steps.
+
+### Build the theme from the card
+
+The theme is the card in values. Each line of the card has one place in the
+definition, and a line with no value there is not in the product.
+
+| Card line | Theme value |
+| --- | --- |
+| Palette | `style.themes[n].colors` and `extra`, by role |
+| Type | `metrics.typography`: a size and a family for `title`, `heading`, `numeral`, `strong`, `label`, `body` and `caption` |
+| Shape and edge | `metrics.radii`, and `finish`: the width and the color of the edge, and the lift, the glow and the sheen of the plate |
+| Controls | `finish.depth.controls`, or art in `chrome` when images were made |
+| Signature and response | `chrome.focus`, `metrics.motion` and the effect controls |
+
+State `finish` in every theme. Its values come from the card and from the
+concept, not from a sample theme. A mail client states a hairline and
+zeros, and stays plain. A neon racing game states a bright edge, a wide glow
+and a sheen. A game with drawn plates states zeros and puts its art in
+`chrome`. [Finish](references/finish.md#edge-and-depth) has the values.
+
+Read `report.errors` and `report.advice` from `Facet.themes.define`. The
+advice names a type scale that is flat and a finish that is not stated.
+
+### Look at the theme alone
+
+`app.specimen()` mounts one sheet of the theme: its type roles with a
+readout, its actions in each state, a field and records. Capture it and put
+it beside the concept, or beside the reference. Check each line of the
+card: the numeral is much larger than the body text, the main action is the
+strongest thing in its column, and the edge and the depth of the card are
+on every plate. Repair the theme until the sheet has the character of the
+concept, then call the `stop` that it returned. A flat sheet gives flat
+screens, and this is the cheapest moment to see it.
 
 ## 2. Build the first screen
 
@@ -153,10 +210,10 @@ return and little else. They are the product's design system, and a plain
 helper makes every screen plain. Write them as the project's components and
 finish them here, before a second screen calls them.
 
-- **The theme.** It has an edge and a depth as well as colors and type. A
-  definition that sets only colors, fonts and radii is the neutral theme in
-  new colors: every plate stays a flat fill.
-  [Finish](references/finish.md#edge-and-depth) has the levers.
+- **The theme.** [Step 1](#build-the-theme-from-the-card) made it and
+  showed it on one sheet. It has an edge and a depth as well as colors and
+  type: a definition with only colors, fonts and radii is the neutral theme
+  in new colors.
 - **A record.** One item with its visual, its name, the value that decides
   and its state, in a full form and a short form. When the whole record is
   one Button with content of its own, the Button hugs that content, so the

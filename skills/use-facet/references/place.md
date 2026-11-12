@@ -1,6 +1,6 @@
 # Build a screen as a place
 
-Read this page before you build a screen whose [direction](../SKILL.md#1-decide-the-direction)
+Read this page before you build a screen whose [direction](../SKILL.md#write-the-card)
 is a place, a material or an illustrated world. It shows how the layers of
 such a screen are made from Facet, how each layer scales, and where its art
 comes from. A quiet tool or a text-led design does not need it; use
