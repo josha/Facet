@@ -246,6 +246,12 @@ the record a shorter form there, such as a thumbnail beside its facts;
 compact compositions shows
 [the switch](references/compact-compositions.md#change-the-form-of-a-record).
 
+A shorter form keeps a route to what the fuller form offered. Press each
+opener at the short size and see its task appear. What the player opens with
+a button gets a Sheet or a Popover, not a HUD region that can drop;
+[compact compositions](references/compact-compositions.md#allocate-the-remaining-room)
+has the rule.
+
 Add a console when the product supports one, and check focus there before you
 build more screens. [Runtime essentials](references/runtime.md#input) has the
 keys that stand for a controller in Studio.

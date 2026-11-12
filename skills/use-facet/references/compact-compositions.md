@@ -44,6 +44,16 @@ arbitrary BillboardGui nameplates. The game owns that visibility decision.
 This advice applies to overlays during play. A text-led task, a quiet status
 tool or a plugin can keep persistent facts when users need them.
 
+A shorter form keeps a route to everything that the fuller form offered. In a
+`Composition`, a region that shows a reduced form opens its fullest form in a
+Popover on a press, and a region with `mayDrop = true` leaves a "…" badge that
+does the same; `Composition.regions` describes `reveal`, `expand` and `form`.
+A button of your own on a short form consumes that press, so it must open the
+whole task itself, in a Popover or a Sheet. It must not only set the state
+that the fuller form shows, because that form is not on the screen. Keep
+`mayDrop` for what the player can play without. What the player opens with a
+button is a task: give it a surface of its own, not a region that can drop.
+
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains
 after navigation, insets, padding and actions. Width alone cannot establish fit.
 
@@ -183,6 +193,8 @@ At each minimum, open the task the normal way and check these.
 - The longest supported labels and the largest supported text size still fit.
 - Opened controls, confirmation and changing feedback stay inside the screen,
   including the left and bottom edges of dialogs and the paint of focus rings.
+- Each opener on a short form shows its task: press it at this size and see
+  the next step and the way back.
 - The main action and the exit work with the real input. If a route needs
   scrolling, scroll from entry, reveal the whole target and activate it.
 - Rotating the open task and rotating back keeps selection, drafts, accepted
