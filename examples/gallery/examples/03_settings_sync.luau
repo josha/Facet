@@ -114,7 +114,15 @@ function example.build(ctx: ExampleContext)
 					end,
 				},
 				UI.Button "Reset" { label = "Reset demo", appearance = "link", onActivate = reset },
-				text("Status", status, "caption"),
+				text("Status", function(use: Use): string
+					local labels = {
+						idle = "Status: nothing waiting",
+						pending = "Status: waiting for the server",
+						confirmed = "Status: confirmed",
+						rejected = "Status: rejected and rolled back",
+					}
+					return labels[use(status)] or use(status)
+				end, "caption"),
 				text("History", function(use: Use)
 					return table.concat(use(history), "\n")
 				end, "caption"),

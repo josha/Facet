@@ -186,7 +186,7 @@ return {
 			return true
 		end
 		local function library(category: string)
-			local width, gridWidth = C.cell(1000), C.cell(400)
+			local width = C.cell(1000)
 			local wide = C.formula(function(use: Use)
 				return use(width) >= use(wideAt)
 			end)
@@ -204,7 +204,7 @@ return {
 				return found
 			end)
 			local function collection()
-				return UI.Screen "RecipeLibrary" {
+				return UI.ScrollView "RecipeLibrary" {
 					padding = "m",
 					gap = "m",
 					view.text("LibraryIntro", "A recipe for every kind of afternoon."),
@@ -223,16 +223,11 @@ return {
 						key = "id",
 						gap = 12,
 						measure = true,
+						mode = "all",
+						hug = true,
 						itemSize = 240,
-						columns = function(use: Use)
-							return math.max(1, math.floor(use(gridWidth) / use(columnWidth)))
-						end,
-						Size = D2.new(1, 0, 0, 300),
-						ref = function(node: ScrollingFrame)
-							UI.fill().Parent = node
-							view.observeWidth(gridWidth, node)
-						end,
-						recycle = false,
+						minColumnWidth = columnWidth,
+						minColumns = 2,
 						render = function(current): GuiObject
 							local blend = current:peek()
 							return UI.Card("Recipe_" .. blend.id)({
