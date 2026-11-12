@@ -29,5 +29,22 @@ values. Resolution uses the effective package after `forDistance`, so a stroke
 metric of 3 becomes 4.5 at ten feet. Literal numbers stay unchanged. Motion
 metrics retain their existing distance policy and do not scale.
 
+A rule property can also be a data table that Facet turns into a native value
+when the theme compiles, so a theme module loads where Roblox datatype globals
+are absent, such as under Lute:
+
+- `{ udim = { scale, offset } }` for a UDim, such as a UICorner `CornerRadius`.
+- `{ udim2 = { xScale, xOffset, yScale, yOffset } }` for a UDim2.
+- `{ vector2 = { x, y } }` for a Vector2.
+- `{ colorSequence = { { time = 0, color = "#ff8800" }, { time = 1, color = { role = "accent" } } } }`
+  for a ColorSequence. A color is a `#hex` string, a palette role or
+  `{ r = 0, g = 128, b = 255 }`.
+- `{ numberSequence = { { time = 0, value = 0 }, { time = 1, value = 0.5 } } }`
+  for a NumberSequence.
+
+Keypoint times must rise from 0 to 1. `themes.define` rejects a table that names
+no form or more than one. A form with the wrong shape raises an error that names
+the property when the theme compiles.
+
 These `extra` entries are optional. A palette that does not declare them paints
 as before:
