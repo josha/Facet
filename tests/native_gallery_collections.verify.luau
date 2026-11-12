@@ -805,7 +805,9 @@ return function(verifyHarness: Verify.Harness)
 				for i = 1, 10 do
 					expect(file(model.rows:peek(), i).color):toBe("None")
 				end
+				expect((node:FindFirstChild("NoMatches", true))):toBeNil()
 				model.query:set("missing")
+				expect(find(node, "NoMatches").Text):toBe("No matching files. Clear the filter to see all files.")
 				find(node, "Delete").Activated:Fire()
 				expect(built.report().count):toBe(17)
 				expect((next(model.selection:peek()))):toBeNil()
