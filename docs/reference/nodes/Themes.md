@@ -9,6 +9,7 @@ Open:
 - [Themes.art](Themes.art.md)
 - [Themes.chrome](Themes.chrome.md)
 - [Themes.definition](Themes.definition.md)
+- [Themes.finish](Themes.finish.md)
 - [Themes.metrics](Themes.metrics.md)
 - [Themes.palette](Themes.palette.md)
 - [Themes.schema](Themes.schema.md)

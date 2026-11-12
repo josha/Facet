@@ -264,9 +264,11 @@ return function(harness: Verify.Harness)
 			fields[item.field] = true
 		end
 		t:expect(fields["metrics.typography.numeral"]):toBe(true)
+		t:expect(fields["finish"]):toBe(true)
 		local ThemeTypes = require("../src/ui/theme_types")
 		local tuned: ThemeTypes.ThemeDefinition = {
 			identity = { id = "tuned" },
+			finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
 			metrics = {
 				typography = {
 					body = { size = 18 },
@@ -283,6 +285,102 @@ return function(harness: Verify.Harness)
 		local refusedPackage, refused = themes.define((5 :: unknown) :: ThemeTypes.ThemeDefinition)
 		t:expect(refusedPackage == nil and not refused.ok):toBe(true)
 		t:expect(#refused.advice):toBe(0)
+	end)
+
+	harness:case("define draws the stated finish with the theme's own tables", function(t)
+		local themes = require("../src").themes
+		type Bag = { [string | number]: unknown }
+		local function at(value: unknown, ...: string | number): unknown
+			local current = value
+			for _, key in { ... } do
+				if type(current) ~= "table" then
+					return nil
+				end
+				current = (current :: Bag)[key]
+			end
+			return current
+		end
+		local function count(value: unknown): number
+			return if type(value) == "table" then #(value :: { unknown }) else 0
+		end
+		local flat: Facet.ThemeDefinition = {
+			identity = { id = "quiet" },
+			finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
+		}
+		local bare: Facet.ThemeDefinition = { identity = { id = "plain" } }
+		local quiet, quietReport = themes.define(flat)
+		local plain = themes.define(bare)
+		t:expect(quietReport.ok and quiet ~= nil and plain ~= nil):toBe(true)
+		t:expect(count(at(quiet, "rules"))):toBe(count(at(plain, "rules")))
+		t:expect(at(quiet, "chrome", "panel")):toEqual(at(plain, "chrome", "panel"))
+		local lit: Facet.ThemeDefinition = {
+			identity = { id = "lit" },
+			metrics = { radii = { panel = 0 } },
+			finish = {
+				edge = { width = 2, role = "accent", transparency = 0.2 },
+				depth = { lift = 0, glow = 18, sheen = 0.25, strength = 0.6 },
+			},
+		}
+		local neon, neonReport = themes.define(lit)
+		t:expect(neonReport.ok and neon ~= nil):toBe(true)
+		local last = count(at(neon, "rules"))
+		t:expect(last):toBe(count(at(plain, "rules")) + 1)
+		t:expect(at(neon, "rules", last, "selector")):toBe(".facet-panel::UIStroke, .facet-sheet::UIStroke")
+		t:expect(at(neon, "rules", last, "properties", "Thickness")):toBe(2)
+		t:expect(at(neon, "rules", last, "properties", "LineJoinMode")):toBe("Miter")
+		t:expect(at(neon, "chrome", "panel", "shadow")):toBe("finish")
+		t:expect(at(neon, "chrome", "control")):toEqual(at(plain, "chrome", "control"))
+		t:expect(at(neon, "style", "shadows", "finish", "color"))
+			:toEqual(at(neon, "style", "themes", 1, "colors", "accent"))
+		t:expect(at(neon, "style", "shadows", "finish", "blurRadius")):toEqual({ offset = 18 })
+		local faint = at(neon, "style", "shadows", "finish", "transparency")
+		t:expect(type(faint) == "number" and math.abs(faint - 0.4) < 0.001):toBe(true)
+		t:expect(at(neon, "style", "themes", 1, "extra", "chromeGradient", "panel", "alpha", 1, "v")):toBe(0.25)
+		local raised: Facet.ThemeDefinition = {
+			identity = { id = "raised" },
+			finish = {
+				edge = { width = 3, role = "content" },
+				depth = {
+					lift = 4,
+					side = 4,
+					blur = 0,
+					glow = 0,
+					sheen = 0,
+					role = "content",
+					strength = 1,
+					controls = true,
+				},
+			},
+		}
+		local block = themes.define(raised)
+		t:expect(at(block, "style", "shadows", "finish", "offset")):toEqual({ x = { offset = 4 }, y = { offset = 4 } })
+		t:expect(at(block, "style", "shadows", "finish", "blurRadius")):toEqual({ offset = 0 })
+		t:expect(at(block, "style", "shadows", "finish", "transparency")):toBe(0)
+		t:expect(at(block, "chrome", "control", "shadow")):toBe("finish")
+		local function refused(finish: unknown): { [string]: boolean }
+			local definition = { identity = { id = "bad" }, finish = finish }
+			local package, report = themes.define((definition :: unknown) :: Facet.ThemeDefinition)
+			local fields: { [string]: boolean } = { accepted = package ~= nil }
+			for _, item in report.errors do
+				fields[item.field] = true
+			end
+			return fields
+		end
+		t:expect(refused({ edge = { width = 1 } })):toEqual({ accepted = false, ["finish.depth"] = true })
+		t:expect(refused({ edge = {}, depth = { lift = 0, glow = 0 } })):toEqual({
+			accepted = false,
+			["finish.edge.width"] = true,
+			["finish.depth.sheen"] = true,
+		})
+		t:expect(refused({ edge = { width = 1, role = "plasma" }, depth = { lift = 0, glow = 2, sheen = 0 } }))
+			:toEqual({
+				accepted = false,
+				["finish.edge.role"] = true,
+			})
+		t:expect(refused({ edge = { width = 0 }, depth = { lift = 2, glow = 2, sheen = 0 } })):toEqual({
+			accepted = false,
+			["finish.depth"] = true,
+		})
 	end)
 
 	harness:case("define advises when only one role carries the display family", function(t)
@@ -316,6 +414,7 @@ return function(harness: Verify.Harness)
 		t:expect(fields["metrics.typography.title"]):toBe(true)
 		local carriedDefinition: Facet.ThemeDefinition = {
 			identity = { id = "carried" },
+			finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
 			metrics = { typography = typography({ "title", "heading", "numeral" }) },
 		}
 		local _, carried = themes.define(carriedDefinition)

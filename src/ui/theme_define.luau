@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local support = require("./theme_support")
+local themeFinish = require("./theme_finish")
 local DATA_FORMS = table.freeze({ "udim", "udim2", "vector2", "colorSequence", "numberSequence" })
 
 local copy, merge, frozen, shadowPresets = support.copy, support.merge, support.frozen, support.shadowPresets
@@ -207,6 +208,13 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		if #errors > 0 then
 			return nil, { ok = false, errors = errors, missing = {}, contrast = {}, advice = {} }
+		end
+		local finish = (definition :: { finish: unknown? }).finish;
+		(package :: { finish: unknown? }).finish = nil
+		if finish ~= nil then
+			for _, issue in themeFinish.apply(package, finish) do
+				table.insert(errors, issue)
+			end
 		end
 		local typography = package.metrics.typography :: { [string]: unknown }
 		local definedMetrics = (definition :: { metrics: unknown? }).metrics
@@ -599,6 +607,12 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			return nil, { ok = false, errors = errors, missing = {}, contrast = contrast, advice = {} }
 		end
 		local advice: { ThemeTypes.ThemeIssue } = {}
+		if finish == nil then
+			table.insert(advice, {
+				field = "finish",
+				message = "The theme does not state its edge and depth, so its plates are the base theme's. Add finish with the values of the direction, or finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } } for flat plates",
+			})
+		end
 		local resolvedTypography = package.metrics.typography :: { [string]: unknown }
 		local function sizeOf(role: string): number?
 			local entry = resolvedTypography[role]

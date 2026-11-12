@@ -39,6 +39,8 @@ The app has these fields:
   this is not a pure game-state validator. An unknown control name throws.
 - `controlNames()`: returns sorted names of all `UI` bindings, including
   helpers. Not every returned name is accepted by `construct`.
+- `specimen(parent?)`: mounts one screen that shows the theme; see
+  [Themes.finish](Themes.finish.md). It returns `stop, screen`.
 - `dispose()`: stops every mount. It disposes the runtime when the app made it.
 
 Imperative presenters call `component(UI)` inside their owned content. Their
