@@ -29,6 +29,7 @@ type Declared = {
 	leading: boolean,
 	trailing: boolean,
 	animate: boolean,
+	reveals: boolean,
 	reveal: { host: (Instance) -> (), back: () -> () }?,
 }
 type Resolution = {
@@ -451,6 +452,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			leading = spec.leading == true,
 			trailing = spec.trailing == true,
 			animate = false,
+			reveals = spec.reveal ~= false,
 			reveal = if spec.reveal ~= false and spec.mayDrop == true
 				then { host = hostInto, back = returnHome }
 				else nil,
@@ -1126,21 +1128,30 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local chosen, down, moved, overflow, packed =
 				result.chosen, result.down, result.moved, result.overflow, result.packed
 			local unfit: { string } = {}
-			if #overflow > 0 then
+			local function misfits(width: number, missed: { number }): { string }
 				local names: { string } = {}
-				for _, index in overflow do
+				for _, index in missed do
 					table.insert(names, regions[index].Name)
 				end
-				table.insert(unfit, `{math.floor(extent.X)} by {math.floor(extent.Y)} now: {table.concat(names, ", ")}`)
+				for index, region in regions do
+					local entry = declared[region]
+					local full = list[index].sizes[1]
+					local opens = entry.reveals and (entry.mayDrop or #entry.contents > 1)
+					if opens and full and full.x > width and not table.find(names, region.Name) then
+						table.insert(names, region.Name)
+					end
+				end
+				return names
+			end
+			local here = misfits(extent.X, overflow)
+			if #here > 0 then
+				table.insert(unfit, `{math.floor(extent.X)} by {math.floor(extent.Y)} now: {table.concat(here, ", ")}`)
 			end
 			for _, phone in PHONES do
 				if extent.X > phone.X or extent.Y > phone.Y then
 					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil).overflow
-					if #missed > 0 then
-						local names: { string } = {}
-						for _, index in missed do
-							table.insert(names, regions[index].Name)
-						end
+					local names = misfits(phone.X, missed)
+					if #names > 0 then
 						table.insert(
 							unfit,
 							`{math.floor(phone.X)} by {math.floor(phone.Y)}: {table.concat(names, ", ")}`

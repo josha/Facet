@@ -1,5 +1,11 @@
 # Current package
 
+A Composition also sets `FacetUnfit` for a region that opens its fullest form
+in a Popover when that form is wider than the screen or than a 358 pixel
+phone: the Popover cannot be narrower than a form with a pixel width, so it
+ran past the edge and its Close button with it. `composition-unfit` names the
+region. `mayDrop = true` no longer hides a form that is too wide.
+
 A `UI.Text` with `wrap = true` in an HStack that has a bounded width stays
 inside the row. It took the full width of the row, whatever stood beside it:
 after a 40 pixel Avatar in a 276 pixel row it ran 48 pixels past the end, and

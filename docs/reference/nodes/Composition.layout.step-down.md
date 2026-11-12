@@ -33,7 +33,9 @@ Form selection, zone fallback, fit warnings and resize motion.
   measured forms for a 358 by 812 and an 812 by 358 phone area. The
   `FacetUnfit` boolean attribute marks a fit failure at the size it has now
   or at a phone area; the root's `FacetUnfitDetails` StringValue names the
-  size and the regions. `Facet.review` reports it as `composition-unfit`.
+  size and the regions. A region that opens its fullest form in a Popover
+  also fails when that form is wider than the area. `Facet.review` reports
+  it as `composition-unfit`.
 - Each Composition lays out only its own regions. Two Compositions are on
   one screen when their layers are the same or have the same parent. When
   two Compositions on one screen place visible regions in the same zone for

@@ -468,6 +468,22 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("names a region whose fullest form is wider than a phone", {
+			id = "native_composition::Composition::names a region whose fullest form is wider than a phone",
+			run = function()
+				local root, engine, stop = actionRow({ captions = false, mayDrop = true })
+				sized(engine, root:FindFirstChild("Zones"), 1920, 1080)
+				expect(root:GetAttribute("FacetUnfit")):toBeNil()
+				sized(engine, root:FindFirstChild("Circles", true), 400, 44)
+				local details = root:FindFirstChild("FacetUnfitDetails")
+				assert(details and details:IsA("StringValue"))
+				expect(root:GetAttribute("FacetUnfit")):toBe(true)
+				expect(string.find(details.Value, "358 by 812: Actions", 1, true) ~= nil):toBe(true)
+				expect(string.find(details.Value, " now: ", 1, true)):toBeNil()
+				stop()
+			end,
+		})
+
 		it("names the regions that do not fit the size it has now", {
 			id = "native_composition::Composition::names the regions that do not fit the size it has now",
 			run = function()

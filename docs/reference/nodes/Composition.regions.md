@@ -44,8 +44,9 @@ a stable stack or frame form, not around the Region.
 - `expand`: an optional function that returns content for the Popover in
   place of the region's own form 1.
 - The children are the forms of the region, richest first. At least one form
-  is necessary. Give each form a pixel or `hug` size. A form that fills its
-  parent has no size of its own.
+  is necessary. Let each form hug its content, or give it a pixel size that
+  a 358 pixel phone can show. A form that fills its parent has no size of its
+  own.
   Each form must be a concrete GuiObject. Put `Compose.show` or other reactive
   children inside a stable stack or frame; do not pass a factory as a form.
 
