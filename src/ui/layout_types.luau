@@ -19,6 +19,7 @@ export type GroupOptions = {
 	height: Types.Input<Extent>?,
 	maxWidth: Types.ValueNumber?,
 	padding: Types.Input<Padding>?,
+	corners: Types.Input<StackCorners>?,
 }
 export type StackOptions = {
 	padding: Types.Input<Padding>?,
@@ -56,6 +57,7 @@ export type ZStackOptions = {
 	height: Types.Input<Extent>?,
 	alignH: Types.Input<Edge>?,
 	alignV: Types.Input<Edge>?,
+	corners: Types.Input<StackCorners>?,
 }
 export type ScrollViewOptions = {
 	padding: Types.Input<Padding>?,
