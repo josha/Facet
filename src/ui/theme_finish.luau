@@ -141,6 +141,10 @@ local function apply(
 			local onControls = table.clone(properties)
 			onControls.LineJoinMode = if package.metrics.radii.control == 0 then "Miter" else nil
 			table.insert(rules, { selector = CONTROLS, properties = onControls })
+			table.insert(rules, {
+				selector = ".facet-button.facet-disabled::UIStroke",
+				properties = { Transparency = math.max(faint, DISABLED_EDGE) },
+			})
 			local utility = package.metrics.strokes.utility
 			local outlined = type(utility) == "number" and utility > 0
 			table.insert(rules, {
@@ -153,10 +157,6 @@ local function apply(
 					properties = { Color = { role = "hairline" }, Thickness = utility },
 				})
 			end
-			table.insert(rules, {
-				selector = ".facet-button.facet-disabled::UIStroke",
-				properties = { Transparency = math.max(faint, DISABLED_EDGE) },
-			})
 		end
 		package.rules = rules
 	end
