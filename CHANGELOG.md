@@ -1,12 +1,26 @@
 # Current package
 
-A plate's shadow arrives after its content. A theme with a glow puts a
-bright shadow under the whole plate, and while a Callout, Sheet or Popover
-faded in at the same rate as its shadow, the glow showed through the
-half-transparent plate as a lit slab before any text could be read. The
-shadow's strength now follows the cube of how much of the plate is shown, so
-it is a fiftieth of its strength when the plate is a quarter in and an eighth
-at half, and it leaves first on the way out. The resting look is unchanged.
+A Composition matches the heights of similar regions only. With the default
+`rows = "match"`, every region in a row of the `top` or `bottom` zone took
+the height of the tallest one, so a lap readout beside a standings list was
+stretched to the list, 343 px in one game. A region under half the height
+of the tallest now keeps its own height and matches the others of its size.
+Readouts of similar heights still read as one row, and `rows = "fit"` is
+unchanged.
+
+`Facet.themes.define` says when a stated glow will not be seen. A `finish`
+with a glow under 8 px or a strength under 0.4 draws nothing that shows in a
+capture, and a theme could state one and stay flat. `report.advice` now has
+a `finish.depth.glow` entry for it, and `Themes.finish` lists what an edge
+and a glow of each size look like on a screen of 1080 lines.
+
+A NavigationStack holds gameplay only while it is on the screen. In an app
+with `suspendGameplay = true`, a stack with a nonempty path suspended play
+for as long as the path stayed nonempty, also when the stack was hidden or
+when the Sheet that showed it had closed. A game that kept its path between
+openings then found its drive input off with no interface open. The hold now
+needs the path and a stack that is visible under an enabled ScreenGui, and it
+returns when the stack shows again.
 
 A ColorPicker with a stated palette is a palette. With `modes = { "swatches" }`
 and `swatches`, a press on a swatch proposed the colour after a conversion to
@@ -18,19 +32,13 @@ swatch and a typed hex now propose the exact Color3, and that form has no
 fields. It keeps them with `onSaveSwatch`, with `alpha`, with the generated
 grid and with any other technique.
 
-A NavigationStack holds gameplay only while it is on the screen. In an app
-with `suspendGameplay = true`, a stack with a nonempty path suspended play
-for as long as the path stayed nonempty, also when the stack was hidden or
-when the Sheet that showed it had closed. A game that kept its path between
-openings then found its drive input off with no interface open. The hold now
-needs the path and a stack that is visible under an enabled ScreenGui, and it
-returns when the stack shows again.
-
-`Facet.themes.define` says when a stated glow will not be seen. A `finish`
-with a glow under 8 px or a strength under 0.4 draws nothing that shows in a
-capture, and a theme could state one and stay flat. `report.advice` now has
-a `finish.depth.glow` entry for it, and `Themes.finish` lists what an edge
-and a glow of each size look like on a screen of 1080 lines.
+A plate's shadow arrives after its content. A theme with a glow puts a
+bright shadow under the whole plate, and while a Callout, Sheet or Popover
+faded in at the same rate as its shadow, the glow showed through the
+half-transparent plate as a lit slab before any text could be read. The
+shadow's strength now follows the cube of how much of the plate is shown, so
+it is a fiftieth of its strength when the plate is a quarter in and an eighth
+at half, and it leaves first on the way out. The resting look is unchanged.
 
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
@@ -91,12 +99,6 @@ became 44 pixels wide and four lines tall. The text is now as wide as its
 line, up to 320 pixels, and wraps past that. A wrapped text in a parent with
 a width, in a bounded HStack and with its own `Size` is sized as before.
 
-A Composition also sets `FacetUnfit` for a region that opens its fullest form
-in a Popover when that form is wider than the screen or than a 358 pixel
-phone: the Popover cannot be narrower than a form with a pixel width, so it
-ran past the edge and its Close button with it. `composition-unfit` names the
-region. `mayDrop = true` no longer hides a form that is too wide.
-
 A `UI.Text` with `wrap = true` in an HStack that has a bounded width stays
 inside the row. It took the full width of the row, whatever stood beside it:
 after a 40 pixel Avatar in a 276 pixel row it ran 48 pixels past the end, and
@@ -110,45 +112,6 @@ in a row that hugs are sized as before.
 `Facet.review` has a new rule. `offscreen-text` (high) finds a text with less
 than half of its glyphs on the screen while the stack that holds it is on the
 screen. A text inside a clip or a scrolling view does not count.
-
-On touch, `UI.Screen` and `UI.Composition` reserve less room for the dynamic
-thumbstick. The band was as tall as the region that takes the drag, which is
-two thirds of a phone in landscape: 228 of 331 pixels on an iPhone 14, so a
-HUD kept 79 pixels and its regions were drawn over each other. The band is
-now as tall as the stick where it rests, 111 pixels there, the same band that
-the Jump button needs. A classic thumbstick, a thumbpad and a game's own
-`touchReservations` are reserved as before.
-
-A Composition whose regions do not fit the size it has now sets `FacetUnfit`
-and names that size and the regions in `FacetUnfitDetails`, so `Facet.review`
-reports `composition-unfit` on the device where the overlap shows. Before,
-the review reported only the two phone areas from a larger screen, and an
-overlap on the phone itself reached only the output as a warning.
-
-When a `Facet.review` report has medium findings, its `text` ends the list
-with their count and says what a new interface owes each one: a repair, or a
-noted reason to keep the design.
-
-The Proof Press example gives its theme an edge through `rules`: a 2 pixel
-stroke in the `content` color on every panel. The finish reference of the
-use-facet skill has an "Edge and depth" section with the rule, the plate
-gradient, the shadow and the focus glow.
-
-The unknown-option error for `surface` says where the plate belongs: `A plate
-belongs to a VStack, an HStack or a Screen: put this control in one that has
-the surface.`
-
-`Facet.review` has the rule `oversized-target`. It finds buttons that are
-taller or wider than the scroll view that holds them, such as a record card
-of 290 pixels in a list that has 170 pixels of room on a phone in landscape.
-The player can scroll and can activate the part that shows, but never sees
-one record whole. The finding names the count, the size and the room.
-
-An unknown option on a control now names what the control takes. When no
-known option is close to the name, the error lists the options of a control
-that has 14 or fewer, and points to the reference of a control that has more:
-`Facet UI.ZStack: unknown option 'surface'. Its options include alignH,
-alignV, ground, height, padding, width.`
 
 `UI.Screen` takes `ground`: one GuiObject, most often a `UI.Image` or a
 `UI.ZStack` of images, that Facet draws behind the content and continues to

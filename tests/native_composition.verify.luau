@@ -1660,6 +1660,66 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("matches only the regions of a row whose heights are similar", {
+			id = "native_composition::Composition::matches only the regions of a row whose heights are similar",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local root: Frame
+				runtime.mount(function()
+					local Host = Facet.host(runtime)
+					local function region(name: string, rank: number): Frame
+						return UI.Region {
+							Name = name,
+							zone = "top",
+							rank = rank,
+							Host.Frame {
+								Name = name .. "Full",
+								AutomaticSize = engine.types.Enum.AutomaticSize.XY,
+								Host.Frame { Name = name .. "Inner" },
+							},
+						}
+					end
+					root = UI.Composition {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						region("Lap", 1),
+						region("Place", 2),
+						region("Board", 3),
+					}
+					return root
+				end, layer)
+				local lap = assert(root:FindFirstChild("LapFull", true))
+				local place = assert(root:FindFirstChild("PlaceFull", true))
+				local board = assert(root:FindFirstChild("BoardFull", true))
+				local function lift(node: Instance): number
+					local floor = node:FindFirstChild("Lift") :: UISizeConstraint?
+					return if floor then floor.MinSize.Y else 0
+				end
+				local function size(node: Instance, width: number, height: number)
+					sized(engine, assert(node:FindFirstChildWhichIsA("Frame")), width, height)
+					sized(engine, node, width, height)
+				end
+				size(lap, 200, 44)
+				size(place, 200, 52)
+				size(board, 290, 343)
+				sized(engine, assert(root:FindFirstChild("Zones")), 1280, 720)
+				expect(lift(board)):toBe(0)
+				expect(lift(place)):toBe(0)
+				expect(lift(lap)):toBe(52)
+				size(board, 290, 80)
+				expect(lift(board)):toBe(0)
+				expect(lift(place)):toBe(80)
+				expect(lift(lap)):toBe(80)
+				size(board, 290, 343)
+				expect(lift(place)):toBe(0)
+				expect(lift(lap)):toBe(52)
+				runtime:dispose()
+			end,
+		})
+
 		it("lists the zones that hold a visible region outside the top bar strip", {
 			id = "native_composition::Composition::lists the zones that hold a visible region outside the top bar strip",
 			run = function()

@@ -455,6 +455,30 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("controls by name", function()
+		verifyHarness:case("an app prewarms named control families and cancels with the app", {
+			id = "native_ported_behaviours::controls by name::an app prewarms named control families and cancels with the app",
+			run = function()
+				local engine = engines.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local playerGui = engine.new("PlayerGui")
+				local app = Facet.app({ runtime = runtime, types = engine.types, parent = playerGui })
+				local cancel = app.prewarm({ "VirtualList", "Picker", "NoSuchControl" })
+				expect(type(cancel)):toBe("function")
+				cancel()
+				cancel()
+				local built: Instance? = nil
+				local stop = app.mount(function()
+					local node = app.construct("Button", { Name = "Play", label = "Play" })
+					built = node
+					return node
+				end)
+				expect(built ~= nil):toBe(true)
+				stop()
+				app.prewarm({ "Sheet" })
+				app.dispose()
+				expect(pcall(app.prewarm, { "Sheet" })):toBe(false)
+			end,
+		})
 		verifyHarness:case("an app lists its control names and constructs a control by name", {
 			id = "native_ported_behaviours::controls by name::an app lists its control names and constructs a control by name",
 			run = function()

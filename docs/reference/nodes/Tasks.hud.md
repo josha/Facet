@@ -35,7 +35,7 @@ portrait screen, bottom right otherwise. The Button and the bound action
 call activate; `shortcutHint` shows the action's glyph. The game owns its
 InputContext; activate can act in the world or open a
 [destination](Tasks.pages.md). Keep the center and movement controls clear.
-Test short layouts. A list in a shared row needs `rows = "fit"`.
+Pass resources only when needed for play. Test short layouts.
 
 [Layout](Tasks.safe-layout.md), [actions](HUD-actions.md), [map](Tasks.minimap.md),
 [state](Tasks.state.md), [details](Tasks.collection-detail.md).

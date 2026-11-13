@@ -152,12 +152,11 @@ game-owned drawing, an optional opening action and a full-map destination.
 
 Use Composition Regions for information that needs to coexist with play.
 Prioritize from urgency, frequency and the camera's focus area. Provide smaller
-complete forms when regions compete for room. Regions that share the `top` or
-`bottom` zone take the height of the tallest one, which suits readouts of
-one kind. When one of them is a list, set `rows = "fit"` on the Composition
-or give the list a corner zone, so that a short readout is not stretched to
-the list's height. What the player opens from the HUD, such as full
-standings, is a Popover or a Sheet of its own. Keep required tasks reachable
+complete forms when regions compete for room. Regions of similar height
+that share the `top` or `bottom` zone take one height, so readouts read as
+one row; `rows = "fit"` keeps every region at its own. What the player
+opens from the HUD, such as full standings, is a Popover or a Sheet of its
+own, not a Region that grows. Keep required tasks reachable
 through any compact menu. Read `HUD-actions` for input ownership and bindings.
 
 Check native touch-control clearance in the actual experience; fixed offsets

@@ -1,63 +1,14 @@
 --!strict
-export type ReviewRect = { x: number, y: number, width: number, height: number }
-export type ReviewColor = { r: number, g: number, b: number }
-export type ReviewText = {
-	content: string,
-	size: number,
-	bold: boolean,
-	font: string?,
-	role: string?,
-	color: ReviewColor,
-	transparency: number,
-	ink: ReviewRect?,
-	native: boolean?,
-}
-export type ReviewElement = {
-	index: number,
-	parent: number?,
-	class: string,
-	path: string,
-	rect: ReviewRect,
-	visible: boolean,
-	interactive: boolean,
-	clips: boolean?,
-	fan: boolean?,
-	z: number?,
-	turn: number?,
-	fill: ReviewColor,
-	fillTransparency: number,
-	image: boolean,
-	paint: ReviewRect?,
-	ground: boolean?,
-	text: ReviewText?,
-	unfit: string?,
-	reveal: string?,
-	region: boolean?,
-}
-export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
-export type ReviewSeverity = "high" | "medium" | "low"
-export type ReviewFinding = {
-	rule: string,
-	severity: ReviewSeverity,
-	path: string,
-	detail: string,
-	rect: ReviewRect,
-}
-export type ReviewProminence = {
-	path: string,
-	content: string,
-	size: number,
-	role: string?,
-	bold: boolean,
-	score: number,
-}
-export type ReviewReport = {
-	findings: { ReviewFinding },
-	prominence: { ReviewProminence },
-	sizes: { number },
-	fixes: { [string]: string },
-	text: string,
-}
+local Types = require("./review_types")
+export type ReviewRect = Types.ReviewRect
+export type ReviewColor = Types.ReviewColor
+export type ReviewText = Types.ReviewText
+export type ReviewElement = Types.ReviewElement
+export type ReviewSnapshot = Types.ReviewSnapshot
+export type ReviewSeverity = Types.ReviewSeverity
+export type ReviewFinding = Types.ReviewFinding
+export type ReviewProminence = Types.ReviewProminence
+export type ReviewReport = Types.ReviewReport
 
 local SEPARATORS = { " · ", " • ", " | ", " / ", " – " }
 local SEVERITY_RANK: { [ReviewSeverity]: number } = { high = 1, medium = 2, low = 3 }
