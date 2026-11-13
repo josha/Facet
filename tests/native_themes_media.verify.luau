@@ -451,6 +451,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("compiles an edited copy of a package apart from an unedited copy", {
+			id = "native_themes_media::native themes and media::compiles an edited copy of a package apart from an unedited copy",
+			run = function()
+				local engine, runtime = setup()
+				local function sheetFor(package: Facet.ThemePackage): Instance
+					local holder = engine.new("Folder")
+					runtime.mount(function()
+						return themes.createStyleSheet(runtime, package, { types = engine.types })
+					end, holder)
+					return assert(holder:FindFirstChildWhichIsA("StyleSheet"))
+				end
+				local plain = sheetFor(themes.neutralPackage())
+				local again = sheetFor(themes.neutralPackage())
+				local edited = themes.neutralPackage()
+				edited.style.themes[1].colors.content = { r = 0.8, g = 0.9, b = 1 }
+				local changed = sheetFor(edited)
+				local function content(sheet: Instance): unknown
+					return sheet:GetAttribute("FacetColor_content")
+				end
+				expect(content(plain) ~= nil):toBe(true)
+				expect(content(again)):toBe(content(plain))
+				expect(content(changed) ~= content(plain)):toBe(true)
+				runtime:dispose()
+			end,
+		})
+
 		it("swaps a palette with one token write and no control or rule work", {
 			id = "native_themes_media::native themes and media::swaps a palette with one token write and no control or rule work",
 			run = function()

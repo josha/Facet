@@ -5,7 +5,7 @@ Instances that Compose owns.
 
 ## Install the StyleSheet
 
-`Facet.app` installs the StyleSheet for you. Give the theme package one time:
+`Facet.app` installs one StyleSheet for you and links each of its mounts to it. Give the theme package one time:
 
 ```luau
 local app = Facet.app({ theme = package })

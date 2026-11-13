@@ -1,8 +1,21 @@
 --!strict
 local Shared = require("./types")
 
+local cached: Shared.RobloxTypes? = nil
+
 return function(): Shared.RobloxTypes
-	return {
+	local known = cached
+	if
+		known
+		and known.Enum == Enum
+		and known.UDim2 == UDim2
+		and known.Color3 == Color3
+		and known.TweenInfo == TweenInfo
+		and known.Font == Font
+	then
+		return known
+	end
+	local made: Shared.RobloxTypes = {
 		UDim = UDim,
 		UDim2 = UDim2,
 		Vector2 = Vector2,
@@ -23,4 +36,6 @@ return function(): Shared.RobloxTypes
 		TweenInfo = TweenInfo,
 		BrickColor = BrickColor,
 	}
+	cached = made
+	return made
 end
