@@ -11,8 +11,8 @@ Every example uses the entry path from
 1. Make an app with `Facet.app({ theme = package })`. The theme is optional.
 2. Get the controls from `app.UI`.
 3. Write a component that returns the controls and the layout constructors.
-   Mount it with `app.mount`. The app adds the ScreenGui, the StyleSheet and
-   the StyleLink.
+   Mount it with `app.mount`. The app adds the ScreenGui and a StyleLink to
+   the one StyleSheet that it shares between its mounts.
 4. Call `app.dispose()` when the client ends.
 
 The gallery examples get the same controls from their page context. Their

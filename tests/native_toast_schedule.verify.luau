@@ -533,6 +533,15 @@ return function(verifyHarness: Verify.Harness)
 					services = { GuiService = gui, UserInputService = input },
 					motionLevel = "none",
 				})
+				local function layers(): number
+					local count = 0
+					for _, child in target:GetChildren() do
+						if child:IsA("ScreenGui") then
+							count += 1
+						end
+					end
+					return count
+				end
 				local live = 0
 				local toast = app.presentToast(function(UI: FacetControls)
 					live += 1
@@ -543,13 +552,13 @@ return function(verifyHarness: Verify.Harness)
 				end, { key = "save", duration = 20 })
 				expect((type(toast.id))):toBe("number")
 				expect(live):toBe(1)
-				expect(#target:GetChildren()):toBe(1)
+				expect(layers()):toBe(1)
 				for index = 2, 4 do
 					app.presentToast(function(UI: FacetControls)
 						return UI.Text { text = `Saved {index}` }
 					end, { duration = 20 })
 				end
-				expect(#target:GetChildren()):toBe(1)
+				expect(layers()):toBe(1)
 				expect(#overlay.findAll(target, "ToastRow")):toBe(3)
 				expect((toast.dismiss())):toBe(true)
 				expect(live):toBe(0)

@@ -485,10 +485,14 @@ add("cell-insets-and-header-contrast", {}, function(t)
 		return
 	end
 	local gui = stage:FindFirstAncestorWhichIsA("ScreenGui")
-	local sheet = gui and gui:FindFirstChildWhichIsA("StyleSheet")
+	local link: StyleLink? = if gui then gui:FindFirstChildWhichIsA("StyleLink") :: StyleLink? else nil
+	local sheet: Instance? = if link and link.StyleSheet
+		then link.StyleSheet
+		elseif gui then gui:FindFirstChildWhichIsA("StyleSheet")
+		else nil
 	local function rulePadding(node: any): UDim?
 		local found: UDim? = nil
-		for _, rule in if sheet then sheet:GetChildren() else {} do
+		for _, rule in if sheet then (sheet :: Instance):GetChildren() else {} do
 			if rule:IsA("StyleRule") then
 				for selector in string.gmatch(rule.Selector, "[^,]+") do
 					local tag = string.match(selector, "^%s*%.([%w%-]+)::UIPadding%s*$")

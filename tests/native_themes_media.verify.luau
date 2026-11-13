@@ -451,6 +451,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("compiles an edited copy of a package apart from an unedited copy", {
+			id = "native_themes_media::native themes and media::compiles an edited copy of a package apart from an unedited copy",
+			run = function()
+				local engine, runtime = setup()
+				local function sheetFor(package: Facet.ThemePackage): Instance
+					local holder = engine.new("Folder")
+					runtime.mount(function()
+						return themes.createStyleSheet(runtime, package, { types = engine.types })
+					end, holder)
+					return assert(holder:FindFirstChildWhichIsA("StyleSheet"))
+				end
+				local plain = sheetFor(themes.neutralPackage())
+				local again = sheetFor(themes.neutralPackage())
+				local edited = themes.neutralPackage()
+				edited.style.themes[1].colors.content = { r = 0.8, g = 0.9, b = 1 }
+				local changed = sheetFor(edited)
+				local function content(sheet: Instance): unknown
+					return sheet:GetAttribute("FacetColor_content")
+				end
+				expect(content(plain) ~= nil):toBe(true)
+				expect(content(again)):toBe(content(plain))
+				expect(content(changed) ~= content(plain)):toBe(true)
+				runtime:dispose()
+			end,
+		})
+
 		it("swaps a palette with one token write and no control or rule work", {
 			id = "native_themes_media::native themes and media::swaps a palette with one token write and no control or rule work",
 			run = function()
@@ -607,6 +633,63 @@ return function(verifyHarness: Verify.Harness)
 				palette:set(package.style.defaultTheme)
 				expect(style(sheet, ".facet-accent-text").TextColor3):toBe(content)
 				expect(writes):toBe(0)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		it("draws the finish edge inside the box, on plates and on controls", {
+			id = "native_themes_media::native themes and media::draws the finish edge inside the box, on plates and on controls",
+			run = function()
+				local engine, runtime = setup()
+				local Inner = engine.types.Enum.BorderStrokePosition.Inner
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "inked" },
+					finish = {
+						edge = { width = 4, role = "content", controls = true },
+						depth = { lift = 0, glow = 0, sheen = 0 },
+					},
+				}
+				local package = assert((themes.define(definition)))
+				local stop, mounted = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themeState(package), { types = engine.types })
+				end, engine.new("ScreenGui"))
+				local sheet = mounted :: StyleSheet
+				local function authored(selector: string)
+					local found: StyleRule? = nil
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							found = rule
+						end
+					end
+					return styleProperties(assert(found, "No rule: " .. selector))
+				end
+				local plate = authored(".facet-sheet::UIStroke")
+				expect(plate.Thickness):toBe(4)
+				expect(plate.BorderStrokePosition):toBe(Inner)
+				local control = authored(".facet-stepper-button::UIStroke")
+				expect(control.Thickness):toBe(4)
+				expect(control.BorderStrokePosition):toBe(Inner)
+				expect(authored(".facet-button.facet-appearance-bare::UIStroke").Transparency):toBe(1)
+				expect(authored(".facet-button.facet-appearance-utility::UIStroke").Transparency):toBe(1)
+				expect(authored(".facet-button::UIStroke").Thickness):toBe(4)
+				expect(authored(".facet-button.facet-disabled::UIStroke").Transparency):toBe(0.6)
+				local function order(selector: string): number
+					local last = -1
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							last = math.max(last, rule.Priority)
+						end
+					end
+					return last
+				end
+				expect(
+					order(".facet-button.facet-appearance-bare::UIStroke")
+						> order(".facet-button.facet-disabled::UIStroke")
+				):toBe(true)
+				expect(order(".facet-button.facet-disabled::UIStroke") > order(".facet-button::UIStroke")):toBe(true)
 				stop()
 				runtime:dispose()
 			end,

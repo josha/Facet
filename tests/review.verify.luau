@@ -327,6 +327,16 @@ return function(harness: Verify.Harness)
 		t:expect(last):toBe(count(at(plain, "rules")) + 1)
 		t:expect(at(neon, "rules", last, "selector")):toBe(".facet-panel::UIStroke, .facet-sheet::UIStroke")
 		t:expect(at(neon, "rules", last, "properties", "Thickness")):toBe(2)
+		t:expect(at(neon, "rules", last, "properties", "BorderStrokePosition")):toBe("Inner")
+		local inking: Facet.ThemeDefinition = {
+			identity = { id = "inked" },
+			finish = { edge = { width = 3, controls = true }, depth = { lift = 0, glow = 0, sheen = 0 } },
+		}
+		local inked, inkedReport = themes.define(inking)
+		t:expect(inkedReport.ok and inked ~= nil):toBe(true)
+		t:expect(count(at(inked, "rules"))):toBe(count(at(plain, "rules")) + 4)
+		t:expect(at(inked, "rules", count(at(plain, "rules")) + 2, "selector"))
+			:toBe(".facet-button::UIStroke, .facet-stepper-button::UIStroke")
 		t:expect(at(neon, "rules", last, "properties", "LineJoinMode")):toBe("Miter")
 		t:expect(at(neon, "chrome", "panel", "shadow")):toBe("finish")
 		t:expect(at(neon, "chrome", "control")):toEqual(at(plain, "chrome", "control"))
@@ -1108,6 +1118,66 @@ return function(harness: Verify.Harness)
 		local hidden = snapshot()
 		hidden.elements[facts].visible = false
 		t:expect(rules(Rules.analyze(hidden))["collapsed-text"]):toBe(nil)
+	end)
+
+	harness:case("a text or a control that crosses the edge of the screen is reported", function(t)
+		local add, snapshot = scene()
+		local plate = add(nil, "Frame", 1500, 500, 480, 90, { opaque = true })
+		local title = add(plate, "TextLabel", 1520, 520, 440, 40, { text = "DEALER WINS" })
+		add(nil, "TextLabel", 100, 100, 300, 30, { text = "Inside" })
+		local report = Rules.analyze(snapshot())
+		t:expect(rules(report)["cut-at-edge"]):toBe(1)
+		t:expect(string.find(report.text, '"DEALER WINS" crosses the edge of the screen', 1, true) ~= nil):toBe(true)
+		t:expect(report.fixes["cut-at-edge"] ~= nil):toBe(true)
+		t:expect(rules(report)["offscreen-text"]):toBe(nil)
+		local scrolled = snapshot()
+		scrolled.elements[plate].clips = true
+		t:expect(rules(Rules.analyze(scrolled))["cut-at-edge"]):toBe(nil)
+		scrolled.elements[plate].clips = nil
+		t:expect(rules(Rules.analyze(scrolled))["cut-at-edge"]):toBe(1)
+		local nudged = snapshot()
+		nudged.elements[title].rect.x = 1483
+		t:expect(rules(Rules.analyze(nudged))["cut-at-edge"]):toBe(nil)
+		local chip, chips = scene()
+		chip(nil, "TextButton", -30, 500, 90, 90, { interactive = true })
+		local cut = Rules.analyze(chips())
+		t:expect(rules(cut)["cut-at-edge"]):toBe(1)
+		for _, finding in cut.findings do
+			if finding.rule == "cut-at-edge" then
+				t:expect(finding.severity):toBe("medium")
+			end
+		end
+		local wide, bleed = scene()
+		wide(nil, "TextButton", -40, 0, 2000, 80, { interactive = true })
+		t:expect(rules(Rules.analyze(bleed()))["cut-at-edge"]):toBe(nil)
+	end)
+
+	harness:case("a control whose edge or shadow reaches its neighbor is reported", function(t)
+		local add, snapshot = scene()
+		local board = add(nil, "Frame", 100, 100, 400, 300, { opaque = true })
+		local key = add(board, "TextButton", 120, 120, 44, 44, { text = "+", interactive = true })
+		local sell = add(board, "TextButton", 120, 172, 360, 76, { text = "Sell 1 jar", interactive = true })
+		t:expect(rules(Rules.analyze(snapshot()))["touching-controls"]):toBe(nil)
+		local inked = snapshot()
+		inked.elements[key].outset = { left = 3, top = 3, right = 7, bottom = 9 }
+		inked.elements[sell].outset = { left = 4, top = 4, right = 8, bottom = 10 }
+		local report = Rules.analyze(inked)
+		t:expect(rules(report)["touching-controls"]):toBe(1)
+		t:expect(report.fixes["touching-controls"] ~= nil):toBe(true)
+		local inside = snapshot()
+		inside.elements[key].outset = { left = 0, top = 0, right = 4, bottom = 6 }
+		inside.elements[sell].outset = nil
+		t:expect(rules(Rules.analyze(inside))["touching-controls"]):toBe(nil)
+		local tight = snapshot()
+		tight.elements[key].outset = { left = 0, top = 0, right = 4, bottom = 6 }
+		tight.elements[sell].rect.y = 168
+		t:expect(rules(Rules.analyze(tight))["touching-controls"]):toBe(1)
+		local nested, both = scene()
+		local outer = nested(nil, "TextButton", 100, 100, 200, 80, { interactive = true })
+		nested(outer, "TextButton", 150, 180, 40, 20, { interactive = true })
+		local kin = both()
+		kin.elements[outer].outset = { left = 4, top = 4, right = 4, bottom = 4 }
+		t:expect(rules(Rules.analyze(kin))["touching-controls"]):toBe(nil)
 	end)
 
 	harness:case("a text that its row pushes off the screen is reported", function(t)

@@ -25,7 +25,10 @@ The app has these fields:
 - `mount(component, parent?)`: mounts `component()` in a new ScreenGui and
   returns `stop, screenGui`. The default parent is the `parent` option or the
   PlayerGui. The `screen` option of the app sets native ScreenGui properties,
-  for example `ScreenInsets`.
+  for example `ScreenInsets`. The ScreenGui holds a StyleLink to the app
+  StyleSheet. The first mount makes that sheet in the `parent` option or the
+  PlayerGui. Every mount, popover and toast of the app shares it, and
+  `dispose()` removes it.
 - `presentAnchored(component, options)`: shows a popover at `options.source`
   in its own ScreenGui and returns `close, screenGui`. Repeated `close()` calls
   are safe. See the option routes below.

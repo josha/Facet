@@ -37,8 +37,9 @@ script.Destroying:Connect(app.dispose)
 - `Facet.app()` makes a Compose Roblox runtime and the controls for it.
   `app.UI` is the table of control constructors.
 - `app.mount(Counter)` runs the component and mounts its result into a
-  ScreenGui in PlayerGui. The ScreenGui also holds a StyleSheet and a StyleLink
-  to it. It returns a stop function.
+  ScreenGui in PlayerGui. The ScreenGui also holds a StyleLink to the app
+  StyleSheet. The app makes that sheet one time, in PlayerGui, and all its
+  mounts share it. `app.mount` returns a stop function.
 - `UI.Screen` fills the ScreenGui and pads its content by the `m` spacing
   step. `gap = "s"` puts the `s` step between the children. See
   [Layout](../reference/nodes/Layout.md).
@@ -101,8 +102,9 @@ local screen = gui:FindFirstChild("Counter")
 screen:FindFirstChild("Add").Activated:Fire()
 assert(screen:FindFirstChild("Count").Text == "Count: 1")
 stop()
-assert(#playerGui:GetChildren() == 0)
+assert(playerGui:FindFirstChildWhichIsA("ScreenGui") == nil)
 app.dispose()
+assert(#playerGui:GetChildren() == 0)
 app.runtime:dispose()
 ```
 
@@ -111,7 +113,8 @@ app.runtime:dispose()
 - The app needs `types = engine.types`, because Lute does not have the Roblox
   datatypes as globals.
 - Lute has no PlayerGui. Give a `parent`.
-- `app.mount` returns the stop function and the ScreenGui.
+- `app.mount` returns the stop function and the ScreenGui. The app StyleSheet
+  stays in the `parent` until `app.dispose()`.
 - The app does not dispose a runtime that you give. Call `runtime:dispose()`
   after `app.dispose()`.
 - The fake engine refuses a property that the Roblox class does not have, as

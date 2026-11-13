@@ -262,7 +262,7 @@ return function(verifyHarness: Verify.Harness)
 							assert(gui ~= nil, "app.mount made no ScreenGui")
 							local link = gui:FindFirstChildWhichIsA("StyleLink")
 							assert(
-								link ~= nil and link.StyleSheet == gui:FindFirstChildWhichIsA("StyleSheet"),
+								link ~= nil and link.StyleSheet ~= nil and link.StyleSheet.Parent ~= nil,
 								"no linked sheet"
 							)
 						end

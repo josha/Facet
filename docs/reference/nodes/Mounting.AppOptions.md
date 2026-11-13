@@ -10,7 +10,8 @@ and these fields:
 
 - `runtime`: a runtime that you own. The app does not dispose it. Give a
   runtime when you test without Roblox.
-- `parent`: the default parent of each ScreenGui.
+- `parent`: the default parent of each ScreenGui and the parent of the app
+  StyleSheet. Without it, both go in the PlayerGui of the local player.
 - `name`: the ScreenGui name. The default is `Facet`.
 - `screen`: native ScreenGui properties, such as `DisplayOrder`,
   `ScreenInsets` or a reactive `Enabled`. They replace the defaults
@@ -29,7 +30,7 @@ owns; every [ButtonGuide](ButtonGuide.reference.md) reads it.
 mount. `app.mount` after `app.dispose` stops with an error.
 
 When you need a root that is not a ScreenGui, such as a SurfaceGui, or a
-StyleSheet that other roots share, use the runtime directly. These functions are the pieces that
+StyleSheet that roots outside the app share, use the runtime directly. These functions are the pieces that
 `app` uses:
 
 - `runtime.mount`,

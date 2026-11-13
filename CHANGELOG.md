@@ -6,6 +6,38 @@ set the full size once. When the binding ran again, on a console preview, a
 change of device or a late first frame, the art went back to 44 pixels in
 the corner of the stack. The stack now holds the size.
 
+The edge of a theme's finish is drawn inside the box, and it can reach the
+controls. `finish.edge` drew its line outside each panel, and it did not
+reach Buttons, so two authors wrote stroke rules on the Button tags by hand.
+Those strokes were also outside the box: with a hard shadow they used up the
+gap between a Stepper and the action under it, and the two touched. The
+line is now inside the box, and `finish.edge.controls = true` draws it on
+Buttons and Stepper keys. A theme rule on `::UIStroke` takes
+`BorderStrokePosition`, `LineJoinMode` and `ApplyStrokeMode` as names.
+
+`Facet.review` has two new findings. `cut-at-edge` reports a text (high) or
+a control (medium) that crosses the edge of the screen, such as a result
+plate that is wider than a phone in portrait; `offscreen-text` reports a
+text only when more than half of it is outside. `touching-controls`
+(medium) reports a control whose stroke or shadow, drawn outside its box,
+reaches the control beside it.
+
+An app makes one StyleSheet and shares it. Each `app.mount`, popover and
+toast built its own theme StyleSheet inside its ScreenGui, at about 300 KiB of
+Luau heap and 1.5 ms each in Studio. The app now makes the sheet on its first
+mount, in the `parent` option or the PlayerGui, and each ScreenGui holds only
+a StyleLink to it. `app.dispose()` removes the sheet. Code that looked for a
+StyleSheet inside an app ScreenGui reads the StyleLink's `StyleSheet` instead.
+
+The theme compile cache now hits on the default theme. The engine types table
+was new on each call and the neutral theme was not frozen, so each
+StyleSheet compiled every theme rule again and kept its own copy. A
+StyleSheet now reuses the compiled rules: in Studio a mount went from about
+605 to 297 KiB of Luau heap and from 3.0 to 1.5 ms. `themes.neutralPackage()`
+still returns an editable copy. An editable package is cached by its contents,
+so two copies with the same values share one compile and an edited copy
+compiles again.
+
 A Composition matches the heights of similar regions only. With the default
 `rows = "match"`, every region in a row of the `top` or `bottom` zone took
 the height of the tallest one, so a lap readout beside a standings list was
