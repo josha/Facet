@@ -408,6 +408,40 @@
       "generatedImages": 7,
       "toolCalls": 199,
       "note": "A flat-vector den; needs as jars on a wall shelf, actions as round tokens on small shelves. The mood is a Happiness number and the pose, with no mood word. The author set finish.edge.controls and turned it off again: a disabled bare Button drew a faint edge, which the library then fixed. In landscape the pet's feet and rug leave the bottom edge."
+    },
+    {
+      "id": "fish-1",
+      "task": "fishing-hud",
+      "kit": "kit-2f7",
+      "stage": "first pass",
+      "script": "FishingHud1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 35.7,
+      "tokensK": 433,
+      "generatedImages": 0,
+      "toolCalls": 311,
+      "note": "Library 32d7fe3 for both arms; no image generator, art drawn with a script and uploaded (7 files). Painted beach signs: cream plates with a 3 px ink edge and a hard shadow, a brass porthole dial above one coral action. The author built a lagoon, islets and a dock at run time. finish drew plates only in this kit, so the author wrote a 3 px stroke rule on every Button. Three layouts, switched by the room. The reveal marks of the corner regions sat on the banner in portrait until the author wrote a narrow layout."
+    },
+    {
+      "id": "fish-2",
+      "task": "fishing-hud",
+      "kit": "kit-055",
+      "stage": "first pass",
+      "script": "FishingHud2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 30.7,
+      "tokensK": 450,
+      "generatedImages": 0,
+      "toolCalls": 243,
+      "note": "Library 32d7fe3 for both arms; no image generator, art drawn with a script and uploaded (8 files). Wet-slate plates with a 4 px hemp edge and a hard shadow; the action is a painted bobber inside a rope-rimmed tension dial; fish hang on a stringer. The author compared the edge of the controls with the edge of the plates on the sheet and left the controls without one (finish.edge.controls false). No world: the baseplate shows behind the HUD. Two compositions, switched on orientation, because the top zone centres on the full width and the message met the reveal mark in portrait."
     }
   ]
 }

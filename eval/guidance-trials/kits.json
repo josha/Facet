@@ -117,6 +117,16 @@
         "pet-2"
       ],
       "adds": "Choose the composition with the most of the place; list the objects of the concept and the parts that a player expects on each; check the objects on the first screen. finish.edge.controls in place of a stroke rule on a control. Library of the same commit for both arms: the finish edge inside the box, cut-at-edge and touching-controls. Not kept: the two guidance additions were removed after the pet trial."
+    },
+    {
+      "id": "kit-055",
+      "version": "v5",
+      "sha256": "0550217c3e5542cfaa1269f779a9640e498661f138b78a817a5287e071c4f91a",
+      "sourceCommit": "32d7fe3 (claude/eval-followups, PR 535; the folder is kits/kit-32d7fe3 in artifacts/facet-guidance-opus-20261112)",
+      "frozenBefore": [
+        "fish-2"
+      ],
+      "adds": "One order for the whole work: the concept, the measured card, the theme on one sheet, the first playable screen, the remaining routes. Finish follows the hierarchy of the concept: the strong edge stays on the plate that leads, and equal bright borders on every nested control are named as a fault in the main workflow; sample measures are examples and the capture decides. An existing game is the reference when Facet replaces or improves its interface. Review measures against the card. Library of the same commit for both arms: a Callout that stays clear of the other regions, covered-control, finish.edge.controls with its own values, review measures."
     }
   ]
 }

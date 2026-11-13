@@ -153,6 +153,31 @@ for the theme flow on a task that the guidance had not seen, and v4 scored
 4 on five of six axes there. One run stands behind each arm, so the result
 does not separate the kits.
 
+### One order and a finish that follows the hierarchy, on an unseen task
+
+v5 states one order for the work, keeps the strong edge for the plate that
+leads, and names equal bright borders on nested controls as a fault. Both
+authors built the fishing HUD, an unseen task, on the same library, with
+no image generator; each drew its art with a script. One reviewer scored
+the two builds together, in two states at three sizes.
+
+| Build | Kit | Identity | Craft | Lead | Desktop | Portrait | Landscape |
+|---|---|---|---|---|---|---|---|
+| `fish-1` | v4 | 4 | 3 | 3 | 4 | 3 | 3 |
+| `fish-2` | v5 | 3 | 4 | 3 | 4 | 4 | 3 |
+
+Ranked: `fish-2`, `fish-1`, one point apart. The reviewer would ship
+neither. The v4 author built a lagoon and a dock and drew a brass dial; the
+reviewer saw four boxes with one border weight that compete, and a dial
+that sits on the character on both phone forms. The v5 author compared the
+edge of the controls with the edge of the plates on the theme sheet and
+left the controls without one; the reviewer called its portrait the
+cleanest of the two. The v5 author built no world, so the baseplate shows
+behind the HUD, and its tension arc is thinner than the distance numeral
+beside it. Lead is 3 for both. One run stands behind each arm, and one
+point is inside the movement of a reviewer between reviews, so the pair
+does not separate the kits. It shows no loss from the change.
+
 ## What the results say
 
 - Every build from v3 on uses Facet for layout, images, text and controls,
@@ -231,3 +256,17 @@ Each gap cost an author time. They are not fixed by this set.
   larger name needs a `UIScale`. The guidance does not say so.
 - `cut-at-edge` reports a text or a control. A plate that the edge of the
   screen cuts, with its text still on the screen, has no finding.
+- The reveal mark of a corner region sits on a `top` region on a narrow
+  screen: the `top` zone centres on the full width. Both fishing authors
+  wrote a second layout for portrait, and the review reported nothing.
+- A Text takes no bound `textSize`, and `textSize` with `textRole` needs a
+  `fit` table. A size between two roles has no direct form.
+- A `nil` in the positional children of a constructor drops the children
+  after it, with no error.
+- The radius of a `pathShapes` arc is a share of half the box. The node
+  does not say so.
+- `shortcutHint` on a `bare` Button draws its glyph over the label.
+- That a Button can be held (`onPointerDown` and `onPointerUp`) is only in
+  `Button.disclose`.
+- An injected `ButtonR2` did not fire an InputAction in Studio for either
+  author, so the gamepad route of a held action was not proven.
