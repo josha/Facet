@@ -24,6 +24,14 @@ still returns an editable copy. An editable package is cached by its contents,
 so two copies with the same values share one compile and an edited copy
 compiles again.
 
+A Composition matches the heights of similar regions only. With the default
+`rows = "match"`, every region in a row of the `top` or `bottom` zone took
+the height of the tallest one, so a lap readout beside a standings list was
+stretched to the list, 343 px in one game. A region under half the height
+of the tallest now keeps its own height and matches the others of its size.
+Readouts of similar heights still read as one row, and `rows = "fit"` is
+unchanged.
+
 `Facet.themes.define` says when a stated glow will not be seen. A `finish`
 with a glow under 8 px or a strength under 0.4 draws nothing that shows in a
 capture, and a theme could state one and stay flat. `report.advice` now has
