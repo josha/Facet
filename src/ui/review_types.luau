@@ -12,6 +12,7 @@ export type ReviewText = {
 	ink: ReviewRect?,
 	native: boolean?,
 }
+export type ReviewOutset = { left: number, top: number, right: number, bottom: number }
 export type ReviewElement = {
 	index: number,
 	parent: number?,
@@ -33,6 +34,7 @@ export type ReviewElement = {
 	unfit: string?,
 	reveal: string?,
 	region: boolean?,
+	outset: ReviewOutset?,
 }
 export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"

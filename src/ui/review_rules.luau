@@ -1,6 +1,7 @@
 --!strict
 local Types = require("./review_types")
 export type ReviewRect = Types.ReviewRect
+export type ReviewOutset = Types.ReviewOutset
 export type ReviewColor = Types.ReviewColor
 export type ReviewText = Types.ReviewText
 export type ReviewElement = Types.ReviewElement
@@ -36,11 +37,14 @@ local fixes: { [string]: string } = {
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
 	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder. Give the holder a width: a width in pixels or fill, a Size with a width, or align = "stretch" on the list that holds it.',
+	["cut-at-edge"] = "A text or a control crosses the edge of the screen, so part of it is not drawn. A part with a width in pixels, or a row that hugs its content, is wider than the room at this size. Give the part a width that follows the room (fill, a share or a maxWidth), let the row reflow with an AdaptiveStack or wrap = true, or use a shorter form of the part at this size.",
+	["touching-controls"] = "The edge or the shadow of a control is drawn outside its box and reaches the control beside it, so the two read as one. Set finish.edge.controls in the theme so that the edge is drawn inside the box, and give the stack that holds the two a gap that is larger than the shadow.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 }
+local EDGE_CUT = 4
 local FIXES = table.freeze(fixes)
 
 local function clean(content: string): string
@@ -1194,6 +1198,99 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		elseif away and strays < 3 then
 			add("offscreen-text", "high", element, ("%s is outside the screen"):format(words))
 			strays += 1
+		end
+	end
+
+	local cuts = 0
+	for _, element in snapshot.elements do
+		if cuts >= 3 then
+			break
+		end
+		local text = element.text
+		local lettered = text ~= nil and text.size >= 8 and clean(text.content) ~= ""
+		if not element.visible or not (lettered or element.interactive) then
+			continue
+		end
+		local box = if text and lettered then text.ink or element.rect else element.rect
+		local seen = overlap(box, screen)
+		if
+			box.width < 4
+			or box.height < 4
+			or box.width > snapshot.width
+			or box.height > snapshot.height
+			or seen == nil
+			or area(seen) < 0.5 * area(box)
+			or (box.width - seen.width < EDGE_CUT and box.height - seen.height < EDGE_CUT)
+		then
+			continue
+		end
+		local clipped = false
+		for _, ancestor in lineage(element) do
+			if not ancestor.visible or ancestor.clips then
+				clipped = true
+				break
+			end
+		end
+		if clipped then
+			continue
+		end
+		local words = if text and lettered then quote(clean(text.content)) else leaf(element)
+		add(
+			"cut-at-edge",
+			if text and lettered then "high" else "medium",
+			element,
+			("%s crosses the edge of the screen"):format(words)
+		)
+		cuts += 1
+	end
+
+	local joined = 0
+	local buttons: { ReviewElement } = {}
+	for _, element in snapshot.elements do
+		if element.interactive and shown(element, snapshot.width, snapshot.height) then
+			table.insert(buttons, element)
+		end
+	end
+	for _, first in buttons do
+		local reach = first.outset
+		if reach == nil or joined >= 3 then
+			continue
+		end
+		local a = first.rect
+		for _, second in buttons do
+			if second == first or joined >= 3 then
+				continue
+			end
+			local b = second.rect
+			local other = second.outset
+			local across = math.min(a.x + a.width, b.x + b.width) - math.max(a.x, b.x)
+			local along = math.min(a.y + a.height, b.y + b.height) - math.max(a.y, b.y)
+			local below = across >= 0.5 * math.min(a.width, b.width) and b.y >= a.y + a.height
+			local beside = along >= 0.5 * math.min(a.height, b.height) and b.x >= a.x + a.width
+			local clear = if below
+				then b.y - (a.y + a.height) - reach.bottom - (if other then other.top else 0)
+				elseif beside then b.x - (a.x + a.width) - reach.right - (if other then other.left else 0)
+				else nil
+			if clear == nil or clear >= 1 then
+				continue
+			end
+			local kin = false
+			for _, ancestor in lineage(second) do
+				kin = kin or ancestor == first
+			end
+			for _, ancestor in lineage(first) do
+				kin = kin or ancestor == second
+			end
+			if kin then
+				continue
+			end
+			add(
+				"touching-controls",
+				"medium",
+				first,
+				("the edge or the shadow of %s reaches %s"):format(leaf(first), leaf(second))
+			)
+			joined += 1
 		end
 	end
 

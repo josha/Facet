@@ -2,6 +2,10 @@
 local ThemeTypes = require("./theme_types")
 
 local PLATES = ".facet-panel::UIStroke, .facet-sheet::UIStroke"
+local CONTROLS = ".facet-button::UIStroke, .facet-stepper-button::UIStroke"
+local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.facet-appearance-link::UIStroke"
+local UTILITY = ".facet-button.facet-appearance-utility::UIStroke"
+local DISABLED_EDGE = 0.6
 local SHADOW = "finish"
 local GLOW_STRENGTH = 0.55
 local LIFT_STRENGTH = 0.35
@@ -102,6 +106,9 @@ local function apply(
 	if depth.controls ~= nil and type(depth.controls) ~= "boolean" then
 		issue(".depth.controls", "controls is true or false")
 	end
+	if edge.controls ~= nil and type(edge.controls) ~= "boolean" then
+		issue(".edge.controls", "controls is true or false")
+	end
 	if lift > 0 and glow > 0 then
 		issue(".depth", "A plate has one shadow. Give lift or glow, and 0 for the other")
 	end
@@ -123,12 +130,34 @@ local function apply(
 			Color = { role = line },
 			Thickness = width,
 			Transparency = faint,
+			BorderStrokePosition = "Inner",
 		}
 		if package.metrics.radii.panel == 0 then
 			properties.LineJoinMode = "Miter"
 		end
 		local rules = table.clone(package.rules or {})
 		table.insert(rules, { selector = PLATES, properties = properties })
+		if edge.controls == true then
+			local onControls = table.clone(properties)
+			onControls.LineJoinMode = if package.metrics.radii.control == 0 then "Miter" else nil
+			table.insert(rules, { selector = CONTROLS, properties = onControls })
+			local utility = package.metrics.strokes.utility
+			local outlined = type(utility) == "number" and utility > 0
+			table.insert(rules, {
+				selector = if outlined then PLAIN else PLAIN .. ", " .. UTILITY,
+				properties = { Transparency = 1 },
+			})
+			if outlined then
+				table.insert(rules, {
+					selector = UTILITY,
+					properties = { Color = { role = "hairline" }, Thickness = utility },
+				})
+			end
+			table.insert(rules, {
+				selector = ".facet-button.facet-disabled::UIStroke",
+				properties = { Transparency = math.max(faint, DISABLED_EDGE) },
+			})
+		end
 		package.rules = rules
 	end
 
