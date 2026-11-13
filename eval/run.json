@@ -99,6 +99,44 @@
       }
     },
     {
+      "id": "codex-sol-images",
+      "adapter": "codex",
+      "model": "gpt-6.1-sol",
+      "options": {
+        "effort": "medium",
+        "persistSession": true,
+        "arguments": [
+          "--ignore-user-config",
+          "--disable",
+          "shell_tool",
+          "--disable",
+          "view_image",
+          "--disable",
+          "apps",
+          "--disable",
+          "multi_agent",
+          "--disable",
+          "computer_use",
+          "--disable",
+          "browser_use",
+          "--disable",
+          "plugins",
+          "--disable",
+          "goals",
+          "--disable",
+          "sleep_tool",
+          "--disable",
+          "tool_suggest"
+        ],
+        "sandbox": "read-only",
+        "config": [
+          "web_search=\"disabled\"",
+          "model_catalog_json=\".codex-model-catalog.json\"",
+          "mcp_servers.studio.default_tools_approval_mode=\"approve\""
+        ]
+      }
+    },
+    {
       "id": "claude-opus",
       "adapter": "claude-code",
       "model": "claude-opus-5-5",

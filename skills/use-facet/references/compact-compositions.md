@@ -44,6 +44,25 @@ arbitrary BillboardGui nameplates. The game owns that visibility decision.
 This advice applies to overlays during play. A text-led task, a quiet status
 tool or a plugin can keep persistent facts when users need them.
 
+A shorter form keeps a route to everything that the fuller form offered. In a
+`Composition`, a region that shows a reduced form opens its fullest form in a
+Popover on a press, and a region with `mayDrop = true` leaves a badge that
+does the same; `Composition.regions` describes `reveal`, `expand` and `form`.
+Give each region that can hide a `label`, and an `icon` when the theme has
+one: the badge shows them. Without them the badge is "…", and two of those on
+one screen tell the player nothing. A readout whose shorter form loses
+nothing takes `reveal = false` and has no badge.
+A button of your own on a short form consumes that press, so it must open the
+whole task itself, in a Popover or a Sheet. It must not only set the state
+that the fuller form shows, because that form is not on the screen. Keep
+`mayDrop` for what the player can play without. What the player opens with a
+button is a task: give it a surface of its own, not a region that can drop.
+
+A shorter form is another composition of the same facts, not the same
+sentence in a smaller box: an icon, one numeral, or a label of one or two
+words. A form that the reveal opens must fit the narrowest phone, so let it
+hug its content; `composition-unfit` names a form that is too wide.
+
 Give title and Back one owner: NavBar, page or Sheet header. Measure what remains
 after navigation, insets, padding and actions. Width alone cannot establish fit.
 
@@ -77,6 +96,47 @@ height, try a thumbnail beside those facts. Let column count fall to one when
 readable records require it. A virtual collection limits mounted rows; it does
 not make a tall row fit. Do not add a permanent Inspect footer when record
 activation already opens detail. Keep commitment in that detail step.
+
+## Change the form of a record
+
+A record with art above its facts is tall. In a short room it can be taller
+than the list that scrolls it, and then the player never sees one record
+whole. The header and the filters above the list take part of the height, so
+the room of the list is smaller than the screen. Measure that room and choose
+the form of the record from it. The [collection example](../examples/collection.luau)
+does this; the lines below are its outline, and its numbers belong to its
+own records.
+
+```luau
+local body = UI.ZStack "RecordsBody" { width = "fill", height = "fill", UI.fill() }
+local room = UI.environment(body) -- the room of the list, after the header and the filters
+local short = C.formula(function(use: Facet.Use): boolean
+    return use(room.viewportWidth) < 620 or use(room.viewportHeight) < 400
+end)
+local rows: Facet.KeyedCollectionSpec<Record, string> = {
+    from = records, key = "id",
+    minColumnWidth = room.scaled(320),
+    itemSize = function(use: Facet.Use): number
+        return if use(short) then 170 else 330 -- each form fits the room that selects it
+    end,
+    render = function(current)
+        return C.show(short, function()
+            return thumbnailBesideFacts(current) -- art at the side; name, facts and price in a column
+        end, function()
+            return artAboveFacts(current)
+        end)
+    end,
+    UI.fill(),
+}
+local list = UI.VirtualGrid "Records" (rows)
+list.Parent = body
+```
+
+A `Grid` with a fixed `cellHeight` and a column count from the width of the
+screen does not do this: the cell keeps its height when the room gets short.
+After the change, open the shortest supported screen, scroll from entry and
+activate a record. A record that is deliberately larger than its room, such
+as a long article, is a different case: give it its own scrolling step.
 
 Do not force a mid-collection `initialFocus` for every input. It can scroll a
 fresh touch browse away from the beginning. Choose focus entry for the active
@@ -142,6 +202,8 @@ At each minimum, open the task the normal way and check these.
 - The longest supported labels and the largest supported text size still fit.
 - Opened controls, confirmation and changing feedback stay inside the screen,
   including the left and bottom edges of dialogs and the paint of focus rings.
+- Each opener on a short form shows its task: press it at this size and see
+  the next step and the way back.
 - The main action and the exit work with the real input. If a route needs
   scrolling, scroll from entry, reveal the whole target and activate it.
 - Rotating the open task and rotating back keeps selection, drafts, accepted

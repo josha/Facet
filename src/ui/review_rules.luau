@@ -14,6 +14,8 @@ export type ReviewReport = Types.ReviewReport
 local SEPARATORS = { " · ", " • ", " | ", " / ", " – " }
 local SEVERITY_RANK: { [ReviewSeverity]: number } = { high = 1, medium = 2, low = 3 }
 local RECIPES = "See the information-display reference in the use-facet skill."
+local MEDIUM_NOTE =
+	"  %d medium rule(s): each one names a generic or unfinished part. On a new interface, repair it or note why the design keeps it before you build the next screen."
 
 local fixes: { [string]: string } = {
 	["joined-facts"] = "One text joins several facts with separators, so no fact leads and values cannot be compared. Give each fact its own element: the value in the numeral or strong role and its label in caption beside or under it. In a HUD region the player reads a value at a glance during play, so a joined line that leads its region is high. "
@@ -32,7 +34,7 @@ local fixes: { [string]: string } = {
 	["lopsided-page"] = 'The page content sits on one side of a wide surface and leaves the other side empty. Center a bounded column (width = "fill" with maxWidth, align = "center" on the Screen), or use the room for a second pane such as the selected item\'s detail.',
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
-	["composition-unfit"] = "A HUD Composition does not fit a phone screen: the named regions overlap there even at their last form. Give each of them a compact second form, such as one Menu circle for the destinations, or mayDrop = true for an optional region.",
+	["composition-unfit"] = "A HUD Composition does not fit this screen or a phone screen: the named regions overlap there even at their last form, or their fullest form is wider than that screen, so the Popover that shows it runs past the edge. Give each of them a compact second form, such as one Menu circle for the destinations, a fullest form that hugs its content in place of a pixel width, or mayDrop = true for an optional region.",
 	["unnamed-reveal"] = 'A HUD region that the screen has no room for shows as a "..." mark, and the mark does not say what is behind it. Give the Region a label, an icon or both: the mark shows them, and the popover of several regions names each one. For a readout whose shorter form loses nothing, set reveal = false.',
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
@@ -43,6 +45,7 @@ local fixes: { [string]: string } = {
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
+	["oversized-target"] = "A control is larger than the scroll area that holds it, so the player never sees it whole at this size. Measure the room of the list with UI.environment(body) and give the record a shorter form there, such as a thumbnail beside its facts, or move the header and the filters out of the room of the list. See the compact-compositions reference in the use-facet skill.",
 }
 local EDGE_CUT = 4
 local FIXES = table.freeze(fixes)
@@ -168,6 +171,7 @@ local function quote(content: string): string
 	return '"' .. short .. '"'
 end
 
+type Oversized = { first: ReviewElement, count: number, axis: string, size: number, room: number }
 type Prepared = {
 	byIndex: { [number]: ReviewElement },
 	children: { [number]: { ReviewElement } },
@@ -1388,6 +1392,66 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 	end
 
+	local oversized: { [number]: Oversized } = {}
+	local oversizedOrder: { number } = {}
+	for _, element in snapshot.elements do
+		if not element.visible or (element.class ~= "TextButton" and element.class ~= "ImageButton") then
+			continue
+		end
+		local scroller: ReviewElement? = nil
+		local parent = prepared.parentOf(element)
+		while parent ~= nil and scroller == nil do
+			local ancestor = prepared.byIndex[parent]
+			if ancestor == nil then
+				break
+			end
+			if ancestor.class == "ScrollingFrame" then
+				scroller = ancestor
+			end
+			parent = prepared.parentOf(ancestor)
+		end
+		if scroller == nil or not shown(scroller, snapshot.width, snapshot.height) then
+			continue
+		end
+		local rect, window = element.rect, scroller.rect
+		if window.width < 48 or window.height < 48 then
+			continue
+		end
+		local axis: string? = nil
+		local size, room = 0, 0
+		if rect.height > window.height + 1 then
+			axis, size, room = "tall", rect.height, window.height
+		elseif rect.width > window.width + 1 then
+			axis, size, room = "wide", rect.width, window.width
+		end
+		if axis == nil then
+			continue
+		end
+		local group = oversized[scroller.index]
+		if group == nil then
+			oversized[scroller.index] = { first = element, count = 1, axis = axis, size = size, room = room }
+			table.insert(oversizedOrder, scroller.index)
+		else
+			group.count += 1
+			group.size = math.max(group.size, size)
+		end
+	end
+	for _, index in oversizedOrder do
+		local group = oversized[index]
+		add(
+			"oversized-target",
+			"medium",
+			group.first,
+			("%d control(s) up to %d px %s in a scroll area %d px %s"):format(
+				group.count,
+				math.floor(group.size),
+				group.axis,
+				math.floor(group.room),
+				group.axis
+			)
+		)
+	end
+
 	if snapshot.touch == true then
 		local small = math.min(snapshot.width, snapshot.height) <= 500
 		local size = if small then 70 else 120
@@ -1539,6 +1603,15 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			end
 			table.insert(lines, "      " .. finding.detail)
 		end
+	end
+	local medium = 0
+	for _, rule in order do
+		if grouped[rule][1].severity == "medium" then
+			medium += 1
+		end
+	end
+	if medium > 0 then
+		table.insert(lines, MEDIUM_NOTE:format(medium))
 	end
 	table.insert(lines, "  most prominent text:")
 	for index, item in prominence do

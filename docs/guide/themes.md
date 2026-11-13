@@ -8,7 +8,7 @@ the theme package. Do not add repeated paint overrides to each screen.
 ## Choose the visual direction
 
 Choose the direction before building a shared panel helper. The skill's
-[direction card](../../skills/use-facet/SKILL.md#1-decide-the-direction)
+[direction card](../../skills/use-facet/SKILL.md#write-the-card)
 turns the brief into visible decisions, and [finish](../../skills/use-facet/references/finish.md)
 maps each decision to a theme value. A professional tool can use quiet,
 familiar styling; a game should express its world beyond an accent color.

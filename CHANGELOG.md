@@ -5,6 +5,20 @@ Compose row each, which takes 6 to 33 KiB of Luau heap off each themed screen
 in Studio. Rule priorities were already unique, so the order of the rules in
 the sheet does not change which rule wins.
 
+An app mount builds its whole ScreenGui inside the app controls. Content that
+a returned `show`, `switch` or `keyed` directive built after `component()`
+returned ran outside them, so `Facet.controls(runtime)` there made default
+controls without the app theme. `app.mount` also takes `{ parent, name,
+screen }` for one ScreenGui, so one app can mount a main layer and an overlay
+layer, and `app.sheet()` returns the shared StyleSheet for a root that the app
+does not mount, such as a SurfaceGui.
+
+The art of a stack `ground` keeps the size of its stack. `UI.Image` binds
+its own `Size`, 44 pixels square with no `width` or `height`, and the stack
+set the full size once. When the binding ran again, on a console preview, a
+change of device or a late first frame, the art went back to 44 pixels in
+the corner of the stack. The stack now holds the size.
+
 The edge of a theme's finish is drawn inside the box, and it can reach the
 controls. `finish.edge` drew its line outside each panel, and it did not
 reach Buttons, so two authors wrote stroke rules on the Button tags by hand.
@@ -76,6 +90,46 @@ half-transparent plate as a lit slab before any text could be read. The
 shadow's strength now follows the cube of how much of the plate is shown, so
 it is a fiftieth of its strength when the plate is a quarter in and an eighth
 at half, and it leaves first on the way out. The resting look is unchanged.
+
+A Composition also sets `FacetUnfit` for a region that opens its fullest form
+in a Popover when that form is wider than the screen or than a 358 pixel
+phone: the Popover cannot be narrower than a form with a pixel width, so it
+ran past the edge and its Close button with it. `composition-unfit` names the
+region. `mayDrop = true` no longer hides a form that is too wide.
+
+On touch, `UI.Screen` and `UI.Composition` reserve less room for the dynamic
+thumbstick. The band was as tall as the region that takes the drag, which is
+two thirds of a phone in landscape: 228 of 331 pixels on an iPhone 14, so a
+HUD kept 79 pixels and its regions were drawn over each other. The band is
+now as tall as the stick where it rests, 111 pixels there, the same band that
+the Jump button needs. A classic thumbstick, a thumbpad and a game's own
+`touchReservations` are reserved as before.
+
+A Composition whose regions do not fit the size it has now sets `FacetUnfit`
+and names that size and the regions in `FacetUnfitDetails`, so `Facet.review`
+reports `composition-unfit` on the device where the overlap shows. Before,
+the review reported only the two phone areas from a larger screen, and an
+overlap on the phone itself reached only the output as a warning.
+
+When a `Facet.review` report has medium findings, its `text` ends the list
+with their count and says what a new interface owes each one: a repair, or a
+noted reason to keep the design.
+
+The unknown-option error for `surface` says where the plate belongs: `A plate
+belongs to a VStack, an HStack or a Screen: put this control in one that has
+the surface.`
+
+`Facet.review` has the rule `oversized-target`. It finds buttons that are
+taller or wider than the scroll view that holds them, such as a record card
+of 290 pixels in a list that has 170 pixels of room on a phone in landscape.
+The player can scroll and can activate the part that shows, but never sees
+one record whole. The finding names the count, the size and the room.
+
+An unknown option on a control now names what the control takes. When no
+known option is close to the name, the error lists the options of a control
+that has 14 or fewer, and points to the reference of a control that has more:
+`Facet UI.ZStack: unknown option 'surface'. Its options include alignH,
+alignV, ground, height, padding, width.`
 
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,

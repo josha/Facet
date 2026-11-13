@@ -62,10 +62,12 @@ export type ToastOptions = {
 	onDismiss: ((Overlay.ToastDismissReason) -> ())?,
 }
 export type Toast = { id: number, dismiss: () -> boolean }
+export type MountOptions = { parent: Instance?, name: string?, screen: { [string]: unknown }? }
 export type App = {
 	runtime: Types.Runtime,
 	UI: ControlTypes.Controls,
-	mount: (component: Component, parent: Instance?) -> (() -> (), ScreenGui),
+	mount: (component: Component, target: (Instance | MountOptions)?) -> (() -> (), ScreenGui),
+	sheet: () -> StyleSheet,
 	specimen: (parent: Instance?) -> (() -> (), ScreenGui),
 	refusal: (control: string, spec: unknown) -> string?,
 	construct: (control: string, spec: unknown) -> Instance,
@@ -118,7 +120,7 @@ return function(
 	local stops: { () -> () } = {}
 	local disposed = false
 	local shared: StyleSheet? = nil
-	local function sharedSheet(target: Instance): StyleSheet
+	local function sharedSheet(target: Instance?): StyleSheet
 		local known = shared
 		if known then
 			return known
@@ -127,6 +129,9 @@ return function(
 		if home == nil then
 			local ok, found = pcall(playerGui)
 			home = if ok then found else target
+		end
+		if home == nil then
+			error("Facet app.sheet: there is no PlayerGui here. Give a parent to Facet.app.", 3)
 		end
 		local made: StyleSheet? = nil
 		local stopSheet = runtime.mount(function(): ComposeTypes.Node
@@ -153,41 +158,53 @@ return function(
 		shared = sheet
 		return sheet
 	end
-	local function mount(component: Component, parent: Instance?): (() -> (), ScreenGui)
+	local function mount(component: Component, place: (Instance | MountOptions)?): (() -> (), ScreenGui)
 		assert(not disposed, "Facet app.mount: the app is disposed")
 		assert(type(component) == "function", "Facet app.mount: expected a component function")
+		local options: MountOptions = {}
+		local parent: Instance? = nil
+		if type(place) == "table" and getmetatable(place :: {}) == nil then
+			options = place :: MountOptions
+			parent = options.parent
+		elseif place ~= nil then
+			parent = place :: Instance
+		end
 		local target = parent or settings.parent or playerGui()
 		local sheet = sharedSheet(target)
 		local screen: ScreenGui? = nil
 		local stop = runtime.mount(function(): ComposeTypes.Node
-			local props: { [unknown]: unknown } = {}
-			for key, value in (settings.screen or {}) :: { [unknown]: unknown } do
-				assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
-				props[key] = value
-			end
-			props.Name = props.Name or settings.name or "Facet"
-			local enums = if settings.types then settings.types.Enum else Enum
-			if props.ScreenInsets == nil and props.IgnoreGuiInset == nil then
-				props.ScreenInsets = enums.ScreenInsets.CoreUISafeInsets
-			end
-			if props.SafeAreaCompatibility == nil then
-				props.SafeAreaCompatibility = enums.SafeAreaCompatibility.None
-			end
-			if props.ResetOnSpawn == nil then
-				props.ResetOnSpawn = false
-			end
-			if props.ZIndexBehavior == nil then
+			return UI.provide(function(): ComposeTypes.Node
+				local props: { [unknown]: unknown } = {}
+				for _, source in { settings.screen or {}, options.screen or {} } do
+					for key, value in source :: { [unknown]: unknown } do
+						assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
+						props[key] = value
+					end
+				end
+				props.Name = options.name or props.Name or settings.name or "Facet"
 				local enums = if settings.types then settings.types.Enum else Enum
-				props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
-			end
-			props[1] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
-			props[2] = UI.provide(component)
-			if target:IsA("PlayerGui") and settings.focusRing ~= false then
-				props[3] = UI.focusRing(target)
-			end
-			local root = Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
-			screen = root
-			return root
+				if props.ScreenInsets == nil and props.IgnoreGuiInset == nil then
+					props.ScreenInsets = enums.ScreenInsets.CoreUISafeInsets
+				end
+				if props.SafeAreaCompatibility == nil then
+					props.SafeAreaCompatibility = enums.SafeAreaCompatibility.None
+				end
+				if props.ResetOnSpawn == nil then
+					props.ResetOnSpawn = false
+				end
+				if props.ZIndexBehavior == nil then
+					local enums = if settings.types then settings.types.Enum else Enum
+					props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
+				end
+				props[1] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
+				props[2] = component()
+				if target:IsA("PlayerGui") and settings.focusRing ~= false then
+					props[3] = UI.focusRing(target)
+				end
+				local root = Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
+				screen = root
+				return root
+			end)
 		end, target)
 		local stopped = false
 		local function release()
@@ -389,6 +406,10 @@ return function(
 		runtime = runtime,
 		UI = UI,
 		mount = mount,
+		sheet = function(): StyleSheet
+			assert(not disposed, "Facet app.sheet: the app is disposed")
+			return sharedSheet(nil)
+		end,
 		specimen = function(parent: Instance?): (() -> (), ScreenGui)
 			return mount(function(): ComposeTypes.Child
 				return specimenView(UI, Compose)

@@ -10,6 +10,13 @@ regions. It measures the content of the body, not the scroll canvas, so it does
 not grow to fill the room. It measures again when the content changes, and it
 stays inside the safe room and above a minimum of four target heights.
 
+Choose the detents from the task of that Sheet. A short task, such as a few
+options or one confirmation, uses `{ "hug" }`. A collection, or a
+NavigationStack of steps, uses a bounded detent such as `large` and a body
+that uses its width. One large Sheet that hosts every task of a product
+leaves each short task in a mostly empty panel; give a short task a Sheet
+or a Dialog of its own.
+
 Supply a `title` and a `content` factory that returns native children. The
 sheet calls the factory without arguments. Its subtree fills the body region.
 The body uses a native vertical ScrollingFrame named `SheetContent`. Thus

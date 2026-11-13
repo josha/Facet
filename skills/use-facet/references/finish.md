@@ -1,6 +1,6 @@
 # Finish
 
-This page maps each line of the [direction card](../SKILL.md#1-decide-the-direction)
+This page maps each line of the [direction card](../SKILL.md#write-the-card)
 to the Facet value that realizes it. Read it once for a new interface. It names
 levers and where their contracts are; it does not choose a look. The sample
 values belong to their own examples.
@@ -16,7 +16,7 @@ its hover, pressed, selected and ten-foot forms.
 | Ground | `UI.Screen { ground = UI.Image { ... } }` draws art behind the content and continues it to every glass edge. `surface = "surface"` does the same with the `surface` color, and `extra.chromeGradient.surface` makes that plate a gradient; see [the ground](#the-ground) | `Screen.reference`, `Themes.palette` |
 | Palette | `style.themes[n].colors`: `surface`, `surfaceStrong`, `content`, `accent`, `onAccent`, and the status pairs. `extra`: `control`, `controlSelected`, `onSelected`, `selection`, `contentSecondary`, `hairline` | `Theme-identity`, `Themes.palette` |
 | Type | `metrics.typography`: `title`, `heading`, `numeral`, `strong`, `label`, `control`, `body`, `caption`. Each role takes `size` and `font = { family, weight }`; `family` is a name from the table below or a full font path | `Tasks.theme` |
-| Shape and edge | `metrics.radii` (`control`, `panel`), `metrics.strokes`, `chrome.panel.shadow` and `chrome.control.shadow` (`"raised"`, `"overlay"` or a shadow table), `extra.chromeGradient.panel`, and `rules` for strokes | `Themes.definition`, `Theme-identity` |
+| Shape and edge | `metrics.radii` (`control`, `panel`) and `finish`: the edge, the lift, the glow and the sheen of every plate as values; see [edge and depth](#edge-and-depth) | `Themes.finish`, `Themes.definition` |
 | Controls | `chrome.control`, `chrome.panel`, `chrome.field`, `chrome.badge`: `native`, `nineSlice`, `tile`, `frame` or `layered` art with per-state assets and `contentInsets` | `Themes.art`, `Themes.chrome` |
 | Focus and selection | `chrome.focus`: `ring`, `glow`, `brackets` or `nineSlice`. `extra.controlSelected` and the control's `selected` art | `Themes.chrome` |
 | Main action | `appearance = "emphasis"` uses `accent` and `onAccent`. A uniquely shaped action is one `UI.Button` with an authored face; see [worked translations](visual-translations/guide.md#use-the-control-contracts) | `Button.appearance` |
@@ -29,8 +29,82 @@ contrast of 4.5:1. Give the first task its theme through
 `Facet.app({ name = ..., theme = theme })`.
 
 A definition that changes only `accent` leaves the neutral theme in place.
-A definition that sets the ground, two type families, the radii, one edge or
-depth treatment and the selected state has already left it.
+So does one that sets only colors, fonts and radii: every plate is still a
+flat fill with no edge. A definition that sets the ground, two type families,
+the radii, one edge or depth treatment and the selected state has left it.
+
+## Edge and depth
+
+The neutral plates are flat fills, and a plate close to the color of the
+ground disappears into it. `finish` in the theme definition states the edge
+and the depth of every plate as values, and `Facet.themes.define` draws
+them. State it in every theme; `Themes.finish` has each value.
+
+```luau
+finish = {
+    edge = { width = 1, role = "hairline" },
+    depth = { lift = 0, glow = 0, sheen = 0 },
+}
+```
+
+Take the values from the card as [the concept corrected
+it](../SKILL.md#read-the-card-off-the-concept):
+
+- **The edge.** `width` in pixels, the palette `role` of the line and its
+  `transparency`. A panel radius of 0 gives the line square corners.
+- **A raised plate.** `lift` is the fall of a shadow in pixels, `blur` its
+  softness and `side` its fall to the right. `blur = 0` is a hard shadow. A
+  shadow shows on a light ground only.
+- **A lit plate.** `glow` is a halo in pixels in the `role` color, for a
+  dark ground. A plate has a lift or a glow, not both.
+- **A sheen.** `sheen` from 0 to 1 washes the `role` color down from the top
+  of the plate.
+- **The controls.** `edge.controls = true` draws the edge on Buttons and
+  Stepper keys, and `depth.controls = true` gives them the shadow of the
+  plates. Do not write a stroke rule on a control's tag for this: the edge
+  of `finish` is drawn inside the box, and a stroke that you add is drawn
+  outside it and takes the gap to the next control.
+
+Zeros are a decision too: a quiet tool states them. Keep the strong edge
+for the plates; equal bright strokes on every nested part erase the
+hierarchy.
+
+### What a value looks like
+
+A value that is too small draws nothing that a player sees, and the theme
+stays flat with its card line ticked. These are measures on a screen of
+1080 lines with a saturated color. They say what shows; they do not choose
+a look.
+
+| Value | What shows |
+| --- | --- |
+| `edge.width = 1` | A hairline. In the `hairline` color, or with a transparency over 0.5, it is hard to find. |
+| `edge.width = 2` | A clear line. |
+| `edge.width = 3` or `4` | A frame. It is the first thing that a player sees of the plate. |
+| `glow` under 8, or `strength` under 0.4 | Nothing. `report.advice` says so. |
+| `glow` 12 to 16 at a `strength` of 0.5 to 0.7 | A soft light around the plate, on a dark ground. |
+| `glow` 24 or more at 0.7 to 1 | A lit plate. On a bright ground only this range shows. |
+
+Read the concept in these terms. A plate whose edge you can see in the
+concept at thumbnail size has a width of 2 or more. A plate that is lit in
+the concept has a glow in the last two rows. Set the first value at the
+strength of the concept, look at the capture, and reduce it only when it
+competes with the lead. A direction with no line and no light states zeros
+and gets its character from the ground, the type and the art.
+
+`finish` covers what most directions need. Beyond it:
+
+- **Another edge.** A theme rule draws a stroke on any tag, such as
+  `.facet-surface::UIStroke`, with `Color = { role = ... }`, `Thickness`
+  and `Transparency`. Pass it as `rules`.
+- **Focus.** `chrome.focus = { kind = "glow", color = "$Accent" }` in place
+  of the ring, or `brackets` for a hard-edged world.
+- **Art.** `chrome.panel` and `chrome.control` take nine-slice art when the
+  material is drawn; see `Themes.art`. State `finish` with zeros then.
+
+Check the result with `app.specimen()` and in a capture over the real
+ground. An edge that reads on a plain backdrop can vanish over a bright
+scene.
 
 ## Type
 

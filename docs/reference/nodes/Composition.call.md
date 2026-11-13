@@ -45,7 +45,9 @@ Composition options:
   the height of the tallest of them, so a set of HUD readouts reads as one
   row. A region under half the height of the tallest keeps its own height
   and matches the others of its size, so a readout beside a list is not
-  stretched to the list. `"fit"` keeps each region at its own height. A region whose content has its own `UISizeConstraint` keeps its
+  stretched to the list. `"fit"` keeps each region at its own height. A
+  panel that the player opens belongs in a Popover or a Sheet, not in a
+  Region that grows. A region whose content has its own `UISizeConstraint` keeps its
   height.
 - `passive`: a boolean. The default is `true`, a passive responder as above.
   `false` registers no responder, so the D-pad enters the composition like

@@ -185,6 +185,63 @@ return function(verifyHarness: Verify.Harness)
 		end)
 
 		verifyHarness:case(
+			"an app mount takes its own name and screen, and app.sheet is the shared sheet",
+			function(context)
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				context:defer(function()
+					runtime:dispose()
+				end)
+				local home = engine.new("Folder")
+				local app = Facet.app({
+					runtime = runtime,
+					types = engine.types,
+					parent = home,
+					screen = { DisplayOrder = 2 },
+				})
+				context:defer(app.dispose)
+				local function body()
+					return app.UI.Text { text = "Layer" }
+				end
+				local _, overlay = app.mount(body, { name = "Overlays", screen = { DisplayOrder = 5 } })
+				local _, main = app.mount(body)
+				local elsewhere = engine.new("Folder")
+				local _, moved = app.mount(body, { parent = elsewhere })
+				Verify.expect(overlay.Name):toBe("Overlays")
+				Verify.expect(overlay.DisplayOrder):toBe(5)
+				Verify.expect(overlay.ResetOnSpawn):toBe(false)
+				Verify.expect(main.Name):toBe("Facet")
+				Verify.expect(main.DisplayOrder):toBe(2)
+				Verify.expect(moved.Parent):toBe(elsewhere)
+				local link = assert(overlay:FindFirstChildWhichIsA("StyleLink")) :: StyleLink
+				Verify.expect(app.sheet()):toBe(link.StyleSheet)
+				Verify.expect(app.sheet().Parent):toBe(home)
+			end
+		)
+
+		verifyHarness:case(
+			"an app mount provides its controls to content that a directive builds later",
+			function(context)
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				context:defer(function()
+					runtime:dispose()
+				end)
+				local app = Facet.app({ runtime = runtime, types = engine.types, parent = engine.new("Folder") })
+				context:defer(app.dispose)
+				local seen: unknown = nil
+				app.mount(function()
+					return Facet.Compose.show(Facet.Compose.cell(true), function()
+						local controls = Facet.controls(runtime)
+						seen = controls
+						return controls.Text { text = "Later" }
+					end)
+				end)
+				Verify.expect(rawequal(seen, app.UI)):toBe(true)
+			end
+		)
+
+		verifyHarness:case(
 			"default engine types are one shared table, so theme caches keyed by them hit",
 			function(context)
 				local engine = engineLib.new()

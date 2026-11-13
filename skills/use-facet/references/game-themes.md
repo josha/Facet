@@ -2,7 +2,7 @@
 
 Facet supplies familiar controls; the product supplies their visual character.
 The neutral package is a technical base and a possible professional style. It
-does not decide how a game looks. The skill's [direction card](../SKILL.md#1-decide-the-direction)
+does not decide how a game looks. The skill's [direction card](../SKILL.md#write-the-card)
 is the normal way to choose a direction. This page covers the cases around it:
 matching finish to the game, a target chosen from rendered concepts or supplied
 by the user, labels over artwork, and the theme and image contracts.
@@ -48,7 +48,9 @@ composition, type and rendering approach, not only palette or subject art. They
 must stay visibly different when viewed small or in grayscale, and each must
 suit the game's world and audience. Give the art tool the brief, the player
 task, representative content, the intended finish and the areas that need
-readable live text.
+readable live text. State sizes and strengths as quantities. Words such as
+restrained, sparse and subtle ask the tool for the neutral theme; use them
+only when the brief asks for a quiet product.
 
 Compare them together for character, finished craft, task clarity and a
 credible route to runtime assets. If all three are generic, revise the set.
@@ -65,8 +67,9 @@ Choose one without a user approval step, and keep the image.
 Decide the role from the user's words, not from how polished the image looks.
 Write down the few visible relationships that define the target: the major
 regions and their relative sizes, the type roles, the layering, the material
-edges, and the choice and action treatments. A mood description does not
-constrain a build.
+edges, and the choice and action treatments. Write each as a measure against
+the screen, not as a word. A mood description does not constrain a build,
+and neither does "thin" or "subtle" beside a target that shows a size.
 
 A target usually omits states, opened controls and feedback. Design those from
 its own materials, shapes and type, so they do not look like parts from another
