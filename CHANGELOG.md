@@ -1,5 +1,11 @@
 # Current package
 
+`Facet.themes.define` says when a stated glow will not be seen. A `finish`
+with a glow under 8 px or a strength under 0.4 draws nothing that shows in a
+capture, and a theme could state one and stay flat. `report.advice` now has
+a `finish.depth.glow` entry for it, and `Themes.finish` lists what an edge
+and a glow of each size look like on a screen of 1080 lines.
+
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
 side, glow, sheen, role, strength, controls), and `define` writes them into

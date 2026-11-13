@@ -211,10 +211,13 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		local finish = (definition :: { finish: unknown? }).finish;
 		(package :: { finish: unknown? }).finish = nil
+		local finishAdvice: { ThemeTypes.ThemeIssue } = {}
 		if finish ~= nil then
-			for _, issue in themeFinish.apply(package, finish) do
+			local issues, notes = themeFinish.apply(package, finish)
+			for _, issue in issues do
 				table.insert(errors, issue)
 			end
+			finishAdvice = notes
 		end
 		local typography = package.metrics.typography :: { [string]: unknown }
 		local definedMetrics = (definition :: { metrics: unknown? }).metrics
@@ -606,7 +609,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		if #errors > 0 then
 			return nil, { ok = false, errors = errors, missing = {}, contrast = contrast, advice = {} }
 		end
-		local advice: { ThemeTypes.ThemeIssue } = {}
+		local advice: { ThemeTypes.ThemeIssue } = finishAdvice
 		if finish == nil then
 			table.insert(advice, {
 				field = "finish",

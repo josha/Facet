@@ -33,6 +33,19 @@ Take each value from the direction of the product, not from another theme.
 | `depth.strength` | 0 to 1, the opacity of the shadow or the glow. The defaults are 0.35 and 0.55. |
 | `depth.controls` | `true` gives controls the same shadow as panels. The default is `false`. |
 
+A value that is too small draws nothing that a player sees. On a screen of
+1080 lines, with a saturated color:
+
+| Value | What shows |
+| --- | --- |
+| `edge.width = 1` | A hairline. With a transparency over 0.5 it is hard to find. |
+| `edge.width = 2`, then 3 or 4 | A clear line, then a frame that leads the plate. |
+| `glow` under 8, or `strength` under 0.4 | Nothing. `report.advice` has a `finish.depth.glow` entry. |
+| `glow` 12 to 16 at 0.5 to 0.7 | A soft light around the plate, on a dark ground. |
+| `glow` 24 or more at 0.7 to 1 | A lit plate. Only this range shows on a bright ground. |
+
+Check the values in a capture over the real ground, not on a plain backdrop.
+
 The roles are read from the default palette for the shadow, and from each
 palette for the sheen. A panel or a control with art chrome keeps its art:
 the shadow applies to `native` chrome only. A light shadow does not show on
