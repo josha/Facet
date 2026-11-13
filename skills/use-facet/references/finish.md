@@ -47,7 +47,8 @@ finish = {
 }
 ```
 
-Take the values from the card and the concept:
+Take the values from the card as [the concept corrected
+it](../SKILL.md#read-the-card-off-the-concept):
 
 - **The edge.** `width` in pixels, the palette `role` of the line and its
   `transparency`. A panel radius of 0 gives the line square corners.
@@ -64,6 +65,29 @@ Take the values from the card and the concept:
 Zeros are a decision too: a quiet tool states them. Keep the strong edge
 for the plates; equal bright strokes on every nested part erase the
 hierarchy.
+
+### What a value looks like
+
+A value that is too small draws nothing that a player sees, and the theme
+stays flat with its card line ticked. These are measures on a screen of
+1080 lines with a saturated color. They say what shows; they do not choose
+a look.
+
+| Value | What shows |
+| --- | --- |
+| `edge.width = 1` | A hairline. In the `hairline` color, or with a transparency over 0.5, it is hard to find. |
+| `edge.width = 2` | A clear line. |
+| `edge.width = 3` or `4` | A frame. It is the first thing that a player sees of the plate. |
+| `glow` under 8, or `strength` under 0.4 | Nothing. `report.advice` says so. |
+| `glow` 12 to 16 at a `strength` of 0.5 to 0.7 | A soft light around the plate, on a dark ground. |
+| `glow` 24 or more at 0.7 to 1 | A lit plate. On a bright ground only this range shows. |
+
+Read the concept in these terms. A plate whose edge you can see in the
+concept at thumbnail size has a width of 2 or more. A plate that is lit in
+the concept has a glow in the last two rows. Set the first value at the
+strength of the concept, look at the capture, and reduce it only when it
+competes with the lead. A direction with no line and no light states zeros
+and gets its character from the ground, the type and the art.
 
 `finish` covers what most directions need. Beyond it:
 

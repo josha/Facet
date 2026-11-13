@@ -26,10 +26,17 @@ through Studio MCP in Edit mode.
 
 Studio MCP is the only way to change the place and to look at it, and there
 is no second agent. Look at your tool list for an image generator. When it
-has one, use it for the concept of the first screen and for nothing else.
+has one, use it for the concept of the first screen. Use it also for the
+art that the chosen concept shows as drawn material (a ground, a plate
+texture, icons), one file for each role, when the Studio connection uploads
+a file as `references/asset-upload.md` describes. When the upload is
+refused, say so in one message and draw that material with the theme and
+native shapes at the strength that the concept shows.
 When it has none, a skill that names one cannot run: block the first screen
 in, as step 1 of the skill describes, and make art from native shapes. Either
-way the concept is the first picture of the work. The second picture is the
-theme alone: state `finish` in the theme, mount `app.specimen()`, and capture
-it beside the concept before the first screen.
+way the concept is the first picture of the work, and after you choose it,
+it is the target: correct the card to its measures before you write the
+theme. The second picture is the theme alone: state `finish` in the theme,
+mount `app.specimen()`, capture it beside the concept, and change the theme
+until the two agree before the first screen.
 Use this installed library; do not add another UI library.

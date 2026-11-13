@@ -45,9 +45,10 @@ that you can count.
 
 ## 1. Settle the concept, then the theme
 
-The order is: the reference, the card, the concept, the theme, the theme on
-one sheet. Then [step 2](#2-build-the-first-screen) builds a screen with it.
-Each part ends with something that you can look at.
+The order is: the reference, the card, the concept, the card again in the
+concept's measures, the theme, the theme on one sheet. Then
+[step 2](#2-build-the-first-screen) builds a screen with it. Each part ends
+with something that you can look at.
 
 ### Start from the reference
 
@@ -79,8 +80,15 @@ player can see, not a mood.
 | Signature | One detail that a player would describe to a friend. |
 | Response | What visibly happens when the player commits. |
 
-Then make two checks.
+Then make three checks.
 
+- **Write quantities, not adjectives.** A line that states a size, a width,
+  a strength or a share has a number: the lead takes 60 percent of the
+  height, the largest numeral is an eighth of the screen height, the edge is
+  3 px, the light reaches 20 px, the HUD has four plates. *Restrained*,
+  *subtle*, *clean*, *minimal*, *sparse* and *compact* are how the neutral
+  theme is described, and a card that uses them asks for it. Use them only
+  when the brief asks for a quiet product.
 - **Keep the recognizable, replace the reflex.** A player should name the
   genre from a thumbnail, so keep the conventions that carry recognition.
   The other first answers are usually genre defaults. Replace at least two of
@@ -110,19 +118,14 @@ before you say that a means is missing.
 
 - **An image tool.** Generate two or three whole-screen compositions of the
   same task and data on one sheet, in the palette and the type of the card.
+  Write the prompt from the card's quantities. A prompt that asks for
+  restraint gets it.
 - **A drawing script.** Draw the same compositions as flat shapes, type and
   color.
 - **The engine alone.** Block the screen in. Mount the ground, the lead at
   its size and the main action with fixed sample data, in the palette and
   the type of the card, and capture it. It has no game logic and no second
   surface.
-
-An image is needed when the card names something that the engine cannot
-draw: a texture, an illustration, a shaped or pixel-cut plate. Generate it
-when you have an image tool; [art](references/art.md) has the roles of the
-files. With no image tool, write that line of the card again in terms that
-the engine draws (a line, a shadow, a glow, a gradient, a font), and say in
-one message what the direction lost.
 
 View the concept. Change the composition until the lead and the world are
 strong, then say in one message which composition you chose and what you
@@ -131,6 +134,37 @@ screen that you build. A quiet tool, a text-led design and a precise
 reference skip the concept.
 
 The card and the concept are internal decisions, not user approval steps.
+
+### Read the card off the concept
+
+The concept that you chose is now the target. It has the commitment of
+[a concept that the agent chose](references/game-themes.md#commit-to-the-visual-target):
+keep its composition, its relative scale, its type hierarchy, its materials
+and the shapes of its controls. You chose it because it was stronger than
+the words before it, so where the two differ the concept is right.
+
+Go through the card and correct each quantity to what the concept shows.
+Measure against the screen: the height of the largest numeral as a share of
+the screen height, the share that the lead takes, the width of a plate's
+edge, how far the light or the shadow of a plate reaches, how many plates
+the HUD has and which corner each one is in. A line that still has an
+adjective where the concept shows a size is not finished.
+
+Then decide, for each line, what draws it in the build.
+
+| The concept shows | The build uses |
+| --- | --- |
+| Flat color, lines, light, gradients and type | The theme: `finish`, the palette and the type roles |
+| A drawn material on plates or controls: a texture, a bevel, a shaped or pixel-cut edge | Images in `chrome`, when you can make and upload them; see [three ways to use images](references/game-themes.md#three-ways-to-use-images) |
+| An illustrated ground, a subject or icons | `UI.Image` and theme `icons` from separate files in the concept's style |
+
+Make each image as its own file for its role; do not cut pieces from the
+concept sheet. [Art](references/art.md) has the geometry of each role and
+[upload](references/asset-upload.md) has the route into the place. When
+there is no image tool, or the upload is refused, write that line again in
+terms that the engine draws (a line, a shadow, a glow, a gradient, a font),
+at the strength that the concept shows, and say in one message what the
+direction lost.
 
 ### Build the theme from the card
 
@@ -145,25 +179,45 @@ definition, and a line with no value there is not in the product.
 | Controls | `finish.depth.controls`, or art in `chrome` when images were made |
 | Signature and response | `chrome.focus`, `metrics.motion` and the effect controls |
 
-State `finish` in every theme. Its values come from the card and from the
-concept, not from a sample theme. A mail client states a hairline and
+State `finish` in every theme. Its values come from the card as the concept
+corrected it, not from a sample theme. A mail client states a hairline and
 zeros, and stays plain. A neon racing game states a bright edge, a wide glow
 and a sheen. A game with drawn plates states zeros and puts its art in
 `chrome`. [Finish](references/finish.md#edge-and-depth) has the values.
 
+Start each value at the strength that the concept shows, not under it.
+[Finish](references/finish.md#what-a-value-looks-like) says what a value
+looks like: an edge of 1 px is a hairline, and a glow under 8 px or under a
+strength of 0.4 draws nothing. A value that is too strong shows in the first
+capture and takes one edit to reduce. A value that is too weak never shows
+as a fault, and the screens stay plain. Reduce a value only when a capture
+shows it competing with the lead.
+
 Read `report.errors` and `report.advice` from `Facet.themes.define`. The
-advice names a type scale that is flat and a finish that is not stated.
+advice names a type scale that is flat, a finish that is not stated and a
+glow that will not show.
 
 ### Look at the theme alone
 
 `app.specimen()` mounts one sheet of the theme: its type roles with a
 readout, its actions in each state, a field and records. Capture it and put
-it beside the concept, or beside the reference. Check each line of the
-card: the numeral is much larger than the body text, the main action is the
-strongest thing in its column, and the edge and the depth of the card are
-on every plate. Repair the theme until the sheet has the character of the
-concept, then call the `stop` that it returned. A flat sheet gives flat
-screens, and this is the cheapest moment to see it.
+it beside the concept, or beside the reference, at the same size. Compare
+by measure, not by name:
+
+- the numeral against the body text, and against the same pair in the
+  concept;
+- the edge of a plate: its width and how bright it is;
+- the light or the shadow around a plate: how far it reaches;
+- the main action against the other actions in its column.
+
+Then view both as thumbnails. What the concept still shows at that size,
+the sheet shows too. A value that you cannot see in the capture is not in
+the product: raise it, or state zero and take the line off the card.
+
+Repair the theme until the two agree, and say in one message what you
+measured and what you changed. A sheet that needed no change was usually
+not compared. Then call the `stop` that the specimen returned. A flat sheet
+gives flat screens, and this is the cheapest moment to see it.
 
 ## 2. Build the first screen
 
@@ -227,7 +281,10 @@ finish them here, before a second screen calls them.
   [Information display](references/information-display.md) has the forms.
 - **The actions.** The main action is the strongest thing in its column, in
   `emphasis` and at the column's width when it stands alone. The lesser
-  actions are quieter.
+  actions are quieter. A group of peer actions or choices is one stack of
+  equal parts: `align = "stretch"` in a column, equal shares in a row.
+  Hugging widths that differ by label read as an accident;
+  [game screens](references/game-screens.md#a-group-of-peers) has the form.
 - **The body of a page.** It uses the width of its surface: a bounded
   column, a `Grid` whose column count follows the room, or two panes. A
   stack that hugs one corner of a large surface is not a body.
@@ -277,11 +334,13 @@ The first screen is done when three tests pass on one revision. Do not build
 a second screen before they do.
 
 1. **The card.** Put the card and the concept beside the desktop capture
-   and mark each line of the card present or absent: the ground, the lead at
-   its share of the screen, the palette roles, the two type families, the
-   shared edge, the material of the controls, the signature and the
-   response. An absent line is work to do. Do not remove it from the card to
-   pass. A quiet interface marks the same lines with its quiet answers.
+   and mark each line of the card present or absent, at the card's measure:
+   the ground, the lead at its share of the screen, the palette roles, the
+   two type families, the shared edge, the material of the controls, the
+   signature and the response. Each part of the concept is in its place and
+   near its size. An absent line is work to do. Do not remove it from the
+   card to pass. A quiet interface marks the same lines with its quiet
+   answers.
 2. **The forms.** That revision is captured on a desktop, a phone in
    portrait and the same phone in landscape, as
    [step 3](#3-make-one-build-fit-every-screen) describes, and nothing
@@ -485,6 +544,7 @@ use `search.read(path)` for a complete contract. Do not guess filenames.
 | --- | --- |
 | Choose a control or a surface for a task | [Choose an interaction](references/choose.md); [game screens](references/game-screens.md) for navigation and lifetime |
 | Structure a HUD, a destination or a modal task | Nodes `Tasks.hud`, `Tasks.pages` and `Tasks.sheet` |
+| Lay out a group of peer actions, or a named palette of colors | [Game screens](references/game-screens.md#a-group-of-peers) |
 | Decide a game design tradeoff | [Game UI design](references/GAME_UI_DESIGN_GUIDE.md) |
 | Define the theme or use image surfaces | [Finish](references/finish.md), then [theme contracts](references/game-themes.md#theme-contracts) |
 | Build a place, a material or an illustrated world | [Build a screen as a place](references/place.md) |

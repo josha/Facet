@@ -23,14 +23,18 @@ Do these in order. Each one ends with a result that you can observe.
    direction. Then
    make a picture of the screen that the player sees most, which for a game
    is play with its interface over it. With an image tool, generate two or
-   three whole-screen compositions and choose one. Without one, block the
+   three whole-screen compositions and choose one. Give sizes and strengths
+   as quantities; a prompt that asks for restraint gets a plain screen. Without one, block the
    screen in: its ground, its main subject at its size and its main action,
    with fixed sample data and no game logic, and capture it. In a 3D game
    the ground is the world: its sky and its light belong to the picture, and
    the sky that the engine starts with is no direction. This picture is
    the first capture of the work, and it comes in the first few minutes.
    Change the composition until it is strong, and say in one message what
-   you chose. Skip this step when the brief asks for an established look.
+   you chose. The picture that you chose is then the target: note its
+   measures against the screen, such as the size of the largest number, the
+   width of the edges and where each part sits, and build to them. Skip
+   this step when the brief asks for an established look.
 2. **One route works.** Read the required guidance and the task chapters for
    the first route. Resolve unfamiliar library options from their public
    contracts. Build a small complete route before expanding features: enter
@@ -41,8 +45,9 @@ Do these in order. Each one ends with a result that you can observe.
 3. **Its screen is finished.** For a new visual direction, finish the look of
    one screen before you build the interface of a second route. Settle the
    style first: show its type sizes, its actions in each state and one
-   record on a single sheet, and compare that sheet with the concept before
-   the screen uses it. It is the
+   record on a single sheet, and compare that sheet with the concept by
+   measure before the screen uses it. Change the style until the two agree,
+   and say what you changed. It is the
    screen of the concept: for a game, play with its interface over it. A
    sheet that opens over play does not stand in for it. When the product
    also has destinations that cover or replace play, finish one of those in

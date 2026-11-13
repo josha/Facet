@@ -43,7 +43,10 @@ Composition options:
 - `rows`: `"match"` or `"fit"`. The default is `"match"`: the regions that
   share a row of the `top` or `bottom` zone take the height of the tallest one,
   so a set of HUD readouts reads as one row. `"fit"` keeps each region at its
-  own height. A region whose content has its own `UISizeConstraint` keeps its
+  own height. Use `"fit"` when one region of the row is a list or a panel
+  and another is a short readout: matched, the readout is stretched to the
+  height of the list. A panel that the player opens belongs in a Popover or
+  a Sheet, not in a Region that grows. A region whose content has its own `UISizeConstraint` keeps its
   height.
 - `passive`: a boolean. The default is `true`, a passive responder as above.
   `false` registers no responder, so the D-pad enters the composition like
