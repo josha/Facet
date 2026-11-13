@@ -601,6 +601,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Center,
+					Wraps = true,
 					Padding = function(use: ComposeTypes.Use)
 						return D.new(0, ctx.metric("space.s", use))
 					end,

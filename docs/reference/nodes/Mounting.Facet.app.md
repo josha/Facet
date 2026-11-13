@@ -39,6 +39,9 @@ The app has these fields:
   this is not a pure game-state validator. An unknown control name throws.
 - `controlNames()`: returns sorted names of all `UI` bindings, including
   helpers. Not every returned name is accepted by `construct`.
+- `prewarm(names)`: loads the listed control families one per frame, so the
+  first open of each one does not compile and build it at that moment. It
+  returns a cancel function. Unknown names do nothing.
 - `specimen(parent?)`: mounts one screen that shows the theme; see
   [Themes.finish](Themes.finish.md). It returns `stop, screen`.
 - `dispose()`: stops every mount. It disposes the runtime when the app made it.
