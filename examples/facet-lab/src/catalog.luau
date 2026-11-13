@@ -3523,14 +3523,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				return UI.Card(p)
 			end
 			p.row = nil
+			local width = 720
 			local cards: Properties = {
 				gap = "m",
-				columns = function(use: Use)
-					local size = (use(c.logical) :: unknown) :: { width: number }
-					return c.Facet.adaptive.columnsFor(size.width - 400, 200, 16)
-				end,
+				columns = c.Facet.adaptive.columnsFor(width, 200, 16),
 				cellHeight = 240,
-				Size = UDim2.fromOffset(720, 0),
+				Size = UDim2.fromOffset(width, 0),
 			}
 			for i, name in { "Coastal Circuit", "Canyon Run", "City Loop" } do
 				local spec = table.clone(p)

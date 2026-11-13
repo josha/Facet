@@ -1564,6 +1564,14 @@ return {
 					end,
 					textRole = "caption",
 				},
+				Compose.show(function(use: Use): boolean
+					return use(state) == "ready" and #use(rows) > 0 and #use(filtered) == 0
+				end, function(): Instance
+					return UI.Text "NoMatches" {
+						text = "No matching files. Clear the filter to see all files.",
+						wrap = true,
+					}
+				end),
 				UI.VStack "Contents" {
 					Host.UISizeConstraint { MinSize = ctx.types.Vector2.new(0, 320) },
 					width = "fill",

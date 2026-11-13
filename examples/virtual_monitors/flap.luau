@@ -168,8 +168,9 @@ return function(ctx: Context): GuiObject
 			Host.UICorner { CornerRadius = D.new(0.08, 0) },
 			text("FlightTitle", function(use: Use)
 				local phase = use(state).phase
-				return if phase == "over"
-					then "Nice flight!"
+				return if phase == "over" and use(state).score == 0
+					then "So close!"
+					elseif phase == "over" then "Nice flight!"
 					elseif phase == "paused" then "Take a breather."
 					else "Facet Flap"
 			end, 32, D2.fromScale(0.06, 0.16), D2.fromScale(0.88, 0.3)),
