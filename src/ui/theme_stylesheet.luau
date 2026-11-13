@@ -552,6 +552,7 @@ return function(
 		properties: ThemeTypes.RuleProperties?,
 		transitions: { [string]: string }?,
 		timing: string,
+		release: () -> (),
 	}
 	local mounted: { [string]: MountedRule } = {}
 	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
@@ -624,18 +625,23 @@ return function(
 	local initialIds: { [string]: boolean }? = nil
 	local warmed: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
 	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({})
-	local sheetOwner = assert(Compose.currentOwner())
 	local function place(id: string)
 		local initial = definitions[id]
-		local node = Compose.withOwner(sheetOwner, function(): StyleRule
-			return Host.StyleRule {
+		local made: StyleRule? = nil
+		local scope = Compose.createRootOwner(function()
+			made = Host.StyleRule {
 				Name = initial.id,
 				Selector = initial.selector,
 				Priority = initial.priority,
 			}
-		end)
-		local record: MountedRule =
-			{ node = node, priority = initial.priority, timing = TOKENS[stateOf(initial.selector)] }
+		end, runtime.reactor)
+		local node = assert(made)
+		local record: MountedRule = {
+			node = node,
+			priority = initial.priority,
+			timing = TOKENS[stateOf(initial.selector)],
+			release = scope.dispose,
+		}
 		mounted[id] = record
 		local known = initialIds
 		if known ~= nil and not known[id] and task then
@@ -658,7 +664,7 @@ return function(
 		for id, record in mounted do
 			if not keep[id] then
 				mounted[id] = nil
-				record.node:Destroy()
+				record.release()
 			end
 		end
 		for _, id in nextIds do
@@ -670,7 +676,7 @@ return function(
 	Compose.cleanup(function()
 		for id, record in mounted do
 			mounted[id] = nil
-			record.node:Destroy()
+			record.release()
 		end
 	end)
 	local compiledTheme = Compose.formula(function(use: ComposeTypes.Use): {
