@@ -1,5 +1,19 @@
 # Current package
 
+An app makes one StyleSheet and shares it. Each `app.mount`, popover and
+toast built its own theme StyleSheet inside its ScreenGui, at about 300 KiB of
+Luau heap and 1.5 ms each in Studio. The app now makes the sheet on its first
+mount, in the `parent` option or the PlayerGui, and each ScreenGui holds only
+a StyleLink to it. `app.dispose()` removes the sheet. Code that looked for a
+StyleSheet inside an app ScreenGui reads the StyleLink's `StyleSheet` instead.
+
+The theme compile cache now hits on the default theme. The engine types table
+was new on each call and the neutral theme was not frozen, so each
+StyleSheet compiled every theme rule again and kept its own copy. A
+StyleSheet now reuses the compiled rules: in Studio a mount went from about
+605 to 297 KiB of Luau heap and from 3.0 to 1.5 ms. `themes.neutralPackage()`
+still returns an editable copy.
+
 `Facet.themes.define` says when a stated glow will not be seen. A `finish`
 with a glow under 8 px or a strength under 0.4 draws nothing that shows in a
 capture, and a theme could state one and stay flat. `report.advice` now has

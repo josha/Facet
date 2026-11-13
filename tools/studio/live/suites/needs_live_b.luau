@@ -526,7 +526,11 @@ add("skinned-checkbox-stroke", {}, function(t)
 	local function rules(stage: Instance): { [string]: StyleRule }
 		local found = {}
 		local gui = stage:FindFirstAncestorWhichIsA("LayerCollector")
-		local sheet = gui and gui:FindFirstChildWhichIsA("StyleSheet")
+		local link: StyleLink? = if gui then gui:FindFirstChildWhichIsA("StyleLink") :: StyleLink? else nil
+		local sheet: Instance? = if link and link.StyleSheet
+			then link.StyleSheet
+			elseif gui then gui:FindFirstChildWhichIsA("StyleSheet")
+			else nil
 		local descendants: { Instance } = if sheet then sheet:GetDescendants() else {}
 		for _, node in descendants do
 			if node:IsA("StyleRule") then

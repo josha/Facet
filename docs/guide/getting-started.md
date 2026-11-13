@@ -37,8 +37,9 @@ script.Destroying:Connect(app.dispose)
 - `Facet.app()` makes a Compose Roblox runtime and the controls for it.
   `app.UI` is the table of control constructors.
 - `app.mount(Counter)` runs the component and mounts its result into a
-  ScreenGui in PlayerGui. The ScreenGui also holds a StyleSheet and a StyleLink
-  to it. It returns a stop function.
+  ScreenGui in PlayerGui. The ScreenGui also holds a StyleLink to the app
+  StyleSheet. The app makes that sheet one time, in PlayerGui, and all its
+  mounts share it. `app.mount` returns a stop function.
 - `UI.Screen` fills the ScreenGui and pads its content by the `m` spacing
   step. `gap = "s"` puts the `s` step between the children. See
   [Layout](../reference/nodes/Layout.md).

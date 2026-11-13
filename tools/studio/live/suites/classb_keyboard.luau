@@ -896,7 +896,11 @@ end)
 
 local function sheetRule(stage: any, selector: string): any
 	local gui = stage:FindFirstAncestorWhichIsA("ScreenGui")
-	local sheet = gui and gui:FindFirstChildWhichIsA("StyleSheet")
+	local link: StyleLink? = if gui then gui:FindFirstChildWhichIsA("StyleLink") :: StyleLink? else nil
+	local sheet: Instance? = if link and link.StyleSheet
+		then link.StyleSheet
+		elseif gui then gui:FindFirstChildWhichIsA("StyleSheet")
+		else nil
 	if not sheet then
 		return nil
 	end
