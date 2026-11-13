@@ -1,5 +1,10 @@
 # Current package
 
+A theme StyleSheet keeps its style rules as plain records instead of one
+Compose row each, which takes 6 to 33 KiB of Luau heap off each themed screen
+in Studio. Rule priorities were already unique, so the order of the rules in
+the sheet does not change which rule wins.
+
 An app mount builds its whole ScreenGui inside the app controls. Content that
 a returned `show`, `switch` or `keyed` directive built after `component()`
 returned ran outside them, so `Facet.controls(runtime)` there made default

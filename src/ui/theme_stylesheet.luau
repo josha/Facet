@@ -538,7 +538,7 @@ return function(
 			properties = cached.properties,
 		}
 	end
-	local ids = Compose.cell({} :: { string })
+	local currentIds: { string } = {}
 	local TOKENS: { [PaintState]: string } = {
 		normal = "FacetMotionNormal",
 		press = "FacetMotionPress",
@@ -552,6 +552,7 @@ return function(
 		properties: ThemeTypes.RuleProperties?,
 		transitions: { [string]: string }?,
 		timing: string,
+		release: () -> (),
 	}
 	local mounted: { [string]: MountedRule } = {}
 	local function transitionsFor(properties: ThemeTypes.RuleProperties, timing: string): { [string]: string }
@@ -623,40 +624,61 @@ return function(
 	local appliedArrivals = 0
 	local initialIds: { [string]: boolean }? = nil
 	local warmed: { [ThemeTypes.ReadOnlyThemePackage]: boolean } = setmetatable({}, { __mode = "k" })
-	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({
-		Compose.keyed({
-			from = ids,
-			render = function(current: ComposeTypes.ReadOnlyValue<string>)
-				local id = current:peek()
-				local initial = definitions[id]
-				local node = Host.StyleRule {
-					Name = initial.id,
-					Selector = initial.selector,
-					Priority = initial.priority,
-				}
-				local record: MountedRule =
-					{ node = node, priority = initial.priority, timing = TOKENS[stateOf(initial.selector)] }
-				mounted[id] = record
-				local known = initialIds
-				if known ~= nil and not known[id] and task then
-					node:SetProperties(initial.properties)
-					task.defer(function()
-						if mounted[id] == record then
-							apply(record, definitions[id] or initial)
-						end
-					end)
-				else
-					apply(record, initial)
+	local sheet = Host.StyleSheet(settings.name or "FacetTheme")({})
+	local function place(id: string)
+		local initial = definitions[id]
+		local made: StyleRule? = nil
+		local scope = Compose.createRootOwner(function()
+			made = Host.StyleRule {
+				Name = initial.id,
+				Selector = initial.selector,
+				Priority = initial.priority,
+			}
+		end, runtime.reactor)
+		local node = assert(made)
+		local record: MountedRule = {
+			node = node,
+			priority = initial.priority,
+			timing = TOKENS[stateOf(initial.selector)],
+			release = scope.dispose,
+		}
+		mounted[id] = record
+		local known = initialIds
+		if known ~= nil and not known[id] and task then
+			node:SetProperties(initial.properties)
+			task.defer(function()
+				if mounted[id] == record then
+					apply(record, definitions[id] or initial)
 				end
-				Compose.cleanup(function()
-					if mounted[id] == record then
-						mounted[id] = nil
-					end
-				end)
-				return node
-			end,
-		}),
-	})
+			end)
+		else
+			apply(record, initial)
+		end
+		node.Parent = sheet
+	end
+	local function sync(nextIds: { string })
+		local keep: { [string]: boolean } = {}
+		for _, id in nextIds do
+			keep[id] = true
+		end
+		for id, record in mounted do
+			if not keep[id] then
+				mounted[id] = nil
+				record.release()
+			end
+		end
+		for _, id in nextIds do
+			if mounted[id] == nil then
+				place(id)
+			end
+		end
+	end
+	Compose.cleanup(function()
+		for id, record in mounted do
+			mounted[id] = nil
+			record.release()
+		end
+	end)
 	local compiledTheme = Compose.formula(function(use: ComposeTypes.Use): {
 		package: ThemeTypes.ReadOnlyThemePackage,
 		rules: { NativeRule },
@@ -779,7 +801,7 @@ return function(
 			applied = current
 			return
 		end
-		local previousIds = ids:peek()
+		local previousIds = currentIds
 		local nextIds: { string } = {}
 		definitions = {}
 		for _, compiledDefinition in current do
@@ -813,7 +835,8 @@ return function(
 			initialIds = first
 		end
 		if structureChanged then
-			ids:set(nextIds)
+			currentIds = nextIds
+			sync(nextIds)
 		end
 		applied = if plain then current else nil
 		appliedArrivals = arrived
