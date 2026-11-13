@@ -160,34 +160,36 @@ return function(
 		local sheet = sharedSheet(target)
 		local screen: ScreenGui? = nil
 		local stop = runtime.mount(function(): ComposeTypes.Node
-			local props: { [unknown]: unknown } = {}
-			for key, value in (settings.screen or {}) :: { [unknown]: unknown } do
-				assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
-				props[key] = value
-			end
-			props.Name = props.Name or settings.name or "Facet"
-			local enums = if settings.types then settings.types.Enum else Enum
-			if props.ScreenInsets == nil and props.IgnoreGuiInset == nil then
-				props.ScreenInsets = enums.ScreenInsets.CoreUISafeInsets
-			end
-			if props.SafeAreaCompatibility == nil then
-				props.SafeAreaCompatibility = enums.SafeAreaCompatibility.None
-			end
-			if props.ResetOnSpawn == nil then
-				props.ResetOnSpawn = false
-			end
-			if props.ZIndexBehavior == nil then
+			return UI.provide(function(): ComposeTypes.Node
+				local props: { [unknown]: unknown } = {}
+				for key, value in (settings.screen or {}) :: { [unknown]: unknown } do
+					assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
+					props[key] = value
+				end
+				props.Name = props.Name or settings.name or "Facet"
 				local enums = if settings.types then settings.types.Enum else Enum
-				props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
-			end
-			props[1] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
-			props[2] = UI.provide(component)
-			if target:IsA("PlayerGui") and settings.focusRing ~= false then
-				props[3] = UI.focusRing(target)
-			end
-			local root = Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
-			screen = root
-			return root
+				if props.ScreenInsets == nil and props.IgnoreGuiInset == nil then
+					props.ScreenInsets = enums.ScreenInsets.CoreUISafeInsets
+				end
+				if props.SafeAreaCompatibility == nil then
+					props.SafeAreaCompatibility = enums.SafeAreaCompatibility.None
+				end
+				if props.ResetOnSpawn == nil then
+					props.ResetOnSpawn = false
+				end
+				if props.ZIndexBehavior == nil then
+					local enums = if settings.types then settings.types.Enum else Enum
+					props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
+				end
+				props[1] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
+				props[2] = component()
+				if target:IsA("PlayerGui") and settings.focusRing ~= false then
+					props[3] = UI.focusRing(target)
+				end
+				local root = Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
+				screen = root
+				return root
+			end)
 		end, target)
 		local stopped = false
 		local function release()
