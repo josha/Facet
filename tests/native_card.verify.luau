@@ -761,6 +761,32 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("lets its action row wrap so a narrow card keeps the primary label whole", {
+			id = "native_card::native Card::lets its action row wrap so a narrow card keeps the primary label whole",
+			run = function()
+				local share: FixtureNavigationTypes.MenuCommand = {
+					id = "share",
+					label = "Share",
+					onSelect = function() end,
+				}
+				local spec: FixtureContentProps.CardSpec = {
+					title = "Coastal Circuit",
+					primaryAction = { label = "Play", onActivate = function() end },
+					menu = { items = { share } },
+				}
+				local world = worlds.new(function(UI: FacetControls)
+					return UI.Card "C"(spec)
+				end, { motionLevel = "none" })
+				local primary = world.find("Primary")
+				local row = assert(primary.Parent)
+				local list = row:FindFirstChildWhichIsA("UIListLayout")
+				expect(list ~= nil):toBe(true)
+				expect(list.FillDirection):toBe(world.engine.types.Enum.FillDirection.Horizontal)
+				expect(list.Wraps):toBe(true)
+				world.stop()
+			end,
+		})
+
 		it("resolves artwork aspect in native layout before its first measured width", {
 			id = "native_card::native Card::resolves artwork aspect in native layout before its first measured width",
 			run = function()

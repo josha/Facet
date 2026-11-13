@@ -1142,8 +1142,8 @@ return function(verifyHarness: Verify.Harness)
 			end, engine.new("Folder"))
 			return engine, runtime, amount, stop, node
 		end
-		verifyHarness:case("theme shadows share the panel fade through closing and reopening", {
-			id = "native_presentation_motion::ctx.fade group warm-up::theme shadows share the panel fade through closing and reopening",
+		verifyHarness:case("theme shadows trail the panel fade through closing and reopening", {
+			id = "native_presentation_motion::ctx.fade group warm-up::theme shadows trail the panel fade through closing and reopening",
 			run = function()
 				for _, reactive in { false, true } do
 					local package = Facet.themes.neutralPackage()
@@ -1154,7 +1154,11 @@ return function(verifyHarness: Verify.Harness)
 					for _, value in { 0, 0.25, 0.75, 1, 0.5, 0 } do
 						amount:set(value)
 						engine.heartbeat:Fire(FRAME)
-						Verify.expect(shadow.Transparency):toBeCloseTo(1 - 0.7 * (1 - value), 5)
+						local seen = 1 - value
+						Verify.expect(shadow.Transparency):toBeCloseTo(1 - 0.7 * seen * seen * seen, 5)
+						if value > 0 and value < 1 then
+							Verify.expect(shadow.Transparency > 1 - 0.7 * seen):toBe(true)
+						end
 					end
 					stop()
 					runtime:dispose()

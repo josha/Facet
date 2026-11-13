@@ -6,6 +6,32 @@ capture, and a theme could state one and stay flat. `report.advice` now has
 a `finish.depth.glow` entry for it, and `Themes.finish` lists what an edge
 and a glow of each size look like on a screen of 1080 lines.
 
+A NavigationStack holds gameplay only while it is on the screen. In an app
+with `suspendGameplay = true`, a stack with a nonempty path suspended play
+for as long as the path stayed nonempty, also when the stack was hidden or
+when the Sheet that showed it had closed. A game that kept its path between
+openings then found its drive input off with no interface open. The hold now
+needs the path and a stack that is visible under an enabled ScreenGui, and it
+returns when the stack shows again.
+
+A ColorPicker with a stated palette is a palette. With `modes = { "swatches" }`
+and `swatches`, a press on a swatch proposed the colour after a conversion to
+hue, saturation and brightness and back, so the Color3 that `onChange` got
+differed from the palette's in the last bits, and a caller that looked the
+colour up in its palette found nothing. The same form also showed the RGB, HSV
+and Hex fields, where a player could type a colour outside the palette. A
+swatch and a typed hex now propose the exact Color3, and that form has no
+fields. It keeps them with `onSaveSwatch`, with `alpha`, with the generated
+grid and with any other technique.
+
+A plate's shadow arrives after its content. A theme with a glow puts a
+bright shadow under the whole plate, and while a Callout, Sheet or Popover
+faded in at the same rate as its shadow, the glow showed through the
+half-transparent plate as a lit slab before any text could be read. The
+shadow's strength now follows the cube of how much of the plate is shown, so
+it is a fiftieth of its strength when the plate is a quarter in and an eighth
+at half, and it leaves first on the way out. The resting look is unchanged.
+
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
 side, glow, sheen, role, strength, controls), and `define` writes them into

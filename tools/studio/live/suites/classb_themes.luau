@@ -232,10 +232,11 @@ add("dialog-panel-art-fades-outside-content-clip", {}, function(t)
 		if art.Parent and fade.GroupTransparency > 0 and fade.GroupTransparency < 1 then
 			partial = true
 			t.near("art and content fade together", artFade.GroupTransparency, fade.GroupTransparency, 0.01)
+			local seen = 1 - fade.GroupTransparency
 			t.near(
-				"the shadow fades once",
+				"the shadow trails the fade once",
 				shadow.Transparency,
-				1 - (1 - shadowRest) * (1 - fade.GroupTransparency),
+				1 - (1 - shadowRest) * seen * seen * seen,
 				0.01
 			)
 			t.near("authored image opacity remains in effect", art:GetStyled("ImageTransparency"), 0.25, 0.01)

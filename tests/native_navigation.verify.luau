@@ -1075,6 +1075,93 @@ return function(verifyHarness: Verify.Harness)
 				expect(world.gui.TouchControlsEnabled):toBe(true)
 			end
 		end)
+		it("a stack that is off the screen does not hold play", {
+			id = "native_navigation::native navigation controls::a stack that is off the screen does not hold play",
+			run = function()
+				local path = Compose.cell({ { id = "shop" } } :: { Navigation.NavigationEntry<unknown> })
+				local visible = Compose.cell(true)
+				local suspended: Compose.ReadOnlyValue<boolean>
+				local stack: Instance
+				local world = setup(function(UI: FacetControls, Host: RobloxHost)
+					suspended = UI.environment().gameplaySuspended
+					local stackProps: NavigationProps.NavigationStackSpec<unknown> = {
+						path = path,
+						chrome = "hidden",
+						root = {
+							content = function(): Instance
+								return UI.Button { label = "Gameplay" }
+							end,
+						},
+						destinations = {
+							shop = {
+								content = function(): Instance
+									return UI.Button { label = "Shop" }
+								end,
+							},
+						},
+					}
+					stack = UI.NavigationStack(stackProps)
+					return Host.Frame "Shell" { Visible = visible, stack }
+				end, { suspendGameplay = true })
+				world.settle()
+				expect(suspended:peek()):toBe(true)
+				expect(world.gui.TouchControlsEnabled):toBe(false)
+				visible:set(false)
+				expect(suspended:peek()):toBe(false)
+				expect(world.gui.TouchControlsEnabled):toBe(true)
+				visible:set(true)
+				expect(suspended:peek()):toBe(true)
+				local shell = stack.Parent
+				stack.Parent = nil
+				expect(suspended:peek()):toBe(false)
+				expect(world.gui.TouchControlsEnabled):toBe(true)
+				stack.Parent = shell
+				expect(suspended:peek()):toBe(true)
+				world.stop()
+
+				local opened = Compose.cell(false)
+				local kept = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })
+				local held: Compose.ReadOnlyValue<boolean>
+				local sheetWorld = setup(function(UI: FacetControls, Host: RobloxHost)
+					held = UI.environment().gameplaySuspended
+					local pagesProps: NavigationProps.NavigationStackSpec<unknown> = {
+						path = kept,
+						chrome = "hidden",
+						root = {
+							content = function(): Instance
+								return UI.Button { label = "Paddock" }
+							end,
+						},
+						destinations = {
+							garage = {
+								content = function(): Instance
+									return UI.Button { label = "Garage" }
+								end,
+							},
+						},
+					}
+					local pages = UI.NavigationStack(pagesProps)
+					return Host.Frame {
+						UI.Sheet {
+							isPresented = opened,
+							content = function(): Instance
+								return pages
+							end,
+						},
+					}
+				end, { suspendGameplay = true })
+				opened:set(true)
+				kept:set({ { id = "garage" } })
+				sheetWorld.settle()
+				expect(held:peek()):toBe(true)
+				opened:set(false)
+				sheetWorld.settle()
+				expect(#kept:peek()):toBe(1)
+				expect(held:peek()):toBe(false)
+				expect(sheetWorld.gui.TouchControlsEnabled):toBe(true)
+				sheetWorld.stop()
+			end,
+		})
 		it("keeps gameplay suspended until both a page and a Sheet over it close", function()
 			for _, pageFirst in { true, false } do
 				local path = Compose.cell({} :: { Navigation.NavigationEntry<unknown> })

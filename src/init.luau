@@ -30,12 +30,49 @@ export type TypewriterControls = HudTypes.TypewriterControls
 export type CompactOptions = format.CompactOptions
 export type GroupedOptions = format.GroupedOptions
 export type DurationOptions = format.DurationOptions
-local review = require("@self/ui/review")
+local review = require("@self/ui/review_types")
+type ReviewModule = typeof(require("@self/ui/review"))
+local loadedReview: ReviewModule? = nil
+local function reviewModule(): ReviewModule
+	local module = loadedReview
+	if module == nil then
+		module = require("@self/ui/review")
+		loadedReview = module
+	end
+	return module :: ReviewModule
+end
+local lazyReview = (
+	table.freeze({
+		analyze = function(...)
+			return reviewModule().analyze(...)
+		end,
+		collect = function(...)
+			return reviewModule().collect(...)
+		end,
+		paintRect = function(...)
+			return reviewModule().paintRect(...)
+		end,
+		screen = function(...)
+			return reviewModule().screen(...)
+		end,
+		screens = function(...)
+			return reviewModule().screens(...)
+		end,
+		fixes = table.freeze(setmetatable({}, {
+			__index = function(_: unknown, key: unknown): unknown
+				return ((reviewModule().fixes :: unknown) :: { [unknown]: unknown })[key]
+			end,
+			__iter = function(): (typeof(next), { [string]: string })
+				return next, reviewModule().fixes
+			end,
+		})),
+	}) :: unknown
+) :: ReviewModule
 export type ReviewReport = review.ReviewReport
 export type ReviewSnapshot = review.ReviewSnapshot
 export type ReviewElement = review.ReviewElement
 export type ReviewFinding = review.ReviewFinding
-export type ReviewOptions = review.ReviewOptions
+export type ReviewOptions = { root: Instance? }
 local NavigationProps = require("@self/ui/navigation_props")
 local OverlayProps = require("@self/ui/overlay_props")
 local RadialProps = require("@self/ui/radial_props")
@@ -382,7 +419,7 @@ export type Facet = {
 	pathShapes: typeof(pathShapes),
 	richText: typeof(richText),
 	format: typeof(format),
-	review: typeof(review),
+	review: ReviewModule,
 	recipes: { arithmetic: { parse: (unknown) -> number? } },
 	inputPriority: { read belowControls: number, read aboveFacet: number },
 	bind: (ComposeModule, ComposeRobloxModule) -> Facet,
@@ -585,7 +622,7 @@ local function bind(core: ComposeModule, roblox: ComposeRobloxModule): Facet
 		pathShapes = pathShapes,
 		richText = richText,
 		format = format,
-		review = review,
+		review = lazyReview,
 		recipes = recipes,
 		inputPriority = INPUT_PRIORITY,
 		bind = bind,

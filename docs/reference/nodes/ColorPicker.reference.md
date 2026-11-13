@@ -3,8 +3,10 @@
 <!-- aliases: ColorPicker | colorpicker -->
 
 `UI.ColorPicker(spec)` returns a Frame. Use visible labeled swatches for a
-fixed palette: `modes = { "swatches" }`, `style = "inline"`. Use Picker for
-text categories whose meaning does not depend on their color.
+fixed palette: `modes = { "swatches" }`, `style = "inline"` and `swatches`.
+That form has no entry fields, and a press proposes the palette's own Color3,
+so `color == palette[i].color` holds. Use Picker for text categories whose
+meaning does not depend on their color.
 
 ```luau
 local paint = Compose.cell(Color3.fromRGB(230, 57, 70))
