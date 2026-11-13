@@ -1,5 +1,13 @@
 # Current package
 
+A NavigationStack holds gameplay only while it is on the screen. In an app
+with `suspendGameplay = true`, a stack with a nonempty path suspended play
+for as long as the path stayed nonempty, also when the stack was hidden or
+when the Sheet that showed it had closed. A game that kept its path between
+openings then found its drive input off with no interface open. The hold now
+needs the path and a stack that is visible under an enabled ScreenGui, and it
+returns when the stack shows again.
+
 A ColorPicker with a stated palette is a palette. With `modes = { "swatches" }`
 and `swatches`, a press on a swatch proposed the colour after a conversion to
 hue, saturation and brightness and back, so the Color3 that `onChange` got
