@@ -180,6 +180,25 @@ return function(verifyHarness: Verify.Harness)
 				stop()
 			end,
 		})
+		it("shrinks wrapped Text that moves into a filling row after mount under the Text's owner", {
+			id = "native_layout::native composition rest measurements::shrinks wrapped Text that moves into a filling row after mount under the Text's owner",
+			run = function()
+				local root, _engine, stop = build(nil, function(UI)
+					return UI.VStack "Page" {
+						UI.VStack "Body" { UI.Text "Note" { text = "A longer paragraph", wrap = true } },
+						UI.HStack "Row" { width = "fill" },
+					}
+				end)
+				local note = root:FindFirstChild("Note", true)
+				expect(note:FindFirstChildWhichIsA("UIFlexItem")):toBe(nil)
+				note.Parent = root:FindFirstChild("Row", true)
+				local bend = note:FindFirstChildWhichIsA("UIFlexItem")
+				expect(bend ~= nil):toBe(true)
+				expect(bend.Name):toBe("Bend")
+				stop()
+				expect(bend.Parent):toBe(nil)
+			end,
+		})
 		it("wraps a bounded row only while its children do not fit on one line", {
 			id = "native_layout::native composition rest measurements::wraps a bounded row only while its children do not fit on one line",
 			run = function()

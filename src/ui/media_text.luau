@@ -251,6 +251,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			local bend: UIFlexItem? = nil
 			local natural: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 			local measure: () -> () = function() end
+			local makeBend: (() -> UIFlexItem)? = if wrapped
+				then Compose.bindOwner(function(): UIFlexItem
+					return Host.UIFlexItem { Name = "Bend", FlexMode = E.UIFlexMode.Shrink }
+				end)
+				else nil
 			local function hug()
 				if label.Size ~= appliedSize or label.AutomaticSize ~= appliedMode then
 					if connection then
@@ -280,7 +285,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					and not row
 					and (own or label:FindFirstChildWhichIsA("UIFlexItem") == nil)
 				if bends and not own then
-					local item = bend or Host.UIFlexItem { Name = "Bend", FlexMode = E.UIFlexMode.Shrink }
+					local item = bend or (assert(makeBend))()
 					bend = item
 					item.Parent = label
 				elseif bend and not bends and parent ~= nil then
