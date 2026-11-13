@@ -71,6 +71,7 @@ local EXPAND_EDGE: { Overlay.Edge } = { "trailing", "bottom", "leading" }
 local ENGINE_BUTTON = 44
 local ENGINE_MARGIN = 2
 local SETTLE_PASSES = 30
+local SIMILAR_ROW = 0.5
 local PHONES: { { X: number, Y: number } } = { { X = 358, Y = 812 }, { X = 812, Y = 358 } }
 local OUTSIDE = "facet-button-outside"
 
@@ -1336,27 +1337,57 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 							end
 							seenContent[region] = own
 						end
-						local mins, done = lastMins, settling >= SETTLE_PASSES
-						if stepping and not done then
-							mins, done = extentMatch.step(
-								heights,
-								members,
-								measured,
-								natural,
-								if kit.frameless() then 0 else nil
-							)
-							for _, key in members do
-								lastMins[key] = mins[key]
+						table.sort(members, function(a: unknown, b: unknown): boolean
+							return natural[a] > natural[b]
+						end)
+						local matched: { [unknown]: boolean } = {}
+						local done = settling >= SETTLE_PASSES
+						local steps = stepping and not done
+						if steps then
+							done = true
+						end
+						local at = 1
+						while at <= #members do
+							local lead = natural[members[at]]
+							local group: { unknown } = {}
+							while at <= #members and natural[members[at]] >= lead * SIMILAR_ROW do
+								table.insert(group, members[at])
+								at += 1
+							end
+							if #group < 2 then
+								continue
+							end
+							for _, key in group do
+								matched[key] = true
+							end
+							if steps then
+								local mins, settled = extentMatch.step(
+									heights,
+									group,
+									measured,
+									natural,
+									if kit.frameless() then 0 else nil
+								)
+								for _, key in group do
+									lastMins[key] = mins[key]
+								end
+								done = done and settled
 							end
 						end
 						unsettled = unsettled or not done
 						for _, index in line do
 							local region = regions[index]
+							if not matched[region] then
+								extentMatch.forget(heights, region)
+								lastMins[region] = nil
+								lifts[index] = 0
+								continue
+							end
 							local floor = declared[region].floors[chosen[index]]
 							if floor and not floor() and declared[region].lift:peek() > 0 then
 								extentMatch.forget(heights, region)
 							end
-							lifts[index] = mins[region] or 0
+							lifts[index] = lastMins[region] or 0
 						end
 						table.clear(line)
 					end
