@@ -48,7 +48,9 @@ They are not limits: the ground and the color move them.
 `controls = true` with a line of 2 pixels or more gives a
 `finish.edge.controls` entry in `report.advice`: equal lines on a plate and
 on each control in it compete. Give the controls a quieter line when the
-direction shows one.
+direction shows one. Write the definition in a local of type
+`Facet.ThemeDefinition`, as above; a table for `controls` written straight
+into the `define` call does not type-check.
 
 Check the values in a capture over the real ground, not on a plain backdrop.
 

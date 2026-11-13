@@ -400,19 +400,21 @@ return function(harness: Verify.Harness)
 		t:expect(at(quieted, "rules", base + 2, "properties", "Thickness")):toBe(1)
 		t:expect(at(quieted, "rules", base + 2, "properties", "Transparency")):toBe(0.5)
 		t:expect(at(quieted, "rules", base + 2, "properties", "Color")):toEqual({ role = "hairline" })
-		local bare = themes.define({
+		local controlsOnly: Facet.ThemeDefinition = {
 			identity = { id = "controls-only" },
 			finish = { edge = { width = 0, controls = { width = 2 } }, depth = { lift = 0, glow = 0, sheen = 0 } },
-		})
+		}
+		local bare = themes.define(controlsOnly)
 		t:expect(at(bare, "rules", base + 1, "selector"))
 			:toBe(".facet-button::UIStroke, .facet-stepper-button::UIStroke")
-		local _, wrong = themes.define({
+		local unknownRole: Facet.ThemeDefinition = {
 			identity = { id = "wrong" },
 			finish = {
 				edge = { width = 2, controls = { role = "nope" } },
 				depth = { lift = 0, glow = 0, sheen = 0 },
 			},
-		})
+		}
+		local _, wrong = themes.define(unknownRole)
 		t:expect(wrong.ok):toBe(false)
 		t:expect(at(neon, "style", "themes", 1, "extra", "chromeGradient", "panel", "alpha", 1, "v")):toBe(0.25)
 		local raised: Facet.ThemeDefinition = {
