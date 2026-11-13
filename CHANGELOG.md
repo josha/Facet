@@ -1,5 +1,11 @@
 # Current package
 
+The art of a stack `ground` keeps the size of its stack. `UI.Image` binds
+its own `Size`, 44 pixels square with no `width` or `height`, and the stack
+set the full size once. When the binding ran again, on a console preview, a
+change of device or a late first frame, the art went back to 44 pixels in
+the corner of the stack. The stack now holds the size.
+
 The edge of a theme's finish is drawn inside the box, and it can reach the
 controls. `finish.edge` drew its line outside each panel, and it did not
 reach Buttons, so two authors wrote stroke rules on the Button tags by hand.

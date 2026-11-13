@@ -64,7 +64,14 @@ local function mount(ctx: Types.Context, frame: Frame, art: GuiObject, carve: Co
 	art.AnchorPoint = V2.zero
 	art.AutomaticSize = E.AutomaticSize.None
 	art.Position = D2.new(0, 0, 0, 0)
-	art.Size = D2.fromScale(1, 1)
+	local full = D2.fromScale(1, 1)
+	art.Size = full
+	local sized = ctx.observe.Size(art)
+	Compose.watch(function(use: ComposeTypes.Use)
+		if use(sized) ~= full then
+			art.Size = full
+		end
+	end)
 	art.ZIndex = 0
 	local bed = Host.Frame "Ground" {
 		BackgroundTransparency = 1,
