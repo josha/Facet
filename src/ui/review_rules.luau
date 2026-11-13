@@ -9,6 +9,7 @@ export type ReviewSnapshot = Types.ReviewSnapshot
 export type ReviewSeverity = Types.ReviewSeverity
 export type ReviewFinding = Types.ReviewFinding
 export type ReviewProminence = Types.ReviewProminence
+export type ReviewMeasures = Types.ReviewMeasures
 export type ReviewReport = Types.ReviewReport
 
 local SEPARATORS = { " · ", " • ", " | ", " / ", " – " }
@@ -40,6 +41,7 @@ local fixes: { [string]: string } = {
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
 	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder. Give the holder a width: a width in pixels or fill, a Size with a width, or align = "stretch" on the list that holds it.',
 	["cut-at-edge"] = "A text or a control crosses the edge of the screen, so part of it is not drawn. A part with a width in pixels, or a row that hugs its content, is wider than the room at this size. Give the part a width that follows the room (fill, a share or a maxWidth), let the row reflow with an AdaptiveStack or wrap = true, or use a shorter form of the part at this size.",
+	["covered-control"] = "A plate from another part covers a part of a control at this size. The control reads as joined to the plate, and the covered part does not take a press. A Callout, a Popover, a help plate and the layers of a ZStack float over the screen and do not make room for what is under them. Give the floating part an edge and an align where it has room, give it a shorter form at this size, or put the control and the part in one stack. A control that is wholly under another part, or under a presented modal, is taken as layered on purpose.",
 	["touching-controls"] = "The edge or the shadow of a control is drawn outside its box and reaches the control beside it, so the two read as one. Set finish.edge.controls in the theme so that the edge is drawn inside the box, and give the stack that holds the two a gap that is larger than the shadow.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
@@ -1298,6 +1300,126 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 	end
 
+	local function seen(element: ReviewElement): ReviewRect?
+		local rect: ReviewRect? = face(element)
+		for _, ancestor in chainOf(element) do
+			if rect == nil then
+				break
+			end
+			if ancestor.clips then
+				rect = overlap(rect, ancestor.rect)
+			end
+		end
+		return rect
+	end
+	local function over(upper: ReviewElement, lower: ReviewElement): boolean
+		local lowerChain, upperChain = chainOf(lower), chainOf(upper)
+		if table.find(upperChain, lower) or table.find(lowerChain, upper) then
+			return false
+		end
+		local held: ReviewElement? = nil
+		local mine = lower
+		for _, ancestor in lowerChain do
+			if table.find(upperChain, ancestor) then
+				held = ancestor
+				break
+			end
+			mine = ancestor
+		end
+		local theirs = upper
+		for _, ancestor in upperChain do
+			if ancestor == held then
+				break
+			end
+			theirs = ancestor
+		end
+		if held == nil then
+			if mine.layer ~= theirs.layer then
+				return false
+			end
+		elseif held.fan then
+			return false
+		end
+		local low, high = mine.z or 1, theirs.z or 1
+		return low < high or (low == high and mine.index < theirs.index)
+	end
+	local glass = snapshot.width * snapshot.height
+	local sinks: { ReviewElement } = {}
+	local solids: { { element: ReviewElement, rect: ReviewRect } } = {}
+	for _, element in snapshot.elements do
+		if not shown(element, snapshot.width, snapshot.height) then
+			continue
+		end
+		local on = overlap(element.rect, { x = 0, y = 0, width = snapshot.width, height = snapshot.height })
+		if element.sink and on ~= nil and area(on) >= 0.9 * glass then
+			table.insert(sinks, element)
+		end
+		if solid(element) and area(element.rect) < 0.35 * glass and (element.turn or 0) <= 10 then
+			local rect = seen(element)
+			if rect ~= nil then
+				table.insert(solids, { element = element, rect = rect })
+			end
+		end
+	end
+	local obscured = 0
+	for _, control in buttons do
+		if obscured >= 3 then
+			break
+		end
+		local whole = control.rect
+		local open = true
+		for _, ancestor in chainOf(control) do
+			local inside = if ancestor.clips then overlap(whole, ancestor.rect) else whole
+			if ancestor.class == "ScrollingFrame" or inside == nil or area(inside) < area(whole) then
+				open = false
+				break
+			end
+		end
+		local faced = solid(control) or #prepared.descendantTexts(control) > 0 or prepared.hasImage(control)
+		if not open or not faced or whole.width < 16 or whole.height < 16 then
+			continue
+		end
+		for _, sink in sinks do
+			if over(sink, control) then
+				open = false
+				break
+			end
+		end
+		if not open then
+			continue
+		end
+		for _, cover in solids do
+			local other = cover.element
+			if other == control or other.parent == control.parent or area(cover.rect) < 0.5 * area(whole) then
+				continue
+			end
+			local under = overlap(cover.rect, whole)
+			if
+				under == nil
+				or under.width < 4
+				or under.height < 4
+				or area(under) < 0.1 * area(whole)
+				or area(under) > 0.9 * area(whole)
+				or not over(other, control)
+			then
+				continue
+			end
+			add(
+				"covered-control",
+				"medium",
+				control,
+				("%s covers %d by %d pixels of %s"):format(
+					leaf(other),
+					math.floor(under.width + 0.5),
+					math.floor(under.height + 0.5),
+					leaf(control)
+				)
+			)
+			obscured += 1
+			break
+		end
+	end
+
 	local foreign: { ReviewElement } = {}
 	for _, element in texts do
 		if textOf(element).native == true and textOf(element).size >= 8 then
@@ -1576,6 +1698,84 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		table.remove(prominence)
 	end
 
+	local measures: ReviewMeasures = { width = snapshot.width, height = snapshot.height, plates = 0 }
+	local weight: { [number]: number } = {}
+	for _, element in texts do
+		local text = textOf(element)
+		if text.size < 8 or not shown(element, snapshot.width, snapshot.height) then
+			continue
+		end
+		local content = clean(text.content)
+		weight[text.size] = (weight[text.size] or 0) + #content
+		local lead = measures.numeral
+		if string.find(content, "%d") and (lead == nil or text.size > lead.size) then
+			measures.numeral = { content = content, size = text.size, share = text.size / math.max(1, snapshot.height) }
+		end
+	end
+	for size, count in weight do
+		local body = measures.body
+		if body == nil or count > weight[body] or (count == weight[body] and size < body) then
+			measures.body = size
+		end
+	end
+	for _, plate in prepared.plates do
+		if not plate.interactive and area(plate.rect) < 0.35 * glass then
+			measures.plates += 1
+		end
+	end
+	local faces: { ReviewElement } = {}
+	for _, control in buttons do
+		if solid(control) and control.rect.width >= 16 and control.rect.height >= 16 then
+			table.insert(faces, control)
+		end
+	end
+	if #faces > 0 then
+		local heights: { number } = {}
+		local aspects: { number } = {}
+		local areas: { number } = {}
+		for _, control in faces do
+			table.insert(heights, control.rect.height)
+			table.insert(aspects, control.rect.width / control.rect.height)
+			table.insert(areas, area(control.rect))
+		end
+		measures.control = { height = median(heights), aspect = median(aspects) }
+		local typical = math.max(1, median(areas))
+		local best: ReviewElement? = nil
+		local bestScore, bestContrast = 0, 1
+		for _, control in faces do
+			local total, others = 0, 0
+			for _, other in faces do
+				if other ~= control then
+					total += contrast(control.fill, other.fill)
+					others += 1
+				end
+			end
+			local apart = if others > 0 then total / others else 1
+			local score = area(control.rect) / typical * apart
+			if score > bestScore then
+				best, bestScore, bestContrast = control, score, apart
+			end
+		end
+		if best then
+			local label = ""
+			for _, text in prepared.descendantTexts(best) do
+				label = clean(textOf(text).content)
+				if label ~= "" then
+					break
+				end
+			end
+			measures.action = {
+				label = if label ~= "" then label else string.match(best.path, "[^%.]+$") or best.class,
+				x = (best.rect.x + best.rect.width / 2) / math.max(1, snapshot.width),
+				y = (best.rect.y + best.rect.height / 2) / math.max(1, snapshot.height),
+				width = best.rect.width / math.max(1, snapshot.width),
+				height = best.rect.height / math.max(1, snapshot.height),
+				scale = area(best.rect) / typical,
+				contrast = bestContrast,
+			}
+		end
+	end
+
 	local used: { [string]: string } = {}
 	for _, finding in findings do
 		used[finding.rule] = FIXES[finding.rule]
@@ -1626,9 +1826,52 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			)
 		)
 	end
+	table.insert(lines, ("  measures, as shares of a screen of %d by %d:"):format(snapshot.width, snapshot.height))
+	local numeral, body = measures.numeral, measures.body
+	if numeral then
+		table.insert(
+			lines,
+			("    largest numeral: %s %g px, %.1f%% of the height%s"):format(
+				quote(numeral.content),
+				numeral.size,
+				numeral.share * 100,
+				if body then ("; most text is %g px, a ratio of %.1f"):format(body, numeral.size / body) else ""
+			)
+		)
+	elseif body then
+		table.insert(lines, ("    no numeral; most text is %g px"):format(body))
+	end
+	local control, action = measures.control, measures.action
+	table.insert(
+		lines,
+		("    plates: %d%s"):format(
+			measures.plates,
+			if control
+				then ("; a typical control is %g px high and %.1f times as wide"):format(
+					math.floor(control.height + 0.5),
+					control.aspect
+				)
+				else ""
+		)
+	)
+	if action then
+		table.insert(
+			lines,
+			("    strongest control: %s at %d%% across and %d%% down, %d%% by %d%%; %.1f times a typical control, contrast %.1f to the others"):format(
+				quote(action.label),
+				math.floor(action.x * 100 + 0.5),
+				math.floor(action.y * 100 + 0.5),
+				math.floor(action.width * 100 + 0.5),
+				math.floor(action.height * 100 + 0.5),
+				action.scale,
+				action.contrast
+			)
+		)
+	end
 	return {
 		findings = findings,
 		prominence = prominence,
+		measures = measures,
 		sizes = distinct,
 		fixes = used,
 		text = table.concat(lines, "\n"),

@@ -315,7 +315,13 @@ export type ReadOnlyThemePackage = {
 	icons: { [string]: IconEntry }?,
 	rules: { Rule }?,
 }
-export type FinishEdge = { width: number, role: string?, transparency: number?, controls: boolean? }
+export type FinishControlEdge = { width: number?, role: string?, transparency: number? }
+export type FinishEdge = {
+	width: number,
+	role: string?,
+	transparency: number?,
+	controls: (boolean | FinishControlEdge)?,
+}
 export type FinishDepth = {
 	lift: number,
 	glow: number,

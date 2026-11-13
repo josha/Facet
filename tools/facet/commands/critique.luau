@@ -11,8 +11,10 @@ local Raster = require("../lib/raster")
 
 local USAGE = [[usage: lute run tools/facet critique [--device ID]... [--tap TEXT]... [--wait SECONDS]
                                      [--project FILE] [--brief FILE] [--out DIR] [--keep]
+                                     [--target FILE --target-kind KIND] [--card FILE]
        lute run tools/facet critique --capture FILE [--dump FILE] [--device ID] [--label NAME]
                                      [--brief FILE] [--out DIR]
+                                     [--target FILE --target-kind KIND] [--card FILE]
        lute run tools/facet critique cases --cases DIR [--out DIR]
        lute run tools/facet critique compare BEFORE AFTER [--out DIR]
        lute run tools/facet critique score --cases DIR --run DIR
@@ -40,6 +42,20 @@ phones in both orientations. Use --device to request a focused capture.
                   --dump for the rules and the blocks render. A Studio-only
                   author can save a capture and run Facet.review in the Client.
   --brief FILE    A short description of the game and the player's task.
+  --target FILE   The image that the screen was built to: a reference, a chosen
+                  concept or an inspiration. The packet then has a fidelity
+                  part: the target beside the capture nearest to its aspect
+                  ratio at one height (fidelity/pair.png), the same pair small
+                  and blurred, the runtime's measures (the largest numeral as a
+                  share of the screen, the plates and controls, the strongest
+                  control and its place) and the evidence that is missing.
+                  The reviewer judges fidelity apart from the rubric scores.
+  --target-kind   specification (the user's precise reference: match it),
+                  concept (the agent chose it: keep its composition, scale,
+                  type, materials and control shapes) or inspiration (a
+                  direction: no imitation is asked).
+  --card FILE     The measured card: the author's reading of the target in
+                  quantities. The packet shows it beside the measures.
   --out DIR       The packet folder. The default is artifacts/facet-critique.
 
 cases builds one blind packet for each calibration case under DIR (each folder
@@ -71,6 +87,20 @@ local function report(packet: Critique.Packet): string
 				if screen.problem then "; " .. (screen.problem :: string) else ""
 			)
 		)
+	end
+	local fidelity = packet.fidelity
+	if fidelity ~= nil then
+		table.insert(
+			lines,
+			("  fidelity (%s): %s; %d item(s) of evidence missing"):format(
+				fidelity.kind,
+				if fidelity.pair then Files.join(packet.out, fidelity.pair :: string) else "no pair",
+				#fidelity.missing
+			)
+		)
+		for _, item in fidelity.missing do
+			table.insert(lines, "    missing: " .. item)
+		end
 	end
 	for _, problem in packet.problems do
 		table.insert(lines, "  problem: " .. problem)
@@ -151,6 +181,9 @@ local function run(invocation: Cli.Invocation): number
 		"cases",
 		"run",
 		"no-rules",
+		"target",
+		"target-kind",
+		"card",
 	})
 	if unknown ~= nil then
 		print("facet critique: unknown flags " .. unknown)
@@ -229,7 +262,21 @@ local function run(invocation: Cli.Invocation): number
 			})
 		end
 	end
-	local packet = Critique.packet({ out = out, brief = brief(invocation), screens = screens })
+	local targetPath, targetKind = Cli.flag(invocation, "target"), Cli.flag(invocation, "target-kind")
+	local target: Critique.Target? = nil
+	if targetPath ~= nil or targetKind ~= nil then
+		if targetPath == nil or targetKind == nil or not Critique.targetKind(targetKind) then
+			print("facet critique: give --target FILE with --target-kind specification, concept or inspiration")
+			return 2
+		end
+		local cardPath = Cli.flag(invocation, "card")
+		target = {
+			path = targetPath,
+			kind = targetKind,
+			card = if cardPath then (string.gsub(Files.text(cardPath), "%s+$", "")) else nil,
+		}
+	end
+	local packet = Critique.packet({ out = out, brief = brief(invocation), screens = screens, target = target })
 	local value: json.Value = { out = packet.out, problems = packet.problems }
 	Cli.emit(invocation, value, report(packet))
 	return if #packet.problems > 0 then 1 else 0
@@ -267,6 +314,80 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			Verify.expect(string.find(text, "A sword shop.", 1, true) ~= nil):toBeTrueWith("the brief is missing")
 			Verify.expect(string.find(text, "verdict.json", 1, true) ~= nil):toBeTrueWith("the output is not named")
 			Verify.expect(#packet.problems):toBe(0)
+			Files.remove(directory)
+		end,
+	})
+	harness:case(prefix .. "a target adds the pair, the measures and the missing evidence, apart from the rubric", {
+		id = prefix .. "a target adds the pair, the measures and the missing evidence, apart from the rubric",
+		run = function(test: Verify.Context)
+			local directory = Files.temporaryDirectory("facet-critique-")
+			local capture, dump = fixture(directory)
+			local concept = Raster.Image.new(384, 216, 3, { 12, 14, 40 })
+			Raster.Draw.rectangle(concept, { 40, 40, 200, 180 }, { 240, 200, 40 })
+			local target = Files.join(directory, "concept.png")
+			Critique.save(target, concept)
+			local out = Files.join(directory, "packet")
+			local packet = Critique.packet({
+				out = out,
+				screens = {
+					{ id = "desktop-shop", device = "desktop", label = "shop", capture = capture, dump = dump },
+				},
+				target = { path = target, kind = "concept", card = "Largest numeral: an eighth of the height." },
+			})
+			Verify.expect(#packet.problems):toBe(0)
+			local fidelity = assert(packet.fidelity)
+			Verify.expect(fidelity.screen):toBe("desktop-shop")
+			Verify.expect(fidelity.measures ~= nil):toBeTrueWith("the runtime was not measured")
+			for _, name in { "target.png", "pair.png", "pair-squint.png" } do
+				Verify.expect(Files.isFile(Files.join(out, "fidelity", name))):toBeTrueWith(name .. " is missing")
+			end
+			local pair = Critique.load(Files.join(out, "fidelity", "pair.png"))
+			Verify.expect(pair.height):toBe(720)
+			Verify.expect(pair.width > 2 * 1280):toBeTrueWith("the two are not side by side at one height")
+			Verify.expect(table.concat(fidelity.missing, "\n"))
+				:toBe("a capture on a phone in portrait\na capture on a phone in landscape")
+			local text = Files.read(Files.join(out, "PACKET.md"))
+			local part = string.find(text, "## Fidelity to the target", 1, true)
+			local rubricAt = string.find(text, "## Rubric", 1, true)
+			Verify.expect(part ~= nil and rubricAt ~= nil and part < rubricAt)
+				:toBeTrueWith("the fidelity part is not before the rubric")
+			for _, needle in
+				{
+					"Kind: **concept**",
+					"Judge fidelity apart from the scores",
+					"Leading numeral and type scale",
+					"Panel and control shapes",
+					"Primary action: placement and emphasis",
+					"Largest numeral: an eighth of the height.",
+					"a capture on a phone in portrait",
+				}
+			do
+				Verify.expect(string.find(text, needle, 1, true) ~= nil):toBeTrueWith(needle .. " is missing")
+			end
+			Verify.expect(Files.isFile(Files.join(out, "fidelity.json"))):toBeTrueWith("fidelity.json is missing")
+			local tall = Raster.Image.new(108, 192, 3, { 20, 22, 30 })
+			local phone = Files.join(directory, "phone.png")
+			Critique.save(phone, tall)
+			local loose = Critique.packet({
+				out = Files.join(directory, "loose"),
+				screens = { { id = "phone-shop", device = "phone", label = "shop", capture = phone } },
+				target = { path = target, kind = "inspiration" },
+			})
+			local missing = table.concat(assert(loose.fidelity).missing, "\n")
+			Verify.expect(string.find(missing, "at the aspect ratio of the target (1.78)", 1, true) ~= nil)
+				:toBeTrueWith("the aspect gap is not named")
+			Verify.expect(string.find(missing, "an interface dump of phone-shop", 1, true) ~= nil)
+				:toBeTrueWith("the missing dump is not named")
+			Verify.expect(string.find(missing, "the measured card", 1, true) ~= nil)
+				:toBeTrueWith("the missing card is not named")
+			Verify.expect(string.find(missing, "a capture on a phone", 1, true) == nil)
+				:toBeTrueWith("an inspiration asked for phone captures")
+			local wrong = Critique.packet({
+				out = Files.join(directory, "wrong"),
+				screens = { { id = "phone-shop", device = "phone", label = "shop", capture = phone } },
+				target = { path = target, kind = "moodboard" },
+			})
+			Verify.expect(#wrong.problems):toBe(1)
 			Files.remove(directory)
 		end,
 	})
@@ -371,7 +492,22 @@ local command: Cli.Command = {
 	name = "critique",
 	summary = "Write a critique packet (capture, squint and block renders, design rules) for a fresh reviewer.",
 	usage = USAGE,
-	values = { "device", "tap", "wait", "project", "out", "capture", "dump", "label", "brief", "cases", "run" },
+	values = {
+		"device",
+		"tap",
+		"wait",
+		"project",
+		"out",
+		"capture",
+		"dump",
+		"label",
+		"brief",
+		"cases",
+		"run",
+		"target",
+		"target-kind",
+		"card",
+	},
 	register = register,
 	run = run,
 }

@@ -25,6 +25,12 @@ The plate stays inside its layer by the `space.s` step of the theme on each
 side. The step follows a live theme change. The layer is the safe area of the
 ScreenGui, so a device safe inset adds to the step.
 A callout and a help plate paint above a toast with an action and below a presented modal.
+When the anchor is in a Composition region, the plate slides along its edge
+to stay one `space.s` step clear of the other regions and zone marks, as far
+as its tail still reaches the anchor. With no clear place it stays centred;
+`covered-control` in [Review.layout](Review.layout.md) reports what it covers.
+While the region shows its compact mark, the callout is suspended. It shows
+again when the player opens the mark.
 
 The plate parts are optional, but the plate must show something:
 

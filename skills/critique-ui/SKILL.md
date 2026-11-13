@@ -42,9 +42,11 @@ Use these rounds when a separate concept image guides an expressive game.
    set. Do not select a winner because it is the easiest to build.
 2. **Translation round.** Review the first Studio screen before other routes
    are built. The packet, labeled `runtime translation`, holds the target and
-   its role (agent-chosen concept, user specification, directional sketch or
-   inspiration), a capture at the target's aspect ratio at the same viewing
+   its kind, a capture at the target's aspect ratio at the same viewing
    size, and captures at the smallest supported phone in each orientation.
+   Build it with `--target FILE --target-kind KIND`, and `--card FILE` for
+   the measured card; [fidelity](#fidelity-to-a-target) says what the packet
+   then holds.
    Show the choice, the action and an opened control as real controls with
    live labels: selected with focus, selected with focus on a peer, pressed,
    and feedback before and after acceptance.
@@ -58,6 +60,36 @@ Use these rounds when a separate concept image guides an expressive game.
 
 A quiet, established or explicitly minimal design has no separate concept. Its
 first Studio screen is both the target and the runtime evidence.
+
+### Fidelity to a target
+
+State the kind of the target from the user's words and the task, not from
+how finished the image looks.
+
+| Kind | The target is | Fidelity asks |
+| --- | --- | --- |
+| `specification` | The user's precise reference: a screenshot, a mock, a concept that the user chose | A match. Name each departure; it needs the user's word. |
+| `concept` | A concept that the agent chose | Its composition, relative scale, type hierarchy, materials and control shapes. A limited, stated improvement is allowed. |
+| `inspiration` | A mood, a genre, a named game, a rough sketch | What makes it recognizable. A difference alone is not a fault. |
+
+With a target, the packet has a fidelity part before the rubric:
+
+- `fidelity/pair.png`: the target and the capture nearest to its aspect
+  ratio, side by side at one height, and `fidelity/pair-squint.png`, the
+  same pair small and blurred.
+- Three comparisons with the runtime's measures from the interface dump:
+  the largest numeral as a share of the screen height and against the
+  reading text; the plates and the proportions of a control; the strongest
+  control, its place and its size. The target's side comes from the pair and
+  from the measured card.
+- The evidence that is missing: a capture at the target's aspect ratio, the
+  dump, the card, a phone in each orientation.
+
+Fidelity has its own verdict, apart from the five scores. A coherent screen
+that left its target is `kept: false` with good scores, and a faithful
+screen with a weak hierarchy keeps its target and still gets `revise`. Do
+not let one stand in for the other, and do not clear missing evidence with
+a score.
 
 The loop's three-round limit covers these rounds together. In the verdict,
 list the images viewed and name any missing state or size; a score for the

@@ -5,6 +5,7 @@ local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
 local parts = require("./overlay_parts")
 local anchoredPlacement = require("./overlay_placement")
+local neighbors = require("./composition_neighbors")
 local Overlay = require("./overlay_types")
 local NavigationProps = require("./navigation_props")
 local surfaceParts = require("./nav_surface_parts")
@@ -163,6 +164,7 @@ return function(
 					end
 				end)
 				local position, size = ctx.observe.AbsolutePosition(spec.anchor), ctx.observe.AbsoluteSize(spec.anchor)
+				local beside = neighbors.of(ctx, spec.anchor)
 				local rows: { Types.Child } = {}
 				if spec.title ~= nil or spec.closeButton == true then
 					local header: { Types.Child } = {}
@@ -372,6 +374,8 @@ return function(
 						gap = lift(use),
 						tail = if tailed then parts.tailWidth(ctx, use) else 0,
 						tailInset = ctx.metric("radii.panel", use),
+						avoid = neighbors.rects(beside, offset, use),
+						avoidGap = gutter,
 					})
 					return {
 						left = solved.x,

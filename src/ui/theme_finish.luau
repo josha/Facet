@@ -106,8 +106,19 @@ local function apply(
 	if depth.controls ~= nil and type(depth.controls) ~= "boolean" then
 		issue(".depth.controls", "controls is true or false")
 	end
-	if edge.controls ~= nil and type(edge.controls) ~= "boolean" then
-		issue(".edge.controls", "controls is true or false")
+	local onControls = edge.controls
+	local own: Table? = if type(onControls) == "table" then onControls :: Table else nil
+	if onControls ~= nil and type(onControls) ~= "boolean" and own == nil then
+		issue(".edge.controls", "controls is true, false or a table with width, role and transparency")
+	end
+	local controlWidth, controlLine, controlFaint = width, line, faint
+	if own then
+		controlWidth = if own.width == nil then width else measure(".edge.controls.width", own.width, true)
+		if own.role ~= nil then
+			local _, named = paint(".edge.controls.role", own.role, line)
+			controlLine = named
+		end
+		controlFaint = share(".edge.controls.transparency", own.transparency, faint)
 	end
 	if lift > 0 and glow > 0 then
 		issue(".depth", "A plate has one shadow. Give lift or glow, and 0 for the other")
@@ -118,46 +129,64 @@ local function apply(
 	if glow > 0 and (glow < FAINT_GLOW or strength < FAINT_STRENGTH) then
 		table.insert(advice, {
 			field = "finish.depth.glow",
-			message = ("A glow of %d px at strength %.2f does not show in a capture. A glow reads as light from about 12 px at 0.5 on a dark ground, and it needs more on a bright one. Raise it until a capture shows it, or state glow = 0."):format(
+			message = ("A glow of %d px at strength %.2f is usually too faint to see. On a dark ground a glow read as light from about 12 px at 0.5 in our captures, and a bright ground needed more. Look at the specimen: when the capture does not show the glow, raise it or state glow = 0."):format(
 				glow,
 				strength
 			),
 		})
 	end
+	if onControls == true and width >= 2 and faint < 0.5 then
+		table.insert(advice, {
+			field = "finish.edge.controls",
+			message = ("The controls take the same %d px %s line as the plates. A plate that holds several controls then shows as many equal lines, and the main action is one outline among them. When the direction shows a quieter line on the controls, state it: controls = { width = 1, transparency = 0.5 }. Keep true when the direction shows one line on both."):format(
+				width,
+				line
+			),
+		})
+	end
 
+	local rules = table.clone(package.rules or {})
 	if width > 0 then
-		local properties: ThemeTypes.AuthoredRuleProperties = {
-			Color = { role = line },
-			Thickness = width,
-			Transparency = faint,
-			BorderStrokePosition = "Inner",
-		}
-		if package.metrics.radii.panel == 0 then
-			properties.LineJoinMode = "Miter"
-		end
-		local rules = table.clone(package.rules or {})
-		table.insert(rules, { selector = PLATES, properties = properties })
-		if edge.controls == true then
-			local onControls = table.clone(properties)
-			onControls.LineJoinMode = if package.metrics.radii.control == 0 then "Miter" else nil
-			table.insert(rules, { selector = CONTROLS, properties = onControls })
+		table.insert(rules, {
+			selector = PLATES,
+			properties = {
+				Color = { role = line },
+				Thickness = width,
+				Transparency = faint,
+				BorderStrokePosition = "Inner",
+				LineJoinMode = if package.metrics.radii.panel == 0 then "Miter" else nil,
+			},
+		})
+	end
+	if (onControls == true or own ~= nil) and controlWidth > 0 then
+		table.insert(rules, {
+			selector = CONTROLS,
+			properties = {
+				Color = { role = controlLine },
+				Thickness = controlWidth,
+				Transparency = controlFaint,
+				BorderStrokePosition = "Inner",
+				LineJoinMode = if package.metrics.radii.control == 0 then "Miter" else nil,
+			},
+		})
+		table.insert(rules, {
+			selector = ".facet-button.facet-disabled::UIStroke",
+			properties = { Transparency = math.max(controlFaint, DISABLED_EDGE) },
+		})
+		local utility = package.metrics.strokes.utility
+		local outlined = type(utility) == "number" and utility > 0
+		table.insert(rules, {
+			selector = if outlined then PLAIN else PLAIN .. ", " .. UTILITY,
+			properties = { Transparency = 1 },
+		})
+		if outlined then
 			table.insert(rules, {
-				selector = ".facet-button.facet-disabled::UIStroke",
-				properties = { Transparency = math.max(faint, DISABLED_EDGE) },
+				selector = UTILITY,
+				properties = { Color = { role = "hairline" }, Thickness = utility },
 			})
-			local utility = package.metrics.strokes.utility
-			local outlined = type(utility) == "number" and utility > 0
-			table.insert(rules, {
-				selector = if outlined then PLAIN else PLAIN .. ", " .. UTILITY,
-				properties = { Transparency = 1 },
-			})
-			if outlined then
-				table.insert(rules, {
-					selector = UTILITY,
-					properties = { Color = { role = "hairline" }, Thickness = utility },
-				})
-			end
 		end
+	end
+	if #rules > #(package.rules or {}) then
 		package.rules = rules
 	end
 

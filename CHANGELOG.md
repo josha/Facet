@@ -1,5 +1,38 @@
 # Current package
 
+`Facet.review` reports the measures of a screen: the largest numeral as a
+share of the screen height and against the most common text size, the number
+of plates, a typical control, and the strongest control with its place and
+size. They end `report.text`, and `report.measures` has the values. An author
+puts them against the quantities of a target, with or without a shell.
+
+`finish.edge.controls` takes values of its own. `true` drew the line of the
+plates on every Button, so a bright plate edge became as many equal bright
+borders as the plate had controls, and the main action was one outline among
+them. `edge.controls = { width = 1, transparency = 0.5 }` draws a quieter
+line on the controls; a value left out is that of the plates, and the
+controls can have a line when the plates have none. `true` with a line of
+2 pixels or more gives a `finish.edge.controls` entry in `report.advice`.
+The `finish.depth.glow` advice now asks for a look at the specimen instead
+of stating that a faint glow never shows.
+
+A Callout whose anchor is in a Composition region stays clear of the other
+regions. Its plate was centred on the anchor whatever sat beside it, so on a
+short landscape phone a lesson under a top region covered 21 pixels of the
+first action button, and the two read as one row. The plate now slides along
+its edge, one `space.s` step clear of the other regions and zone marks, as
+far as its tail still reaches the anchor; with no clear place it stays where
+it was. `overlay_placement.solve` takes the rectangles as `avoid`. A region
+that shows its compact mark still suspends the Callout of an anchor inside
+it, and the Callout shows again in the popover of the mark.
+
+`Facet.review` reports `covered-control`: a control with a part of its box
+under a plate or an image from another part that is drawn above it. A control
+under a presented modal, wholly under a part, in a scrolling view or in a
+fan is taken as layered on purpose. The snapshot records the layer of each
+element and whether a part that is not a button takes input, so parts of two
+ScreenGuis are not compared.
+
 A theme StyleSheet keeps its style rules as plain records instead of one
 Compose row each, which takes 6 to 33 KiB of Luau heap off each themed screen
 in Studio. Rule priorities were already unique, so the order of the rules in

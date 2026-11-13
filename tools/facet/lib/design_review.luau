@@ -9,6 +9,25 @@ local DesignReview = {}
 
 function DesignReview.snapshot(dump: Audit.Dump): Snapshot
 	local elements: { Rules.ReviewElement } = {}
+	local byIndex: { [number]: Audit.Element } = {}
+	local clippers: { [number]: boolean } = {}
+	for _, element in dump.elements do
+		byIndex[element.index] = element
+	end
+	for _, element in dump.elements do
+		local parent = if element.parent then byIndex[element.parent] else nil
+		local clip, above = element.clip, if parent then parent.clip else nil
+		if parent and clip then
+			local same = above ~= nil
+				and above.x == clip.x
+				and above.y == clip.y
+				and above.width == clip.width
+				and above.height == clip.height
+			if not same then
+				clippers[parent.index] = true
+			end
+		end
+	end
 	for _, element in dump.elements do
 		local text: Rules.ReviewText? = nil
 		local source = element.text
@@ -32,6 +51,10 @@ function DesignReview.snapshot(dump: Audit.Dump): Snapshot
 			rect = element.rect,
 			visible = element.visible,
 			interactive = element.interactive,
+			sink = element.active and not element.interactive,
+			z = element.zIndex,
+			layer = tostring(element.root),
+			clips = clippers[element.index],
 			fill = element.background.color,
 			fillTransparency = element.background.transparency,
 			image = element.class == "ViewportFrame" or (image ~= nil and image.transparency < 0.9),

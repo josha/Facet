@@ -38,8 +38,14 @@ or placeholder styling. Determine reference authority from the user's wording
 and task context; polished appearance does not make an image a specification,
 and hand-drawn appearance does not make it provisional.
 Do not pass a different but coherent design because its controls work.
-Compare the equal-size pair, layout overlay and detail crops. Identify losses
-in composition, relative scale, type, materials, depth and control shapes.
+When the packet has a fidelity part, open its pair and its squint pair, and
+compare the three measured rows with what the target shows: the leading
+numeral and type scale, the shapes of the panels and controls, and the place
+and emphasis of the main action. Identify losses in composition, relative
+scale, type, materials, depth and control shapes. Write the `fidelity` part
+of the verdict apart from the scores: a strong score does not make a screen
+faithful, and a faithful screen can still need revision. Copy the packet's
+missing evidence and add what you could not see.
 Mark a lost defining quality as a must fix even if general identity is strong.
 If the packet is a design target, assess its visual proposal and record runtime
 and input behavior as unverified. Respect an explicitly limited first-screen
