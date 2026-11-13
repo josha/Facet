@@ -1,5 +1,10 @@
 # Current package
 
+Wrapping `UI.Text` that moves into a filling row after it mounts makes its
+shrink item under its own owner. The label made the `UIFlexItem` in its
+re-fit callback, which runs outside any owner, so Compose raised
+`owner/no-active-owner` and the label did not shrink in the row.
+
 A theme StyleSheet keeps its style rules as plain records instead of one
 Compose row each, which takes 6 to 33 KiB of Luau heap off each themed screen
 in Studio. Rule priorities were already unique, so the order of the rules in
