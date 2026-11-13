@@ -1,7 +1,7 @@
 # Facet guidance trials
 
 This set keeps the trials that changed the use-facet guidance and the library
-on 9 and 10 November 2026. Each trial gave a fresh author one request and one
+on 9 and 10 November 2026, and the trial of the theme flow on 12 November. Each trial gave a fresh author one request and one
 frozen kit, captured the result at three sizes and gave the captures to a
 blind reviewer. The set includes the results that went against the candidate.
 
@@ -23,8 +23,8 @@ benchmark and it does not give a success rate.
 
 The builds are disabled LocalScripts in the "ui tests" place. The original
 captures, the authors' art and source, the kits and the review keys are in
-the studio's experiment folder `artifacts/facet-guidance-ab-20261109`. They
-are not in this repository.
+the studio's experiment folders `artifacts/facet-guidance-ab-20261109` and
+`artifacts/facet-guidance-opus-20261112`. They are not in this repository.
 
 ## Results
 
@@ -99,6 +99,38 @@ slot. The review reported that fault; the author did not run the review in
 that state. One run stands behind each arm, so the result does not separate
 the kits.
 
+### The theme flow, on two development tasks
+
+v4 is the guidance of 12 November 2026: a card in quantities, a concept, the
+card corrected to the concept's measures, `finish` as values, and the theme
+sheet compared with the concept by measure. One fresh Opus-medium author
+built each task with an image model (12 images allowed). One reviewer scored
+each task's builds together. The earlier builds had no image model, except
+that `blackjack-8` is the second repair round of `blackjack-5`.
+
+| Build | Kit | Identity | Craft | Lead | Desktop | Portrait | Landscape |
+|---|---|---|---|---|---|---|---|
+| `honey-1` | current | 3 | 3 | 2 | 3 | 1 | 1 |
+| `honey-4` | v3 | 3 | 2 | 3 | 3 | 3 | 1 |
+| `honey-5` | v4 | 4 | 4 | 4 | 4 | 3 | 4 |
+| `blackjack-5` | v3.2 | 4 | 3 | 3 | 3 | 4 | 4 |
+| `blackjack-8` | v3.2, repair round 2 | 4 | 4 | 3 | 4 | 3 | 3 |
+| `blackjack-9` | v4 | 3 | 3 | 3 | 3 | 2 | 2 |
+
+Honey ranked `honey-5` first by a wide margin. Blackjack ranked
+`blackjack-9` last. Both v4 authors followed the flow: each wrote sizes on
+its card, corrected them to the concept, started the edge at 3 or 4 px and
+kept it, and added edges to its actions after the theme sheet. The honey
+author kept the place of its concept, a stall with a canopy, a counter and
+jars as buttons. The blackjack author chose the flatter of its two concepts,
+because a curved rail would not survive a phone, and the reviewer read the
+result as a template. It also lost on cards with one pip and a letter for
+a court card, and on a result plate that leaves the screen in portrait,
+which `Facet.review` did not report. The flow raised the strength of the
+theme in both builds. It did not decide how much of a place the build keeps
+or how finished its objects are. Both tasks are development material, and
+one run stands behind each cell.
+
 ## What the results say
 
 - Every build from v3 on uses Facet for layout, images, text and controls,
@@ -155,3 +187,19 @@ Each gap cost an author time. They are not fixed by this set.
 - `Facet.review` reads rectangles. It does not find a label on the
   transparent margin of an image, and `covered-text` can name an image whose
   paint does not reach the text.
+- `finish.edge` draws on panels and Sheets and not on controls. Both v4
+  authors found the Button and Stepper tags by reading instances and wrote
+  stroke rules. Those strokes draw outside the layout box, so with a hard
+  shadow they used up the gap between a stepper and the action under it.
+- `Facet.review` has no finding for a plate that leaves the screen, or for
+  two controls whose edges or shadows touch.
+- The type roles do not step down on a phone. One author scaled every text
+  with a bound `TextSize`.
+- A stack `ground` with `paintRect` came up at 44 by 44 pixels twice, on a
+  fresh Play and after a change of device, until its art had a `Size`.
+- `UI.Image` raises an error when a bound width or height is negative in the
+  first frames.
+- Nothing moves the selection when a change of phase disables the control
+  that has it.
+- `UI.Flash` paints a rectangle on a shaped plate.
+- The Stepper has no size option for its count.

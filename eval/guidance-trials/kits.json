@@ -96,6 +96,17 @@
         "quest-2"
       ],
       "adds": "A stack ground that pads its content to the paint of the art; Facet.review.paintRect; the label on art as the ground of its stack; escaped-text holds a text of a stack to the paint of its ground; floating-text counts art under a text as a plate."
+    },
+    {
+      "id": "kit-2f7",
+      "version": "v4",
+      "sha256": "2f7c5db8ef4ab360cbc311ec914348f053578f7dceea1ce01084e308c8aa9052",
+      "sourceCommit": "0e21493 (claude/sol-race-guidance, not pushed; the folder is kits/kit-0e21493 in artifacts/facet-guidance-opus-20261112)",
+      "frozenBefore": [
+        "blackjack-9",
+        "honey-5"
+      ],
+      "adds": "The theme flow: reference, card in quantities, concept, the card corrected to the concept's measures, theme finish as values, the theme sheet compared by measure. What an edge and a glow of each size look like. A group of peers and a named palette. Library of the same commit: finish and app.specimen, Region label, the shadow that trails a fade, the exact swatch, the stack hold on screen, the faint-glow advice, similar rows."
     }
   ]
 }

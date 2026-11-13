@@ -340,6 +340,40 @@
       "generatedImages": 6,
       "toolCalls": 231,
       "note": "Library e093628 for both arms. Five stacks take a ground (sign, notices, parchment panels) and no label left the paint of its art. The author did not use paintRect: a script cropped each piece to its paint. The layout does not recover after a rotation from portrait to landscape with the Sheet open; that state is not in the review."
+    },
+    {
+      "id": "blackjack-9",
+      "task": "blackjack",
+      "kit": "kit-2f7",
+      "stage": "first pass",
+      "script": "Blackjack9",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 27.8,
+      "tokensK": 399,
+      "generatedImages": 3,
+      "toolCalls": 207,
+      "note": "Image model allowed, 12 images; the author used 3 (two concepts, one card back) and drew the rest with a script; 13 uploads. It wrote the card in quantities, corrected it to its chosen concept, started the edge at 3 px and kept it, and added button edges after the theme sheet. It chose the flat top-down concept over one with a curved rail because the rail would not survive a phone. Number cards have one pip and court cards a letter. In the portrait result state the result plate runs off the right edge and the bet chip off the left; Facet.review reported nothing for it."
+    },
+    {
+      "id": "honey-5",
+      "task": "honey",
+      "kit": "kit-2f7",
+      "stage": "first pass",
+      "script": "HoneyStall5",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 32.3,
+      "tokensK": 432,
+      "generatedImages": 9,
+      "toolCalls": 253,
+      "note": "Image model allowed, 12 images; the author used 9 (two concepts, four jars, a backdrop, a coin, one more) and drew the canopy, counter, cloth, tags and sign with a script. finish started at a 4 px ink edge with a hard shadow and stayed; the theme sheet added ink edges on the main action and the stepper keys. Those edges are stroke rules that draw outside the layout box, and with the shadow they use up the 8 px gap between the stepper and Sell (4 px on a phone), so the two touch."
     }
   ]
 }
