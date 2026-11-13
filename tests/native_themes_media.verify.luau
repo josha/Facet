@@ -649,6 +649,21 @@ return function(verifyHarness: Verify.Harness)
 				expect(authored(".facet-button.facet-appearance-utility::UIStroke").Transparency):toBe(1)
 				expect(authored(".facet-button::UIStroke").Thickness):toBe(4)
 				expect(authored(".facet-button.facet-disabled::UIStroke").Transparency):toBe(0.6)
+				local function order(selector: string): number
+					local last = -1
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							last = math.max(last, rule.Priority)
+						end
+					end
+					return last
+				end
+				expect(
+					order(".facet-button.facet-appearance-bare::UIStroke")
+						> order(".facet-button.facet-disabled::UIStroke")
+				):toBe(true)
+				expect(order(".facet-button.facet-disabled::UIStroke") > order(".facet-button::UIStroke")):toBe(true)
 				stop()
 				runtime:dispose()
 			end,
