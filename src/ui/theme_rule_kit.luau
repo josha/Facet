@@ -8,6 +8,8 @@ local merge, paletteFor, font = support.merge, support.paletteFor, support.font
 local states: { [string]: string } = {}
 local tails: { [string]: string } = {}
 
+local STROKE_ENUMS = { "ApplyStrokeMode", "BorderStrokePosition", "LineJoinMode" }
+
 local function stateOf(selector: string): string
 	local known = states[selector]
 	if known == nil then
@@ -226,6 +228,13 @@ return function(
 	local function rule(selector: string, properties: ThemeTypes.RuleProperties, authored: boolean?)
 		if string.sub(selector, -10) == "::UIStroke" then
 			properties = table.clone(properties)
+			local families = (types.Enum :: unknown) :: { [string]: { [string]: ThemeTypes.StyleValue }? }
+			for _, key in STROKE_ENUMS do
+				local value, family = properties[key], families[key]
+				if type(value) == "string" and family and family[value] ~= nil then
+					properties[key] = family[value]
+				end
+			end
 			properties.ApplyStrokeMode = properties.ApplyStrokeMode or types.Enum.ApplyStrokeMode.Border
 			if not authored and properties.ApplyStrokeMode == types.Enum.ApplyStrokeMode.Border then
 				properties.BorderStrokePosition = properties.BorderStrokePosition
