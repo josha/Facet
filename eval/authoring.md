@@ -24,7 +24,10 @@ Do these in order. Each one ends with a result that you can observe.
    make a picture of the screen that the player sees most, which for a game
    is play with its interface over it. With an image tool, generate two or
    three whole-screen compositions and choose one. Give sizes and strengths
-   as quantities; a prompt that asks for restraint gets a plain screen. Without one, block the
+   as quantities; a prompt that asks for restraint gets a plain screen. The
+   same tool can make art for the game, one file for each use, when the
+   Studio connection uploads the file; say so in one message when an upload
+   is refused, and carry on without it. Without one, block the
    screen in: its ground, its main subject at its size and its main action,
    with fixed sample data and no game logic, and capture it. In a 3D game
    the ground is the world: its sky and its light belong to the picture, and
