@@ -1,5 +1,10 @@
 # Current package
 
+A theme StyleSheet keeps its style rules as plain records instead of one
+Compose row each, which takes 6 to 33 KiB of Luau heap off each themed screen
+in Studio. Rule priorities were already unique, so the order of the rules in
+the sheet does not change which rule wins.
+
 The edge of a theme's finish is drawn inside the box, and it can reach the
 controls. `finish.edge` drew its line outside each panel, and it did not
 reach Buttons, so two authors wrote stroke rules on the Button tags by hand.
