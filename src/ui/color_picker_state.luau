@@ -25,7 +25,7 @@ export type State = {
 	enabled: (Use?) -> boolean,
 	interactive: (Use?) -> boolean,
 	mayEdit: () -> boolean,
-	propose: (Hsv) -> boolean,
+	propose: (Hsv, Color3?) -> boolean,
 	proposeAlpha: (number) -> boolean,
 	commit: () -> (),
 	apply: () -> (),
@@ -261,11 +261,11 @@ return function(ctx: Shared.Context, kit: Kit.Kit, spec: Spec): State
 		local value: unknown = read(spec.value)
 		return if typeof(value) == "Color3" then value else nil
 	end
-	local function propose(next: Hsv): boolean
+	local function propose(next: Hsv, exact: Color3?): boolean
 		if not mayEdit() then
 			return false
 		end
-		local proposal = color.toColor(next)
+		local proposal = exact or color.toColor(next)
 		local now = current()
 		if now ~= nil and color.same(now, proposal) then
 			canon:set(next)

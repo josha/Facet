@@ -176,7 +176,7 @@ return function(
 						removeAt(entry, index:peek())
 						return
 					end
-					if propose(color.hsvOf(entry.color, canon:peek())) then
+					if propose(color.hsvOf(entry.color, canon:peek()), entry.color) then
 						state.commit()
 					end
 				end,

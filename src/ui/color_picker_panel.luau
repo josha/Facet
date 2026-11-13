@@ -108,13 +108,20 @@ return function(
 			}
 			table.insert(children, measure(UI.Picker(modeProps)))
 		end
-		local readout = readoutView()
-		runtime.decorate(readout, {
-			LayoutOrder = function(use: Use)
-				return if touch(use) then 2 else 5
-			end,
-		})
-		table.insert(children, measure(readout))
+		local palette = #modes == 1
+			and modes[1] == "swatches"
+			and state.spec.swatches ~= nil
+			and not state.saving
+			and not state.hasAlpha
+		if not palette then
+			local readout = readoutView()
+			runtime.decorate(readout, {
+				LayoutOrder = function(use: Use)
+					return if touch(use) then 2 else 5
+				end,
+			})
+			table.insert(children, measure(readout))
+		end
 		local bodyProps: Shared.ScrollingFrameProps = {
 			Name = "Body",
 			LayoutOrder = 3,

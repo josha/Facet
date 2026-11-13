@@ -494,6 +494,35 @@ return function(verifyHarness: Verify.Harness)
 			}
 		)
 
+		verifyHarness:case("a stated palette proposes its own Color3 and has no entry fields", {
+			id = "native_color_picker::native ColorPicker well and panel::a stated palette proposes its own Color3 and has no entry fields",
+			run = function()
+				local red = Color3.new(1, 0.27450981736183169, 0.3529411852359772)
+				local cyan = Color3.new(0.1411764770746231, 0.8980392217636108, 1)
+				local cell, _, change = caller(cyan)
+				local committed: { Color3 } = {}
+				local w = world({
+					value = cell,
+					onChange = change,
+					onCommit = function(c: Color3)
+						table.insert(committed, c)
+					end,
+					style = "inline",
+					modes = { "swatches" },
+					swatches = { { color = red, label = "Red" }, { color = cyan, label = "Cyan" } },
+				})
+				w.cells()[1].Activated:Fire()
+				expect(cell:peek() == red):toBe(true)
+				expect(#committed):toBe(1)
+				expect(committed[1] == red):toBe(true)
+				expect(w.screen:FindFirstChild("Readout", true)):toBeNil()
+				w.stop()
+				local open = world({ value = Compose.cell(red), style = "inline" :: "inline", modes = { "swatches" } })
+				expect(open.screen:FindFirstChild("Readout", true) ~= nil):toBe(true)
+				open.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"saved colours: + proposes the current colour once; Edit removes by activate or Delete and hands the ring on",
 			{
