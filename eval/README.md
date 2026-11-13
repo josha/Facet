@@ -15,9 +15,15 @@ Compare Plain Roblox with Facet using the same brief, model, tools, deadline,
 and device requirements. There are no smaller modes or follow-up author turns.
 
 The [brief](tasks/run/brief.md) contains the complete game requirements.
-The [suite](run.json) contains one task, two arms and two author agents:
-`codex-sol` (Sol 6.1 Medium) and `claude-opus` (Opus 5.5 Medium). Select one
-author with `--agent ID`, so both arms of a pair use the same model. Each
+The [suite](run.json) contains one task, two arms and three author agents:
+`codex-sol` (Sol 6.1 Medium), `codex-sol-images` (the same author with its
+image generator left on) and `claude-opus` (Opus 5.5 Medium). Select one
+author with `--agent ID`, so both arms of a pair use the same model and the
+same tools. Compare a `codex-sol` pair with a `codex-sol-images` pair to see
+what images add; do not pair an arm with images against one without. Before
+a `codex-sol-images` pair, approve the generator's output folder for uploads
+in each owned Studio (Assistant Settings, MCP Permissions), or the authors
+can make a concept but cannot put art in the game. Each
 author gets one prompt and one fresh Studio place. Coding, reading guidance,
 tool calls, play checks, and self-correction all consume the same 1800-second
 window. The brief does not state the limit; the runner stops the author at the

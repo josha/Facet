@@ -36,14 +36,16 @@
       "exposure": "test",
       "since": "v3.6 (first used for kit-8fd against kit-dbf)",
       "request": "Build the quest board for my adventure game with Facet. The player browses today's quests, reads one, accepts or abandons it, follows progress on accepted quests and claims a finished one."
-    }
-  ],
-  "unseen": [
+    },
     {
       "id": "pet-care",
       "family": "creature care",
-      "request": "Build the pet care screen of my creature-raising game with Facet. The player sees their pet and its mood, feeds it, plays with it, puts it to sleep and sees its needs change."
-    },
+      "request": "Build the pet care screen of my creature-raising game with Facet. The player sees their pet and its mood, feeds it, plays with it, puts it to sleep and sees its needs change.",
+      "exposure": "test",
+      "since": "v4.1 (first used for kit-2f7 against kit-e4d)"
+    }
+  ],
+  "unseen": [
     {
       "id": "race-results",
       "family": "results and rewards",

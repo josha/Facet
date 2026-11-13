@@ -56,4 +56,39 @@ return function(harness: Verify.Harness)
 		target = scrollTarget(cell, true)
 		t:expect(target):toBe(nil)
 	end)
+
+	harness:case("a cell taller than its scroll viewport is brought to an edge and then left", function(t)
+		local engine = engineLib.new()
+		local V2 = engine.types.Vector2
+		local root = engine.new("ScreenGui") :: ScreenGui
+		t:defer(function()
+			root:Destroy()
+		end)
+		local list = engine.new("ScrollingFrame") :: ScrollingFrame
+		list.Parent = root
+		local card = engine.new("TextButton") :: TextButton
+		card.Parent = list
+		local function place(node: Instance, property: string, value: unknown)
+			engine.environment.poke(FixtureRoblox.assertInstance(node), property, value)
+		end
+		place(list, "AbsolutePosition", V2.new(16, 148))
+		place(list, "AbsoluteWindowSize", V2.new(713, 167))
+		place(list, "AbsoluteCanvasSize", V2.new(713, 902))
+		place(card, "AbsoluteSize", V2.new(348, 290))
+		place(card, "AbsolutePosition", V2.new(16, 240))
+		local target, dx, dy = scrollTarget(card, true)
+		t:expect(target):toBe(list)
+		t:expect(dx):toBe(0)
+		t:expect(dy):toBe(92)
+		place(card, "AbsolutePosition", V2.new(16, 148))
+		target, dx, dy = scrollTarget(card, false)
+		t:expect(target):toBe(list)
+		t:expect(dy):toBe(0)
+		place(card, "AbsolutePosition", V2.new(16, 74))
+		target, dx, dy = scrollTarget(card, false)
+		t:expect(dy):toBe(0)
+		place(card, "AbsolutePosition", V2.new(16, -60))
+		target, dx, dy = scrollTarget(card, false)
+		t:expect(dy):toBe(-85)
+	end)
 end

@@ -46,6 +46,8 @@ export type Kit = {
 	nextFrame: (() -> ()) -> () -> (),
 }
 
+local STICK_REACH = 1.5
+
 local layoutKit = {}
 
 function layoutKit.of(ctx: Shared.Context): Kit
@@ -1076,8 +1078,18 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					return
 				end
 				local controls: { GuiObject } = {}
+				local stickArt: { [GuiObject]: { GuiObject } } = {}
 				for _, node in if touchGui then touchGui:GetDescendants() else {} do
 					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
+						continue
+					end
+					local region = node:FindFirstAncestor("DynamicThumbstickFrame")
+					if region and region:IsA("GuiObject") then
+						if node:IsA("ImageLabel") then
+							local art = stickArt[region] or {}
+							stickArt[region] = art
+							table.insert(art, node)
+						end
 						continue
 					end
 					if
@@ -1109,18 +1121,19 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						and (controlsEnabled == nil or use(controlsEnabled) ~= false)
 					local at, box, scale = use(position), use(size), use(unit)
 					local bottom = 0
-					local function reserve(start: Vector2, bounds: Vector2, shown: boolean)
+					local function reserve(start: Vector2, bounds: Vector2, shown: boolean, from: number?)
+						local top = from or start.Y
 						if
 							active
 							and shown
 							and bounds.X > 0
-							and bounds.Y > 0
+							and start.Y + bounds.Y > top
 							and start.X < at.X + box.X
 							and start.X + bounds.X > at.X
-							and start.Y < at.Y + box.Y
+							and top < at.Y + box.Y
 							and start.Y + bounds.Y > at.Y
 						then
-							bottom = math.max(bottom, math.min(box.Y, at.Y + box.Y - start.Y) / scale)
+							bottom = math.max(bottom, math.min(box.Y, at.Y + box.Y - top) / scale)
 						end
 					end
 					for _, control in controls do
@@ -1134,7 +1147,24 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							node = node.Parent
 						end
-						reserve(start, bounds, shown and nativeActive)
+						local tallest = 0
+						for _, image in stickArt[control] or {} do
+							if use(ctx.observe.Visible(image)) then
+								tallest = math.max(tallest, use(ctx.observe.AbsoluteSize(image)).Y)
+							end
+						end
+						local from: number? = nil
+						if tallest > 0 then
+							local rest = start.Y + bounds.Y
+							local host = control.Parent
+							if host and host:IsA("GuiObject") then
+								local hostEnd = use(ctx.observe.AbsolutePosition(host)).Y
+									+ use(ctx.observe.AbsoluteSize(host)).Y
+								rest = math.min(rest, hostEnd)
+							end
+							from = math.max(start.Y, rest - tallest * STICK_REACH)
+						end
+						reserve(start, bounds, shown and nativeActive, from)
 					end
 					for _, declaration in read(config.touchReservations, use) or {} do
 						local area = read<<(Rect | GuiObject)?>>(declaration, use)

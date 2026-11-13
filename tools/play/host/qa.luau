@@ -32,7 +32,14 @@ export type Info = {
 	score: number?,
 }
 
-export type Route = { found: boolean, path: { string }?, reason: string?, visited: number, target: string? }
+export type Route = {
+	found: boolean,
+	path: { string }?,
+	reason: string?,
+	visited: number,
+	target: string?,
+	stranded: string?,
+}
 
 export type Shot = {
 	device: string,
@@ -442,6 +449,7 @@ local function create(context: Context, device: Devices.Device): QA
 			reason = if raw.reason ~= nil then tostring(raw.reason) else nil,
 			visited = tonumber(raw.visited) or 0,
 			target = if raw.target ~= nil then tostring(raw.target) else nil,
+			stranded = if raw.stranded ~= nil then tostring(raw.stranded) else nil,
 		}
 	end
 
@@ -456,6 +464,14 @@ local function create(context: Context, device: Devices.Device): QA
 				return true, start.label
 			end
 			local route = self:route(query)
+			if route.stranded ~= nil then
+				self:log(
+					("the selection rested on %q, which cannot act; a direction %s"):format(
+						route.stranded,
+						if route.found then "left it" else "did not reach the target"
+					)
+				)
+			end
 			if not route.found or route.path == nil then
 				return false,
 					("gamepad navigation from %q cannot reach %s: %s"):format(

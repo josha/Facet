@@ -141,6 +141,10 @@ local function check(context: Rule.Context): { string }
 	for _, retired in { "games.json", "slice.json", "extended.json", "extended-spec.json" } do
 		need(not Files.isFile(context.path("eval/" .. retired)), "retired authoring mode remains: " .. retired)
 	end
+	need(
+		string.find(Files.read(context.path("eval/arms/facet/AGENTS.md")), '["SKILL.md"]', 1, true) == nil,
+		"the Facet arm reads the skill a second time; the author instructions already include it"
+	)
 	return findings
 end
 
@@ -203,6 +207,11 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				Files.write(path, (string.gsub(original, '"wallSeconds": 1800', '"wallSeconds": 1801')))
 				Verify.expect(Rule.contains(check(context), "deadline must be 1800"))
 					:toBeTrueWith("an extended deadline was accepted")
+				Files.write(path, original)
+				local arm = context.path("eval/arms/facet/AGENTS.md")
+				Files.write(arm, Files.read(arm) .. '\nRead `FacetDocs.skills["use-facet"]["SKILL.md"].Value` first.\n')
+				Verify.expect(Rule.contains(check(context), "reads the skill a second time"))
+					:toBeTrueWith("a second read of the included skill was accepted")
 			end)
 		end,
 	})

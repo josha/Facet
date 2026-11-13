@@ -494,9 +494,12 @@ return function(verifyHarness: Verify.Harness)
 				expect(table.concat(names, ",")):toBe(table.concat(sorted, ","))
 				local built: Instance? = nil
 				local refused: unknown = nil
+				local unlisted: unknown = nil
 				local stop = app.mount(function()
 					local _, failure = pcall(app.construct, "Button", { label = "Play", bogus = true })
 					refused = failure
+					local _, layoutFailure = pcall(app.construct, "ZStack", { surface = "panel" })
+					unlisted = layoutFailure
 					local node = app.construct("Button", { Name = "Play", label = "Play" })
 					built = node
 					return node
@@ -513,6 +516,10 @@ return function(verifyHarness: Verify.Harness)
 				expect(ok):toBe(false)
 				expect(string.find(tostring(failure), "there is no control named 'Missing'", 1, true) ~= nil):toBe(true)
 				expect(string.find(tostring(refused), "unknown option 'bogus'", 1, true) ~= nil):toBe(true)
+				local listed =
+					"Facet UI.ZStack: unknown option 'surface'. Its options include alignH, alignV, corners, ground, height, padding, width."
+				expect(string.find(tostring(unlisted), listed, 1, true) ~= nil):toBe(true)
+				expect(string.find(tostring(unlisted), "A plate belongs to a VStack", 1, true) ~= nil):toBe(true)
 				stop()
 				app.dispose()
 				runtime:dispose()

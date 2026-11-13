@@ -90,6 +90,7 @@ local shortcut: GuiObject = UI.ShortcutHint { keys = { { "Ctrl", "K" } } }
 local label: GuiObject = UI.Text { text = text }
 local textProps: Facet.TextProps = { text = "Ready", textSize = "caption", role = "secondary" }
 local sized: GuiObject = UI.Text(textProps)
+local fitted: GuiObject = UI.Text "Fitted" { text = "Fit", textSize = { fit = { cap = 100, floor = 34 } } }
 local labelProps: Facet.LabelProps = { title = text, icon = "checkmark", presentation = "iconOnly", iconSize = 20 }
 local titled: GuiObject = UI.Label(labelProps)
 local imageProps: Facet.ImageProps = {
@@ -477,6 +478,7 @@ local mounted: { GuiObject } = {
 	chip,
 	shortcut,
 	label,
+	fitted,
 	badge,
 	status,
 	path,

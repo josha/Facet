@@ -17,9 +17,9 @@ phone, a desktop and a television.
 | Request | Route |
 | --- | --- |
 | A small edit to an established interface | Reuse its decisions and check the affected states. Go to [Find the implementation route](#find-the-implementation-route). |
-| A new interface or a visual redesign | Steps 1 to 4 below, all within the first delivery. |
-| The user supplied a reference image or selected a concept | That image is the target. Read [the target contract](references/game-themes.md#commit-to-the-visual-target) in place of step 1, then do steps 2 to 4. |
-| An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art in place of sketches; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 4. |
+| A new interface or a visual redesign | Steps 1 to 5 below. Finish steps 1 to 4 on one screen before you build a second screen. |
+| A new interface with a reference from the user | [Step 1](#start-from-the-reference) says how much the reference fixes. Then do steps 2 to 5. |
+| An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art as the concept; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
 | A wireframe, a functional spike or a tool in its host's style | Stop at the stated scope. Keep the host's conventions. |
 
 Identify the user's decision, the accepted outcome and the return path.
@@ -30,15 +30,43 @@ existing product restricts it, support touch, pointer and gamepad, and both
 phone orientations. A Studio plugin supports only its host. Report the sizes
 and inputs that you tested; a limited test is not general coverage.
 
-Read this file, [runtime essentials](references/runtime.md) and, for a new
-interface, [finish](references/finish.md). Read one route from the table below
-when the work reaches it. Everything else is reference to search, not to read
-whole.
+This file is the workflow. Read [runtime essentials](references/runtime.md)
+before the first code. Read each other page at the step that names it, and
+search for a section before you read a whole page. Everything that you read
+stays in context for the rest of the work.
 
-## 1. Decide the direction
+The first screen settles the theme, the parts and the fit, and every later
+screen copies them. A fault that stays in the first screen is repeated in
+each one. Steps 1 to 4 are one screen of work, not a polish pass for the end,
+and a theme definition alone does not complete them. In a product with many
+screens, the number of screens that work is easy to count and the finish of
+the first one is not. [Step 2](#know-when-it-is-done) gives it three tests
+that you can count.
 
-Write this card in the working notes before any code. Keep it to about ten
-lines. Each line names something that a player can see, not a mood.
+## 1. Settle the concept, then the theme
+
+The order is: the reference, the card, the concept, the card again in the
+concept's measures, the theme, the theme on one sheet. Then
+[step 2](#2-build-the-first-screen) builds a screen with it. Each part ends
+with something that you can look at.
+
+### Start from the reference
+
+What the user gave decides how much is open. Decide it from the user's
+words, not from how finished an image looks.
+
+| The user gave | Do |
+| --- | --- |
+| A precise reference: a screenshot, a mock, a chosen concept, the look of an existing product | Match it. It is the specification. Write the card from what it shows, and do not put a style of your own in its place. [The target contract](references/game-themes.md#commit-to-the-visual-target) has the rules. Skip the concept. |
+| A conceptual reference: a mood, a genre, a game named as inspiration, a rough sketch | Treat it as a direction, and improve on it. Keep what makes it recognizable. The card then gives it a stronger lead, a clearer hierarchy and a finish that the reference left open. A sketch fixes content and relationships only. |
+| No reference | Make one. Write the card, then make the concept, with an image when you can. |
+
+### Write the card
+
+Write this card before any other code, as a comment at the head of the
+module that defines the theme. It stays in the source there, and you meet it
+at every edit. Keep it to about ten lines. Each line names something that a
+player can see, not a mood.
 
 | Line | Decide |
 | --- | --- |
@@ -52,8 +80,15 @@ lines. Each line names something that a player can see, not a mood.
 | Signature | One detail that a player would describe to a friend. |
 | Response | What visibly happens when the player commits. |
 
-Then make two checks.
+Then make three checks.
 
+- **Write quantities, not adjectives.** A line that states a size, a width,
+  a strength or a share has a number: the lead takes 60 percent of the
+  height, the largest numeral is an eighth of the screen height, the edge is
+  3 px, the light reaches 20 px, the HUD has four plates. *Restrained*,
+  *subtle*, *clean*, *minimal*, *sparse* and *compact* are how the neutral
+  theme is described, and a card that uses them asks for it. Use them only
+  when the brief asks for a quiet product.
 - **Keep the recognizable, replace the reflex.** A player should name the
   genre from a thumbnail, so keep the conventions that carry recognition.
   The other first answers are usually genre defaults. Replace at least two of
@@ -70,137 +105,259 @@ state treatment. Name the product family that the user already knows and keep
 its conventions. Polish then comes from [hierarchy, rhythm, density and
 states](references/finish.md#quiet-interfaces), not from decoration.
 
-**See the screen before building it.** When the direction is a place, a
-material or an illustrated world, draw the first screen as a picture: two or
-three whole-screen compositions of the same task and data on one sheet. Use
-image generation when it is available. Otherwise a short script that draws
-flat shapes, type and color is enough. View the sheet. Choose the composition
-where the lead and the world are strongest, and note what to take from the
-others. A sketch shows a thin scene or a weak hierarchy in minutes; a build
-shows it much later. A quiet tool, a text-led design and an established
-direction skip the sketch.
+### Make the concept before the build
 
-The card and the sketch are internal decisions, not user approval steps.
+When the direction is a place, a material or an illustrated world, the first
+picture of the work is a concept of the first screen. It comes before the
+world is detailed, before the game logic and before any second surface. The
+card is only words, and a build shows a weak composition after the routes
+exist, when it costs most to change.
 
-## 2. Build the first screen as that place
+Make the concept with the best means that you have. Look at your tool list
+before you say that a means is missing.
+
+- **An image tool.** Generate two or three whole-screen compositions of the
+  same task and data on one sheet, in the palette and the type of the card.
+  Write the prompt from the card's quantities. A prompt that asks for
+  restraint gets it.
+- **A drawing script.** Draw the same compositions as flat shapes, type and
+  color.
+- **The engine alone.** Block the screen in. Mount the ground, the lead at
+  its size and the main action with fixed sample data, in the palette and
+  the type of the card, and capture it. It has no game logic and no second
+  surface.
+
+View the concept. Change the composition until the lead and the world are
+strong, then say in one message which composition you chose and what you
+changed. Keep it: [step 2](#know-when-it-is-done) puts it beside the first
+screen that you build. A quiet tool, a text-led design and a precise
+reference skip the concept.
+
+The card and the concept are internal decisions, not user approval steps.
+
+### Read the card off the concept
+
+The concept that you chose is now the target. It has the commitment of
+[a concept that the agent chose](references/game-themes.md#commit-to-the-visual-target):
+keep its composition, its relative scale, its type hierarchy, its materials
+and the shapes of its controls. You chose it because it was stronger than
+the words before it, so where the two differ the concept is right.
+
+Go through the card and correct each quantity to what the concept shows.
+Measure against the screen: the height of the largest numeral as a share of
+the screen height, the share that the lead takes, the width of a plate's
+edge, how far the light or the shadow of a plate reaches, how many plates
+the HUD has and which corner each one is in. A line that still has an
+adjective where the concept shows a size is not finished.
+
+Then decide, for each line, what draws it in the build.
+
+| The concept shows | The build uses |
+| --- | --- |
+| Flat color, lines, light, gradients and type | The theme: `finish`, the palette and the type roles |
+| A drawn material on plates or controls: a texture, a bevel, a shaped or pixel-cut edge | Images in `chrome`, when you can make and upload them; see [three ways to use images](references/game-themes.md#three-ways-to-use-images) |
+| An illustrated ground, a subject or icons | `UI.Image` and theme `icons` from separate files in the concept's style |
+
+Make each image as its own file for its role; do not cut pieces from the
+concept sheet. [Art](references/art.md) has the geometry of each role and
+[upload](references/asset-upload.md) has the route into the place. When
+there is no image tool, or the upload is refused, write that line again in
+terms that the engine draws (a line, a shadow, a glow, a gradient, a font),
+at the strength that the concept shows, and say in one message what the
+direction lost.
+
+### Build the theme from the card
+
+The theme is the card in values. Each line of the card has one place in the
+definition, and a line with no value there is not in the product.
+
+| Card line | Theme value |
+| --- | --- |
+| Palette | `style.themes[n].colors` and `extra`, by role |
+| Type | `metrics.typography`: a size and a family for `title`, `heading`, `numeral`, `strong`, `label`, `body` and `caption` |
+| Shape and edge | `metrics.radii`, and `finish`: the width and the color of the edge, and the lift, the glow and the sheen of the plate |
+| Controls | `finish.edge.controls` and `finish.depth.controls`, or art in `chrome` when images were made |
+| Signature and response | `chrome.focus`, `metrics.motion` and the effect controls |
+
+State `finish` in every theme. Its values come from the card as the concept
+corrected it, not from a sample theme. A mail client states a hairline and
+zeros, and stays plain. A neon racing game states a bright edge, a wide glow
+and a sheen. A game with drawn plates states zeros and puts its art in
+`chrome`. [Finish](references/finish.md#edge-and-depth) has the values.
+
+Start each value at the strength that the concept shows, not under it.
+[Finish](references/finish.md#what-a-value-looks-like) says what a value
+looks like: an edge of 1 px is a hairline, and a glow under 8 px or under a
+strength of 0.4 draws nothing. A value that is too strong shows in the first
+capture and takes one edit to reduce. A value that is too weak never shows
+as a fault, and the screens stay plain. Reduce a value only when a capture
+shows it competing with the lead.
+
+Read `report.errors` and `report.advice` from `Facet.themes.define`. The
+advice names a type scale that is flat, a finish that is not stated and a
+glow that will not show.
+
+### Look at the theme alone
+
+`app.specimen()` mounts one sheet of the theme: its type roles with a
+readout, its actions in each state, a field and records. Capture it and put
+it beside the concept, or beside the reference, at the same size. Compare
+by measure, not by name:
+
+- the numeral against the body text, and against the same pair in the
+  concept;
+- the edge of a plate: its width and how bright it is;
+- the light or the shadow around a plate: how far it reaches;
+- the main action against the other actions in its column.
+
+Then view both as thumbnails. What the concept still shows at that size,
+the sheet shows too. A value that you cannot see in the capture is not in
+the product: raise it, or state zero and take the line off the card.
+
+Repair the theme until the two agree, and say in one message what you
+measured and what you changed. A sheet that needed no change was usually
+not compared. Then call the `stop` that the specimen returned. A flat sheet
+gives flat screens, and this is the cheapest moment to see it.
+
+## 2. Build the first screen
 
 Mount one real task with the authored theme, representative data, live labels
 and real controls. Do not build every route with neutral panels and theme them
 later.
 
-Build the screen in layers.
+**Choose the screen.** Take the screen that the player sees most. When play
+continues behind the interface, the world is the ground and the lead, and the
+first screen is the view of play with its HUD. A sheet that opens over play
+does not stand in for it. A product that also has destinations that replace
+play, such as a shop or an editor, has a second kind of ground. Finish one
+such destination in the same way, after the view of play, before you build
+the others.
 
-1. **Ground.** It reaches every edge of the glass on every device, including
-   the bands beside a phone's notch. `UI.Screen { ground = ... }` does this for
-   art. A flat neutral fill is correct only when the card says so.
-2. **Lead.** The subject at the size on the card. It grows and shrinks with the
-   room. Its objects are the largest things on the screen, larger than any
-   message panel, and its markings span the room.
+**Give it an owner.** A surface that opens and closes needs a Facet presenter.
+One screen with no navigation needs only `UI.Screen`.
+
+| The player | Owner | Start from |
+| --- | --- | --- |
+| Watches or acts while play continues | `Composition` with `Region`s | Node `Tasks.hud` |
+| Enters a destination that replaces play | A `NavigationStack` destination that holds a `Screen` | Node `Tasks.pages` |
+| Completes a short task over play | `Sheet` or `Dialog` | Nodes `Tasks.sheet` and `Tasks.confirm` |
+| Switches between peer tasks, or goes deeper and returns | `TabView`; a `NavigationStack` inside the surface | [Game screens](references/game-screens.md) |
+
+The owner moves the selection to the first usable control when the surface
+opens, and it skips disabled and hidden controls. It returns the selection to
+the opener when the surface closes, and it routes Back and gamepad B. In an
+app made with `Facet.app({ suspendGameplay = true })` it also turns off the
+game's input and the touch controls while the surface is open. A cell that swaps one `Screen` for
+another through `C.show` or `C.switch` is not an owner: the selection is not
+moved in or returned, Back has no route and play is not suspended. Do not
+repair that with a search through the descendants for a button to select:
+the search finds disabled and covered controls. Present the surface through
+its owner. Set `GuiService.SelectedObject` yourself only
+on a named control whose state you know; [runtime essentials](references/runtime.md#input)
+has the case. The owner decides behavior, not appearance: its node shows a
+structure, and the composition stays yours.
+
+**Build the shared parts on this screen.** In a product with many screens, a
+few functions of your own draw most of them: the one that makes an action, a
+record, a section and the body of a page. Every screen gets what those
+return and little else. They are the product's design system, and a plain
+helper makes every screen plain. Write them as the project's components and
+finish them here, before a second screen calls them.
+
+- **The theme.** [Step 1](#build-the-theme-from-the-card) made it and
+  showed it on one sheet. It has an edge and a depth as well as colors and
+  type: a definition with only colors, fonts and radii is the neutral theme
+  in new colors.
+- **A record.** One item with its visual, its name, the value that decides
+  and its state, in a full form and a short form. When the whole record is
+  one Button with content of its own, the Button hugs that content, so the
+  records of one list differ in width. Use `align = "stretch"` on the list,
+  or a `Size` with a width, to make each record span the list.
+- **A readout.** A value that the player watches during the task, such as a
+  place, a time or a balance, is a number in the `numeral` role with its
+  label as a caption. It is the largest type in its region. One line of
+  body text that joins every fact is a sentence about the state, and the
+  player cannot find the one value in it at a glance.
+  [Information display](references/information-display.md) has the forms.
+- **The actions.** The main action is the strongest thing in its column, in
+  `emphasis` and at the column's width when it stands alone. The lesser
+  actions are quieter. A group of peer actions or choices is one stack of
+  equal parts: `align = "stretch"` in a column, equal shares in a row.
+  Hugging widths that differ by label read as an accident;
+  [game screens](references/game-screens.md#a-group-of-peers) has the form.
+- **The body of a page.** It uses the width of its surface: a bounded
+  column, a `Grid` whose column count follows the room, or two panes. A
+  stack that hugs one corner of a large surface is not a body.
+- **The text.** `wrap = true` is for a sentence. A name, a value, a label
+  and a heading are one line. A helper that wraps every text lets a value
+  break in the middle when its part is narrow. A text with no `textRole` is
+  body text, so a helper that sets no role gives every screen one size.
+  Each text names its role: `title`, `heading`, `numeral`, `strong`, `label`
+  or `caption`.
+
+**Build it in layers.**
+
+1. **Ground.** It reaches every edge of the glass on every device. A flat
+   neutral fill is correct only when the card says so. When the ground is
+   the 3D world, its sky and its light are the ground: set them from the
+   card. The sky that the engine starts with is the neutral ground.
+2. **Lead.** The subject at the size on the card, scaled from the room. Its
+   objects are the largest things on the screen.
 3. **Controls.** Real Facet controls in the theme's materials, placed where the
-   input reaches them. They keep their target sizes. In a place, they sit on
-   its furniture, such as a rail, a counter or a tray, and not on a bar that
-   floats over the scene.
+   input reaches them. In a place, they sit on its furniture, such as a rail,
+   a counter or a tray, and not on a bar that floats over the scene.
 4. **Type.** The display family at a confident size for the line that leads.
    Supporting facts stay smaller and quieter.
 5. **Messages.** Each state's message (a prompt, a result, an error) has a
-   reserved place in the composition. It does not cover the lead or the
-   markings that make the place.
+   reserved place in the composition. It does not cover the lead.
 
-Compose the layers with Facet, and keep the picture. The build shows the same
-place and the same objects as the chosen sketch. Facet changes how the picture
-is constructed, not what it shows: a wall of tools stays a wall of tools. It
-does not become a grid of cards because a Card is the nearest control.
+For a place, a material or an illustrated world, read
+[build a screen as a place](references/place.md) before you write the screen.
+It has the construction: a ground that reaches the glass, a scene region made
+of layers, objects that are Buttons, and art without an image model. The
+build shows the same place and the same objects as the chosen concept. Facet
+changes how the picture is constructed, not what it shows: a wall of tools
+stays a wall of tools. It does not become a grid of cards because a Card is
+the nearest control. When the build looks plainer than the concept, it is
+not finished.
 
-```luau
-local env = UI.environment()
+Put the character in the theme, so every control inherits it. Read
+[finish](references/finish.md) when you define the theme: it maps each line
+of the card to the theme field or control that realizes it. Carry the
+direction into the parts that the player uses: the choice surfaces, the
+labels, the state marks and the commitment. A themed banner above neutral
+cards leaves the task unchanged.
 
--- An object in the scene is one Button. Its face is the object.
-local function piece(index: number)
-    return UI.Button("Piece" .. index) {
-        appearance = "bare", -- no plate, padding or minimum size: the face is the Button
-        name = names[index],
-        selected = function(use) return use(chosen) == index end,
-        onActivate = function() chosen:set(index) end,
-        UI.ZStack "Face" {
-            alignH = "center", alignV = "end",
-            Rotation = tilt[index], -- tilt the face; a stack keeps its children upright
-            UI.Image {
-                image = art.piece[index], aspectRatio = 5 / 7,
-                width = function(use) return if use(env.isCompact) or use(env.isShort) then 72 else 150 end,
-            },
-            UI.Image { -- the selected mark belongs to the object
-                image = art.mark, width = 36, height = 36,
-                ImageTransparency = function(use) return if use(chosen) == index then 0 else 1 end,
-            },
-            UI.Text { text = labels[index], textSize = "title" },
-        },
-    }
-end
+### Know when it is done
 
-UI.Screen "Root" {
-    -- The place. Art reaches every edge of the glass; the content stays safe.
-    ground = UI.ZStack "Place" {
-        alignV = "end",
-        UI.Image { image = art.backdrop, scaleMode = "crop", width = "fill", height = "fill" },
-        UI.Image { image = art.foreground, scaleMode = "crop", width = "fill", height = 120 },
-    },
-    UI.HStack "Header" { width = "fill", title, UI.Spacer {}, readout },
-    -- The lead. One region takes the free room and holds the layers.
-    UI.ZStack "Scene" {
-        UI.fill(), width = "fill", alignH = "center", alignV = "center",
-        UI.Image { image = art.subject, scaleMode = "fit", height = "fill", aspectRatio = 1 },
-        UI.VStack { width = "fill", height = "fill", align = "end", distribute = "end", sign }, -- a corner
-        UI.HStack "Row" { gap = -30, piece(1), piece(2), piece(3) }, -- a negative gap overlaps
-    },
-    UI.HStack "Actions" { width = "fill", gap = "m", distribute = "center", action },
-}
-```
+The first screen is done when three tests pass on one revision. Do not build
+a second screen before they do.
 
-The names, sizes and arrangement above are placeholders. They show mechanics,
-not a layout to copy: a `ground` that reaches the glass; a `ZStack` region
-whose layers can each be a filling stack that aligns its own content; `width`,
-`height` and `aspectRatio` on `UI.Image`, bound to the room; a negative `gap`
-for overlap; and a `bare` Button whose face is the object. Compose your own picture
-from them. The layers of a `ZStack` do not make room for each other. Keep the
-`ZStack` for parts that are meant to overlap, and put parts that must not
-cover each other, such as two groups with a message between them, in one
-stack or `AdaptiveStack`. An action with a shaped face is the same `bare` Button with a
-sliced image behind its label.
-
-Put the character in the theme, so every control inherits it. The palette,
-type roles, radii, strokes, gradients, shadows, focus look, control art and
-motion are all theme values. [Finish](references/finish.md) maps each line of
-the card to the theme field or control that realizes it.
-
-Make the art that the card needs. Native gradients, strokes, paths and type
-can carry a graphic direction. A material, a scene or shaped control surfaces
-need image files: [make them without image generation](references/art.md)
-when no image model is available, then [upload them](references/asset-upload.md)
-and verify that they load. Do not use EditableImage or packed pixels for
-authored UI art. A missing image model does not reduce the target to flat
-panels; it changes how the art is made.
-
-Carry the direction into the parts that the player uses: the choice surfaces,
-the labels, the state marks and the commitment. A themed banner above neutral
-cards leaves the task unchanged. Keep standard control behavior under custom
-paint: one semantic target, live text, and focus that Facet draws.
+1. **The card.** Put the card and the concept beside the desktop capture
+   and mark each line of the card present or absent, at the card's measure:
+   the ground, the lead at its share of the screen, the palette roles, the
+   two type families, the shared edge, the material of the controls, the
+   signature and the response. Each part of the concept is in its place and
+   near its size. An absent line is work to do. Do not remove it from the
+   card to pass. A quiet interface marks the same lines with its quiet
+   answers.
+2. **The forms.** That revision is captured on a desktop, a phone in
+   portrait and the same phone in landscape, as
+   [step 3](#3-make-one-build-fit-every-screen) describes, and nothing
+   overlaps or is cut in any of them.
+3. **The review.** `Facet.review.screen().text` at each of those sizes has
+   no `high` finding, and each `medium` finding is repaired or has a reason
+   in one line, as [step 4](#4-look-then-repair) describes.
 
 ## 3. Make one build fit every screen
 
 Each layer scales by its own rule. The ground covers the viewport and crops.
 The lead fits its region and keeps its aspect ratio. Controls and text keep
-their sizes and reflow. On a wide screen the lead takes most of the free room:
-bind the size of its objects to the room, so a desktop does not show
-phone-size objects in an empty field. Text that is part of a scene object,
-such as the writing on a note, grows with the object. On a short screen, keep
-the pieces that identify the place and drop repetition. On a short wide
-screen the height is the scarce side: the lead takes the full height and the
-other parts sit beside it, not above or below it.
-
-A row of scene objects that scrolls is clipped at its own edge, and a clip
-inside the picture reads as a seam. Run a scrolling row to the edge of the
-screen, or make the objects smaller until the set fits. One fixed canvas under a `UIScale` does none of these:
-it shrinks targets and text on a phone and strands the art on a wide screen.
+their sizes and reflow. On a short wide screen the height is the scarce side:
+the lead takes the full height and the other parts sit beside it, not above
+or below it. One fixed canvas under a `UIScale` does none of these.
+[Build a screen as a place](references/place.md#scale-each-layer-by-its-own-rule)
+has the rest.
 
 Choose the arrangement from the room, not from a device name. Call
 `local env = UI.environment()` once and read `use(env.isCompact)`,
@@ -218,7 +375,7 @@ Play:
 ```luau
 local simulator = game:GetService("StudioDeviceSimulatorService")
 simulator:SetDeviceAsync("iphone_14") -- or "hd_1080", "xbox", "ipad_a16"
-simulator:SetOrientationAsync(Enum.ScreenOrientation.Portrait) -- or LandscapeLeft
+simulator:SetOrientationAsync(Enum.ScreenOrientation.Portrait) -- or LandscapeLeft; phones and tablets only
 task.wait(1)
 return tostring(workspace.CurrentCamera.ViewportSize)
 ```
@@ -226,91 +383,114 @@ return tostring(workspace.CurrentCamera.ViewportSize)
 `simulator:GetDeviceListAsync()` lists the device ids. The preview shows the
 real safe-area insets and touch controls; a resized frame does not. Capture
 the first screen on a desktop, a phone in portrait and the same phone in
-landscape before you build more screens. Add a console when the product
-supports one. Restore the desktop preview when you finish.
+landscape before you build more screens. Restore the desktop preview when you
+finish.
+
+Let a plate hug its content. A pixel width that makes a text fit on a
+desktop does not shrink on a phone, and `mayDrop = true` does not repair it:
+the Popover that shows the dropped part is as wide as the part.
+
+A size that you fix stays fixed in a short room; Facet does not choose a
+shorter form for you. A record that is taller than the room that scrolls it
+is never seen whole. Measure that room with `UI.environment(body)` and give
+the record a shorter form there, such as a thumbnail beside its facts;
+compact compositions shows
+[the switch](references/compact-compositions.md#change-the-form-of-a-record).
+
+A shorter form keeps a route to what the fuller form offered. Press each
+opener at the short size and see its task appear. What the player opens with
+a button gets a Sheet or a Popover, not a HUD region that can drop;
+[compact compositions](references/compact-compositions.md#allocate-the-remaining-room)
+has the rule.
+
+Add a console when the product supports one, and check focus there before you
+build more screens. [Runtime essentials](references/runtime.md#input) has the
+keys that stand for a controller in Studio.
 
 ## 4. Look, then repair
 
 View each capture at its real size. A text report does not show the screen.
 Check these in order and stop at the first failure.
+[Look, then repair](references/look-and-repair.md) has the full form of each
+check.
 
 1. **Fit.** Nothing is clipped, overlapped or unreachable at any size. The
-   ground reaches every edge, with no band of the game world beside it. The
-   main action is inside the thumb's reach on a phone. Every part of the
-   desktop screen is present at every size under the same label: a part can
-   move or shrink, but it does not vanish or change its name. List the parts
-   and labels of the desktop capture and find each one in the other captures.
-   A part stays with its group at every size, and an action that discards
-   work does not sit beside the main action. The furniture of the place stays
-   where it is when the state changes. On a phone, a row of controls keeps a
-   margin of 16 pixels or more at each side.
+   ground reaches every edge. Every part of the desktop screen is present at
+   every size under the same label. The main action is inside the thumb's
+   reach on a phone.
 2. **Lead.** The subject or the content is the largest and clearest thing on
    the screen, at every size. On a desktop its objects and markings span most
-   of the width. Play that sits in a centre column under half the width is too
-   small: scale the lead from the measured room.
+   of the width.
 3. **Identity.** With the title hidden, the screen still belongs to this
    product. For an expressive game, these are signs of an unfinished direction:
    a flat neutral ground; one font family at nearly one size; choices that are
    equal rectangles with different labels; a main action that looks like every
-   other button; a small subject beside a large empty area. Put the capture
-   beside the chosen sketch: the place, the lead and the objects of the
-   sketch are all in the capture.
+   other button; a small subject beside a large empty area.
 4. **States.** Selected, focused, pressed and disabled paint belong to the
-   theme, and selection stays clear when focus moves to a peer. In a still
-   capture, a person who has not used the screen can name the selected choice.
+   theme. In a still capture, a person who has not used the screen can name
+   the selected choice.
 5. **Response.** Commit with real input. The response on the card happens, and
    the action stays in place.
 6. **Craft.** Crop the capture to each kind of object and view it at twice its
-   size. The objects of the lead have the most detail on the screen, with the
-   parts that a player expects on the real thing. No image is soft, stretched
-   or flat where its material has grain. Nothing is a placeholder: no dash
-   for a missing value, no empty outline, no hint glyph that looks like debug
-   text. All numerals use one family. Art that shows a value shows the real
-   one. A disabled control is drawn in the same family as the enabled one.
-   Parts of one group share a baseline, also after an animation ends. A label
-   on a piece of art lies inside the painted shape, with a margin, and
-   contrasts with the paint behind it. No object is stretched away from its
-   drawn proportions. [Art](references/art.md#spend-the-detail-where-the-player-looks)
-   has the standard.
-
-For an expressive game, an independent review is the largest gain in finish
-that is available after the first build. Your own check of your own screen
-misses faults that a fresh viewer sees at once. When you can start a separate
-agent, give it only the user's request and the captures of every size. Ask it
-to act as a strict art director who has not seen the work: to score identity,
-craft, hierarchy and the fit at each size from 1 to 5, and to list every
-fault that stops a 5, most important first, each specific enough to act on
-without its other notes. Repair the list in order, at the cause, and keep
-what works. Capture again and repeat with a new reviewer. Two rounds are
-usual. Stop when the list is small polish, and do not ask a reviewer to
-approve the result. When you cannot start an agent, tell the user that the
-screen has had no independent review.
+   size. Nothing is a placeholder, soft, stretched or off its baseline, and a
+   label on a piece of art lies inside the paint.
 
 Repair the two largest gaps at their cause, then capture again. Enlarge the
 lead or the type before you add panels; fix the theme before you paint one
 control. A quiet tool passes the identity check with a plain ground and one
 family; judge its hierarchy, rhythm, density and states.
 
+For an expressive game, an independent review is the largest gain in finish
+that is available after the first build. When you can start a separate agent,
+give it only the user's request and the captures of every size, and run
+[the review round](references/look-and-repair.md). When you cannot start an
+agent, tell the user that the screen has had no independent review.
+
 Run `Facet.review.screen().text` in the Client data model on each changed
 screen, at each size that you capture and in each state that has its own
-message, such as the empty state and the result. A collision at one size does
-not show at another. Fix `empty-screen`, `build-failed`, `runtime-error` and
-each `high` finding before building the next screen. `overlapping-text` is
-high: two texts collide at this size. `covered-text` names a label that is
-under a plate from another part at this size, and `escaped-text` names a
-label that runs past its backing or that a clip cuts; repair them unless the
-effect is deliberate. `native-text` names labels that were built outside
-Facet; rebuild them with `UI.Text`. Treat other findings as prompts to look,
-not as verdicts. For an image, the review uses the painted bounds, which it
-reads from the pixels in Studio, so a label that runs over the edge of the
-paint is found. It does not find a label that is mostly on the transparent
-margin, on a soft shadow or over a hole in the paint, and it uses the
-rectangle for art that Studio cannot read, so look at the capture too.
+message or its own rows, such as the empty state, the filled list and the
+result. Fix `empty-screen`, `build-failed`, `runtime-error` and each `high`
+finding before building the next screen. On a new interface, each `medium`
+finding is work too. `hollow-plate`, `joined-facts`, `flat-hierarchy`,
+`record-without-visual`, `competing-peaks` and `nested-surface` are how a
+generic composition reads in numbers: a plate with its content in one
+corner, a line that joins every fact, records that differ only by name.
+Repair each one at its cause, or note in one line why the design keeps it.
+A reason belongs to one finding: it names the part and what the player
+gains from it as it is. One reason for a whole rule, or for every finding
+on a screen, means that the findings were not looked at.
+`low` findings are prompts to look. A clean report covers only the state
+that was mounted, and it does not judge identity.
 
-Then build the remaining routes around the working treatment, each with its
-own composition. Use the [critique-ui loop](../critique-ui/SKILL.md#the-loop)
-when the user asks for a review or a polish pass, or after choosing from
-rendered alternatives when a separate reviewer is available.
+## 5. Build the other screens
+
+Build each remaining screen from what the first one settled: the theme, the
+owners and the project's own components. Give each screen the composition
+that its task needs, with its own lead, action and arrangement. One `Screen`
+with a header and a scrolling column, used again for every destination, makes
+every task a form, and the finish of the first screen does not reach it. Size
+each surface to its task: a short task hugs its content, and a surface that
+you make large is filled by a body that uses its width. The
+examples in [Find the implementation route](#find-the-implementation-route)
+compose a collection, an inspection, an outcome and settings differently.
+
+A check covers only what was mounted when it ran. Check again what a change
+touches.
+
+- After a change to a builder that several screens share, mount each state
+  that uses it, with data that enters every branch: the filled list, the
+  empty one and the error. A syntax check does not build a control, and a
+  branch that waits for data is not built on an empty state.
+- After a change to focus, navigation or input ownership, start a fresh Play
+  session. Check the first directional move, an activation and Back.
+- After a change to the form or the size of a record, open the shortest
+  screen, scroll from entry and activate a record.
+- After a change to a HUD region, review the HUD again on the phone in both
+  orientations. A region that is added late is the one that overlaps.
+
+Use the [critique-ui loop](../critique-ui/SKILL.md#the-loop) when the user
+asks for a review or a polish pass, or after choosing from rendered
+alternatives when a separate reviewer is available.
 
 ## Build with Facet, not around it
 
@@ -318,27 +498,14 @@ Build the whole interface from Facet: layout, images, text, state and motion,
 as well as controls. A Facet construct adapts to room, input, text scale and
 ten-foot viewing, takes the theme, and is visible to `Facet.review`. A native
 frame placed by `Position` does none of these, and two of them can overlap
-when the room shrinks.
+when the room shrinks. [Runtime essentials](references/runtime.md#from-a-native-habit-to-facet)
+names the Facet construct for each native habit.
 
-| Native habit | Use |
-| --- | --- |
-| `Frame` with a `UIListLayout` | `UI.VStack` or `UI.HStack` with `gap`, `padding`, `align` and `distribute` |
-| A row that must become a column | `UI.AdaptiveStack`, or `HStack { wrap = true }` for many short items |
-| `UIGridLayout` or computed cell positions | `UI.Grid`, or `UI.VirtualGrid` with `minColumnWidth` for a long collection that scrolls |
-| Children layered with `AnchorPoint` and `Position` | `UI.ZStack` with `alignH` and `alignV` |
-| A block pinned to the bottom or the far side | `UI.Spacer {}` or `UI.fill()` in a bounded stack |
-| `ImageLabel` with a computed `Size` | `UI.Image` with `width`, `height` and `aspectRatio` (`"fill"` or pixels, bound to the room when needed), `scaleMode`, `shape` and `tint`; native image properties still apply |
-| A separate ScreenGui for a full-screen backdrop | `UI.Screen { ground = UI.Image { ... } }`, or a `UI.ZStack` of images for layers |
-| A transparent `ImageButton` or `TextButton` over art | `UI.Button { appearance = "bare", name = ..., face }`: the Button has the size of its face, Facet draws focus and keeps the touch target |
-| Objects placed in a scene by coordinates | Layers of a `ZStack`, each a filling stack that aligns its own content; a negative `gap` for overlap; `Rotation` on a face |
-| `TextLabel` | `UI.Text` with a `textRole`; `UI.Label` for an icon with a value |
-| A count or status pill; a mark on a corner | `UI.Badge`; `UI.badged(host, value)` |
-| A plate image behind a group | `surface = "panel"` with theme `chrome.panel` art |
-| A label on one piece of art, such as a note, a card or a sign | A stack with `ground = UI.Image { image = ..., scaleMode = ..., paintRect = ... }`: the art fills the stack and the padding starts at its paint |
-| A thin frame as a rule | `UI.Divider` |
-| Pixel tables chosen by screen size | `AdaptiveStack`, `ViewThatFits`, or one `UI.environment()` class |
-| `TweenService` | Theme motion with `UI.countUp`, `UI.follow`, `UI.sequence`, `UI.shake`, `Flash` and `Travel` |
-| `UserInputService` key checks | An `InputAction` with the Button's `shortcutHint` |
+Use the control that names a part before you build the part from stacks:
+`Avatar` for a face or initials, `Badge` for a short status, `ProgressView`
+for measured progress, `Timer` for a deadline, `StepIndicator` for steps and
+`Chip` for a filter. Such a control brings its states, sizes and fallbacks.
+Search the reference for the noun first.
 
 Native Roblox remains correct for what Facet has no construct for: a
 `UIPadding` or `UISizeConstraint` child, a `UIGradient` or `UIStroke` on a
@@ -346,44 +513,29 @@ shape, an `InputAction` and world content. Native properties on a Facet
 construct, such as `Rotation`, `ZIndex` and `ImageTransparency`, are also
 correct.
 
-The table changes the construction and never the design. When the Facet build
-looks plainer than the sketch, the build is not finished: add the missing
-layers with `UI.Image` and `ZStack`. Do not simplify the picture to fit a
-control.
-
 **When Facet has no control for the task, make one from Facet.** Do not build
 the screen from native parts because one control is missing. Write a
-component: a function in the project's own module that takes an options table
-and returns one Instance. Give it the contract of a Facet control: a semantic
-name, live values that are cells or functions, a change callback, `enabled`,
-and a `bare` Button for each target, so that Facet draws focus and takes
-touch, pointer and gamepad input. Compose it from stacks, `UI.Image`, `UI.Text` and
-Facet controls, with Compose for state and cleanup. Call
-`Facet.controls(runtime)` in it, so it uses the app's theme and text scale.
-Use `Host` only inside it, and only for the part that no construct makes,
-such as a drawing surface or a path. Then use the component in every place
-that has the need.
-
-Keep the component outside the Facet package. A Facet update replaces the
-package and leaves the component in place. Do not edit or copy the package's
-source, and use only the public API in the component. Report the need as a
-library gap and name the component as the proposal; see
-[components](../../docs/guide/components.md).
+component in the project's own module, outside the Facet package: a function
+that takes an options table and returns one Instance, with the contract of a
+Facet control. [Components](../../docs/guide/components.md) has the contract.
+Report the need as a library gap and name the component as the proposal.
 
 Before delivery, search the source for `Host.`, `Instance.new`, `AnchorPoint`
-and `TweenService`. Replace each use that the table covers. Report each one
-that remains with its reason. A need that Facet cannot meet is a library gap
-to report, not a detail to hide.
+and `TweenService`. Replace each use that Facet covers. Report each one that
+remains with its reason. A need that Facet cannot meet is a library gap to
+report, not a detail to hide.
 
 ## Find the implementation route
 
 Use Compose for composition, state and lifetime. Standard control behavior
 does not require a standard visual composition.
 
-Look up a control's contract when you are about to use it; everything that you
-read stays in context. With a shell, run `lute run tools/facet docs --search TERM`,
-or search `docs/reference/nodes` when that command is unavailable. In Studio
-with `FacetDocs` installed,
+Read a control's contract before its first use, and before you pass it an
+option that you have not used on that control. An option that you have not
+read is a guess, and options do not move between controls: `surface` belongs
+to `VStack`, `HStack` and `Screen` and takes three values. With a shell, run
+`lute run tools/facet docs --search TERM`, or search `docs/reference/nodes`
+when that command is unavailable. In Studio with `FacetDocs` installed,
 `loadstring(ServerStorage.FacetDocs["search.luau"].Value)()("Sheet detents")`
 returns short matching sources; batch queries as `search({ "A", "B" })` and
 use `search.read(path)` for a complete contract. Do not guess filenames.
@@ -391,8 +543,11 @@ use `search.read(path)` for a complete contract. Do not guess filenames.
 | Task | Read and adapt |
 | --- | --- |
 | Choose a control or a surface for a task | [Choose an interaction](references/choose.md); [game screens](references/game-screens.md) for navigation and lifetime |
+| Structure a HUD, a destination or a modal task | Nodes `Tasks.hud`, `Tasks.pages` and `Tasks.sheet` |
+| Lay out a group of peer actions, or a named palette of colors | [Game screens](references/game-screens.md#a-group-of-peers) |
 | Decide a game design tradeoff | [Game UI design](references/GAME_UI_DESIGN_GUIDE.md) |
 | Define the theme or use image surfaces | [Finish](references/finish.md), then [theme contracts](references/game-themes.md#theme-contracts) |
+| Build a place, a material or an illustrated world | [Build a screen as a place](references/place.md) |
 | Browse records, products or equipment | [Collection](examples/collection.luau) and [patterns](references/patterns.md) |
 | Inspect a selected object | [Inspection](examples/inspection.luau) |
 | Preview a 3D object or choose its color | Node `Tasks.appearance` |
@@ -402,14 +557,10 @@ use `search.read(path)` for a complete contract. Do not guess filenames.
 | Build a Studio plugin or mount in an existing runtime | [Runtime details](references/runtime-details.md) and the `Mounting` node |
 | Work from saved source files with the Facet tooling | [Filesystem workflow](references/FILESYSTEM_WORKFLOW.md) |
 
-Put `table.unpack(rows)` last in a constructor; before other entries Luau keeps
-only its first value. In a `Stage` where the player chooses colors, keep
-`Ambient` and `LightColor` near white. Use typed constructors and reactive
-callbacks. Keep durable selection, drafts and accepted state outside
-disposable pages, and give unrelated tasks separate scroll state. Connect
-pending, rejection, retry and acceptance to the real operation. If a theme
-definition fails, repair the reported errors; do not continue on the neutral
-package.
+Keep durable selection, drafts and accepted state outside disposable pages,
+and give unrelated tasks separate scroll state. Connect pending, rejection,
+retry and acceptance to the real operation. If a theme definition fails,
+repair the reported errors; do not continue on the neutral package.
 
 ## Work in Studio
 

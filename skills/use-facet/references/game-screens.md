@@ -18,10 +18,20 @@ for exact options.
 | Go deeper and return | NavigationStack within the chosen surface |
 | Browse candidates and inspect a selection | NavigationSplitView or a collection with a separate detail step |
 
+Each starting point is a Facet presenter, and the presenter owns what a
+surface needs when it opens and closes: the entry selection, Back and gamepad
+B, the return of the selection to the opener, and in an app made with
+`Facet.app({ suspendGameplay = true })` the game's input and touch controls. Nodes
+`Tasks.hud`, `Tasks.pages` and `Tasks.sheet` show each structure. A page that
+the game swaps in with its own cell has no presenter, so the game would have
+to write all of that, and a hand-written version usually selects a disabled
+or hidden control. Use the presenter and keep the composition of each page
+your own.
+
 Opening from a HUD does not require a centered Sheet. Decide how much world
 context and input access the task needs. A modal owns input; visible gameplay
-behind it is not necessarily interactive or paused. Use `suspendGameplay = true`
-and gate game commands with `UI.environment().gameplaySuspended` when the app
+behind it is not necessarily interactive or paused. Make the app with
+`suspendGameplay = true` and gate game commands with `UI.environment().gameplaySuspended` when the app
 should suspend them. A Studio plugin uses its host's mounting and input model;
 read `Mounting` and [runtime details](runtime-details.md) for that case.
 
@@ -70,6 +80,49 @@ Bound scrolling content. Keep commitment and its terms accessible without
 trapping them behind a fixed footer when the keyboard or larger text reduces
 room. See [compact compositions](compact-compositions.md).
 
+## A group of peers
+
+Actions and choices of one kind are one stack of equal parts. A Button hugs
+its label, so a column of Buttons with no `align` has a different width for
+each label, and a row of them leaves the last one short. Give the group one
+width and let the stack size the parts: `align = "stretch"` for a column,
+`Grid` with `columns` for a row of equal cells.
+
+```luau
+local function drive(app: Facet.App, speed: Facet.ReadOnlyValue<string>,
+  boost: () -> (), recover: () -> (), chat: () -> ()): Frame
+  local UI = app.UI
+  return UI.VStack "Drive" { width = 220, align = "stretch", gap = "s",
+    surface = "panel", padding = "s",
+    UI.Text { text = speed, textRole = "numeral" },
+    UI.Button "Boost" { label = "Boost", appearance = "emphasis", onActivate = boost },
+    UI.Grid "More" { columns = 2, gap = "s",
+      UI.Button "Recover" { label = "Recover", onActivate = recover },
+      UI.Button "Chat" { label = "Chat", onActivate = chat },
+    },
+  }
+end
+```
+
+The readout, the main action and the lesser actions share one left edge and
+one right edge. A label is a word that the player knows, not an identifier
+from the data. More than four or five peers in one row is a Picker, a menu
+or a collection.
+
+A named palette of colors is a ColorPicker with its palette stated. Each
+swatch shows its color and its label, a check marks the selection, and
+`onChange` gets the palette's own Color3:
+
+```luau
+local palette: { Facet.ColorSwatch } = {
+  { color = Color3.fromRGB(255, 70, 90), label = "Red" },
+  { color = Color3.fromRGB(36, 229, 255), label = "Cyan" },
+}
+UI.ColorPicker "Body" { label = "Body color", value = body,
+  style = "inline", modes = { "swatches" }, swatches = palette,
+  onChange = function(color: Color3?) body:set(color) end }
+```
+
 ## Choose, inspect and edit
 
 Use [Collection](../examples/collection.luau) for one browse/detail implementation
@@ -78,8 +131,9 @@ Their models, theme assets, field names and controls illustrate those tasks.
 Transfer only the parts the current application needs.
 
 Choose a segmented Picker when a few short alternatives fit and benefit from
-being visible together. Use Chips with a swatch `leading` for a named palette,
-a menu for longer choices, and ColorPicker when arbitrary color entry is needed.
+being visible together. Use a ColorPicker with stated swatches for
+[a named palette](#a-group-of-peers), a menu for longer choices, and the
+other ColorPicker techniques when arbitrary color entry is needed.
 Keep selection distinguishable beyond color. Preview a draft where that helps
 predict the accepted result; preserve it on rejected or cancelled work according
 to the task's save policy.
@@ -98,7 +152,11 @@ game-owned drawing, an optional opening action and a full-map destination.
 
 Use Composition Regions for information that needs to coexist with play.
 Prioritize from urgency, frequency and the camera's focus area. Provide smaller
-complete forms when regions compete for room. Keep required tasks reachable
+complete forms when regions compete for room. Regions of similar height
+that share the `top` or `bottom` zone take one height, so readouts read as
+one row; `rows = "fit"` keeps every region at its own. What the player
+opens from the HUD, such as full standings, is a Popover or a Sheet of its
+own, not a Region that grows. Keep required tasks reachable
 through any compact menu. Read `HUD-actions` for input ownership and bindings.
 
 Check native touch-control clearance in the actual experience; fixed offsets

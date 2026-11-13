@@ -22,8 +22,10 @@ script.Destroying:Connect(app.dispose)
 Facet.app uses CoreUISafeInsets and SafeAreaCompatibility.None for device
 cutouts and core UI. Screen with default `chrome = "device"` and Composition
 also reserve the bottom band occupied by visible Roblox TouchGui buttons and
-thumbstick regions when UserInputService.TouchEnabled is true. They observe
-native bounds, visibility and lifetime. Rotation updates the clearance.
+thumbstick regions when UserInputService.TouchEnabled is true. For the
+dynamic thumbstick the band covers the stick where it rests, not the larger
+region that takes the drag. They observe native bounds, visibility and
+lifetime. Rotation updates the clearance.
 Nested surfaces add only clearance that their own bounds still overlap.
 Bottom actions stay grouped above these controls; the world stays visible.
 

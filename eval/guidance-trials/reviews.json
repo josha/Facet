@@ -436,6 +436,122 @@
         "quest-2"
       ],
       "outcome": "The reviewer would ship neither as it is and ranked current guidance first. quest-2 lost on the phone: in landscape one notice shows beside a satchel that takes most of the board, and in portrait the satchel fills the top half; the reviewer also named seams in sliced art and a seal over the footer of a notice. None of its faults is a label off the paint of its art. quest-1 lost points for notices with no picture, cut location tags and the stamp over the progress count in the portrait reader. One run stands behind each arm, so this does not separate the kits."
+    },
+    {
+      "id": "blackjack-v4",
+      "phase": 6,
+      "kind": "three builds, one scale",
+      "builds": [
+        "blackjack-5",
+        "blackjack-8",
+        "blackjack-9"
+      ],
+      "scores": {
+        "blackjack-5": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 4,
+          "landscape": 4
+        },
+        "blackjack-8": {
+          "identity": 4,
+          "craft": 4,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 3
+        },
+        "blackjack-9": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        }
+      },
+      "ranking": [
+        "blackjack-8",
+        "blackjack-5",
+        "blackjack-9"
+      ],
+      "outcome": "The reviewer would ship none and ranked the v4 first pass last, behind the v3.2 first pass and its second repair round. blackjack-9 lost on: the result plate clipped at the right edge in portrait and the bet chip at the left; number cards with one pip and court cards with a letter; a lopsided landscape with an empty gap in its control panel; the result plate close above the player's hand; hands with no labels; disabled Hit, Stand and Double left on screen at the result; and a flat felt with no rail, edge or props, which read as a template. The captures are the result state for all three builds. The earlier builds were captured on 9 and 10 November with the library of that day."
+    },
+    {
+      "id": "honey-v4",
+      "phase": 6,
+      "kind": "three builds, one scale",
+      "builds": [
+        "honey-1",
+        "honey-4",
+        "honey-5"
+      ],
+      "scores": {
+        "honey-1": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 2,
+          "desktop": 3,
+          "portrait": 1,
+          "landscape": 1
+        },
+        "honey-4": {
+          "identity": 3,
+          "craft": 2,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 3,
+          "landscape": 1
+        },
+        "honey-5": {
+          "identity": 4,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 4
+        }
+      },
+      "ranking": [
+        "honey-5",
+        "honey-1",
+        "honey-4"
+      ],
+      "outcome": "The reviewer ranked the v4 first pass first by a wide margin and would hold it for small fixes; it would ship none as it is. honey-5 lost points for: an empty counter front on the desktop; small text in the sell panel and on the price tags; a panel that outweighs the jars in portrait; a backdrop that restarts between the two shelves in portrait; a total with no label on phones; a hint line that wraps in landscape; a Leave button that does not match the stall; and a selected jar marked by a glow and a cloth only. honey-5 had an image model and the earlier two did not."
+    },
+    {
+      "id": "pet-v41",
+      "phase": 7,
+      "kind": "pair, one scale",
+      "builds": [
+        "pet-1",
+        "pet-2"
+      ],
+      "scores": {
+        "pet-1": {
+          "identity": 4,
+          "craft": 4,
+          "lead": 4,
+          "desktop": 4,
+          "portrait": 4,
+          "landscape": 3
+        },
+        "pet-2": {
+          "identity": 3,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 3,
+          "portrait": 2,
+          "landscape": 2
+        }
+      },
+      "ranking": [
+        "pet-1",
+        "pet-2"
+      ],
+      "outcome": "The reviewer ranked v4 clearly first and would ship neither as it is; pet-1 is close. pet-1 lost points for the speech bubble cut at the bottom in landscape, a name louder than the pet on the desktop, a bubble far from the pet, controls close to the right edge, a small pet in portrait, thin need labels and scenery cropped in landscape. pet-2 lost on: no mood word; the pet cropped in landscape; a column of needs that crowds the pet in portrait; a Hunger jar whose low level means Feed is needed; small secondary text; shelves that support nothing and tokens that repeat the jar icons; a pet off-centre on the desktop; and a flat look that read as a stock template. The v4.1 additions about the place and the objects did not show in the result, and they were removed from the guidance. One run stands behind each arm."
     }
   ]
 }
