@@ -10,6 +10,14 @@ swatch and a typed hex now propose the exact Color3, and that form has no
 fields. It keeps them with `onSaveSwatch`, with `alpha`, with the generated
 grid and with any other technique.
 
+A plate's shadow arrives after its content. A theme with a glow puts a
+bright shadow under the whole plate, and while a Callout, Sheet or Popover
+faded in at the same rate as its shadow, the glow showed through the
+half-transparent plate as a lit slab before any text could be read. The
+shadow's strength now follows the cube of how much of the plate is shown, so
+it is a fiftieth of its strength when the plate is a quarter in and an eighth
+at half, and it leaves first on the way out. The resting look is unchanged.
+
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
 side, glow, sheen, role, strength, controls), and `define` writes them into
