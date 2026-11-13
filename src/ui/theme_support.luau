@@ -271,6 +271,12 @@ local function sealed(package: ThemeTypes.ReadOnlyThemePackage): boolean
 	return known
 end
 
+local function contentKey(package: ThemeTypes.ReadOnlyThemePackage): string
+	local parts: { string } = {}
+	describe(package, nil, parts)
+	return table.concat(parts)
+end
+
 local function sameBesidesPalettes(
 	left: ThemeTypes.ReadOnlyThemePackage?,
 	right: ThemeTypes.ReadOnlyThemePackage?
@@ -400,5 +406,6 @@ return {
 	deeplyFrozen = deeplyFrozen,
 	sameBesidesPalettes = sameBesidesPalettes,
 	sealed = sealed,
+	contentKey = contentKey,
 	weakKeys = weakKeys,
 }

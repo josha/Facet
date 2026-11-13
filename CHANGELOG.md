@@ -16,6 +16,22 @@ text only when more than half of it is outside. `touching-controls`
 (medium) reports a control whose stroke or shadow, drawn outside its box,
 reaches the control beside it.
 
+An app makes one StyleSheet and shares it. Each `app.mount`, popover and
+toast built its own theme StyleSheet inside its ScreenGui, at about 300 KiB of
+Luau heap and 1.5 ms each in Studio. The app now makes the sheet on its first
+mount, in the `parent` option or the PlayerGui, and each ScreenGui holds only
+a StyleLink to it. `app.dispose()` removes the sheet. Code that looked for a
+StyleSheet inside an app ScreenGui reads the StyleLink's `StyleSheet` instead.
+
+The theme compile cache now hits on the default theme. The engine types table
+was new on each call and the neutral theme was not frozen, so each
+StyleSheet compiled every theme rule again and kept its own copy. A
+StyleSheet now reuses the compiled rules: in Studio a mount went from about
+605 to 297 KiB of Luau heap and from 3.0 to 1.5 ms. `themes.neutralPackage()`
+still returns an editable copy. An editable package is cached by its contents,
+so two copies with the same values share one compile and an edited copy
+compiles again.
+
 A Composition matches the heights of similar regions only. With the default
 `rows = "match"`, every region in a row of the `top` or `bottom` zone took
 the height of the tallest one, so a lap readout beside a standings list was

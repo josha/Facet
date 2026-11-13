@@ -24,8 +24,9 @@ end)
 script.Destroying:Connect(app.dispose)
 ```
 
-`app.mount` puts a StyleSheet and a StyleLink in the ScreenGui. The StyleLink
-references the sheet and applies the themed paint. Keep game models, remotes
+`app.mount` puts a StyleLink in the ScreenGui. The StyleLink references the app
+StyleSheet and applies the themed paint. The app makes that sheet one time, in
+PlayerGui or in the `parent` option, and all its mounts share it. Keep game models, remotes
 and assets outside the Facet module tree.
 
 ## The official Roblox Package

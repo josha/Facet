@@ -23,8 +23,8 @@ and its descendant owners. A nested provider replaces the controls for its
 runtime. Other runtimes keep their provided controls. Compose owns the provider
 scope and cleanup; Facet does not walk owners or native Instance parents.
 
-`Facet.app(options)` prepares that runtime, the controls, a native ScreenGui
-and its StyleSheet. Its mounts use `runtime.mount`. It does not add a scene
+`Facet.app(options)` prepares that runtime, the controls, native ScreenGuis
+and one StyleSheet that all its mounts share. Its mounts use `runtime.mount`. It does not add a scene
 graph or a scheduler. `app.dispose()` stops its mounts and disposes a runtime
 only when the app created it. A caller-supplied runtime remains caller-owned.
 The app provides `app.UI` around mounted components and presented content.
