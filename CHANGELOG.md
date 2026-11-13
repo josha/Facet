@@ -1,5 +1,13 @@
 # Current package
 
+An app mount builds its whole ScreenGui inside the app controls. Content that
+a returned `show`, `switch` or `keyed` directive built after `component()`
+returned ran outside them, so `Facet.controls(runtime)` there made default
+controls without the app theme. `app.mount` also takes `{ parent, name,
+screen }` for one ScreenGui, so one app can mount a main layer and an overlay
+layer, and `app.sheet()` returns the shared StyleSheet for a root that the app
+does not mount, such as a SurfaceGui.
+
 An app makes one StyleSheet and shares it. Each `app.mount`, popover and
 toast built its own theme StyleSheet inside its ScreenGui, at about 300 KiB of
 Luau heap and 1.5 ms each in Studio. The app now makes the sheet on its first

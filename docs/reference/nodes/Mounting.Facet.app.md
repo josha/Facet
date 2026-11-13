@@ -22,13 +22,22 @@ The app has these fields:
 
 - `UI`: the controls.
 - `runtime`: the Compose runtime of the app.
-- `mount(component, parent?)`: mounts `component()` in a new ScreenGui and
-  returns `stop, screenGui`. The default parent is the `parent` option or the
-  PlayerGui. The `screen` option of the app sets native ScreenGui properties,
-  for example `ScreenInsets`. The ScreenGui holds a StyleLink to the app
+- `mount(component, target?)`: mounts `component()` in a new ScreenGui and
+  returns `stop, screenGui`. `target` is a parent Instance or a
+  `Facet.MountOptions` table: `parent`, `name` and `screen`. The default parent
+  is the `parent` option or the PlayerGui. The `screen` option of the app sets
+  native ScreenGui properties, for example `ScreenInsets`; the `screen` and
+  `name` of one mount replace them for that ScreenGui only, so one app can
+  mount a main layer and an overlay layer with different `DisplayOrder`
+  values. The whole ScreenGui builds inside the app controls, so content that
+  a `show`, `switch` or `keyed` directive builds later also gets `app.UI` from
+  `Facet.controls(runtime)`. The ScreenGui holds a StyleLink to the app
   StyleSheet. The first mount makes that sheet in the `parent` option or the
   PlayerGui. Every mount, popover and toast of the app shares it, and
   `dispose()` removes it.
+- `sheet()`: returns the app StyleSheet and makes it when no mount has.
+  Link it from a root that the app does not mount, such as a SurfaceGui, with
+  `Host.StyleLink { StyleSheet = Compose.static(app.sheet()) }`.
 - `presentAnchored(component, options)`: shows a popover at `options.source`
   in its own ScreenGui and returns `close, screenGui`. Repeated `close()` calls
   are safe. See the option routes below.
