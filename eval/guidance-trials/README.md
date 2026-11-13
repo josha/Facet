@@ -13,7 +13,7 @@ benchmark and it does not give a success rate.
 
 - [Protocol](protocol.md): how to run an author, capture, review blind and
   run a repair round.
-- [Tasks](tasks.json): the five requests that were used and their exposure,
+- [Tasks](tasks.json): the six requests that were used and their exposure,
   and unseen requests for the next test.
 - [Kits](kits.json): each frozen kit, its hash and what it added.
 - [Runs](runs.json): each author run, its kit, stage, script and cost.
@@ -131,6 +131,28 @@ theme in both builds. It did not decide how much of a place the build keeps
 or how finished its objects are. Both tasks are development material, and
 one run stands behind each cell.
 
+### The place and the objects, on an unseen task
+
+v4.1 added two things to v4 after the blackjack result: choose the
+composition with the most of the place in it, and list the objects of the
+concept with the parts that a player expects on each. Both authors built
+the pet care screen, an unseen task, on the same library, with 7 images
+each. One reviewer scored the two builds together.
+
+| Build | Kit | Identity | Craft | Lead | Desktop | Portrait | Landscape |
+|---|---|---|---|---|---|---|---|
+| `pet-1` | v4 | 4 | 4 | 4 | 4 | 4 | 3 |
+| `pet-2` | v4.1 | 3 | 3 | 3 | 3 | 2 | 2 |
+
+Ranked: `pet-1`, `pet-2`. The reviewer would ship neither as it is and
+called `pet-1` close. The v4 author painted a room at dusk and made the
+needs jars and the actions toy blocks. The v4.1 author drew a flat den, and
+the reviewer read it as a stock template: the additions did not show in the
+build. They were removed from the guidance. The pair is the first result
+for the theme flow on a task that the guidance had not seen, and v4 scored
+4 on five of six axes there. One run stands behind each arm, so the result
+does not separate the kits.
+
 ## What the results say
 
 - Every build from v3 on uses Facet for layout, images, text and controls,
@@ -203,3 +225,9 @@ Each gap cost an author time. They are not fixed by this set.
   that has it.
 - `UI.Flash` paints a rectangle on a shaped plate.
 - The Stepper has no size option for its count.
+- `sliceCenter` reads as a list of four numbers in the reference and needs
+  the named fields `x0`, `y0`, `x1` and `y1`.
+- Roblox stops `TextSize` at 100, so a type role above it does nothing; a
+  larger name needs a `UIScale`. The guidance does not say so.
+- `cut-at-edge` reports a text or a control. A plate that the edge of the
+  screen cuts, with its text still on the screen, has no finding.

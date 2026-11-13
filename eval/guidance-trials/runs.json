@@ -374,6 +374,40 @@
       "generatedImages": 9,
       "toolCalls": 253,
       "note": "Image model allowed, 12 images; the author used 9 (two concepts, four jars, a backdrop, a coin, one more) and drew the canopy, counter, cloth, tags and sign with a script. finish started at a 4 px ink edge with a hard shadow and stayed; the theme sheet added ink edges on the main action and the stepper keys. Those edges are stroke rules that draw outside the layout box, and with the shadow they use up the 8 px gap between the stepper and Sell (4 px on a phone), so the two touch."
+    },
+    {
+      "id": "pet-1",
+      "task": "pet-care",
+      "kit": "kit-2f7",
+      "stage": "first pass",
+      "script": "PetCare1",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 22.9,
+      "tokensK": 334,
+      "generatedImages": 5,
+      "toolCalls": 182,
+      "note": "Library f40a7ad for both arms; 7 images allowed. A painted room at dusk with a lamp, a round window and a bed; needs as jars filled to their level; actions as toy blocks; mood as a pill and as the pet's pose. One concept composition, not two. In landscape the speech bubble is cut by the bottom edge; cut-at-edge did not report it, because the text is on the screen and only its plate is cut."
+    },
+    {
+      "id": "pet-2",
+      "task": "pet-care",
+      "kit": "kit-e4d",
+      "stage": "first pass",
+      "script": "PetCare2",
+      "author": {
+        "model": "claude-opus",
+        "effort": "medium",
+        "fresh": true
+      },
+      "minutes": 24.0,
+      "tokensK": 352,
+      "generatedImages": 7,
+      "toolCalls": 199,
+      "note": "A flat-vector den; needs as jars on a wall shelf, actions as round tokens on small shelves. The mood is a Happiness number and the pose, with no mood word. The author set finish.edge.controls and turned it off again: a disabled bare Button drew a faint edge, which the library then fixed. In landscape the pet's feet and rug leave the bottom edge."
     }
   ]
 }

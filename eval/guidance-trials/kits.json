@@ -107,6 +107,16 @@
         "honey-5"
       ],
       "adds": "The theme flow: reference, card in quantities, concept, the card corrected to the concept's measures, theme finish as values, the theme sheet compared by measure. What an edge and a glow of each size look like. A group of peers and a named palette. Library of the same commit: finish and app.specimen, Region label, the shadow that trails a fade, the exact swatch, the stack hold on screen, the faint-glow advice, similar rows."
+    },
+    {
+      "id": "kit-e4d",
+      "version": "v4.1",
+      "sha256": "e4d115f1653545ff4f0ea982328efec834f58920c8bc75b57141e31fbc4bc36c",
+      "sourceCommit": "f40a7ad (claude/sol-race-guidance, not pushed; the folder is kits/kit-f40a7ad in artifacts/facet-guidance-opus-20261112)",
+      "frozenBefore": [
+        "pet-2"
+      ],
+      "adds": "Choose the composition with the most of the place; list the objects of the concept and the parts that a player expects on each; check the objects on the first screen. finish.edge.controls in place of a stroke rule on a control. Library of the same commit for both arms: the finish edge inside the box, cut-at-edge and touching-controls. Not kept: the two guidance additions were removed after the pet trial."
     }
   ]
 }

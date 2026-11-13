@@ -129,12 +129,7 @@ before you say that a means is missing.
 
 View the concept. Change the composition until the lead and the world are
 strong, then say in one message which composition you chose and what you
-changed. Choose the composition that has the most of the place and of its
-objects in it. A part that will not fit a phone is not a reason to choose a
-flatter one: the other forms keep the materials and the objects of the
-place and change the arrangement, as
-[step 3](#3-make-one-build-fit-every-screen) describes. Plan the phone form
-of the stronger composition. Keep it: [step 2](#know-when-it-is-done) puts it beside the first
+changed. Keep it: [step 2](#know-when-it-is-done) puts it beside the first
 screen that you build. A quiet tool, a text-led design and a precise
 reference skip the concept.
 
@@ -155,15 +150,7 @@ edge, how far the light or the shadow of a plate reaches, how many plates
 the HUD has and which corner each one is in. A line that still has an
 adjective where the concept shows a size is not finished.
 
-List the objects that the concept shows: the things that a player would
-name, such as a card, a jar, a tool or a creature. Note for each one the
-parts that a player expects to find on it, as
-[art](references/art.md#spend-the-detail-where-the-player-looks) lists
-them. This holds for an object that the theme and the engine draw as much
-as for an image. An object that the build shows as an outline, a fill and
-one symbol is a placeholder for it.
-
-Then decide, for each line and each object, what draws it in the build.
+Then decide, for each line, what draws it in the build.
 
 | The concept shows | The build uses |
 | --- | --- |
@@ -351,7 +338,7 @@ a second screen before they do.
    the ground, the lead at its share of the screen, the palette roles, the
    two type families, the shared edge, the material of the controls, the
    signature and the response. Each part of the concept is in its place and
-   near its size, and each object has its parts. An absent line is work to do. Do not remove it from the
+   near its size. An absent line is work to do. Do not remove it from the
    card to pass. A quiet interface marks the same lines with its quiet
    answers.
 2. **The forms.** That revision is captured on a desktop, a phone in
