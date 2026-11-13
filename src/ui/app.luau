@@ -70,6 +70,7 @@ export type App = {
 	refusal: (control: string, spec: unknown) -> string?,
 	construct: (control: string, spec: unknown) -> Instance,
 	controlNames: () -> { string },
+	prewarm: (names: { string }) -> () -> (),
 	presentAnchored: (
 		component: (ControlTypes.Controls) -> Instance,
 		options: AnchoredOptions
@@ -217,6 +218,39 @@ return function(
 		table.sort(names)
 		return names
 	end
+	local function prewarm(names: { string }): () -> ()
+		assert(not disposed, "Facet app.prewarm: the app is disposed")
+		assert(type(names) == "table", "Facet app.prewarm: expected a list of control names")
+		local queue = table.clone(names)
+		local index = 0
+		local stop: (() -> ())? = nil
+		local function cancel()
+			local current = stop
+			stop = nil
+			if current then
+				current()
+			end
+		end
+		local function step()
+			index += 1
+			local name = queue[index]
+			if name == nil or disposed then
+				cancel()
+				return
+			end
+			local _ = members[name]
+		end
+		local frames = runtime.host.frames
+		if frames then
+			stop = frames.onFrame(step)
+			table.insert(stops, cancel)
+		else
+			for _ in queue do
+				step()
+			end
+		end
+		return cancel
+	end
 	local function presentAnchored(
 		component: (ControlTypes.Controls) -> Instance,
 		options: AnchoredOptions
@@ -339,6 +373,7 @@ return function(
 		refusal = refusal,
 		construct = construct,
 		controlNames = controlNames,
+		prewarm = prewarm,
 		presentAnchored = presentAnchored,
 		presentToast = presentToast,
 		dispose = dispose,

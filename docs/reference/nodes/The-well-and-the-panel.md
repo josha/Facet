@@ -39,5 +39,6 @@ The panel holds these parts in order:
    only the selected format is visible. Native layout reserves the tallest
    visited row, including validation messages.
    On a touch screen, the readout comes before the body, so the finger does not
-   cover it.
+   cover it. A stated palette alone (`modes = { "swatches" }` with `swatches`,
+   and no `alpha` or `onSaveSwatch`) has no readout.
 5. `Actions`: Cancel and Apply, or Done on a sheet.

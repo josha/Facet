@@ -1166,6 +1166,46 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end)
 		locate()
 	end
+	local insetListeners: { [() -> ()]: boolean } = {}
+	local insetCount = 0
+	local insetY: number? = nil
+	local insetPoll: RBXScriptConnection? = nil
+	local function readInset(gui: GuiService): number
+		local ok, inset = pcall(gui.GetGuiInset, gui)
+		return if ok and typeof(inset) == "Vector2" then inset.Y else 0
+	end
+	local function watchInset(gui: GuiService, listener: () -> ()): number
+		if insetY == nil then
+			insetY = readInset(gui)
+		end
+		insetListeners[listener] = true
+		insetCount += 1
+		local frames = config.services and config.services.RunService
+		if frames and insetPoll == nil then
+			insetPoll = frames.Heartbeat:Connect(function()
+				local now = readInset(gui)
+				if now ~= insetY then
+					insetY = now
+					for notify in insetListeners do
+						notify()
+					end
+				end
+			end)
+		end
+		Compose.cleanup(function()
+			if insetListeners[listener] then
+				insetListeners[listener] = nil
+				insetCount -= 1
+				local poll = insetPoll
+				if insetCount == 0 and poll then
+					insetPoll = nil
+					insetY = nil
+					poll:Disconnect()
+				end
+			end
+		end)
+		return insetY or 0
+	end
 	function kit.underTopbar(frame: GuiObject, under: ComposeTypes.Value<number>)
 		local gui = config.guiService
 		if gui == nil then
@@ -1175,17 +1215,16 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			ctx.observe.TopbarInset(gui), ctx.observe.AbsolutePosition(frame), ctx.observe.Parent(frame)
 		local bottom: number?, top, onScreen = nil, 0, false
 		local function measure()
-			if bottom == nil or not onScreen then
-				under:set(0)
-				return
+			local value = if bottom == nil or not onScreen then 0 else math.max(0, bottom - readInset(gui) - top)
+			if under:peek() ~= value then
+				under:set(value)
 			end
-			local ok, inset = pcall(gui.GetGuiInset, gui)
-			under:set(math.max(0, bottom - (if ok and typeof(inset) == "Vector2" then inset.Y else 0) - top))
 		end
 		local function locate()
 			onScreen = frame:FindFirstAncestorWhichIsA("ScreenGui") ~= nil
 			measure()
 		end
+		watchInset(gui, measure)
 		Compose.watch(function(use: ComposeTypes.Use)
 			use(parent)
 			local band = use(topbar)
@@ -1194,10 +1233,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			locate()
 		end)
 		runtime.connect(frame, "AncestryChanged", locate)
-		local frames = config.services and config.services.RunService
-		if frames then
-			runtime.connect(frames, "Heartbeat", measure)
-		end
 	end
 	ctx.layoutKit = kit
 	return kit
