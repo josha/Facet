@@ -812,6 +812,21 @@ return function(harness: Verify.Harness)
 				:toBe(true)
 			t:expect(string.find(report.text, 'strongest control: "Race" at 87% across and 89% down', 1, true) ~= nil)
 				:toBe(true)
+			local add2, snapshot2 = scene()
+			local page2 = add2(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local wide =
+				add2(page2, "TextButton", 100, 100, 448, 88, { interactive = true, opaque = true, fill = PANEL })
+			add2(wide, "TextLabel", 100, 100, 448, 88, { text = "Skip help", size = 18 })
+			local back =
+				add2(page2, "TextButton", 100, 300, 216, 88, { interactive = true, opaque = true, fill = DARK })
+			add2(back, "TextLabel", 100, 300, 216, 88, { text = "Back", size = 18 })
+			local go = add2(page2, "TextButton", 332, 300, 216, 88, {
+				interactive = true,
+				opaque = true,
+				fill = { r = 0.18, g = 0.39, b = 0.86 },
+			})
+			add2(go, "TextLabel", 332, 300, 216, 88, { text = "Next", size = 18 })
+			t:expect(assert(Rules.analyze(snapshot2()).measures.action).label):toBe("Next")
 			local empty = Rules.analyze({ width = 1920, height = 1080, elements = {} })
 			t:expect(empty.measures.numeral):toBe(nil)
 			t:expect(empty.measures.action):toBe(nil)

@@ -72,6 +72,9 @@ how finished the image looks.
 | `concept` | A concept that the agent chose | Its composition, relative scale, type hierarchy, materials and control shapes. A limited, stated improvement is allowed. |
 | `inspiration` | A mood, a genre, a named game, a rough sketch, or the game's own interface when the user asked to improve it | What makes it recognizable. A difference alone is not a fault. |
 
+Pass the chosen composition alone. A sheet of alternatives is not a target:
+crop the one that was chosen, at the aspect ratio that it was drawn for.
+
 With a target, the packet has a fidelity part before the rubric:
 
 - `fidelity/pair.png`: the target and the capture nearest to its aspect

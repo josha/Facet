@@ -1751,7 +1751,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				end
 			end
 			local apart = if others > 0 then total / others else 1
-			local score = area(control.rect) / typical * apart
+			local score = apart * apart * math.sqrt(area(control.rect) / typical)
 			if score > bestScore then
 				best, bestScore, bestContrast = control, score, apart
 			end
