@@ -152,6 +152,9 @@ local internedFor: { [Engine.RobloxTypes]: { [string]: ThemeTypes.RuleProperties
 type TimingMemo = { [boolean]: { [string]: TweenInfo } }
 type MotionCache = { defaults: { [string]: TweenInfo }, packages: { [ThemeTypes.ReadOnlyThemePackage]: TimingMemo } }
 local timingsFor: { [Engine.RobloxTypes]: MotionCache } = setmetatable({}, { __mode = "k" })
+local CONTENT_CACHE_LIMIT = 16
+type ContentCache = { entries: { [string]: Sized }, count: number }
+local compiledByContent: { [Engine.RobloxTypes]: ContentCache } = setmetatable({}, { __mode = "k" })
 
 return function(
 	neutral: ThemeTypes.ReadOnlyThemePackage,
@@ -440,7 +443,25 @@ return function(
 	local definitions: { [string]: NativeRule } = {}
 	local function compiledRules(package: ThemeTypes.ReadOnlyThemePackage, palette: string?): Sized
 		if not support.sealed(package) then
-			return sized(rulesFor(package, palette, types))
+			local cache = compiledByContent[types]
+			if cache == nil then
+				local fresh: ContentCache = { entries = {}, count = 0 }
+				cache = fresh
+				compiledByContent[types] = fresh
+			end
+			local key = support.contentKey(package) .. "|" .. (palette or "")
+			local known = cache.entries[key]
+			if known then
+				return known
+			end
+			if cache.count >= CONTENT_CACHE_LIMIT then
+				table.clear(cache.entries)
+				cache.count = 0
+			end
+			local compiled = sized(rulesFor(package, palette, types))
+			cache.entries[key] = compiled
+			cache.count += 1
+			return compiled
 		end
 		local byPackage = compiledFor[types]
 		if byPackage == nil then

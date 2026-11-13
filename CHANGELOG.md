@@ -12,7 +12,9 @@ was new on each call and the neutral theme was not frozen, so each
 StyleSheet compiled every theme rule again and kept its own copy. A
 StyleSheet now reuses the compiled rules: in Studio a mount went from about
 605 to 297 KiB of Luau heap and from 3.0 to 1.5 ms. `themes.neutralPackage()`
-still returns an editable copy.
+still returns an editable copy. An editable package is cached by its contents,
+so two copies with the same values share one compile and an edited copy
+compiles again.
 
 `Facet.themes.define` says when a stated glow will not be seen. A `finish`
 with a glow under 8 px or a strength under 0.4 draws nothing that shows in a

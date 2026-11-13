@@ -102,8 +102,9 @@ local screen = gui:FindFirstChild("Counter")
 screen:FindFirstChild("Add").Activated:Fire()
 assert(screen:FindFirstChild("Count").Text == "Count: 1")
 stop()
-assert(#playerGui:GetChildren() == 0)
+assert(playerGui:FindFirstChildWhichIsA("ScreenGui") == nil)
 app.dispose()
+assert(#playerGui:GetChildren() == 0)
 app.runtime:dispose()
 ```
 
@@ -112,7 +113,8 @@ app.runtime:dispose()
 - The app needs `types = engine.types`, because Lute does not have the Roblox
   datatypes as globals.
 - Lute has no PlayerGui. Give a `parent`.
-- `app.mount` returns the stop function and the ScreenGui.
+- `app.mount` returns the stop function and the ScreenGui. The app StyleSheet
+  stays in the `parent` until `app.dispose()`.
 - The app does not dispose a runtime that you give. Call `runtime:dispose()`
   after `app.dispose()`.
 - The fake engine refuses a property that the Roblox class does not have, as
