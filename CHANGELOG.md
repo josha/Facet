@@ -1,5 +1,11 @@
 # Current package
 
+`Facet.themes.define` says when a stated glow will not be seen. A `finish`
+with a glow under 8 px or a strength under 0.4 draws nothing that shows in a
+capture, and a theme could state one and stay flat. `report.advice` now has
+a `finish.depth.glow` entry for it, and `Themes.finish` lists what an edge
+and a glow of each size look like on a screen of 1080 lines.
+
 A NavigationStack holds gameplay only while it is on the screen. In an app
 with `suspendGameplay = true`, a stack with a nonempty path suspended play
 for as long as the path stayed nonempty, also when the stack was hidden or

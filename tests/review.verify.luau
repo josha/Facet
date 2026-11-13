@@ -335,6 +335,26 @@ return function(harness: Verify.Harness)
 		t:expect(at(neon, "style", "shadows", "finish", "blurRadius")):toEqual({ offset = 18 })
 		local faint = at(neon, "style", "shadows", "finish", "transparency")
 		t:expect(type(faint) == "number" and math.abs(faint - 0.4) < 0.001):toBe(true)
+		local function faintGlow(definition: Facet.ThemeDefinition): number
+			local theme, report = themes.define(definition)
+			t:expect(report.ok and theme ~= nil):toBe(true)
+			local found = 0
+			for _, item in report.advice do
+				if item.field == "finish.depth.glow" then
+					found += 1
+				end
+			end
+			return found
+		end
+		t:expect(faintGlow(lit)):toBe(0)
+		local dims: { Facet.ThemeFinish } = {
+			{ edge = { width = 1 }, depth = { lift = 0, glow = 5, sheen = 0, strength = 0.22 } },
+			{ edge = { width = 1 }, depth = { lift = 0, glow = 24, sheen = 0, strength = 0.2 } },
+			{ edge = { width = 1 }, depth = { lift = 0, glow = 4, sheen = 0 } },
+		}
+		for _, finish in dims do
+			t:expect(faintGlow({ identity = { id = "dim" }, finish = finish })):toBe(1)
+		end
 		t:expect(at(neon, "style", "themes", 1, "extra", "chromeGradient", "panel", "alpha", 1, "v")):toBe(0.25)
 		local raised: Facet.ThemeDefinition = {
 			identity = { id = "raised" },
