@@ -105,6 +105,10 @@
       "options": {
         "effort": "medium",
         "persistSession": true,
+        "preflight": [
+          "image-generation",
+          "asset-upload"
+        ],
         "arguments": [
           "--ignore-user-config",
           "--disable",

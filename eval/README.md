@@ -22,8 +22,9 @@ author with `--agent ID`, so both arms of a pair use the same model and the
 same tools. Compare a `codex-sol` pair with a `codex-sol-images` pair to see
 what images add; do not pair an arm with images against one without. Before
 a `codex-sol-images` pair, approve the generator's output folder for uploads
-in each owned Studio (Assistant Settings, MCP Permissions), or the authors
-can make a concept but cannot put art in the game. Each
+in each owned Studio (Assistant Settings, MCP Permissions), and pass the
+[image preflight](#image-preflight), or the authors can make a concept but
+cannot put art in the game. Each
 author gets one prompt and one fresh Studio place. Coding, reading guidance,
 tool calls, play checks, and self-correction all consume the same 1800-second
 window. The brief does not state the limit; the runner stops the author at the
@@ -78,6 +79,32 @@ and through a fresh scoped connection. For concurrent arms, check both native
 renderers while both Studios are open. Close each preflight transport and verify
 that its owned process exited before handing the Studio to the author.
 
+## Image preflight
+
+An author whose suite entry declares `preflight` must have both routes
+proven before its clock starts: `image-generation` and `asset-upload`. Try
+each route through the same scoped tool set that the author will get, in
+its own owned Studio. A generator that answers is not enough: on 12
+November the scoped Studio tools had no upload tool, and the author could
+make images and could not use one.
+
+1. List the tool names of the author's scoped Studio connection.
+2. Generate one small image with the author's generator.
+3. Upload it with one of those tools (`upload_image` or `open_cloud_invoke`),
+   and see the asset loaded in that Studio, for example an `ImageLabel`
+   whose `IsLoaded` is true.
+4. Write `preflight/images.json` in the run's evidence directory:
+   `{ agent, tools, generation = { ok, file, bytes, at }, upload = { ok,
+   tool, assetId, loaded, at }, authorStart }`. Times are seconds on one
+   clock. Leave `authorStart` out until the clock starts, then record it.
+5. Run `lute run tools/facet facetbench preflight --evidence DIR --agent ID
+   --report PATH --run ID`. Start the author only when it passes. Run it
+   again after the launch, with `authorStart`, so the report shows that both
+   routes were complete before the clock.
+
+A failed preflight is a setup failure. Keep its record and report; repair
+the tool set and write a new record under a new evidence directory.
+
 ## Deadline and submission
 
 Use Verify's bounded author process with `wallSeconds = 1800`. An instruction
@@ -85,6 +112,15 @@ to stop is not the enforcement mechanism. The author may finish early.
 At exit or deadline, stop author access and any outstanding author mutations.
 Stop Play and preserve the complete persistent Edit data model before closing
 Studio. Play-only changes are temporary and are not part of the submission.
+
+`facetbench seal` saves the kept Studio place and freezes its bytes. On
+Windows it sends Control-S to the kept Studio window. On macOS it sends
+Command-S through System Events, which needs the Accessibility permission
+for the program that runs `lute`. When the save cannot be sent, save the
+place in the kept Studio by hand and run `facetbench snapshot --place PATH`;
+both routes freeze the same bytes. `facetbench check-submission` reopens the
+frozen place and fails when its hash differs. A failed save changes nothing
+in the place.
 
 Record the saved place's hash before evaluation. Reopen and test a copy of
 those bytes. Compare hashes after evaluation. Preserve scripts, instances,
@@ -175,6 +211,29 @@ Inspect `outputs/captures.json` before preparing judge inputs. Capture triage
 does not validate UI content, player state, device size, settled motion or custody.
 `unreviewed` means only that the image passed pixel heuristics. Noise and a
 world-only view can pass those heuristics and must not count as UI evidence.
+
+A capture enters the matched comparison only when its interface dump shows
+the requested state. List each candidate in `judge-candidates.json` in the
+evidence directory: `{ arms, captures = { { id, arm, device, screen, image,
+dump, attempt, expect = { visible, absent, modal } } } }`. `visible` names
+texts that the state must show, in the words of that submission, and
+`absent` names texts that it must not show. `lute run tools/facet facetbench
+admit --evidence DIR` checks each dump and writes `admission.json`:
+
+- every screen needs one visible text that the evaluator named, and
+  `tutorial` needs two, such as the lesson's title and its next step. A
+  capture that shows only a collapsed launcher is excluded.
+- `hub` and `race` must have no layer over their controls. A race capture
+  with a menu open is excluded. Set `modal = "any"` only with a reason in the
+  evaluation notes.
+- a capture with no dump is excluded: its state cannot be checked.
+- a pair is compared only when each arm has an admitted capture of that
+  device and screen. The latest admitted attempt is used.
+
+Excluded captures stay in the evidence with their reasons, and a rerun gets a
+new `id` and a higher `attempt`. Do not delete or overwrite a failed attempt.
+Build the judge bundle from the admitted pairs only, and report the pairs
+that were not compared.
 
 The Play host retains every decoded attempt in `outputs/capture-review`.
 Uniform images and images smaller than 64 pixels on either axis are `unusable`.

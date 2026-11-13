@@ -6,7 +6,330 @@ local RaceSpace = require("../../tools/play/host/space")
 local Play = require("../../tools/play/host/play")
 local Setup = require("../../tools/facet/lib/facetbench_setup")
 local Json = require("../../tools/facet/lib/json")
+local Files = require("../../tools/facet/lib/files")
+local Admission = require("../../eval/admission")
+local Preflight = require("../../eval/preflight")
+local Submission = require("../../eval/submission")
+
+local function screenDump(width: number, height: number): (Audit.Dump, (Audit.Element) -> Audit.Element)
+	local dump: Audit.Dump = {
+		schemaVersion = 1,
+		screen = {
+			width = width,
+			height = height,
+			scale = 1,
+			guiInset = { left = 0, top = 0, right = 0, bottom = 0 },
+			input = { "touch" },
+		},
+		roots = {
+			{
+				index = 1,
+				class = "ScreenGui",
+				path = "PlayerGui.Game",
+				enabled = true,
+				displayOrder = 0,
+				world = false,
+				rect = { x = 0, y = 0, width = width, height = height },
+			},
+		},
+		elements = {},
+		instances = 1,
+		truncated = false,
+	}
+	local function add(element: Audit.Element): Audit.Element
+		element.index = #dump.elements + 1
+		element.order = element.index
+		table.insert(dump.elements, element)
+		return element
+	end
+	return dump, add
+end
+
+local function part(path: string, rect: { number }, parent: number?): Audit.Element
+	return {
+		index = 0,
+		parent = parent,
+		root = 1,
+		class = "Frame",
+		path = path,
+		rect = { x = rect[1], y = rect[2], width = rect[3], height = rect[4] },
+		rotation = 0,
+		visible = true,
+		zIndex = 1,
+		order = 0,
+		interactive = false,
+		selectable = false,
+		active = false,
+		interactable = true,
+		next = {},
+		selectionGroup = false,
+		stops = {},
+		background = { color = { r = 0, g = 0, b = 0 }, transparency = 1 },
+	}
+end
+
+local function words(element: Audit.Element, content: string): Audit.Element
+	element.class = "TextLabel"
+	element.text = {
+		content = content,
+		size = 18,
+		bounds = { width = element.rect.width, height = element.rect.height },
+		scaled = false,
+		wrapped = false,
+		bold = false,
+		color = { r = 1, g = 1, b = 1 },
+		transparency = 0,
+	}
+	return element
+end
+
+local function button(element: Audit.Element, content: string): Audit.Element
+	words(element, content)
+	element.class = "TextButton"
+	element.interactive = true
+	element.active = true
+	return element
+end
+
 return function(harness: Verify.Harness)
+	harness:case("a capture is admitted to the comparison only when its dump shows the requested state", function(t)
+		local function race(menu: boolean): Audit.Dump
+			local dump, add = screenDump(844, 390)
+			local hud = add(part("Game.HUD", { 0, 0, 844, 390 }))
+			add(words(part("Game.HUD.Lap", { 20, 20, 120, 40 }, hud.index), "Lap 2 of 3"))
+			add(button(part("Game.HUD.Pit", { 700, 320, 120, 44 }, hud.index), "Pit"))
+			if menu then
+				local layer = add(part("Game.Menu", { 0, 0, 844, 390 }))
+				layer.background.transparency = 0.4
+				add(button(part("Game.Menu.Tires", { 300, 150, 240, 44 }, layer.index), "Change tires"))
+			end
+			return dump
+		end
+		local function tutorial(expanded: boolean): Audit.Dump
+			local dump, add = screenDump(390, 844)
+			local hud = add(part("Game.HUD", { 0, 0, 390, 844 }))
+			add(button(part("Game.HUD.Help", { 140, 20, 110, 44 }, hud.index), "First race help"))
+			if expanded then
+				local plate = add(part("Game.Lesson", { 55, 80, 280, 220 }))
+				plate.background.transparency = 0
+				add(words(part("Game.Lesson.Title", { 70, 95, 250, 30 }, plate.index), "Prepare your kart"))
+				add(button(part("Game.Lesson.Next", { 200, 240, 120, 44 }, plate.index), "Next"))
+			end
+			return dump
+		end
+		local dumps: { [string]: Audit.Dump } = {
+			["race-open.json"] = race(false),
+			["race-menu.json"] = race(true),
+			["lesson.json"] = tutorial(true),
+			["launcher.json"] = tutorial(false),
+		}
+		local function load(path: string): Audit.Dump?
+			return assert(dumps[path], "no dump " .. path)
+		end
+		local lap: Admission.Expectation = { visible = { "lap" } }
+		local lesson: Admission.Expectation = { visible = { "Prepare your kart", "Next" } }
+		local review = Admission.review({
+			{
+				id = "a-race-1",
+				arm = "plain",
+				device = "phone-landscape",
+				screen = "race",
+				image = "a.png",
+				dump = "race-menu.json",
+				expect = lap,
+			},
+			{
+				id = "a-race-2",
+				arm = "plain",
+				device = "phone-landscape",
+				screen = "race",
+				image = "a2.png",
+				dump = "race-open.json",
+				attempt = 2,
+				expect = lap,
+			},
+			{
+				id = "b-race-1",
+				arm = "facet",
+				device = "phone-landscape",
+				screen = "race",
+				image = "b.png",
+				dump = "race-open.json",
+				expect = lap,
+			},
+			{
+				id = "a-help-1",
+				arm = "plain",
+				device = "phone-portrait",
+				screen = "tutorial",
+				image = "c.png",
+				dump = "lesson.json",
+				expect = lesson,
+			},
+			{
+				id = "b-help-1",
+				arm = "facet",
+				device = "phone-portrait",
+				screen = "tutorial",
+				image = "d.png",
+				dump = "launcher.json",
+				expect = lesson,
+			},
+			{
+				id = "b-shop-1",
+				arm = "facet",
+				device = "desktop",
+				screen = "shop",
+				image = "e.png",
+				expect = { visible = { "Shop" } },
+			},
+			{
+				id = "b-hub-1",
+				arm = "facet",
+				device = "desktop",
+				screen = "hub",
+				image = "f.png",
+				dump = "race-open.json",
+			},
+			{
+				id = "b-lobby-1",
+				arm = "facet",
+				device = "desktop",
+				screen = "lobby",
+				image = "g.png",
+				dump = "race-open.json",
+			},
+		}, load, { "plain", "facet" })
+		local byId: { [string]: Admission.Decision } = {}
+		for _, decision in review.decisions do
+			byId[decision.id] = decision
+		end
+		t:expect(#review.decisions):toBe(8)
+		t:expect(byId["a-race-1"].admitted):toBe(false)
+		t:expect(byId["a-race-1"].reasons[1]):toBe("a layer covers the controls of the screen: Game.Menu")
+		t:expect(byId["a-race-2"].admitted):toBe(true)
+		t:expect(byId["b-race-1"].admitted):toBe(true)
+		t:expect(byId["a-help-1"].admitted):toBe(true)
+		t:expect(byId["b-help-1"].admitted):toBe(false)
+		t:expect(table.concat(byId["b-help-1"].reasons, "; "))
+			:toBe('the expected text "Prepare your kart" is not visible; the expected text "Next" is not visible')
+		t:expect(byId["b-shop-1"].reasons[1])
+			:toBe("no interface dump was saved with the capture, so its state cannot be checked")
+		t:expect(byId["b-hub-1"].reasons[1]):toBe("the evaluator named 0 text(s) that show this state; hub needs 1")
+		t:expect(byId["b-lobby-1"].reasons[1]):toBe("lobby is not a screen of the matched comparison")
+		local pairs: { [string]: Admission.Pair } = {}
+		for _, pair in review.pairs do
+			pairs[pair.device .. "/" .. pair.screen] = pair
+		end
+		t:expect(pairs["phone-landscape/race"].admitted):toBe(true)
+		t:expect(pairs["phone-landscape/race"].captures.plain):toBe("a-race-2")
+		t:expect(pairs["phone-portrait/tutorial"].admitted):toBe(false)
+		t:expect(pairs["phone-portrait/tutorial"].reason)
+			:toBe("no admitted capture for facet; the pair is not compared")
+		local any: Admission.Expectation = { visible = { "lap" }, modal = "any" }
+		t:expect(#Admission.check({
+			id = "x",
+			arm = "plain",
+			device = "phone-landscape",
+			screen = "race",
+			image = "x.png",
+			expect = any,
+		}, race(true))):toBe(0)
+		local touch = race(false)
+		table.insert(touch.roots, {
+			index = 2,
+			class = "ScreenGui",
+			path = "PlayerGui.TouchGui",
+			enabled = true,
+			displayOrder = -1,
+			world = false,
+			rect = { x = 0, y = 0, width = 844, height = 390 },
+		})
+		local jump = button(part("TouchGui.Jump", { 740, 250, 70, 70 }), "")
+		jump.root = 2
+		jump.index = #touch.elements + 1
+		table.insert(touch.elements, jump)
+		touch.elements[1].background.transparency = 0
+		t:expect(Admission.modal(touch)):toBe(nil)
+	end)
+
+	harness:case(
+		"an author with images needs a generated file and an upload through its own tools before the clock",
+		function(t)
+			local required = { Preflight.GENERATION, Preflight.UPLOAD }
+			local function outcome(record: Preflight.Record?): { [string]: string }
+				local report = Verify.runCases(Preflight.cases(record, required), { executor = "test" }, os.clock)
+				local found: { [string]: string } = {}
+				for _, result in report.results do
+					found[result.id] = result.status
+				end
+				return found
+			end
+			local scoped: Preflight.Record = {
+				agent = "codex-sol-images",
+				tools = { "start_stop_play", "screen_capture", "execute_luau", "get_console_output", "input" },
+				generation = { ok = true, file = "concept.png", bytes = 4096, at = 100 },
+				upload = { ok = true, tool = "upload_image", assetId = "123", loaded = true, at = 120 },
+				authorStart = 200,
+			}
+			local missing = outcome(scoped)
+			t:expect(missing["preflight/image-generation"]):toBe("passed")
+			t:expect(missing["preflight/asset-upload"]):toBe("failed")
+			t:expect(Preflight.upload(scoped)[1]):toBe(
+				"the author's Studio tools have no upload route; they need upload_image or open_cloud_invoke. Tools: start_stop_play, screen_capture, execute_luau, get_console_output, input"
+			)
+			table.insert(scoped.tools, "upload_image")
+			local ready = outcome(scoped)
+			t:expect(ready["preflight/asset-upload"]):toBe("passed")
+			t:expect(ready["preflight/before-clock"]):toBe("passed")
+			scoped.authorStart = 110
+			t:expect(outcome(scoped)["preflight/before-clock"]):toBe("failed")
+			scoped.authorStart = nil
+			(scoped.upload :: Preflight.Upload).loaded = false
+			t:expect(outcome(scoped)["preflight/asset-upload"]):toBe("failed")
+			t:expect(outcome(nil)["preflight/image-generation"]):toBe("failed")
+			t:expect(Preflight.generates("codex", { "--disable", "shell_tool" })):toBe(true)
+			t:expect(Preflight.generates("codex", { "--disable", "image_generation" })):toBe(false)
+			t:expect(Preflight.generates("claude-code", { "--tools=" })):toBe(false)
+			local none = Verify.runCases(Preflight.cases(nil, {}), { executor = "test" }, os.clock)
+			t:expect(none.passed):toBe(1)
+		end
+	)
+
+	harness:case("a submission seals once, reopens unchanged and fails when its bytes change", function(t)
+		local directory = Files.temporaryDirectory("facetbench-seal-")
+		local place = Files.join(directory, "agent.rbxlx")
+		Files.write(place, '<roblox version="4"><Item class="Workspace"></Item></roblox>')
+		local evidence = Files.join(directory, "evidence")
+		local sealed = Submission.capture(place, Files.join(evidence, "submission"), "seal-test")
+		t:expect(sealed.passed):toBe(1)
+		t:expect(Files.isFile(Files.join(evidence, "submission", "game.rbxl"))):toBe(true)
+		local reopened = Submission.seal(evidence, "seal-test")
+		t:expect(reopened.passed):toBe(1)
+		local evaluated = Submission.validate(nil, Files.join(evidence, "submission"))
+		t:expect(evaluated.passed):toBe(1)
+		Files.write(place, '<roblox version="4"><Item class="Workspace"><Item class="Part"></Item></Item></roblox>')
+		t:expect(Submission.validate(place, Files.join(evidence, "submission")).passed):toBe(0)
+		Files.write(Files.join(evidence, "submission", "game.rbxl"), "<roblox!changed")
+		t:expect(Submission.validate(nil, Files.join(evidence, "submission")).passed):toBe(0)
+		Files.remove(directory)
+	end)
+
+	harness:case("the kept Studio place is saved with the tools of its platform", function(t)
+		local mac = Submission.saveCommand("macos", "/Users/a b/agent.rbxlx", 4725)
+		t:expect(mac[1]):toBe("/bin/sh")
+		t:expect(mac[5]):toBe("/Users/a b/agent.rbxlx")
+		t:expect(mac[6]):toBe("4725")
+		t:expect(string.find(mac[3], 'keystroke "s" using command down', 1, true) ~= nil):toBe(true)
+		t:expect(string.find(mac[3], "whose unix id is", 1, true) ~= nil):toBe(true)
+		t:expect(string.find(mac[3], "powershell", 1, true) == nil):toBe(true)
+		local windows = Submission.saveCommand("windows", "C:/runs/agent.rbxlx", 12)
+		t:expect(windows[1]):toBe("powershell")
+		local ok, message = pcall(Submission.saveCommand, "other" :: Submission.Platform, "/tmp/agent.rbxlx", 1)
+		t:expect(ok):toBe(false)
+		t:expect(string.find(tostring(message), "facetbench snapshot --place", 1, true) ~= nil):toBe(true)
+	end)
+
 	harness:case(
 		"Studio-only preparation restricts every declared model without altering the source catalog",
 		function(t)
