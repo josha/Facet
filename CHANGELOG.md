@@ -1,5 +1,15 @@
 # Current package
 
+A ColorPicker with a stated palette is a palette. With `modes = { "swatches" }`
+and `swatches`, a press on a swatch proposed the colour after a conversion to
+hue, saturation and brightness and back, so the Color3 that `onChange` got
+differed from the palette's in the last bits, and a caller that looked the
+colour up in its palette found nothing. The same form also showed the RGB, HSV
+and Hex fields, where a player could type a colour outside the palette. A
+swatch and a typed hex now propose the exact Color3, and that form has no
+fields. It keeps them with `onSaveSwatch`, with `alpha`, with the generated
+grid and with any other technique.
+
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
 side, glow, sheen, role, strength, controls), and `define` writes them into
