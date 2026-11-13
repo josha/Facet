@@ -130,7 +130,7 @@ return function(ctx: Shared.Context, UI: Kit.Deps, kit: Kit.Kit, state: PickerSt
 					return
 				end
 				hexError:set("")
-				local moved = propose(color.hsvOf(parsed, canon:peek()))
+				local moved = propose(color.hsvOf(parsed, canon:peek()), parsed)
 				if a ~= nil then
 					moved = state.proposeAlpha(a) or moved
 				end
