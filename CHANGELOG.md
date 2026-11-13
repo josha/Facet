@@ -1,5 +1,13 @@
 # Current package
 
+A NavigationStack holds gameplay only while it is on the screen. In an app
+with `suspendGameplay = true`, a stack with a nonempty path suspended play
+for as long as the path stayed nonempty, also when the stack was hidden or
+when the Sheet that showed it had closed. A game that kept its path between
+openings then found its drive input off with no interface open. The hold now
+needs the path and a stack that is visible under an enabled ScreenGui, and it
+returns when the stack shows again.
+
 A theme states its edge and its depth as values. `finish` on a theme
 definition takes `edge` (width, role, transparency) and `depth` (lift, blur,
 side, glow, sheen, role, strength, controls), and `define` writes them into

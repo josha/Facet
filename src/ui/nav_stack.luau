@@ -687,8 +687,38 @@ return function(
 			root:SetAttribute("FacetError", use(errorText))
 		end)
 		if ctx.config.suspendGameplay then
+			local ancestry = Compose.cell(0)
+			local shown = Compose.cell(false)
+			runtime.connect(root, "AncestryChanged", function()
+				ancestry:set(ancestry:peek() + 1)
+			end)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(ancestry)
+				local sources: { ComposeTypes.ReadOnlyValue<boolean> } = {}
+				local attached = false
+				local at: Instance? = root
+				while at do
+					if at:IsA("GuiObject") then
+						table.insert(sources, ctx.observe.Visible(at))
+					elseif at:IsA("LayerCollector") then
+						table.insert(sources, ctx.observe.Enabled(at))
+						attached = true
+						break
+					end
+					at = at.Parent
+				end
+				Compose.watch(function(use: ComposeTypes.Use)
+					local on = attached
+					for _, source in sources do
+						if not use(source) then
+							on = false
+						end
+					end
+					shown:set(on)
+				end)
+			end)
 			local open = Compose.formula(function(use: ComposeTypes.Use): boolean
-				return #use(spec.path) > 0
+				return #use(spec.path) > 0 and use(shown)
 			end)
 			Compose.watch(function(use: ComposeTypes.Use)
 				if use(open) then

@@ -43,7 +43,9 @@ Factory-options.keyboardNavigation option values and behavior.
   hides every [ButtonGuide](ButtonGuide.reference.md). Bind one player
   settings Toggle to it.
 - `suspendGameplay`: `true` makes a NavigationStack with a nonempty path
-  suspend gameplay, as every modal surface does. While any of them is open,
+  suspend gameplay while the stack is on the screen, as every modal surface
+  does. A stack that is hidden or detached, such as one that a closed Sheet
+  still owns, holds nothing. While any of them is open,
   `GuiService.TouchControlsEnabled` is off and the environment's
   `gameplaySuspended` is true. A RadialMenu hides touch controls but does
   not suspend gameplay. The last to close restores `TouchControlsEnabled`,
