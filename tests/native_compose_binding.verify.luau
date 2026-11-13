@@ -184,6 +184,32 @@ return function(verifyHarness: Verify.Harness)
 			Verify.expect(Facet.controls(runtime) == first):toBe(false)
 		end)
 
+		verifyHarness:case(
+			"default engine types are one shared table, so theme caches keyed by them hit",
+			function(context)
+				local engine = engineLib.new()
+				local robloxTypes = require("../src/ui/roblox_types")
+				local environment = getfenv(robloxTypes)
+				local previous: { [string]: unknown } = {}
+				for key, value in record(engine.types) do
+					if type(key) == "string" then
+						previous[key] = environment[key]
+						environment[key] = value
+					end
+				end
+				context:defer(function()
+					for key in record(engine.types) do
+						if type(key) == "string" then
+							environment[key] = previous[key]
+						end
+					end
+				end)
+				local first = robloxTypes()
+				Verify.expect(rawequal(robloxTypes(), first)):toBe(true)
+					Verify.expect(table.isfrozen(Facet.themes.neutralPackage())):toBe(false)
+			end
+		)
+
 		verifyHarness:case("nested providers override controls and retain descendant owners", function(context)
 			local engine = engineLib.new()
 			local runtime: ComposeRuntime = Roblox.createRuntime(engine)

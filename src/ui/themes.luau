@@ -254,6 +254,17 @@ for role, size in typographySizes do
 	}
 end
 
+local function freezeAll(value: unknown)
+	if type(value) == "table" and not table.isfrozen(value) then
+		for key, child in value :: { [unknown]: unknown } do
+			freezeAll(key)
+			freezeAll(child)
+		end
+		table.freeze(value)
+	end
+end
+freezeAll(neutral)
+
 function themes.neutralPackage(): ThemeTypes.ThemePackage
 	return copy(neutral)
 end
