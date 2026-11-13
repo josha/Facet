@@ -358,8 +358,8 @@ return function(
 					local fill = if recipe and recipe.kind == "native"
 						then math.clamp(use(background) :: number, 0, 1)
 						else 0
-					local amount = if fade then fade.transparency(use) else 0
-					return 1 - (1 - fill) * (1 - amount)
+					local seen = 1 - (if fade then fade.transparency(use) else 0)
+					return 1 - (1 - fill) * seen * seen * seen
 				end,
 				label = if stateOptions.label ~= nil
 					then stateOptions.label
