@@ -68,9 +68,9 @@ how finished the image looks.
 
 | Kind | The target is | Fidelity asks |
 | --- | --- | --- |
-| `specification` | The user's precise reference: a screenshot, a mock, a concept that the user chose | A match. Name each departure; it needs the user's word. |
+| `specification` | The user's precise reference: a screenshot, a mock, a concept that the user chose, or the game's own interface when the user asked to replace it | A match. Name each departure; it needs the user's word. |
 | `concept` | A concept that the agent chose | Its composition, relative scale, type hierarchy, materials and control shapes. A limited, stated improvement is allowed. |
-| `inspiration` | A mood, a genre, a named game, a rough sketch | What makes it recognizable. A difference alone is not a fault. |
+| `inspiration` | A mood, a genre, a named game, a rough sketch, or the game's own interface when the user asked to improve it | What makes it recognizable. A difference alone is not a fault. |
 
 With a target, the packet has a fidelity part before the rubric:
 

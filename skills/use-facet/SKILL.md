@@ -19,6 +19,7 @@ phone, a desktop and a television.
 | A small edit to an established interface | Reuse its decisions and check the affected states. Go to [Find the implementation route](#find-the-implementation-route). |
 | A new interface or a visual redesign | Steps 1 to 5 below. Finish steps 1 to 4 on one screen before you build a second screen. |
 | A new interface with a reference from the user | [Step 1](#start-from-the-reference) says how much the reference fixes. Then do steps 2 to 5. |
+| A game that already has an interface: replace it with Facet, improve it, or add a screen | The game is the reference. [An existing game](#an-existing-game) says how much of its look is fixed. Then do steps 2 to 5, one screen at a time. |
 | An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art as the concept; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
 | A wireframe, a functional spike or a tool in its host's style | Stop at the stated scope. Keep the host's conventions. |
 
@@ -57,6 +58,8 @@ screen is built before the theme has been seen alone.
 An established interface, a quiet tool in its host's style and a small edit
 keep their existing decisions: they have no concept to make, and they start
 at the screen. A precise reference skips the concept and is measured as one.
+[A game that already has an interface](#an-existing-game) is such a
+reference: its own look is the target.
 
 ### Start from the reference
 
@@ -68,6 +71,39 @@ words, not from how finished an image looks.
 | A precise reference: a screenshot, a mock, a chosen concept, the look of an existing product | Match it. It is the specification. Write the card from what it shows, and do not put a style of your own in its place. [The target contract](references/game-themes.md#commit-to-the-visual-target) has the rules. Skip the concept. |
 | A conceptual reference: a mood, a genre, a game named as inspiration, a rough sketch | Treat it as a direction, and improve on it. Keep what makes it recognizable. The card then gives it a stronger lead, a clearer hierarchy and a finish that the reference left open. A sketch fixes content and relationships only. |
 | No reference | Make one. Write the card, then make the concept, with an image when you can. |
+
+### An existing game
+
+A game that already has an interface has a look, and its players know it.
+Read the game before you design: capture each screen that you will touch
+and the world behind it, and write the card from what the captures show:
+the palette by role, the type, the corner and the edge, what a control is
+made of, and how a selection and a disabled control show. Reuse the images
+that the game already has. This card is measured from the game, as
+[a precise reference](#read-the-card-off-the-concept) is; there is no
+concept to make unless the user asks for a new look.
+
+What the user asked decides how much is open. The user's own instruction
+comes first: "keep the colors, change the layout" fixes the colors and
+opens the layout.
+
+| The user asked | The existing look is | Do |
+| --- | --- | --- |
+| To replace, convert, port or rebuild the interface with Facet | The specification | Match it: the same screens, the same places, the same look of each control and the same words. Facet changes how the interface is built and adds what it lacked, such as focus, a controller route, safe areas and a phone form. A visible difference needs a fault in the old screen that it repairs, or the user's word. Name each one. |
+| To improve, polish, clean up or modernize the interface | The direction | Keep what makes the game recognizable: its palette, the character of its type, the material of its controls, its icons and its world. Improve the hierarchy, the fit, the states and the finish inside that language. A player of the old interface knows the new one as the same game. Do not bring an art direction of your own. |
+| For a new look, or a look that the user describes | Background | Follow the user's direction through the steps below. Keep the routes, the words and the behavior that players know. |
+| To add a screen | Established | Use the game's theme and parts. When the game has no Facet theme yet, build one from this card first, so the new screen matches its neighbors. |
+
+Put a capture of the old screen beside the new one at the same size, on a
+desktop and on a phone. For a replacement, the two match apart from the
+differences that you named. For an improvement, say in one message what
+you kept and what you changed, and why each change is better for the
+player. When the old screens disagree with each other, follow the one that
+players see most and say which.
+
+Replace one screen at a time, and keep the game working after each one:
+the same data, the same remotes and the same results. Remove an old screen
+when the new one covers its routes.
 
 ### Write the card
 

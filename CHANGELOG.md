@@ -1,5 +1,11 @@
 # Current package
 
+The use-facet skill covers a game that already has an interface. The game is
+the reference: a request to replace the interface with Facet matches its
+screens, controls and words; a request to improve it keeps what makes the
+game recognizable and improves inside that language; the user's instruction
+can fix or open any part.
+
 `Facet.review` reports the measures of a screen: the largest numeral as a
 share of the screen height and against the most common text size, the number
 of plates, a typical control, and the strongest control with its place and
