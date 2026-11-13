@@ -5,6 +5,8 @@ local PLATES = ".facet-panel::UIStroke, .facet-sheet::UIStroke"
 local SHADOW = "finish"
 local GLOW_STRENGTH = 0.55
 local LIFT_STRENGTH = 0.35
+local FAINT_GLOW = 8
+local FAINT_STRENGTH = 0.4
 
 type Table = { [string]: unknown }
 
@@ -24,14 +26,18 @@ local function color(palette: ThemeTypes.Palette, role: string): ThemeTypes.RGB?
 	return nil
 end
 
-local function apply(package: ThemeTypes.ThemePackage, finish: unknown): { ThemeTypes.ThemeIssue }
+local function apply(
+	package: ThemeTypes.ThemePackage,
+	finish: unknown
+): ({ ThemeTypes.ThemeIssue }, { ThemeTypes.ThemeIssue })
 	local issues: { ThemeTypes.ThemeIssue } = {}
+	local advice: { ThemeTypes.ThemeIssue } = {}
 	local function issue(field: string, message: string)
 		table.insert(issues, { field = "finish" .. field, message = message })
 	end
 	if type(finish) ~= "table" then
 		issue("", "finish is a table with edge and depth")
-		return issues
+		return issues, advice
 	end
 	local stated = finish :: Table
 	local edge, depth = stated.edge :: Table, stated.depth :: Table
@@ -42,7 +48,7 @@ local function apply(package: ThemeTypes.ThemePackage, finish: unknown): { Theme
 		issue(".depth", "State the depth. For a flat plate, use depth = { lift = 0, glow = 0, sheen = 0 }")
 	end
 	if #issues > 0 then
-		return issues
+		return issues, advice
 	end
 	local style = package.style
 	local palette = style.themes[1]
@@ -100,7 +106,16 @@ local function apply(package: ThemeTypes.ThemePackage, finish: unknown): { Theme
 		issue(".depth", "A plate has one shadow. Give lift or glow, and 0 for the other")
 	end
 	if #issues > 0 then
-		return issues
+		return issues, advice
+	end
+	if glow > 0 and (glow < FAINT_GLOW or strength < FAINT_STRENGTH) then
+		table.insert(advice, {
+			field = "finish.depth.glow",
+			message = ("A glow of %d px at strength %.2f does not show in a capture. A glow reads as light from about 12 px at 0.5 on a dark ground, and it needs more on a bright one. Raise it until a capture shows it, or state glow = 0."):format(
+				glow,
+				strength
+			),
+		})
 	end
 
 	if width > 0 then
@@ -161,7 +176,7 @@ local function apply(package: ThemeTypes.ThemePackage, finish: unknown): { Theme
 			end
 		end
 	end
-	return issues
+	return issues, advice
 end
 
 return { apply = apply }
