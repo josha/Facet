@@ -1,6 +1,6 @@
 --!strict
 
-local Audit = require("../tools/vendor/verify/src/roblox/ui-audit")
+local Audit = require("../../vendor/verify/src/roblox/ui-audit")
 
 export type Expectation = { visible: { string }?, absent: { string }?, modal: (boolean | "any")? }
 export type Candidate = {
