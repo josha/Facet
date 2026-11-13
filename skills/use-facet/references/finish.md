@@ -59,8 +59,11 @@ it](../SKILL.md#read-the-card-off-the-concept):
   dark ground. A plate has a lift or a glow, not both.
 - **A sheen.** `sheen` from 0 to 1 washes the `role` color down from the top
   of the plate.
-- **The controls.** `controls = true` gives controls the shadow of the
-  plates.
+- **The controls.** `edge.controls = true` draws the edge on Buttons and
+  Stepper keys, and `depth.controls = true` gives them the shadow of the
+  plates. Do not write a stroke rule on a control's tag for this: the edge
+  of `finish` is drawn inside the box, and a stroke that you add is drawn
+  outside it and takes the gap to the next control.
 
 Zeros are a decision too: a quiet tool states them. Keep the strong edge
 for the plates; equal bright strokes on every nested part erase the
