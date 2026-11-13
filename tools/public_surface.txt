@@ -446,6 +446,7 @@ type LevelPickerRequestProps
 type MenuCommand
 type MenuItem
 type MenuSpec
+type MountOptions
 type MultiplePickerSpec
 type NavBarSpec
 type NavigationDestination

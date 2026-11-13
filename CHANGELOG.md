@@ -1,5 +1,13 @@
 # Current package
 
+An app mount builds its whole ScreenGui inside the app controls. Content that
+a returned `show`, `switch` or `keyed` directive built after `component()`
+returned ran outside them, so `Facet.controls(runtime)` there made default
+controls without the app theme. `app.mount` also takes `{ parent, name,
+screen }` for one ScreenGui, so one app can mount a main layer and an overlay
+layer, and `app.sheet()` returns the shared StyleSheet for a root that the app
+does not mount, such as a SurfaceGui.
+
 The art of a stack `ground` keeps the size of its stack. `UI.Image` binds
 its own `Size`, 44 pixels square with no `width` or `height`, and the stack
 set the full size once. When the binding ran again, on a console preview, a

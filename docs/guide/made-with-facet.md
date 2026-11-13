@@ -195,31 +195,37 @@ ten-foot viewing.
 
 ### How the screens are built
 
-The interface is a library of 158 Facet designs. Each design declares a
+The interface is a library of 159 Facet designs. Each design declares a
 `_design` table with a typed contract (inputs of kind value, readable or cell,
 and outputs) and an editor root that names the stock control it stands on. For
-example, the meter design stands on ProgressView and the window design stands
-on Sheet. A design catalog and a design library register the designs and the
-game design kinds. Each design has sample data and a specification, so a
-screen renders from samples in tests and from live game state in play. HUD
-bindings connect the game state to the HUD designs.
+example, the shared meter design stands on ProgressView and the window design
+stands on Sheet. A design catalog and a design library register the designs
+and the game design kinds, built with the `Facet.design()` kit. Each design has
+sample data and a build check, so a screen renders from samples in tests and
+from live game state in play. HUD bindings connect the game state to the HUD
+designs. An in-game design editor and a live design tool, which runs its own
+`Facet.app`, render the designs during development.
 
 The game names its windows, tabs and meters as designs over the stock
 controls, and keeps the game look in the theme:
 
-- The window design calls `UI.Sheet` and adds named detent plans for windows,
-  trainers, the compendium and crafting.
-- The tab designs call `UI.TabView` and add an overflow fade.
-- The meter design returns `UI.ProgressView`.
+- The window design calls a game control, `UI.WindowSheet`, that wraps
+  `UI.Sheet` with named detent plans for windows, trainers, the compendium and
+  crafting.
+- A game control wraps `UI.TabView` and adds the TabOverflow design, which
+  draws a fade over the overflowing tabs. The character sheet and the
+  compendium use `UI.TabView` directly.
+- The shared meter design returns `UI.ProgressView`. The HUD meter design
+  returns `UI.VitalsBar`, a game control that wraps a ProgressView track.
 
 ### App shell and theming
 
 | Mechanism | Use in Realms of Artinel |
 | --- | --- |
-| [Facet.app](../reference/nodes/Mounting.Facet.app.md) | One app mounts the client interface in one ScreenGui with `CoreUISafeInsets`. It sets `suspendGameplay`, a reactive theme, `motionLevel`, and the `preferredTextSize` and `viewingDistance` environment facts. Every screen uses `app.UI`. |
+| [Facet.app](../reference/nodes/Mounting.Facet.app.md) | One app mounts the client interface in one ScreenGui with `CoreUISafeInsets`. It sets `suspendGameplay`, a reactive theme, `motionLevel` and the `preferredTextSize` environment fact. Most screens call `Facet.controls(runtime)` with no options and inherit the app controls through `UI.provide`; some read the app controls directly. |
 | [Theme definition](../reference/nodes/Themes.definition.md) | `Facet.themes.define` extends `Facet.themes.neutralPackage` with the game colors, typography, metrics, motion, focus chrome and StyleSheet rules. Each realm has its own theme on that base. The player's allegiance selects the realm theme. |
 | [Theme resolution](../reference/nodes/Themes.resolution.md) | `Facet.themes.forResolution` adapts the selected realm theme to the viewport size. |
-| [StyleSheet](../reference/nodes/Themes.stylesheet.md) | The front-door scene gets its own controls table and StyleSheet. |
+| [StyleSheet](../reference/nodes/Themes.stylesheet.md) | The front-door scene, the war zone and each character window surface (wares, talents, the spellbook bar, quest entries and trainers) get their own themed controls and StyleSheet. The window surfaces adapt their theme with `forResolution`. The theme also adds game style rules, such as the tab fade, that `Facet.tag` applies. |
 
 ### Player-facing surfaces
 
@@ -230,7 +236,7 @@ controls, and keeps the game look in the theme:
 | Bag and items | [VirtualGrid](../reference/nodes/VirtualGrid.card.md) holds the bag slots. [AsyncImage](../reference/nodes/AsyncImage.card.md) draws the item icons. The Button `help` option shows the inspection text of equipped items. [Stage](../reference/nodes/Stage.card.md) shows 3D previews of the character, weapons and banners. |
 | Abilities | Players drag abilities from the spellbook to the action bar with [draggable and dropTarget](../reference/nodes/draggable-and-dropTarget.md), and swap or clear slots. |
 | Character creation | [NavigationStack](../reference/nodes/NavigationStack.card.md) and [TabView](../reference/nodes/TabView.card.md) hold the steps. Each step fades in with [sequence](../reference/nodes/Effect-sequences.md) and puts first focus on its controls with [focusSection](../reference/nodes/focusSection.md). |
-| Quests and dialogue | [Badge](../reference/nodes/Badge.card.md) shows objective counts and the tracked mark in the quest journal. Dialogue and the book reader open in a [Sheet](../reference/nodes/Sheet.card.md), with a Stage portrait of the speaker. |
+| Quests and dialogue | [Badge](../reference/nodes/Badge.card.md) shows objective counts and the tracked mark in the quest journal. Dialogue and the book reader open in a [Sheet](../reference/nodes/Sheet.card.md). Side-docked dialogue shows a Stage portrait of the speaker. |
 | Chat | [TextInput](../reference/nodes/TextInput.card.md) is the composer. [scrollTo](../reference/nodes/scrollTo-and-scrollToVisible.md) keeps the log at its last message. A Button `shortcut` with the Slash key opens the chat. |
 | World markers | [worldAnchor](../reference/nodes/worldAnchor.md) places screen markers that follow parts in the world, hide offscreen and respect occlusion. [WorldMarker](../reference/nodes/WorldMarker.card.md) marks a used gathering node. Nameplates and combat labels in BillboardGuis get the app controls through `UI.provide`. |
 | Settings and modal moments | [Toggle](../reference/nodes/Toggle.card.md) sets the accessibility options, such as reduced motion and high contrast. [Dialog](../reference/nodes/Dialog.card.md) shows the death screen and the return to character selection. |
@@ -243,6 +249,7 @@ controls, and keeps the game look in the theme:
 | [environment](../reference/nodes/environment.environment.md) | `gameplaySuspended` pauses the game while the interface is modal. `interactionClasses.touch` selects the touch HUD, the slot size and the map size. `isTenFoot` enlarges the HUD text on a television. `effectiveInput` selects the input hints. |
 | [motionLevel](../reference/nodes/Motion.motionLevel.md) | The press scale and the ready pulse play only at the normal motion level. Reduced motion in the game settings sets the level. |
 
-Some parts are still built by the game itself: the interface layer order, the
-item tooltip layer, the world prompt list, the movement thumbstick, the
-teleport loading cover and the damage numbers.
+The item tooltip layer uses a Facet Popover, the movement thumbstick uses the
+Facet controls, and the interface layer order and the teleport loading cover
+are Facet designs. The reward float above a defeated enemy makes its own
+ScreenGui.
