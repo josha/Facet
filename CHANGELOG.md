@@ -1,5 +1,11 @@
 # Current package
 
+The art of a stack `ground` keeps the size of its stack. `UI.Image` binds
+its own `Size`, 44 pixels square with no `width` or `height`, and the stack
+set the full size once. When the binding ran again, on a console preview, a
+change of device or a late first frame, the art went back to 44 pixels in
+the corner of the stack. The stack now holds the size.
+
 A Composition matches the heights of similar regions only. With the default
 `rows = "match"`, every region in a row of the `top` or `bottom` zone took
 the height of the tallest one, so a lap readout beside a standings list was
