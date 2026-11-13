@@ -21,9 +21,10 @@ Take each value from the direction of the product, not from another theme.
 
 | Value | Meaning |
 | --- | --- |
-| `edge.width` | Pixels of line around every panel and Sheet. 0 is no line. With `metrics.radii.panel = 0` the corners of the line are square. |
+| `edge.width` | Pixels of line around every panel and Sheet, drawn inside the box, so it takes no room from a gap. 0 is no line. With `metrics.radii.panel = 0` the corners of the line are square. |
 | `edge.role` | The palette color of the line. The default is `hairline`. |
 | `edge.transparency` | 0 to 1. The default is 0. |
+| `edge.controls` | `true` draws the same line on Buttons and Stepper keys, and at 0.6 transparency on a disabled one. `bare`, `link` and `utility` Buttons keep none. The default is `false`. |
 | `depth.lift` | Pixels that a shadow falls below the plate. 0 is no shadow. |
 | `depth.blur` | Pixels of softness of that shadow. The default is twice the lift. 0 is a hard shadow. |
 | `depth.side` | Pixels that the shadow falls to the right. The default is 0. |

@@ -71,6 +71,45 @@ local function text(value: unknown): string?
 	return if type(value) == "string" then value else nil
 end
 
+local function outsetOf(child: unknown): Rules.ReviewOutset?
+	local edge = 0
+	local found, stroke = call(child, "FindFirstChildWhichIsA", "UIStroke")
+	local function strokeValue(key: string): unknown
+		if found and stroke ~= nil then
+			return read(stroke, key)
+		end
+		local ok, value = call(child, "GetStyled", key, "::UIStroke")
+		return if ok then value else nil
+	end
+	local thickness = number(strokeValue("Thickness"), 0)
+	if
+		thickness > 0
+		and strokeValue("Enabled") ~= false
+		and number(strokeValue("Transparency"), 0) < 0.9
+		and text(read(strokeValue("ApplyStrokeMode"), "Name")) ~= "Contextual"
+	then
+		local position = text(read(strokeValue("BorderStrokePosition"), "Name")) or "Outer"
+		edge = if position == "Inner" then 0 elseif position == "Center" then thickness / 2 else thickness
+	end
+	local x, y = 0, 0
+	local has, shadow = call(child, "FindFirstChildWhichIsA", "UIShadow")
+	if has and shadow ~= nil and read(shadow, "Enabled") ~= false and number(read(shadow, "Transparency"), 1) < 0.9 then
+		local offset = read(shadow, "Offset")
+		x = number(read(read(offset, "X"), "Offset"), 0)
+		y = number(read(read(offset, "Y"), "Offset"), 0)
+	end
+	local outset: Rules.ReviewOutset = {
+		left = math.max(edge, -x),
+		top = math.max(edge, -y),
+		right = math.max(edge, x),
+		bottom = math.max(edge, y),
+	}
+	if outset.left <= 0 and outset.top <= 0 and outset.right <= 0 and outset.bottom <= 0 then
+		return nil
+	end
+	return outset
+end
+
 local function role(object: unknown): string?
 	local ok, tags = call(object, "GetTags")
 	if not ok or type(tags) ~= "table" then
@@ -351,6 +390,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					rect = { x = x, y = y, width = w, height = h },
 					visible = visible,
 					interactive = isA(child, "GuiButton") or isA(child, "TextBox"),
+					outset = if isA(child, "GuiButton") then outsetOf(child) else nil,
 					z = number(read(child, "ZIndex"), 1),
 					turn = if turn > 0.5 then turn else nil,
 					fan = (function(): boolean
