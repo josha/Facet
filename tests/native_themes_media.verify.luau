@@ -638,6 +638,63 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("draws the finish edge inside the box, on plates and on controls", {
+			id = "native_themes_media::native themes and media::draws the finish edge inside the box, on plates and on controls",
+			run = function()
+				local engine, runtime = setup()
+				local Inner = engine.types.Enum.BorderStrokePosition.Inner
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "inked" },
+					finish = {
+						edge = { width = 4, role = "content", controls = true },
+						depth = { lift = 0, glow = 0, sheen = 0 },
+					},
+				}
+				local package = assert((themes.define(definition)))
+				local stop, mounted = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themeState(package), { types = engine.types })
+				end, engine.new("ScreenGui"))
+				local sheet = mounted :: StyleSheet
+				local function authored(selector: string)
+					local found: StyleRule? = nil
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							found = rule
+						end
+					end
+					return styleProperties(assert(found, "No rule: " .. selector))
+				end
+				local plate = authored(".facet-sheet::UIStroke")
+				expect(plate.Thickness):toBe(4)
+				expect(plate.BorderStrokePosition):toBe(Inner)
+				local control = authored(".facet-stepper-button::UIStroke")
+				expect(control.Thickness):toBe(4)
+				expect(control.BorderStrokePosition):toBe(Inner)
+				expect(authored(".facet-button.facet-appearance-bare::UIStroke").Transparency):toBe(1)
+				expect(authored(".facet-button.facet-appearance-utility::UIStroke").Transparency):toBe(1)
+				expect(authored(".facet-button::UIStroke").Thickness):toBe(4)
+				expect(authored(".facet-button.facet-disabled::UIStroke").Transparency):toBe(0.6)
+				local function order(selector: string): number
+					local last = -1
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							last = math.max(last, rule.Priority)
+						end
+					end
+					return last
+				end
+				expect(
+					order(".facet-button.facet-appearance-bare::UIStroke")
+						> order(".facet-button.facet-disabled::UIStroke")
+				):toBe(true)
+				expect(order(".facet-button.facet-disabled::UIStroke") > order(".facet-button::UIStroke")):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("resolves authored metric rules through distance and theme changes", {
 			id = "native_themes_media::native themes and media::resolves authored metric rules through distance and theme changes",
 			run = function()

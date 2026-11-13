@@ -1,5 +1,21 @@
 # Current package
 
+The edge of a theme's finish is drawn inside the box, and it can reach the
+controls. `finish.edge` drew its line outside each panel, and it did not
+reach Buttons, so two authors wrote stroke rules on the Button tags by hand.
+Those strokes were also outside the box: with a hard shadow they used up the
+gap between a Stepper and the action under it, and the two touched. The
+line is now inside the box, and `finish.edge.controls = true` draws it on
+Buttons and Stepper keys. A theme rule on `::UIStroke` takes
+`BorderStrokePosition`, `LineJoinMode` and `ApplyStrokeMode` as names.
+
+`Facet.review` has two new findings. `cut-at-edge` reports a text (high) or
+a control (medium) that crosses the edge of the screen, such as a result
+plate that is wider than a phone in portrait; `offscreen-text` reports a
+text only when more than half of it is outside. `touching-controls`
+(medium) reports a control whose stroke or shadow, drawn outside its box,
+reaches the control beside it.
+
 An app makes one StyleSheet and shares it. Each `app.mount`, popover and
 toast built its own theme StyleSheet inside its ScreenGui, at about 300 KiB of
 Luau heap and 1.5 ms each in Studio. The app now makes the sheet on its first
