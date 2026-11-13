@@ -1,5 +1,11 @@
 # Current package
 
+The art of a stack `ground` keeps the size of its stack. `UI.Image` binds
+its own `Size`, 44 pixels square with no `width` or `height`, and the stack
+set the full size once. When the binding ran again, on a console preview, a
+change of device or a late first frame, the art went back to 44 pixels in
+the corner of the stack. The stack now holds the size.
+
 The edge of a theme's finish is drawn inside the box, and it can reach the
 controls. `finish.edge` drew its line outside each panel, and it did not
 reach Buttons, so two authors wrote stroke rules on the Button tags by hand.
@@ -16,11 +22,21 @@ text only when more than half of it is outside. `touching-controls`
 (medium) reports a control whose stroke or shadow, drawn outside its box,
 reaches the control beside it.
 
-The art of a stack `ground` keeps the size of its stack. `UI.Image` binds
-its own `Size`, 44 pixels square with no `width` or `height`, and the stack
-set the full size once. When the binding ran again, on a console preview, a
-change of device or a late first frame, the art went back to 44 pixels in
-the corner of the stack. The stack now holds the size.
+An app makes one StyleSheet and shares it. Each `app.mount`, popover and
+toast built its own theme StyleSheet inside its ScreenGui, at about 300 KiB of
+Luau heap and 1.5 ms each in Studio. The app now makes the sheet on its first
+mount, in the `parent` option or the PlayerGui, and each ScreenGui holds only
+a StyleLink to it. `app.dispose()` removes the sheet. Code that looked for a
+StyleSheet inside an app ScreenGui reads the StyleLink's `StyleSheet` instead.
+
+The theme compile cache now hits on the default theme. The engine types table
+was new on each call and the neutral theme was not frozen, so each
+StyleSheet compiled every theme rule again and kept its own copy. A
+StyleSheet now reuses the compiled rules: in Studio a mount went from about
+605 to 297 KiB of Luau heap and from 3.0 to 1.5 ms. `themes.neutralPackage()`
+still returns an editable copy. An editable package is cached by its contents,
+so two copies with the same values share one compile and an edited copy
+compiles again.
 
 A Composition matches the heights of similar regions only. With the default
 `rows = "match"`, every region in a row of the `top` or `bottom` zone took

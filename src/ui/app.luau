@@ -117,12 +117,19 @@ return function(
 	local Links = (runtime.constructors :: unknown) :: StyleLinkHost
 	local stops: { () -> () } = {}
 	local disposed = false
-	local function mount(component: Component, parent: Instance?): (() -> (), ScreenGui)
-		assert(not disposed, "Facet app.mount: the app is disposed")
-		assert(type(component) == "function", "Facet app.mount: expected a component function")
-		local target = parent or settings.parent or playerGui()
-		local screen: ScreenGui? = nil
-		local stop = runtime.mount(function(): ComposeTypes.Node
+	local shared: StyleSheet? = nil
+	local function sharedSheet(target: Instance): StyleSheet
+		local known = shared
+		if known then
+			return known
+		end
+		local home = settings.parent
+		if home == nil then
+			local ok, found = pcall(playerGui)
+			home = if ok then found else target
+		end
+		local made: StyleSheet? = nil
+		local stopSheet = runtime.mount(function(): ComposeTypes.Node
 			local supplied: ThemeTypes.ThemeOptions = settings.sheet or {}
 			local sheetOptions = table.clone(supplied)
 			if sheetOptions.types == nil then
@@ -135,6 +142,24 @@ return function(
 				sheetOptions.tenFoot = UI.environment().isTenFoot
 			end
 			local sheet = themes.createStyleSheet(runtime, settings.theme, sheetOptions)
+			made = sheet
+			return sheet
+		end, assert(home))
+		table.insert(stops, 1, function()
+			shared = nil
+			stopSheet()
+		end)
+		local sheet = assert(made)
+		shared = sheet
+		return sheet
+	end
+	local function mount(component: Component, parent: Instance?): (() -> (), ScreenGui)
+		assert(not disposed, "Facet app.mount: the app is disposed")
+		assert(type(component) == "function", "Facet app.mount: expected a component function")
+		local target = parent or settings.parent or playerGui()
+		local sheet = sharedSheet(target)
+		local screen: ScreenGui? = nil
+		local stop = runtime.mount(function(): ComposeTypes.Node
 			local props: { [unknown]: unknown } = {}
 			for key, value in (settings.screen or {}) :: { [unknown]: unknown } do
 				assert(type(key) == "string", "Facet app: screen takes native ScreenGui properties only")
@@ -155,11 +180,10 @@ return function(
 				local enums = if settings.types then settings.types.Enum else Enum
 				props.ZIndexBehavior = enums.ZIndexBehavior.Sibling
 			end
-			props[1] = sheet
-			props[2] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
-			props[3] = UI.provide(component)
+			props[1] = Links.StyleLink { StyleSheet = Compose.static(sheet) }
+			props[2] = UI.provide(component)
 			if target:IsA("PlayerGui") and settings.focusRing ~= false then
-				props[4] = UI.focusRing(target)
+				props[3] = UI.focusRing(target)
 			end
 			local root = Host.ScreenGui(props :: Engine.ScreenGuiNativeProps)
 			screen = root
