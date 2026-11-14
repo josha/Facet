@@ -29,6 +29,34 @@ reference images or links. The reviewer must see their pixels to compare them.
 For a focused change, use the quick pass in the [skill](../SKILL.md#quick-review)
 instead of the full judgment below.
 
+## Compare with a target
+
+With a target image and no shell, build the same evidence by hand.
+
+1. State the kind of the target: `specification`, `concept` or
+   `inspiration`; the [skill](../SKILL.md#fidelity-to-a-target) has the table.
+2. Set the device preview to the aspect ratio of the target, or to the
+   nearest that the host has, and capture the screen. Record a different
+   ratio as missing evidence: the pair then compares parts, not the
+   composition.
+3. View the target and the capture one after the other at the same width.
+   Then picture both at a quarter size: what leads in each?
+4. Read the `measures` lines at the end of `Facet.review.screen().text`:
+   the largest numeral as a share of the screen height and against the
+   most common text size, the plates and a typical control, and the
+   strongest control with its place and size.
+5. Write three comparisons, each with the target's value, the runtime's
+   value and kept or lost: the leading numeral and type scale; the shapes
+   of the panels and controls; the place and the emphasis of the main
+   action. Take the target's values from the image and from the measured
+   card. When the target has a main action and the strongest control of
+   the runtime is another one, the emphasis is lost. A target with no
+   single main action, such as a HUD during play, has nothing to lose
+   here.
+6. List what you could not see: a state, a size, the card.
+
+Give fidelity its own verdict, apart from the scores below.
+
 ## Get the judgment
 
 If you can start a separate agent, give it the [critic brief](critic-brief.md),

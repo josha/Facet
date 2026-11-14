@@ -248,8 +248,35 @@ Also name what works and must stay (`keep`), so a revision does not lose it.
       ],
       "keep": ["Back and Close placement"]
     }
-  ]
+  ],
+  "fidelity": {
+    "kind": "concept",
+    "verdict": "drifted",
+    "comparisons": [
+      {
+        "aspect": "type-scale",
+        "target": "The lap numeral is about an eighth of the height.",
+        "runtime": "36 px, 3.3% of the height.",
+        "kept": false
+      },
+      { "aspect": "shapes", "target": "Angular plates, 3 px edge.", "runtime": "Rounded plates, 3 px edge.", "kept": false },
+      {
+        "aspect": "primary-action",
+        "target": "Bottom right, a fifth of the width, the only filled control.",
+        "runtime": "Bottom right, 18% of the width, one outline among six.",
+        "kept": false
+      }
+    ],
+    "lost": ["the oversized lap numeral", "the angular plates"],
+    "missing": ["a capture on a phone in portrait"]
+  }
 }
 ```
+
+Write `fidelity` only when the packet has a fidelity part. Its `verdict` is
+`kept`, `drifted` (recognizable, with defining qualities lost), `lost` or
+`not-judged` (the evidence is missing). For an `inspiration`, use `kept`
+unless the runtime lost what makes the reference recognizable. The fidelity
+verdict does not change the scores, and the scores do not change it.
 
 Use the screen ids from PACKET.md. Write only this file. Do not edit the game.

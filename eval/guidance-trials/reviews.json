@@ -552,6 +552,38 @@
         "pet-2"
       ],
       "outcome": "The reviewer ranked v4 clearly first and would ship neither as it is; pet-1 is close. pet-1 lost points for the speech bubble cut at the bottom in landscape, a name louder than the pet on the desktop, a bubble far from the pet, controls close to the right edge, a small pet in portrait, thin need labels and scenery cropped in landscape. pet-2 lost on: no mood word; the pet cropped in landscape; a column of needs that crowds the pet in portrait; a Hunger jar whose low level means Feed is needed; small secondary text; shelves that support nothing and tokens that repeat the jar icons; a pet off-centre on the desktop; and a flat look that read as a stock template. The v4.1 additions about the place and the objects did not show in the result, and they were removed from the guidance. One run stands behind each arm."
+    },
+    {
+      "id": "fish-v5",
+      "phase": 8,
+      "kind": "pair, one scale",
+      "builds": [
+        "fish-1",
+        "fish-2"
+      ],
+      "scores": {
+        "fish-1": {
+          "identity": 4,
+          "craft": 3,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 3,
+          "landscape": 3
+        },
+        "fish-2": {
+          "identity": 3,
+          "craft": 4,
+          "lead": 3,
+          "desktop": 4,
+          "portrait": 4,
+          "landscape": 3
+        }
+      },
+      "ranking": [
+        "fish-2",
+        "fish-1"
+      ],
+      "outcome": "The reviewer ranked v5 first by one point and would ship neither. fish-1 earned identity from its lagoon, dock and bobber and from the brass dial, and lost on four boxes with one border weight that compete, a banner louder than the dial while reeling, and a dial that sits on the character on both phone forms. fish-2 earned craft from its nautical plates, rope dial and drawn fish, and had the cleanest portrait; it lost identity because the world is a bare baseplate, and lost lead because the tension arc is a thin ring and the distance numeral is stronger than it; its landscape banner wraps to three lines and covers the character. Lead is 3 for both. One run stands behind each arm, and the difference is inside the movement of one reviewer between reviews, so the pair does not separate the kits."
     }
   ]
 }

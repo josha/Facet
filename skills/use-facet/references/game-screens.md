@@ -167,7 +167,13 @@ contrast needs it, rather than requiring a panel behind every readout.
 
 Contextual teaching can use Callout anchored to the live target. Focused reading
 may need a different surface. Keep the target usable, provide an exit, and use
-real completion evidence when teaching an action.
+real completion evidence when teaching an action. A Callout floats over the
+HUD: in a Composition it steps aside from the other regions when it has
+room, and `covered-control` in the review reports a control that it still
+covers. A region that can take its compact form hides the anchor at that
+size, and the Callout waits behind the mark of the region. Anchor a lesson
+that must show at once on a control in a region that stays, and look at the
+lesson at each form.
 
 ## Quick wheel example
 

@@ -33,12 +33,14 @@ a file as `references/asset-upload.md` describes. When the upload is
 refused, say so in one message and draw that material with the theme and
 native shapes at the strength that the concept shows.
 When it has none, a skill that names one cannot run: block the first screen
-in, as step 1 of the skill describes, and make art from native shapes. Either
-way the concept is the first picture of the work, and after you choose it,
-it is the target: correct the card to its measures before you write the
-theme. The second picture is the theme alone: state `finish` in the theme,
-mount `app.specimen()`, capture it beside the concept, and change the theme
-until the two agree before the first screen.
+in, as step 1 of the skill describes, and make art from native shapes.
+
+The order of the protocol above is the order of the skill. Steps 1 to 3 of
+the protocol (the concept, the measured card, the style on one sheet) are
+step 1 of the skill, and the sheet is `app.specimen()` with `finish` stated
+in the theme. Step 4, the first playable screen, is steps 2 to 4 of the
+skill. Do not mount a game screen before the specimen has been captured
+beside the concept.
 Use this installed library; do not add another UI library.
 
 The Facet skill covers the interface. As the game author, choose the world's

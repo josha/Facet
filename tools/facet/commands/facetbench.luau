@@ -9,6 +9,10 @@ local Eval = require("../../vendor/verify/src/agent-eval")
 local Lute = require("../../vendor/verify/src/lute")
 local Compare = require("../../../eval/compare")
 local Submission = require("../../../eval/submission")
+local Admission = require("../lib/facetbench_admission")
+local Preflight = require("../lib/facetbench_preflight")
+local Hash = require("../lib/hash")
+local Look = require("../lib/look")
 local Setup = require("../lib/facetbench_setup")
 local Process = require("@std/process")
 
@@ -42,13 +46,188 @@ local function prepareCatalog(path: string, models: { string })
 	Files.write("artifacts/facetbench/run-inputs/.codex-model-catalog.json", Json.encode(prepared))
 end
 
+local function candidates(manifest: unknown): ({ Admission.Candidate }, { string })
+	local list: { Admission.Candidate } = {}
+	local entries: Json.Array = assert(Json.asArray(Json.field(manifest, "captures")), "the manifest has no captures")
+	for position, entry in entries do
+		local function need(key: string): string
+			return assert(Json.stringField(entry, key), ("capture %d has no %s"):format(position, key))
+		end
+		local expected = Json.field(entry, "expect")
+		local expect: Admission.Expectation? = nil
+		if expected ~= nil then
+			local modal = Json.field(expected, "modal")
+			local stated: Admission.Expectation = {
+				visible = Json.strings(Json.field(expected, "visible")),
+				absent = Json.strings(Json.field(expected, "absent")),
+			}
+			if type(modal) == "boolean" then
+				stated.modal = modal
+			elseif modal == "any" then
+				stated.modal = "any"
+			end
+			expect = stated
+		end
+		local candidate: Admission.Candidate = {
+			id = need("id"),
+			arm = need("arm"),
+			device = need("device"),
+			screen = need("screen"),
+			image = need("image"),
+			dump = Json.stringField(entry, "dump"),
+			attempt = Json.numberField(entry, "attempt"),
+			expect = expect,
+		}
+		table.insert(list, candidate)
+	end
+	local arms = assert(Json.strings(Json.field(manifest, "arms")), "the manifest names no arms")
+	return list, arms
+end
+
+local function admit(evidence: string): number
+	local source = Files.join(evidence, "judge-candidates.json")
+	assert(Files.isFile(source), "facetbench admit: " .. source .. " is missing")
+	local list, arms = candidates(Json.decode(Files.read(source)))
+	local review = Admission.review(list, function(path: string)
+		return Look.load(Files.join(evidence, path))
+	end, arms)
+	local decisions: { Json.Object } = {}
+	local admitted, excluded = 0, 0
+	local lines: { string } = {}
+	for _, decision in review.decisions do
+		local image = Files.join(evidence, decision.image)
+		local held = Files.isFile(image)
+		local reasons = table.clone(decision.reasons)
+		if not held then
+			table.insert(reasons, "the image file is missing")
+		end
+		local ok = decision.admitted and held
+		admitted += if ok then 1 else 0
+		excluded += if ok then 0 else 1
+		local entry: Json.Object = {
+			id = decision.id,
+			arm = decision.arm,
+			device = decision.device,
+			screen = decision.screen,
+			attempt = decision.attempt,
+			image = decision.image,
+			sha256 = if held then Hash.sha256(Files.read(image)) else Json.null,
+			admitted = ok,
+			reasons = reasons,
+		}
+		table.insert(decisions, entry)
+		if not ok then
+			table.insert(lines, ("  excluded %s: %s"):format(decision.id, table.concat(reasons, "; ")))
+		end
+	end
+	local matched = 0
+	local pairs: { Json.Object } = {}
+	for _, pair in review.pairs do
+		local complete = pair.admitted
+		for _, id in pair.captures do
+			for _, decision in decisions do
+				if Json.stringField(decision, "id") == id and Json.field(decision, "admitted") ~= true then
+					complete = false
+				end
+			end
+		end
+		matched += if complete then 1 else 0
+		local entry: Json.Object = {
+			device = pair.device,
+			screen = pair.screen,
+			admitted = complete,
+			captures = pair.captures,
+			reason = if complete then Json.null else pair.reason or "a capture of the pair was excluded",
+		}
+		table.insert(pairs, entry)
+		if not complete then
+			table.insert(
+				lines,
+				("  not compared %s/%s: %s"):format(pair.device, pair.screen, pair.reason or "a capture was excluded")
+			)
+		end
+	end
+	Files.write(
+		Files.join(evidence, "admission.json"),
+		Json.pretty({ schema = "facetbench-admission/1", decisions = decisions, pairs = pairs })
+	)
+	print(
+		("facetbench admit: %d capture(s) admitted, %d excluded; %d of %d pair(s) can be compared"):format(
+			admitted,
+			excluded,
+			matched,
+			#review.pairs
+		)
+	)
+	if #lines > 0 then
+		print(table.concat(lines, "\n"))
+	end
+	print("Every candidate and each reason is kept in " .. Files.join(evidence, "admission.json"))
+	return 0
+end
+
+local function preflight(invocation: Cli.Invocation): number
+	local evidence = assert(Cli.flag(invocation, "evidence"), "--evidence is required")
+	local destination = assert(Cli.flag(invocation, "report"), "--report is required")
+	local runId = assert(Cli.flag(invocation, "run"), "--run is required")
+	local suitePath = Cli.flag(invocation, "suite") or "eval/run.json"
+	local chosen = assert(Cli.flag(invocation, "agent"), "--agent is required")
+	local required: { string }? = nil
+	for _, agent in Json.asArray(Json.field(Json.decode(Files.read(suitePath)), "agents")) or {} do
+		if Json.stringField(agent, "id") == chosen then
+			required = Json.strings(Json.field(Json.field(agent, "options"), "preflight")) or {}
+		end
+	end
+	assert(required, "the suite has no author " .. chosen)
+	local source = Files.join(evidence, "preflight", "images.json")
+	local record: Preflight.Record? = nil
+	if Files.isFile(source) then
+		local found = Json.decode(Files.read(source))
+		local made, sent = Json.field(found, "generation"), Json.field(found, "upload")
+		local read: Preflight.Record = {
+			agent = Json.stringField(found, "agent") or "",
+			tools = Json.strings(Json.field(found, "tools")) or {},
+			authorStart = Json.numberField(found, "authorStart"),
+		}
+		if made ~= nil then
+			read.generation = {
+				ok = Json.field(made, "ok") == true,
+				file = Json.stringField(made, "file"),
+				bytes = Json.numberField(made, "bytes"),
+				at = Json.numberField(made, "at"),
+			}
+		end
+		if sent ~= nil then
+			read.upload = {
+				ok = Json.field(sent, "ok") == true,
+				tool = Json.stringField(sent, "tool"),
+				assetId = Json.stringField(sent, "assetId"),
+				loaded = Json.field(sent, "loaded") == true,
+				at = Json.numberField(sent, "at"),
+			}
+		end
+		record = read
+		assert(read.agent == chosen, "preflight/images.json is for another author: " .. read.agent)
+	end
+	local report = Core.runCases(Preflight.cases(record, required), { executor = "author-preflight" }, os.clock)
+	Lute.gate.writeReport(destination, runId, report)
+	print(Core.format(report))
+	return if report.passed == report.total then 0 else 1
+end
+
 return {
 	name = "facetbench",
 	summary = "Prepare the thirty-minute run or compare its recorded evidence with Verify.",
-	usage = "usage: lute run tools/facet facetbench prepare|compare|snapshot|seal|check-submission [--suite PATH --agent ID --judge-model ID --model-catalog PATH --place PATH --evidence PATH --report PATH --run ID]",
+	usage = "usage: lute run tools/facet facetbench prepare|preflight|compare|snapshot|seal|check-submission|admit [--suite PATH --agent ID --judge-model ID --model-catalog PATH --place PATH --evidence PATH --report PATH --run ID]",
 	values = { "place", "evidence", "report", "run", "model-catalog", "suite", "agent", "judge-model" },
 	run = function(invocation: Cli.Invocation): number
 		local action = invocation.positional[1]
+		if #invocation.positional == 1 and action == "admit" then
+			return admit(assert(Cli.flag(invocation, "evidence"), "--evidence is required"))
+		end
+		if #invocation.positional == 1 and action == "preflight" then
+			return preflight(invocation)
+		end
 		if
 			#invocation.positional == 1
 			and (action == "snapshot" or action == "seal" or action == "check-submission")

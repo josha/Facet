@@ -896,6 +896,56 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("slides along its edge to clear what it is told to avoid, and stays when no place is clear", {
+			id = "native_callout_help::touch contextual text placement::slides along its edge to clear what it is told to avoid, and stays when no place is clear",
+			run = function()
+				local request: placement.Request = {
+					source = { x = 264.5, y = 16, w = 220, h = 44 },
+					size = { w = 280, h = 228 },
+					safe = { x = 8, y = 8, w = 733, h = 315 },
+					edge = "top",
+					gap = 19,
+					tail = 16,
+					tailInset = 12,
+				}
+				local plain = placement.solve(request)
+				expect(plain.edge):toBe("bottom")
+				expect(plain.x):toBe(234.5)
+				request.avoid = { { x = 493, y = 271, w = 240, h = 44 } }
+				request.avoidGap = 8
+				local clear = placement.solve(request)
+				expect(clear.x):toBe(205)
+				expect(clear.y):toBe(plain.y)
+				expect(clear.tailX):toBe(374.5)
+				expect(clear.tailSuppressed):toBe(false)
+				expect(clear.shift):toBe(-29.5)
+				request.avoid = { { x = 493, y = 20, w = 240, h = 44 }, { x = 493, y = 400, w = 240, h = 44 } }
+				expect(placement.solve(request).x):toBe(234.5)
+				request.avoid = { { x = 493, y = 271, w = 240, h = 44 }, { x = 16, y = 200, w = 200, h = 44 } }
+				expect(placement.solve(request).x):toBe(234.5)
+				request.avoid = { { x = 300, y = 271, w = 400, h = 44 } }
+				local far = placement.solve(request)
+				expect(far.x):toBe(12)
+				expect(far.tailX):toBe(272)
+				expect(far.tailSuppressed):toBe(false)
+				request.avoid = { { x = 250, y = 271, w = 480, h = 44 } }
+				expect(placement.solve(request).x):toBe(234.5)
+				request.avoid = { { x = 16, y = 200, w = 240, h = 44 } }
+				expect(placement.solve(request).x):toBe(264)
+				local side = placement.solve({
+					source = { x = 40, y = 200, w = 44, h = 44 },
+					size = { w = 200, h = 120 },
+					safe = { x = 8, y = 8, w = 784, h = 584 },
+					edge = "trailing",
+					gap = 8,
+					avoid = { { x = 150, y = 260, w = 120, h = 44 } },
+					avoidGap = 8,
+				})
+				expect(side.x):toBe(92)
+				expect(side.y):toBe(132)
+			end,
+		})
+
 		it("keeps long-press help above and flips it when the top has no room", {
 			id = "native_callout_help::touch contextual text placement::keeps long-press help above and flips it when the top has no room",
 			run = function()

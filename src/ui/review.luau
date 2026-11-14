@@ -391,6 +391,12 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					visible = visible,
 					interactive = isA(child, "GuiButton") or isA(child, "TextBox"),
 					outset = if isA(child, "GuiButton") then outsetOf(child) else nil,
+					sink = if isA(child, "GuiButton") then nil else read(child, "Active") == true,
+					layer = (function(): string?
+						local found, gui = call(child, "FindFirstAncestorWhichIsA", "LayerCollector")
+						local named, path = call(if found then gui else nil, "GetFullName")
+						return if named and type(path) == "string" then path else nil
+					end)(),
 					z = number(read(child, "ZIndex"), 1),
 					turn = if turn > 0.5 then turn else nil,
 					fan = (function(): boolean

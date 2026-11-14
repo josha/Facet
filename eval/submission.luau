@@ -8,6 +8,7 @@ local Hash = require("../tools/facet/lib/hash")
 local Json = require("../tools/facet/lib/json")
 local PowerShell = require("../tools/vendor/verify/src/lute/powershell")
 local Run = require("../tools/facet/lib/run")
+local system = require("@std/system")
 
 local SAVE = [[
 $ErrorActionPreference = 'Stop'
@@ -56,12 +57,77 @@ while ($size -ne (Get-Item -LiteralPath $place).Length) {
 }
 ]]
 
+local SAVE_MACOS = [[
+place="$1"
+pid="$2"
+before=$(stat -f %m "$place") || exit 1
+attempt=0
+while [ "$(stat -f %m "$place")" -le "$before" ]; do
+	attempt=$((attempt + 1))
+	if [ "$attempt" -gt 5 ]; then
+		echo "Studio did not save the place" >&2
+		exit 1
+	fi
+	osascript \
+		-e 'on run argv' \
+		-e 'tell application "System Events"' \
+		-e 'set kept to first process whose unix id is ((item 1 of argv) as integer)' \
+		-e 'set frontmost of kept to true' \
+		-e 'delay 0.5' \
+		-e 'if not (frontmost of kept) then error "the kept Studio did not take focus"' \
+		-e 'keystroke "s" using command down' \
+		-e 'end tell' \
+		-e 'end run' "$pid" || exit 1
+	waited=0
+	while [ "$(stat -f %m "$place")" -le "$before" ] && [ "$waited" -lt 120 ]; do
+		sleep 0.25
+		waited=$((waited + 1))
+	done
+done
+size=-1
+while [ "$size" != "$(stat -f %z "$place")" ]; do
+	size=$(stat -f %z "$place")
+	sleep 1
+done
+]]
+
+export type Platform = "windows" | "macos" | "other"
+
+local function platform(): Platform
+	if system.win32 then
+		return "windows"
+	end
+	return if system.macos then "macos" else "other"
+end
+
+local function saveCommand(on: Platform, place: string, pid: number): { string }
+	if on == "windows" then
+		return PowerShell.command(SAVE:format(string.gsub(string.gsub(place, "/", "\\"), "'", "''"), pid))
+	elseif on == "macos" then
+		return { "/bin/sh", "-c", SAVE_MACOS, "seal", place, tostring(pid) }
+	end
+	error(
+		"this platform has no way to save the kept Studio place. Save it in Studio, then run facetbench snapshot --place PATH",
+		0
+	)
+end
+
 local function save(evidence: string): string
 	local kept = Json.decode(Files.read(evidence .. "/studio-place.json"))
 	local place = Files.absolute((assert(Json.stringField(kept, "place"), "the kept Studio has no place")))
 	local pid = assert(Json.numberField(kept, "pid"), "the kept Studio has no process")
-	local saved =
-		Run.capture(PowerShell.command(SAVE:format(string.gsub(string.gsub(place, "/", "\\"), "'", "''"), pid)))
+	local on = platform()
+	local saved = Run.capture(saveCommand(on, place, pid))
+	if not saved.ok and on == "macos" then
+		error(
+			"could not save the kept Studio place: "
+				.. saved.stderr
+				.. saved.stdout
+				.. "\nSystem Events sends the Command-S. Allow the program that runs lute under Privacy & Security, Accessibility, "
+				.. "or save the place in the kept Studio and run facetbench snapshot --place PATH. The author's place is not changed by a failed save.",
+			0
+		)
+	end
 	assert(saved.ok, "could not save the kept Studio place: " .. saved.stderr .. saved.stdout)
 	return place
 end
@@ -183,4 +249,4 @@ local function seal(evidence: string, runId: string): Core.Report
 	return capture(save(evidence), directory, runId)
 end
 
-return { capture = capture, validate = validate, seal = seal }
+return { capture = capture, validate = validate, seal = seal, saveCommand = saveCommand, platform = platform }

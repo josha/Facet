@@ -22,6 +22,7 @@ type Options = {
 	native: boolean?,
 	paint: Rules.ReviewRect?,
 	ground: boolean?,
+	sink: boolean?,
 }
 
 local DARK = { r = 0.08, g = 0.09, b = 0.12 }
@@ -57,6 +58,7 @@ local function scene()
 			turn = given.turn,
 			paint = given.paint,
 			ground = given.ground,
+			sink = given.sink,
 		}
 		if given.text ~= nil then
 			element.text = {
@@ -365,6 +367,55 @@ return function(harness: Verify.Harness)
 		for _, finish in dims do
 			t:expect(faintGlow({ identity = { id = "dim" }, finish = finish })):toBe(1)
 		end
+		local function equalEdges(definition: Facet.ThemeDefinition): number
+			local theme, report = themes.define(definition)
+			t:expect(report.ok and theme ~= nil):toBe(true)
+			local found = 0
+			for _, item in report.advice do
+				if item.field == "finish.edge.controls" then
+					found += 1
+				end
+			end
+			return found
+		end
+		t:expect(equalEdges(inking)):toBe(1)
+		t:expect(equalEdges(lit)):toBe(0)
+		t:expect(equalEdges({
+			identity = { id = "hair" },
+			finish = { edge = { width = 1, controls = true }, depth = { lift = 0, glow = 0, sheen = 0 } },
+		})):toBe(0)
+		local quiet: Facet.ThemeDefinition = {
+			identity = { id = "quiet" },
+			finish = {
+				edge = { width = 3, role = "accent", controls = { width = 1, role = "hairline", transparency = 0.5 } },
+				depth = { lift = 0, glow = 0, sheen = 0 },
+			},
+		}
+		t:expect(equalEdges(quiet)):toBe(0)
+		local quieted = themes.define(quiet)
+		local base = count(at(plain, "rules"))
+		t:expect(at(quieted, "rules", base + 1, "properties", "Thickness")):toBe(3)
+		t:expect(at(quieted, "rules", base + 2, "selector"))
+			:toBe(".facet-button::UIStroke, .facet-stepper-button::UIStroke")
+		t:expect(at(quieted, "rules", base + 2, "properties", "Thickness")):toBe(1)
+		t:expect(at(quieted, "rules", base + 2, "properties", "Transparency")):toBe(0.5)
+		t:expect(at(quieted, "rules", base + 2, "properties", "Color")):toEqual({ role = "hairline" })
+		local controlsOnly: Facet.ThemeDefinition = {
+			identity = { id = "controls-only" },
+			finish = { edge = { width = 0, controls = { width = 2 } }, depth = { lift = 0, glow = 0, sheen = 0 } },
+		}
+		local bare = themes.define(controlsOnly)
+		t:expect(at(bare, "rules", base + 1, "selector"))
+			:toBe(".facet-button::UIStroke, .facet-stepper-button::UIStroke")
+		local unknownRole: Facet.ThemeDefinition = {
+			identity = { id = "wrong" },
+			finish = {
+				edge = { width = 2, controls = { role = "nope" } },
+				depth = { lift = 0, glow = 0, sheen = 0 },
+			},
+		}
+		local _, wrong = themes.define(unknownRole)
+		t:expect(wrong.ok):toBe(false)
 		t:expect(at(neon, "style", "themes", 1, "extra", "chromeGradient", "panel", "alpha", 1, "v")):toBe(0.25)
 		local raised: Facet.ThemeDefinition = {
 			identity = { id = "raised" },
@@ -653,6 +704,136 @@ return function(harness: Verify.Harness)
 		t:expect(build({ turn = 30 })["covered-text"]):toBe(nil)
 		t:expect(build({ labels = 3 })["covered-text"]):toBe(nil)
 	end)
+
+	harness:case("a plate from another part over a part of a control is a covered control", function(t)
+		type Case = {
+			x: number?,
+			y: number?,
+			width: number?,
+			height: number?,
+			fan: boolean?,
+			z: number?,
+			modal: boolean?,
+			sibling: boolean?,
+			scrolls: boolean?,
+		}
+		local function build(options: Case)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local stack = add(page, "Frame", 0, 0, 1920, 1080, { fan = options.fan })
+			local hud = add(stack, if options.scrolls then "ScrollingFrame" else "Frame", 0, 0, 1920, 1080)
+			local row = add(hud, "Frame", 1000, 600, 400, 60)
+			add(
+				row,
+				"TextButton",
+				1000,
+				600,
+				160,
+				60,
+				{ interactive = true, opaque = true, fill = PANEL, text = "Pit" }
+			)
+			if options.modal then
+				add(stack, "ScrollingFrame", 0, 0, 1920, 1080, { sink = true })
+			end
+			local layer = if options.sibling then row else add(stack, "Frame", 0, 0, 1920, 1080, { z = options.z })
+			add(
+				layer,
+				"Frame",
+				options.x or 600,
+				options.y or 300,
+				options.width or 440,
+				options.height or 400,
+				{ opaque = true, fill = PANEL }
+			)
+			return rules(Rules.analyze(snapshot()))
+		end
+		t:expect(build({})["covered-control"]):toBe(1)
+		t:expect(build({ x = 1200 })["covered-control"]):toBe(nil)
+		t:expect(build({ x = 560, width = 800 })["covered-control"]):toBe(nil)
+		t:expect(build({ x = 1120, y = 580, width = 60, height = 50 })["covered-control"]):toBe(nil)
+		t:expect(build({ fan = true })["covered-control"]):toBe(nil)
+		t:expect(build({ z = 0 })["covered-control"]):toBe(nil)
+		t:expect(build({ modal = true })["covered-control"]):toBe(nil)
+		t:expect(build({ sibling = true })["covered-control"]):toBe(nil)
+		t:expect(build({ scrolls = true })["covered-control"]):toBe(nil)
+		local add, snapshot = scene()
+		add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+		local play = add(nil, "Frame", 0, 0, 1920, 1080)
+		add(play, "TextButton", 1000, 600, 160, 60, { interactive = true, opaque = true, fill = PANEL, text = "Pit" })
+		local overlay = add(nil, "Frame", 0, 0, 1920, 1080)
+		add(overlay, "Frame", 600, 300, 440, 400, { opaque = true, fill = PANEL })
+		local report = Rules.analyze(snapshot())
+		t:expect(rules(report)["covered-control"]):toBe(1)
+		for _, finding in report.findings do
+			if finding.rule == "covered-control" then
+				t:expect(finding.severity):toBe("medium")
+				t:expect(finding.detail):toBe('"Frame5" covers 40 by 60 pixels of "TextButton3"')
+			end
+		end
+		local apart = snapshot()
+		apart.elements[4].layer = "PlayerGui.Other"
+		apart.elements[5].layer = "PlayerGui.Other"
+		t:expect(rules(Rules.analyze(apart))["covered-control"]):toBe(nil)
+	end)
+
+	harness:case(
+		"the report measures the numeral, the controls and the strongest control against the screen",
+		function(t)
+			local add, snapshot = scene()
+			local page = add(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local plate = add(page, "Frame", 60, 60, 600, 300, { opaque = true, fill = PANEL })
+			add(plate, "TextLabel", 80, 80, 300, 140, { text = "02:41", size = 135, bold = true })
+			add(plate, "TextLabel", 80, 240, 300, 24, { text = "Lap time, best of three", size = 18 })
+			add(plate, "TextLabel", 80, 270, 300, 24, { text = "Sector two is yours", size = 18 })
+			local row = add(page, "Frame", 1200, 900, 660, 120)
+			for index = 1, 2 do
+				local quiet = add(row, "TextButton", 1200 + (index - 1) * 130, 936, 120, 48, {
+					interactive = true,
+					opaque = true,
+					fill = PANEL,
+				})
+				add(quiet, "TextLabel", 1200 + (index - 1) * 130, 936, 120, 48, { text = "Map " .. index, size = 18 })
+			end
+			local go = add(row, "TextButton", 1476, 900, 384, 120, { interactive = true, opaque = true, fill = WHITE })
+			add(go, "TextLabel", 1476, 900, 384, 120, { text = "Race", size = 32, bold = true })
+			local report = Rules.analyze(snapshot())
+			local measures = report.measures
+			t:expect(assert(measures.numeral).content):toBe("02:41")
+			t:expect(assert(measures.numeral).share):toBe(0.125)
+			t:expect(measures.body):toBe(18)
+			t:expect(measures.plates):toBe(1)
+			t:expect(assert(measures.control).height):toBe(48)
+			local action = assert(measures.action)
+			t:expect(action.label):toBe("Race")
+			t:expect(math.floor(action.x * 100 + 0.5)):toBe(87)
+			t:expect(math.floor(action.y * 100 + 0.5)):toBe(89)
+			t:expect(action.width):toBe(0.2)
+			t:expect(action.scale):toBe(8)
+			t:expect(action.contrast > 10):toBe(true)
+			t:expect(string.find(report.text, 'largest numeral: "02:41" 135 px, 12.5% of the height', 1, true) ~= nil)
+				:toBe(true)
+			t:expect(string.find(report.text, 'strongest control: "Race" at 87% across and 89% down', 1, true) ~= nil)
+				:toBe(true)
+			local add2, snapshot2 = scene()
+			local page2 = add2(nil, "Frame", 0, 0, 1920, 1080, { opaque = true })
+			local wide =
+				add2(page2, "TextButton", 100, 100, 448, 88, { interactive = true, opaque = true, fill = PANEL })
+			add2(wide, "TextLabel", 100, 100, 448, 88, { text = "Skip help", size = 18 })
+			local back =
+				add2(page2, "TextButton", 100, 300, 216, 88, { interactive = true, opaque = true, fill = DARK })
+			add2(back, "TextLabel", 100, 300, 216, 88, { text = "Back", size = 18 })
+			local go = add2(page2, "TextButton", 332, 300, 216, 88, {
+				interactive = true,
+				opaque = true,
+				fill = { r = 0.18, g = 0.39, b = 0.86 },
+			})
+			add2(go, "TextLabel", 332, 300, 216, 88, { text = "Next", size = 18 })
+			t:expect(assert(Rules.analyze(snapshot2()).measures.action).label):toBe("Next")
+			local empty = Rules.analyze({ width = 1920, height = 1080, elements = {} })
+			t:expect(empty.measures.numeral):toBe(nil)
+			t:expect(empty.measures.action):toBe(nil)
+		end
+	)
 
 	harness:case("three native labels are native text", function(t)
 		local function build(count: number)

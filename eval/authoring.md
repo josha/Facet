@@ -25,17 +25,22 @@ game view; detailed game art alone is not evidence of better UI.
 
 ## Order of work
 
-Do these in order. Each one ends with a result that you can observe.
+The order is: the concept, the measured card, the style on one sheet, the
+first playable screen, the remaining routes. Each step ends with a result
+that you can observe, and each later step is built from the one before it.
 
-1. **The concept comes first.** A precise reference from the user, such as
-   a screenshot or a chosen concept, is the target: match it, and skip the
-   rest of this step. A conceptual reference, such as a mood, a genre or a
-   named inspiration, is a direction: keep what makes it recognizable and
-   improve on it. With no reference, make one. For a new visual direction,
-   look at the main screen before you build the game behind it. Write the
-   direction. Then
-   make a picture of the screen that the player sees most, which for a game
-   is play with its interface over it. With an image tool, generate two or
+A brief that asks for an established look, a quiet tool that keeps the
+conventions of its host and a small edit to an interface that exists start
+at step 4: reuse the decisions that exist. A product with one form factor
+and one input captures that form only.
+
+1. **The concept.** A precise reference from the user, such as a screenshot
+   or a chosen concept, is the target: match it, and go to step 2. A
+   conceptual reference, such as a mood, a genre or a named inspiration, is
+   a direction: keep what makes it recognizable and improve on it. With no
+   reference, make one. Write the direction in a few lines. Then make a
+   picture of the screen that the player sees most, which for a game is
+   play with its interface over it. With an image tool, generate two or
    three whole-screen compositions and choose one. Give sizes and strengths
    as quantities; a prompt that asks for restraint gets a plain screen. The
    concept must not be restricted to native parts or no textures merely to
@@ -54,52 +59,58 @@ Do these in order. Each one ends with a result that you can observe.
    screen in: its ground, its main subject at its size and its main action,
    with fixed sample data and no game logic, and capture it. In a 3D game
    the ground is the world: its sky and its light belong to the picture, and
-   the sky that the engine starts with is no direction. This picture is
-   the first capture of the work, and it comes in the first few minutes.
-   Change the composition until it is strong, and say in one message what
-   you chose. The picture that you chose is then the target: note its
-   measures against the screen, such as the size of the largest number, the
-   width of the edges and where each part sits, and build to them. Skip
-   this step when the brief asks for an established look.
-2. **One route works.** Read the required guidance and the task chapters for
-   the first route. Resolve unfamiliar library options from their public
-   contracts. Build a small complete route before expanding features: enter
-   from gameplay, use normal player input, observe the actual game effect and
-   accepted result, and return. Include the server behavior that makes the
-   result real. An open page, a changed label or a successful tool call does
-   not prove this route.
-3. **Its screen is finished.** For a new visual direction, finish the look of
-   one screen before you build the interface of a second route. Settle the
-   style first: show its type sizes, its actions in each state and one
-   record on a single sheet, and compare that sheet with the concept by
-   measure before the screen uses it. Change the style until the two agree,
-   and say what you changed. It is the
-   screen of the concept: for a game, play with its interface over it. A
+   the sky that the engine starts with is no direction. This picture is the
+   first capture of the work, and it comes in the first few minutes. Change
+   the composition until it is strong, and say in one message what you
+   chose.
+2. **The measured card.** The picture that you chose, or the precise
+   reference, is now the target. Write its measures against the screen in
+   about ten lines at the head of the style source: the size of the largest
+   number, the share that the main subject takes, the width and the
+   brightness of the edges, the shape of a surface and of a control, and
+   where the main action sits and what makes it the strongest thing near
+   it. A line with an adjective where the picture shows a size is not
+   finished. Build to these lines.
+3. **The style on one sheet.** Build the style or theme from the card, and
+   look at it alone before a screen uses it: its type sizes, its actions in
+   each state and one record on a single sheet, with no game logic. Compare
+   the sheet with the concept by measure, at the same size. Compare the
+   levels too: the surface that leads keeps the strongest edge, and the
+   controls inside it are quieter, as far as the concept shows. Change the
+   style until the two agree, and say what you measured and what you
+   changed.
+4. **The first playable screen.** Read the required guidance and the task
+   chapters for the first route. Resolve unfamiliar library options from
+   their public contracts. Build one small complete route on the screen of
+   the concept, with the style from step 3: enter from gameplay, use normal
+   player input, observe the actual game effect and accepted result, and
+   return. Include the server behavior that makes the result real. An open
+   page, a changed label or a successful tool call does not prove this
+   route. For a game, this screen is play with its interface over it; a
    sheet that opens over play does not stand in for it. When the product
    also has destinations that cover or replace play, finish one of those in
-   the same way afterwards. Finish its composition, subject treatment, type
-   hierarchy and action emphasis, with representative data. Finish with it
-   the parts that later routes will call: the style or theme, one record, the
-   actions and the body of a page. Those parts draw every later route, so a
-   plain part makes every route plain. Capture one revision at each
-   supported form: wide, narrow and short. A phone brief covering both
-   orientations needs both portrait and landscape here; one compact preset
-   cannot prove both. Repair what the captures show, then check the screen
-   with controller-only focus when a controller is supported. Then put the
-   concept beside the wide capture and state in one message, one line each,
-   what the captures show of the ground, the main subject, the type, the
-   edge of the surfaces and the main action, and what the build lost from
-   the concept. A line that you cannot point to in a capture is work to do
-   before the next route. This step is not polish: a fault left here is
-   repeated in every later route, and a theme definition alone does not
-   complete it. Skip this step when the brief asks for an established look
-   or supports one form factor and one input.
-4. **Every route has an entry and a result.** Give each remaining required
-   route a minimal working entry and result before you deepen a route that
-   already works. Build each from what the first screen settled, with a
-   composition suited to its task. Do not pour every route into one page
-   layout.
-5. **Deepen and verify.** Add features in small groups and verify their real
+   the same way afterwards. Then finish the screen before you build the
+   interface of a second route: its composition, subject treatment, type
+   hierarchy and action emphasis, with representative data, and the parts
+   that later routes will call: one record, the actions and the body of a
+   page. Those parts draw every later route, so a plain part makes every
+   route plain. Capture one revision at each supported form: wide, narrow
+   and short. A phone brief covering both orientations needs both portrait
+   and landscape here; one compact preset cannot prove both. Repair what
+   the captures show, then check the screen with controller-only focus when
+   a controller is supported. Then put the concept beside the wide capture
+   at the same size and state in one message, one line each, what the
+   captures show of the ground, the main subject, the type, the edge of the
+   surfaces and the main action, and what the build lost from the concept.
+   A line that you cannot point to in a capture is work to do before the
+   next route. This step is not polish: a fault left here is repeated in
+   every later route.
+5. **Every remaining route has an entry and a result.** Give each remaining
+   required route a minimal working entry and result before you deepen a
+   route that already works. Build each from what the first screen settled,
+   with a composition suited to its task. Do not pour every route into one
+   page layout.
+6. **Deepen and verify.** Add features in small groups and verify their real
    effects after each group. Check choices and progression in the later tasks
    that consume them. Keep the place working after each group of changes.
    Leave time for the end: after the last change, capture the main screen

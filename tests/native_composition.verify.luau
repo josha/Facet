@@ -2128,5 +2128,246 @@ return function(verifyHarness: Verify.Harness)
 			expect(shift.hang):toBe(0)
 			expect(shift.bottom):toBe(0)
 		end)
+
+		local function hud(lesson: boolean)
+			local roots: { Roblox.Instance } = {}
+			local viewport = { X = 749, Y = 331 }
+			local engine, bridge = engineLib.new({
+				layout = {
+					roots = function()
+						return roots
+					end,
+					viewport = function()
+						return viewport
+					end,
+				},
+			})
+			local T = engine.types
+			local player: PlayerGui = engine.new("PlayerGui")
+			player.Parent = engine.new("DataModel")
+			table.insert(roots, Roblox.assertInstance(player))
+			local input: UserInputService = engine.new("UserInputService")
+			local gui: GuiService = engine.new("GuiService")
+			input.Parent, gui.Parent = player.Parent, player.Parent
+			engine.environment.fakeOn(gui, "GetInsetArea", function()
+				return T.Rect.new(0, 0, viewport.X, viewport.Y)
+			end)
+			engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", true)
+			engine.environment.poke(Roblox.assertInstance(input), "MouseEnabled", false)
+			engine.environment.poke(Roblox.assertInstance(input), "PreferredInput", T.Enum.PreferredInput.Touch)
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local app = Facet.app({
+				runtime = runtime,
+				types = T,
+				parent = player,
+				motionLevel = "none",
+				services = { UserInputService = input, GuiService = gui },
+			})
+			local UI = app.UI
+			local counts = { pit = 0, next = 0, retired = "" }
+			app.mount(function()
+				local anchor = UI.Button "Garage" { label = "Open garage", Size = T.UDim2.fromOffset(220, 44) }
+				local callout = UI.Callout "Lesson" {
+					anchor = anchor,
+					title = "Prepare your kart",
+					steps = { index = 1, count = 3 },
+					closeButton = true,
+					content = function()
+						return UI.Button "Skip" { label = "Skip help" }
+					end,
+					actions = {
+						{ id = "back", label = "Back", enabled = false, onActivate = function() end },
+						{
+							id = "next",
+							label = "Next",
+							role = "default",
+							onActivate = function()
+								counts.next += 1
+							end,
+						},
+					},
+					onRetire = function(reason)
+						counts.retired = reason
+					end,
+				}
+				local commands = UI.HStack {
+					width = 240,
+					gap = "s",
+					UI.Button "Pit" {
+						label = "Pit",
+						onActivate = function()
+							counts.pit += 1
+						end,
+					},
+					UI.Button "Map" { label = "Map" },
+				}
+				if not lesson then
+					local Host = runtime.constructors
+					return Host.Frame {
+						Name = "Plain",
+						BackgroundTransparency = 1,
+						Size = T.UDim2.fromScale(1, 1),
+						Host.Frame {
+							Name = "Lead",
+							BackgroundTransparency = 1,
+							Position = T.UDim2.fromOffset(264, 16),
+							Size = T.UDim2.fromOffset(220, 44),
+							anchor,
+							callout,
+						},
+						Host.Frame {
+							Name = "Side",
+							BackgroundTransparency = 1,
+							Position = T.UDim2.fromOffset(493, 160),
+							Size = T.UDim2.fromOffset(240, 44),
+							commands,
+						},
+					}
+				end
+				return UI.Composition "RaceHUD" {
+					padding = "m",
+					UI.Region "Identity" {
+						zone = "topLeft",
+						rank = 2,
+						reveal = false,
+						UI.Text { text = "Ion", Size = T.UDim2.fromOffset(52, 30) },
+					},
+					UI.Region "Wallet" {
+						zone = "topRight",
+						rank = 3,
+						label = "Wallet",
+						UI.Text { text = "1,250", Size = T.UDim2.fromOffset(83, 50) },
+					},
+					UI.Region "Tutorial" {
+						zone = "top",
+						rank = 4,
+						mayDrop = true,
+						label = "First race help",
+						UI.VStack { width = 220, anchor, callout },
+					},
+					UI.Region "Commands" { zone = "action", rank = 1, label = "Pit controls", commands },
+				}
+			end)
+			local backend = Roblox.inputHost.simulated(engine.environment, {
+				playerGui = Roblox.assertInstance(player),
+				inputService = Roblox.assertInstance(input),
+				layout = assert(bridge.layout),
+				inset = function()
+					return { X = 0, Y = 0 }
+				end,
+				library = Roblox.reflectionSnapshot.library(Lute.fixture.load()),
+				activationWindowSeconds = 0.5,
+				read = assert(bridge.ui).styled,
+			})
+			local function settle()
+				for _ = 1, 12 do
+					assert(bridge.layout).step()
+					engine.environment.step(1 / 60)
+					engine.heartbeat:Fire(1 / 60)
+				end
+			end
+			local function find(name: string): GuiObject?
+				local found = player:FindFirstChild(name, true)
+				return if found and found:IsA("GuiObject") then found else nil
+			end
+			local function tap(x: number, y: number)
+				backend.pointer({ x = x, y = y, button = "left", down = true })
+				backend.pointer({ x = x, y = y, button = "left", down = false })
+				settle()
+			end
+			return {
+				viewport = viewport,
+				player = player,
+				counts = counts,
+				settle = settle,
+				find = find,
+				tap = tap,
+				stop = function()
+					runtime:dispose()
+					bridge.close()
+				end,
+			}
+		end
+
+		local function covered(player: PlayerGui, viewport: { X: number, Y: number }): number
+			local found = 0
+			local snapshot = Facet.review.collect({ root = player })
+			snapshot.width, snapshot.height = viewport.X, viewport.Y
+			for _, finding in require("../src/ui/review_rules").analyze(snapshot).findings do
+				if finding.rule == "covered-control" then
+					found += 1
+				end
+			end
+			return found
+		end
+
+		it("keeps a Callout in a region clear of the other regions, and its controls and theirs take a tap", function()
+			local w = hud(true)
+			w.settle()
+			local panel, commands, pit =
+				assert(w.find("CalloutPanel")), assert(w.find("Commands")), assert(w.find("Pit"))
+			local anchor = assert(w.find("Garage"))
+			expect(commands.AbsolutePosition.X):toBe(493)
+			expect(panel.AbsolutePosition.X + panel.AbsoluteSize.X):toBe(commands.AbsolutePosition.X - 8)
+			expect(panel.AbsolutePosition.Y > anchor.AbsolutePosition.Y + anchor.AbsoluteSize.Y):toBe(true)
+			expect(panel.AbsolutePosition.Y + panel.AbsoluteSize.Y > commands.AbsolutePosition.Y):toBe(true)
+			expect(panel.AbsolutePosition.X < anchor.AbsolutePosition.X + anchor.AbsoluteSize.X / 2):toBe(true)
+			expect(covered(w.player, w.viewport)):toBe(0)
+			for _, name in { "Skip", "back", "next", "Close" } do
+				local inside = assert(w.find(name))
+				expect(inside.AbsolutePosition.X >= panel.AbsolutePosition.X):toBe(true)
+				expect(
+					inside.AbsolutePosition.X + inside.AbsoluteSize.X <= panel.AbsolutePosition.X + panel.AbsoluteSize.X
+				):toBe(true)
+			end
+			w.tap(pit.AbsolutePosition.X + 3, pit.AbsolutePosition.Y + pit.AbsoluteSize.Y / 2)
+			expect(w.counts.pit):toBe(1)
+			local next = assert(w.find("next"))
+			w.tap(next.AbsolutePosition.X + next.AbsoluteSize.X / 2, next.AbsolutePosition.Y + next.AbsoluteSize.Y / 2)
+			expect(w.counts.next):toBe(1)
+			expect(w.counts.retired):toBe("action")
+			expect(w.find("CalloutPanel")):toBe(nil)
+			w.tap(pit.AbsolutePosition.X + 3, pit.AbsolutePosition.Y + pit.AbsoluteSize.Y / 2)
+			expect(w.counts.pit):toBe(2)
+			w.stop()
+		end)
+
+		it("suspends a Callout whose region is compact and shows it again from the mark of the region", function()
+			local w = hud(true)
+			w.viewport.X, w.viewport.Y = 390, 700
+			w.settle()
+			local tutorial = assert(w.find("Tutorial"))
+			expect(tutorial:GetAttribute("FacetForm")):toBe(2)
+			expect(w.find("CalloutPanel")):toBe(nil)
+			local mark = assert(tutorial:FindFirstChild("Expand", true))
+			assert(mark:IsA("GuiButton"))
+			w.tap(mark.AbsolutePosition.X + mark.AbsoluteSize.X / 2, mark.AbsolutePosition.Y + mark.AbsoluteSize.Y / 2)
+			local panel, anchor = assert(w.find("CalloutPanel")), assert(w.find("Garage"))
+			expect(anchor:FindFirstAncestor("ExpandModal") ~= nil):toBe(true)
+			expect(panel.AbsolutePosition.X >= 8):toBe(true)
+			expect(panel.AbsolutePosition.X + panel.AbsoluteSize.X <= 382):toBe(true)
+			expect(panel.AbsolutePosition.Y >= anchor.AbsolutePosition.Y + anchor.AbsoluteSize.Y):toBe(true)
+			expect(covered(w.player, w.viewport)):toBe(0)
+			local close = assert(w.find("Close"))
+			w.tap(
+				close.AbsolutePosition.X + close.AbsoluteSize.X / 2,
+				close.AbsolutePosition.Y + close.AbsoluteSize.Y / 2
+			)
+			expect(w.counts.retired):toBe("dismissed")
+			expect(w.find("CalloutPanel")):toBe(nil)
+			w.viewport.X, w.viewport.Y = 749, 331
+			w.settle()
+			expect(tutorial:GetAttribute("FacetForm")):toBe(1)
+			w.stop()
+		end)
+
+		it("reports a control that a Callout outside a Composition covers in part", function()
+			local w = hud(false)
+			w.settle()
+			local panel, pit = assert(w.find("CalloutPanel")), assert(w.find("Pit"))
+			expect(pit.AbsolutePosition.X < panel.AbsolutePosition.X + panel.AbsoluteSize.X):toBe(true)
+			expect(covered(w.player, w.viewport)):toBe(1)
+			w.stop()
+		end)
 	end)
 end

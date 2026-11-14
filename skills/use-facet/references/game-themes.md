@@ -68,6 +68,7 @@ Choose one without a user approval step, and keep the image.
 | A concept that the agent chose | Keep its composition, relative scale, type hierarchy, materials, depth and control shapes. Limited refinements are allowed; a different design is not. |
 | A reference that the user supplied | It is the specification unless the user calls it inspiration or limits it to named qualities. Do not substitute a preferred style. If a technical or usability limit forces a material departure, ask the user. |
 | A sketch or wireframe offered as "roughly this" | It fixes content, relationships and behavior. Develop the styling, proportions and finish that it leaves open. |
+| The interface that the game already has | For a replacement it is the specification: match its screens, controls and words. For an improvement it is the direction: keep what makes the game recognizable and improve inside that language. The user's instruction decides which, and can fix or open any part. |
 
 Decide the role from the user's words, not from how polished the image looks.
 Write down the few visible relationships that define the target: the major

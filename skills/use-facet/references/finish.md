@@ -59,38 +59,45 @@ it](../SKILL.md#read-the-card-off-the-concept):
   dark ground. A plate has a lift or a glow, not both.
 - **A sheen.** `sheen` from 0 to 1 washes the `role` color down from the top
   of the plate.
-- **The controls.** `edge.controls = true` draws the edge on Buttons and
-  Stepper keys, and `depth.controls = true` gives them the shadow of the
-  plates. Do not write a stroke rule on a control's tag for this: the edge
-  of `finish` is drawn inside the box, and a stroke that you add is drawn
+- **The controls.** `edge.controls = true` draws the edge of the plates on
+  Buttons and Stepper keys. `edge.controls = { width = 1, transparency =
+  0.5 }` draws a line of their own; a value that you leave out is that of
+  the plates. `depth.controls = true` gives them the shadow of the plates.
+  Do not write a stroke rule on a control's tag for this: the edge of
+  `finish` is drawn inside the box, and a stroke that you add is drawn
   outside it and takes the gap to the next control.
 
 Zeros are a decision too: a quiet tool states them. Keep the strong edge
 for the plates; equal bright strokes on every nested part erase the
-hierarchy.
+hierarchy. `edge.controls` is for a concept whose controls have a drawn
+edge. With a bright line on the plates, give the controls a quieter line of
+their own, or none, unless the concept shows one line on both.
 
 ### What a value looks like
 
 A value that is too small draws nothing that a player sees, and the theme
-stays flat with its card line ticked. These are measures on a screen of
-1080 lines with a saturated color. They say what shows; they do not choose
-a look.
+stays flat with its card line ticked. These are sample measures from a
+screen of 1080 lines, a saturated color and a dark ground. They help you
+read a concept in values. They are not limits, and they do not choose a
+look: a pale ground, a soft color and a small screen move each row, so the
+capture of the specimen decides.
 
 | Value | What shows |
 | --- | --- |
 | `edge.width = 1` | A hairline. In the `hairline` color, or with a transparency over 0.5, it is hard to find. |
 | `edge.width = 2` | A clear line. |
 | `edge.width = 3` or `4` | A frame. It is the first thing that a player sees of the plate. |
-| `glow` under 8, or `strength` under 0.4 | Nothing. `report.advice` says so. |
+| `glow` under about 8, or `strength` under about 0.4 | Usually nothing. `report.advice` asks you to check the capture. |
 | `glow` 12 to 16 at a `strength` of 0.5 to 0.7 | A soft light around the plate, on a dark ground. |
-| `glow` 24 or more at 0.7 to 1 | A lit plate. On a bright ground only this range shows. |
+| `glow` 24 or more at 0.7 to 1 | A lit plate. A bright ground usually needs this range. |
 
 Read the concept in these terms. A plate whose edge you can see in the
-concept at thumbnail size has a width of 2 or more. A plate that is lit in
-the concept has a glow in the last two rows. Set the first value at the
-strength of the concept, look at the capture, and reduce it only when it
-competes with the lead. A direction with no line and no light states zeros
-and gets its character from the ground, the type and the art.
+concept at thumbnail size has a width of about 2 or more. A plate that is
+lit in the concept has a glow near the last two rows. Set the first value
+at the strength of the concept and look at the capture. Raise a value that
+the capture does not show, and lower one that competes with the lead or
+that every nested part repeats. A direction with no line and no light
+states zeros and gets its character from the ground, the type and the art.
 
 `finish` covers what most directions need. Beyond it:
 

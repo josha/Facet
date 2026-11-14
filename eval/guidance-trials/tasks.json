@@ -43,6 +43,13 @@
       "request": "Build the pet care screen of my creature-raising game with Facet. The player sees their pet and its mood, feeds it, plays with it, puts it to sleep and sees its needs change.",
       "exposure": "test",
       "since": "v4.1 (first used for kit-2f7 against kit-e4d)"
+    },
+    {
+      "id": "fishing-hud",
+      "family": "in-play HUD over the world",
+      "request": "Build the fishing HUD for my island game with Facet. During play the player casts, sees a bite, reels against a tension meter, lands or loses the fish and sees it join the catch log.",
+      "exposure": "test",
+      "since": "v5 (first used for kit-2f7 against kit-055)"
     }
   ],
   "unseen": [
@@ -50,11 +57,6 @@
       "id": "race-results",
       "family": "results and rewards",
       "request": "Build the race results screen for my kart racer with Facet. After a race the player sees the finishing order, their time against their best, what they earned, and chooses to race again or return to the garage."
-    },
-    {
-      "id": "fishing-hud",
-      "family": "in-play HUD over the world",
-      "request": "Build the fishing HUD for my island game with Facet. During play the player casts, sees a bite, reels against a tension meter, lands or loses the fish and sees it join the catch log."
     },
     {
       "id": "rename-plugin",

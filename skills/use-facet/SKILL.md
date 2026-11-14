@@ -34,6 +34,7 @@ covering surface. Abstract UI backgrounds and control materials remain UI art.
 | A small edit to an established interface | Reuse its decisions and check the affected states. Go to [Find the implementation route](#find-the-implementation-route). |
 | A new interface or a visual redesign | Steps 1 to 5 below. Finish steps 1 to 4 on one screen before you build a second screen. |
 | A new interface with a reference from the user | [Step 1](#start-from-the-reference) says how much the reference fixes. Then do steps 2 to 5. |
+| A game that already has an interface: replace it with Facet, improve it, or add a screen | The game is the reference. [An existing game](#an-existing-game) says how much of its look is fixed. Then do steps 2 to 5, one screen at a time. |
 | UI for an open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with UI concept art over the game's supplied context; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
 | A wireframe, a functional spike or a tool in its host's style | Stop at the stated scope. Keep the host's conventions. |
 
@@ -60,10 +61,20 @@ that you can count.
 
 ## 1. Settle the concept, then the theme
 
-The order is: the reference, the card, the concept, the card again in the
-concept's measures, the theme, the theme on one sheet. Then
-[step 2](#2-build-the-first-screen) builds a screen with it. Each part ends
-with something that you can look at.
+The order of the whole work is: the concept, the measured card, the theme
+on one sheet, the first playable screen, the remaining routes. This step is
+the first three. A first card in words steers the concept, and the measured
+card is that card corrected to what the concept shows.
+[Step 2](#2-build-the-first-screen) builds the first playable screen with
+the theme, and [step 5](#5-build-the-other-screens) builds the remaining
+routes from it. Each part ends with something that you can look at. No
+screen is built before the theme has been seen alone.
+
+An established interface, a quiet tool in its host's style and a small edit
+keep their existing decisions: they have no concept to make, and they start
+at the screen. A precise reference skips the concept and is measured as one.
+[A game that already has an interface](#an-existing-game) is such a
+reference: its own look is the target.
 
 ### Start from the reference
 
@@ -75,6 +86,39 @@ words, not from how finished an image looks.
 | A precise reference: a screenshot, a mock, a chosen concept, the look of an existing product | Match it. It is the specification. Write the card from what it shows, and do not put a style of your own in its place. [The target contract](references/game-themes.md#commit-to-the-visual-target) has the rules. Skip the concept. |
 | A conceptual reference: a mood, a genre, a game named as inspiration, a rough sketch | Treat it as a direction, and improve on it. Keep what makes it recognizable. The card then gives it a stronger lead, a clearer hierarchy and a finish that the reference left open. A sketch fixes content and relationships only. |
 | No reference | Make one. Write the card, then make the concept, with an image when you can. |
+
+### An existing game
+
+A game that already has an interface has a look, and its players know it.
+Read the game before you design: capture each screen that you will touch
+and the world behind it, and write the card from what the captures show:
+the palette by role, the type, the corner and the edge, what a control is
+made of, and how a selection and a disabled control show. Reuse the images
+that the game already has. This card is measured from the game, as
+[a precise reference](#read-the-card-off-the-concept) is; there is no
+concept to make unless the user asks for a new look.
+
+What the user asked decides how much is open. The user's own instruction
+comes first: "keep the colors, change the layout" fixes the colors and
+opens the layout.
+
+| The user asked | The existing look is | Do |
+| --- | --- | --- |
+| To replace, convert, port or rebuild the interface with Facet | The specification | Match it: the same screens, the same places, the same look of each control and the same words. Facet changes how the interface is built and adds what it lacked, such as focus, a controller route, safe areas and a phone form. A visible difference needs a fault in the old screen that it repairs, or the user's word. Name each one. |
+| To improve, polish, clean up or modernize the interface | The direction | Keep what makes the game recognizable: its palette, the character of its type, the material of its controls, its icons and its world. Improve the hierarchy, the fit, the states and the finish inside that language. A player of the old interface knows the new one as the same game. Do not bring an art direction of your own. |
+| For a new look, or a look that the user describes | Background | Follow the user's direction through the steps below. Keep the routes, the words and the behavior that players know. |
+| To add a screen | Established | Use the game's theme and parts. When the game has no Facet theme yet, build one from this card first, so the new screen matches its neighbors. |
+
+Put a capture of the old screen beside the new one at the same size, on a
+desktop and on a phone. For a replacement, the two match apart from the
+differences that you named. For an improvement, say in one message what
+you kept and what you changed, and why each change is better for the
+player. When the old screens disagree with each other, follow the one that
+players see most and say which.
+
+Replace one screen at a time, and keep the game working after each one:
+the same data, the same remotes and the same results. Remove an old screen
+when the new one covers its routes.
 
 ### Write the card
 
@@ -229,13 +273,24 @@ zeros, and stays plain. A neon racing game states a bright edge, a wide glow
 and a sheen. A game with drawn plates states zeros and puts its art in
 `chrome`. [Finish](references/finish.md#edge-and-depth) has the values.
 
-Start each value at the strength that the concept shows, not under it.
-[Finish](references/finish.md#what-a-value-looks-like) says what a value
-looks like: an edge of 1 px is a hairline, and a glow under 8 px or under a
-strength of 0.4 draws nothing. A value that is too strong shows in the first
-capture and takes one edit to reduce. A value that is too weak never shows
-as a fault, and the screens stay plain. Reduce a value only when a capture
-shows it competing with the lead.
+Start each value at the strength that the concept shows: not under it, and
+not over it. [Finish](references/finish.md#what-a-value-looks-like) has
+sample measures, such as a glow that did not show in a capture under about
+8 px on a dark ground. They are examples from one ground and one scale, so
+the capture of your own sheet decides. A value that is too weak never shows
+as a fault, and the screens stay plain; that is the common miss. A value
+that is too strong shows in the first capture.
+
+Strength follows the hierarchy of the concept, not the number of parts.
+Where the concept has a bright edge or a light, keep it for the plate that
+leads. The controls inside it take a quieter edge or none, and the main
+action leads its column by fill and size, not by one more border. Equal
+bright borders on every nested control erase the hierarchy: the eye finds
+no lead, and the main action is one outline among many. A concept that
+draws one line on every part, as an inked or outlined style does, keeps
+that line, and its fill and size carry the lead. A visible effect is not a
+merit by itself. An effect earns its place when the concept shows it at
+that level.
 
 Read `report.errors` and `report.advice` from `Facet.themes.define`. The
 advice names a type scale that is flat, a finish that is not stated and a
@@ -252,11 +307,17 @@ by measure, not by name:
   concept;
 - the edge of a plate: its width and how bright it is;
 - the light or the shadow around a plate: how far it reaches;
+- the edge of a control inside a plate against the edge of the plate: the
+  plate's is the stronger, as far as the concept shows;
 - the main action against the other actions in its column.
 
 Then view both as thumbnails. What the concept still shows at that size,
-the sheet shows too. A value that you cannot see in the capture is not in
-the product: raise it, or state zero and take the line off the card.
+the sheet shows too, and what leads in the concept leads on the sheet. A
+value that the card states and the capture does not show is not in the
+product: raise it, or state zero and take the line off the card. A value
+that shows on every part alike is not a hierarchy: lower it on the nested
+parts. A quiet direction passes this check with zeros and a clear type
+scale.
 
 Repair the theme until the two agree, and say in one message what you
 measured and what you changed. A sheet that needed no change was usually
@@ -266,8 +327,9 @@ gives flat screens, and this is the cheapest moment to see it.
 ## 2. Build the first screen
 
 Mount one real task with the authored theme, representative data, live labels
-and real controls. Do not build every route with neutral panels and theme them
-later.
+and real controls. Make it playable: the player enters it with normal input,
+its main action has its real effect, and the player returns. Do not build
+every route with neutral panels and theme them later.
 
 **Choose the screen.** Take the screen that the player sees most. When play
 continues behind the interface, the world is the ground and the lead, and the
@@ -382,9 +444,14 @@ a second screen before they do.
    the ground, the lead at its share of the screen, the palette roles, the
    two type families, the shared edge, the material of the controls, the
    signature and the response. Each part of the concept is in its place and
-   near its size. An absent line is work to do. Do not remove it from the
-   card to pass. A quiet interface marks the same lines with its quiet
-   answers.
+   near its size. `Facet.review.screen().text` ends with the measures of
+   the screen: the largest numeral as a share of the height, a typical
+   control, and the strongest control with its place. Put them against the
+   card's quantities. When the concept has a main action and the strongest
+   control of the build is another one, its emphasis is lost. An absent
+   line is work to do. Do
+   not remove it from the card to pass. A quiet interface marks the same
+   lines with its quiet answers.
 2. **The forms.** That revision is captured on a desktop, a phone in
    portrait and the same phone in landscape, as
    [step 3](#3-make-one-build-fit-every-screen) describes, and nothing

@@ -35,6 +35,8 @@ export type ReviewElement = {
 	reveal: string?,
 	region: boolean?,
 	outset: ReviewOutset?,
+	sink: boolean?,
+	layer: string?,
 }
 export type ReviewSnapshot = { width: number, height: number, elements: { ReviewElement }, touch: boolean? }
 export type ReviewSeverity = "high" | "medium" | "low"
@@ -53,9 +55,27 @@ export type ReviewProminence = {
 	bold: boolean,
 	score: number,
 }
+export type ReviewMeasures = {
+	width: number,
+	height: number,
+	numeral: { content: string, size: number, share: number }?,
+	body: number?,
+	plates: number,
+	control: { height: number, aspect: number }?,
+	action: {
+		label: string,
+		x: number,
+		y: number,
+		width: number,
+		height: number,
+		scale: number,
+		contrast: number,
+	}?,
+}
 export type ReviewReport = {
 	findings: { ReviewFinding },
 	prominence: { ReviewProminence },
+	measures: ReviewMeasures,
 	sizes: { number },
 	fixes: { [string]: string },
 	text: string,

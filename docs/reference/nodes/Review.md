@@ -3,8 +3,8 @@
 <!-- aliases: Review | Facet.review | design review | review.screen -->
 
 `Facet.review` finds layout and type patterns that make a screen look generic.
-It reads the screen. It does not change it. It is a tool for authors and
-agents, not a runtime feature.
+It reads the screen and does not change it. It is a tool for authors and
+agents.
 
 - `review.screen(options?) -> ReviewReport` collects the LocalPlayer's
   PlayerGui (or `options.root`) and analyzes it. Run it on the client.
@@ -13,7 +13,7 @@ agents, not a runtime feature.
   pass `{ Name = presentedCell }` or objects with `open()` and optional
   `close()` functions. `options.root` selects the root and `options.settle`
   sets the wait after opening in seconds (default `0.5`). Common build and
-  runtime errors appear once across screens. Each target is closed after review.
+  runtime errors appear once across screens.
 - `review.collect(options?) -> ReviewSnapshot` returns the snapshot. It
   reads ScreenGuis only, styled values (`GetStyled`), effective visibility,
   absolute rectangles, painted bounds of images, the rendered size of scaled
@@ -23,8 +23,10 @@ agents, not a runtime feature.
 
 A report has `findings` (rule, severity, path, detail, rect), `prominence`
 (the six most prominent texts by size, weight and contrast), `sizes` (the text
-sizes in use), `fixes` (the fix for each rule found) and `text` (a printable
-summary).
+sizes in use), `fixes` (the fix for each rule found), `measures` and `text` (a
+printable summary). `measures` are shares of the screen for a comparison with
+a target: the largest numeral, the most common text size, the plates, a
+typical control and the strongest control.
 
 | Rule | Finds |
 |---|---|
@@ -46,13 +48,11 @@ summary).
 
 More rules: [Review.layout](Review.layout.md).
 
-A finding is a prompt to look, not a verdict. A rule can find a deliberate
-choice. The rules do not judge subject, art or identity. The critique-ui skill
+A finding is a prompt to look, not a verdict. The rules do not judge subject, art or identity. The critique-ui skill
 pairs this report with captures for that judgment.
 
 In Studio during Play, run `return Facet.review.screen().text` in the Client
-data model through a Studio tool, or `print(Facet.review.screen().text)` in
-the command bar. The pure form takes any snapshot:
+data model. The pure form takes any snapshot:
 
 ```luau
 local report = Facet.review.analyze({ width = 1920, height = 1080, elements = {} })

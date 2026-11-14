@@ -14,6 +14,8 @@ export type Request = {
 	tail: number?,
 	tailInset: number?,
 	overflow: string?,
+	avoid: { Rect }?,
+	avoidGap: number?,
 }
 export type Placement = {
 	x: number,
@@ -68,6 +70,40 @@ function placement.width(source: Rect, size: { w: number, h: number }, safe: Rec
 	local before = source.x - gap - safe.x
 	local after = safe.x + safe.w - source.x - source.w - gap
 	return math.min(size.w, safe.w, math.max(1, before, after))
+end
+
+local function slide(
+	along: number,
+	extent: number,
+	low: number,
+	high: number,
+	blocks: { { low: number, high: number } }
+): number
+	local function blocked(at: number): boolean
+		for _, block in blocks do
+			if at + extent > block.low and at < block.high then
+				return true
+			end
+		end
+		return false
+	end
+	if not blocked(along) then
+		return along
+	end
+	local best: number? = nil
+	for _, block in blocks do
+		for _, candidate in { block.low - extent, block.high } do
+			if
+				candidate >= low
+				and candidate <= high
+				and not blocked(candidate)
+				and (best == nil or math.abs(candidate - along) < math.abs(best - along))
+			then
+				best = candidate
+			end
+		end
+	end
+	return best or along
 end
 
 function placement.solve(request: Request): Placement
@@ -133,6 +169,32 @@ function placement.solve(request: Request): Placement
 	local alongLow = if isVertical then safe.x else safe.y
 	local alongHigh = alongLow + (if isVertical then safe.w else safe.h) - alongExtent
 	local along = math.clamp(aligned, alongLow, math.max(alongLow, alongHigh))
+	if request.avoid and #request.avoid > 0 then
+		local margin = math.max(request.avoidGap or 0, 0)
+		local blocks: { { low: number, high: number } } = {}
+		for _, other in request.avoid do
+			local otherMain = if isVertical then other.y else other.x
+			local otherMainExtent = if isVertical then other.h else other.w
+			local otherAlong = if isVertical then other.x else other.y
+			local otherAlongExtent = if isVertical then other.w else other.h
+			if
+				otherMainExtent > 0
+				and otherAlongExtent > 0
+				and otherMain < main + mainExtent + margin
+				and otherMain + otherMainExtent > main - margin
+			then
+				table.insert(blocks, { low = otherAlong - margin, high = otherAlong + otherAlongExtent + margin })
+			end
+		end
+		local reach = tailInset + tail / 2
+		along = slide(
+			along,
+			alongExtent,
+			math.max(alongLow, sourceLow + reach - alongExtent),
+			math.min(math.max(alongLow, alongHigh), sourceLow + sourceExtent - reach),
+			blocks
+		)
+	end
 	local rect = if isVertical
 		then { x = along, y = main, w = size.w, h = size.h }
 		else { x = main, y = along, w = size.w, h = size.h }

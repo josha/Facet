@@ -86,6 +86,13 @@ local function check(context: Rule.Context): { string }
 			end
 		end
 		need(isolated, "the author must not inherit unrelated user tools")
+		if not disabled.image_generation then
+			local declared: { string } = Json.strings(agent.options.preflight) or {}
+			need(
+				table.find(declared, "image-generation") ~= nil and table.find(declared, "asset-upload") ~= nil,
+				"an author with image generation must declare the image-generation and asset-upload preflights"
+			)
+		end
 		need(skipHostSkills, "the author must not discover host skills")
 		local config: Json.Array = Json.asArray(agent.options.config) or {}
 		for _, setting in

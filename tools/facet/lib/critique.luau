@@ -4,10 +4,30 @@ local Files = require("./files")
 local Json = require("./json")
 local Look = require("./look")
 local Raster = require("./raster")
+local DesignReview = require("./design_review")
 local Jpeg = require("./raster/jpeg")
 
 export type Screen = { id: string, device: string, label: string, capture: string?, dump: string? }
-export type PacketOptions = { out: string, brief: string?, screens: { Screen }, rubric: string?, rules: boolean? }
+export type Target = { path: string, kind: string, card: string? }
+export type PacketOptions = {
+	out: string,
+	brief: string?,
+	screens: { Screen },
+	rubric: string?,
+	rules: boolean?,
+	target: Target?,
+}
+export type Fidelity = {
+	kind: string,
+	target: string?,
+	screen: string?,
+	pair: string?,
+	squint: string?,
+	targetAspect: number?,
+	runtimeAspect: number?,
+	measures: DesignReview.Report?,
+	missing: { string },
+}
 export type PacketScreen = {
 	id: string,
 	device: string,
@@ -19,7 +39,7 @@ export type PacketScreen = {
 	findings: number,
 	problem: string?,
 }
-export type Packet = { out: string, screens: { PacketScreen }, problems: { string } }
+export type Packet = { out: string, screens: { PacketScreen }, problems: { string }, fidelity: Fidelity? }
 export type CaseScore = {
 	id: string,
 	judged: boolean,
@@ -67,8 +87,21 @@ Critique.RUBRIC_PATHS = table.freeze({
 	".agents/skills/critique-ui/references/rubric.md",
 })
 
+local TARGET_KINDS: { [string]: string } = {
+	specification = "A precise specification: a screenshot, a mock or a concept that the user chose. The runtime matches it. A departure needs the user's word, so name each one.",
+	concept = "A concept that the agent chose. It is the committed target: the runtime keeps its composition, its relative scale, its type hierarchy, its materials and the shapes of its controls. A limited, stated improvement is allowed.",
+	inspiration = "Directional inspiration: a mood, a genre, a named game or a rough sketch. It calibrates the direction and the craft, and it asks for no imitation. Report what the runtime kept of what makes the reference recognizable; a difference alone is not a fault.",
+}
+Critique.TARGET_KINDS = table.freeze(TARGET_KINDS)
+
+function Critique.targetKind(kind: string): boolean
+	return TARGET_KINDS[kind] ~= nil
+end
+
 local SQUINT_WIDTH = 480
 local BLOCKS_WIDTH = 960
+local PAIR_HEIGHT = 720
+local ASPECT_TOLERANCE = 0.05
 
 function Critique.load(path: string): Raster.Image
 	local data = buffer.fromstring(Files.read(path))
@@ -139,6 +172,194 @@ function Critique.blocks(image: Raster.Image, dump: Audit.Dump): Raster.Image
 	return canvas
 end
 
+local function beside(left: Raster.Image, right: Raster.Image, height: number): Raster.Image
+	local function fit(image: Raster.Image): Raster.Image
+		local width = math.max(1, math.floor(image.width * height / image.height + 0.5))
+		return Raster.Resample.resize(image, width, height, "box")
+	end
+	local a, b = fit(left), fit(right)
+	local gap = math.max(4, math.floor(height / 30))
+	local canvas = Raster.Image.new(
+		a.width + b.width + gap,
+		height,
+		left.channels,
+		if left.channels == 1 then { 32 } else { 32, 32, 36 }
+	)
+	Raster.Image.paste(canvas, a, 0, 0)
+	Raster.Image.paste(canvas, b, a.width + gap, 0)
+	return canvas
+end
+
+type Loaded = { id: string, image: Raster.Image, dump: Audit.Dump? }
+
+local function fidelity(out: string, target: Target, loaded: { Loaded }): (Fidelity, { string })
+	local problems: { string } = {}
+	local result: Fidelity = { kind = target.kind, missing = {} }
+	if TARGET_KINDS[target.kind] == nil then
+		table.insert(problems, ("the target kind %s is not specification, concept or inspiration"):format(target.kind))
+		return result, problems
+	end
+	local ok, image = pcall(Critique.load, target.path)
+	if not ok then
+		table.insert(problems, "the target does not load: " .. tostring(image))
+		table.insert(result.missing, "the target image")
+		return result, problems
+	end
+	local folder = Files.join(out, "fidelity")
+	Files.makeDirectory(folder)
+	local saved = Files.join(folder, "target.png")
+	Critique.save(saved, scaled(image, 1600))
+	result.target = Files.relative(saved, out)
+	local wanted = image.width / image.height
+	result.targetAspect = wanted
+	local best: Loaded? = nil
+	local portrait, short = false, false
+	for _, screen in loaded do
+		local aspect = screen.image.width / screen.image.height
+		portrait = portrait or aspect < 1
+		short = short or aspect >= 1.9
+		if best == nil or math.abs(aspect - wanted) < math.abs(best.image.width / best.image.height - wanted) then
+			best = screen
+		end
+	end
+	if best == nil then
+		table.insert(result.missing, "a runtime capture")
+		return result, problems
+	end
+	result.screen = best.id
+	local got = best.image.width / best.image.height
+	result.runtimeAspect = got
+	local pair = Files.join(folder, "pair.png")
+	Critique.save(pair, beside(image, best.image, PAIR_HEIGHT))
+	result.pair = Files.relative(pair, out)
+	local squint = Files.join(folder, "pair-squint.png")
+	Critique.save(squint, beside(Critique.squint(image), Critique.squint(best.image), PAIR_HEIGHT / 3))
+	result.squint = Files.relative(squint, out)
+	if math.abs(got - wanted) > ASPECT_TOLERANCE * wanted then
+		table.insert(
+			result.missing,
+			("a runtime capture at the aspect ratio of the target (%.2f); the nearest is %s at %.2f, so the pair compares parts, not the composition"):format(
+				wanted,
+				best.id,
+				got
+			)
+		)
+	end
+	if best.dump ~= nil then
+		result.measures = DesignReview.analyze(best.dump)
+	else
+		table.insert(result.missing, ("an interface dump of %s, so its measures are not computed"):format(best.id))
+	end
+	if target.card == nil then
+		table.insert(result.missing, "the measured card: the author's reading of the target in quantities")
+	end
+	if target.kind ~= "inspiration" then
+		if not portrait then
+			table.insert(result.missing, "a capture on a phone in portrait")
+		end
+		if not short then
+			table.insert(result.missing, "a capture on a phone in landscape")
+		end
+	end
+	return result, problems
+end
+
+local function fidelityMarkdown(result: Fidelity, card: string?): { string }
+	local lines = {
+		"## Fidelity to the target",
+		"",
+		("Kind: **%s**. %s"):format(result.kind, TARGET_KINDS[result.kind] or "Unknown kind."),
+		"",
+		"Judge fidelity apart from the scores. A coherent screen can have left its target, and a",
+		"faithful screen can still fail the rubric. Write the `fidelity` part of verdict.json.",
+		"",
+	}
+	if result.target ~= nil then
+		table.insert(lines, ("- Target: `%s`, aspect ratio %.2f"):format(result.target, result.targetAspect or 0))
+	end
+	if result.pair ~= nil then
+		table.insert(
+			lines,
+			("- Pair at one height, target on the left and `%s` on the right: `%s`"):format(
+				result.screen or "?",
+				result.pair :: string
+			)
+		)
+		table.insert(lines, ("- The same pair, small and blurred, for what leads: `%s`"):format(result.squint or "?"))
+		table.insert(lines, ("- Runtime aspect ratio: %.2f"):format(result.runtimeAspect or 0))
+	end
+	table.insert(lines, "")
+	local report = result.measures
+	local measures = if report then report.measures else nil
+	local numeral = if measures then measures.numeral else nil
+	local control = if measures then measures.control else nil
+	local action = if measures then measures.action else nil
+	local body = if measures then measures.body else nil
+	local scale = if numeral
+		then ("Largest numeral %q at %g px, %.1f%% of the screen height%s."):format(
+			numeral.content,
+			numeral.size,
+			numeral.share * 100,
+			if body then ("; most text is %g px, a ratio of %.1f"):format(body, numeral.size / body) else ""
+		)
+		elseif body then ("No numeral. Most text is %g px."):format(body)
+		else "Not measured."
+	local shapes = if measures
+		then ("%d plates%s. The dump has no corner or edge: compare them in the pair."):format(
+			measures.plates,
+			if control
+				then ("; a typical control is %g px high and %.1f times as wide"):format(
+					math.floor(control.height + 0.5),
+					control.aspect
+				)
+				else ""
+		)
+		else "Not measured."
+	local lead = if action
+		then ("The strongest control is %q at %d%% across and %d%% down, %d%% by %d%% of the screen, %.1f times a typical control, contrast %.1f to the others."):format(
+			action.label,
+			math.floor(action.x * 100 + 0.5),
+			math.floor(action.y * 100 + 0.5),
+			math.floor(action.width * 100 + 0.5),
+			math.floor(action.height * 100 + 0.5),
+			action.scale,
+			action.contrast
+		)
+		else "Not measured."
+	for _, line in
+		{
+			"| Compare | Runtime, measured | Target, read from the pair and the card |",
+			"|---|---|---|",
+			("| Leading numeral and type scale | %s | The height of its largest numeral as a share of the image height, and that numeral against the reading text. |"):format(
+				scale
+			),
+			("| Panel and control shapes | %s | The number of plates, their corners and edges, and the proportions of a control. |"):format(
+				shapes
+			),
+			("| Primary action: placement and emphasis | %s | Where the main action sits, its share of the screen and what makes it lead. Is the runtime's strongest control that action? |"):format(
+				lead
+			),
+			"",
+			"Measured card (the author's reading of the target):",
+			"",
+		}
+	do
+		table.insert(lines, line)
+	end
+	table.insert(lines, card or "(none supplied)")
+	table.insert(lines, "")
+	table.insert(lines, "Missing evidence:")
+	table.insert(lines, "")
+	if #result.missing == 0 then
+		table.insert(lines, "- none found by the packet; name any state or size that you could not see")
+	end
+	for _, item in result.missing do
+		table.insert(lines, "- " .. item)
+	end
+	table.insert(lines, "")
+	return lines
+end
+
 local function rubric(given: string?): (string?, string?)
 	local candidates: { string } = if given ~= nil then { given } else table.clone(Critique.RUBRIC_PATHS)
 	for _, candidate in candidates do
@@ -181,6 +402,7 @@ function Critique.packet(options: PacketOptions): Packet
 	Files.makeDirectory(out)
 	local problems: { string } = {}
 	local screens: { PacketScreen } = {}
+	local loaded: { Loaded } = {}
 	for _, screen in options.screens do
 		local folder = Files.join(out, "screens", screen.id)
 		Files.makeDirectory(folder)
@@ -211,6 +433,7 @@ function Critique.packet(options: PacketOptions): Packet
 			if not ok then
 				entry.problem = "the capture does not load: " .. tostring(image)
 			else
+				table.insert(loaded, { id = screen.id, image = image, dump = dump })
 				local capture = Files.join(folder, "capture.png")
 				Critique.save(capture, scaled(image, 1600))
 				entry.capture = Files.relative(capture, out)
@@ -236,6 +459,15 @@ function Critique.packet(options: PacketOptions): Packet
 	if rubricText == nil then
 		table.insert(problems, "the rubric is missing; install the critique-ui skill")
 	end
+	local target = options.target
+	local faithful: Fidelity? = nil
+	if target ~= nil then
+		local result, found = fidelity(out, target, loaded)
+		faithful = result
+		for _, problem in found do
+			table.insert(problems, problem)
+		end
+	end
 	local lines = {
 		"# Critique packet",
 		"",
@@ -254,6 +486,11 @@ function Critique.packet(options: PacketOptions): Packet
 			table.insert(lines, line)
 		end
 	end
+	if faithful ~= nil and target ~= nil then
+		for _, line in fidelityMarkdown(faithful, target.card) do
+			table.insert(lines, line)
+		end
+	end
 	table.insert(lines, "## Rubric")
 	table.insert(lines, "")
 	table.insert(lines, rubricText or "(missing)")
@@ -266,7 +503,22 @@ function Critique.packet(options: PacketOptions): Packet
 		Files.join(out, "packet.json"),
 		Json.encode({ schema = Critique.SCHEMA, brief = options.brief, screens = screens }, { indent = 2 }) .. "\n"
 	)
-	return { out = out, screens = screens, problems = problems }
+	if faithful ~= nil then
+		local report = faithful.measures
+		Files.write(Files.join(out, "fidelity.json"), Json.encode({
+			schema = Critique.SCHEMA,
+			kind = faithful.kind,
+			target = faithful.target,
+			screen = faithful.screen,
+			pair = faithful.pair,
+			squint = faithful.squint,
+			targetAspect = faithful.targetAspect,
+			runtimeAspect = faithful.runtimeAspect,
+			measures = if report then report.measures else nil,
+			missing = faithful.missing,
+		}, { indent = 2 }) .. "\n")
+	end
+	return { out = out, screens = screens, problems = problems, fidelity = faithful }
 end
 
 local function rules(path: string): { [string]: number }
