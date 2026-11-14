@@ -484,8 +484,13 @@ local function blocker(point: Vector2, dragging: boolean?): GuiObject?
 		end
 		local detector = if dragging then object:FindFirstChildWhichIsA("UIDragDetector") else nil
 		if
-			(object:IsA("GuiButton") or object:IsA("TextBox") or object.Active or (detector and detector.Enabled))
-			and object.Interactable
+			(
+				object:IsA("GuiButton")
+				or object:IsA("TextBox")
+				or object.Active
+				or (dragging and object:IsA("ScrollingFrame") and object.ScrollingEnabled)
+				or (detector and detector.Enabled)
+			) and object.Interactable
 		then
 			local interactive = true
 			local ancestor = object.Parent

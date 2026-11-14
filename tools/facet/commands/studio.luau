@@ -137,6 +137,20 @@ local function run(invocation: Cli.Invocation): number
 	end
 
 	local project = LiveProject.build(suites)
+	local probeBundle = `build/Facet-PlayProbe-{process.pid()}.rbxmx`
+	if table.find(suites, "scroll_live") then
+		fs.createDirectory("build", { makeParents = true })
+		fs.writeStringToFile(
+			probeBundle,
+			Lute.place.bundle({
+				roots = {},
+				modules = { "tools/play/engine/probe.luau" },
+				rootName = "FacetPlayProbe",
+			})
+		)
+		local storage = assert(Json.objectField(assert(Json.objectField(project, "tree")), "ReplicatedStorage"))
+		storage.FacetPlayProbe = { ["$path"] = "../" .. probeBundle }
+	end
 	fs.writeStringToFile(PROJECT, Json.encode(project))
 	if not fs.exists("build") then
 		fs.createDirectory("build")
@@ -146,6 +160,9 @@ local function run(invocation: Cli.Invocation): number
 	end
 	local built = process.run({ "rojo", "build", PROJECT, "-o", PLACE })
 	fs.remove(PROJECT)
+	if fs.exists(probeBundle) then
+		fs.remove(probeBundle)
+	end
 	if not built.ok then
 		print(built.stderr)
 		return 1

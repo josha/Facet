@@ -67,6 +67,8 @@
         "persistSession": true,
         "arguments": [
           "--ignore-user-config",
+          "--enable",
+          "skip_host_skill_discovery",
           "--disable",
           "shell_tool",
           "--disable",
@@ -92,6 +94,9 @@
         ],
         "sandbox": "read-only",
         "config": [
+          "project_doc_max_bytes=0",
+          "skills.include_instructions=false",
+          "skills.bundled.enabled=false",
           "web_search=\"disabled\"",
           "model_catalog_json=\".codex-model-catalog.json\"",
           "mcp_servers.studio.default_tools_approval_mode=\"approve\""
@@ -107,6 +112,8 @@
         "persistSession": true,
         "arguments": [
           "--ignore-user-config",
+          "--enable",
+          "skip_host_skill_discovery",
           "--disable",
           "shell_tool",
           "--disable",
@@ -130,6 +137,9 @@
         ],
         "sandbox": "read-only",
         "config": [
+          "project_doc_max_bytes=0",
+          "skills.include_instructions=false",
+          "skills.bundled.enabled=false",
           "web_search=\"disabled\"",
           "model_catalog_json=\".codex-model-catalog.json\"",
           "mcp_servers.studio.default_tools_approval_mode=\"approve\""
