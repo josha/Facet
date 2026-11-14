@@ -29,6 +29,52 @@ local function cell(Host: any, name: string, size: UDim2): any
 	return Host.Frame(name)({ Size = size, BackgroundTransparency = 0.5 })
 end
 
+add("play-probe-swipes-inactive-scroller-above-backdrop", {}, function(t)
+	local loadProbe: (ModuleScript) -> typeof(require("@repo/tools/play/engine/probe")) = require
+	local probe = loadProbe(
+		game:GetService("ReplicatedStorage")
+			:WaitForChild("FacetPlayProbe")
+			:WaitForChild("tools")
+			:WaitForChild("play")
+			:WaitForChild("engine")
+			:WaitForChild("probe") :: ModuleScript
+	)
+	t.device({ device = "iphone_14", orientation = Enum.ScreenOrientation.Portrait })
+	local activated = 0
+	local stage = t.mount(function(_UI: FacetControls, Host: RobloxHost)
+		return Host.Frame "ScrollProbeFixture" {
+			Size = UDim2.fromOffset(300, 220),
+			Host.Frame { Size = UDim2.fromScale(1, 1), Active = true, ZIndex = 1 },
+			Host.ScrollingFrame "InactiveScroll" {
+				Size = UDim2.fromScale(1, 1),
+				CanvasSize = UDim2.fromOffset(0, 900),
+				ScrollingDirection = Enum.ScrollingDirection.Y,
+				Active = false,
+				ScrollingEnabled = true,
+				ZIndex = 2,
+				Host.TextButton {
+					Text = "Probe last scroll action",
+					Size = UDim2.fromOffset(220, 44),
+					Position = UDim2.fromOffset(20, 800),
+					ZIndex = 3,
+					Activated = function()
+						activated += 1
+					end,
+				},
+			},
+		}
+	end, { size = Vector2.new(320, 260) })
+	t.settle(10)
+	local http = game:GetService("HttpService")
+	local query = { exact = "Probe last scroll action", role = "button" }
+	local revealed = http:JSONDecode(probe.call(http:JSONEncode({ command = "reveal", query = query, mode = "touch" })))
+	t.check("touch reveals the action above the backdrop", revealed.ok and revealed.value.revealed, revealed)
+	local list = t.find(stage, "InactiveScroll")
+	t.check("native scrolling moved without changing Active", list.CanvasPosition.Y > 0 and list.Active == false)
+	local tapped = http:JSONDecode(probe.call(http:JSONEncode({ command = "tap", query = query })))
+	t.check("the revealed action receives native input", tapped.ok and activated == 1, tapped)
+end)
+
 add("scroll-view-canvas-covers-rows-and-gaps", {}, function(t: any)
 	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost)
 		return UI.ScrollView "List" {

@@ -22,6 +22,17 @@ local function transport(options: Options, configuration: Configuration?): Eval.
 	)
 	options.files.makeDirectory(options.directory)
 	return Eval.judge.codexCli({
+		command = {
+			"codex",
+			"--enable",
+			"skip_host_skill_discovery",
+			"-c",
+			"project_doc_max_bytes=0",
+			"-c",
+			"skills.include_instructions=false",
+			"-c",
+			"skills.bundled.enabled=false",
+		},
 		execute = options.execute,
 		files = options.files,
 		directory = options.directory,
