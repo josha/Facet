@@ -290,25 +290,12 @@ return function<V, K>(
 			end
 		end
 	end
-	local gained: RBXScriptConnection? = nil
-	local function followSelection()
-		if gained then
-			gained:Disconnect()
-			gained = nil
-		end
+	Compose.cleanup(ctx.selection.changed(function()
 		local node = ctx.selection.get()
 		if node and belongsTo(node, root) then
-			gained = node.SelectionGained:Connect(function()
-				captureSelection(node)
-			end)
+			captureSelection(node)
 		end
-	end
-	Compose.cleanup(ctx.selection.changed(followSelection))
-	Compose.cleanup(function()
-		if gained then
-			gained:Disconnect()
-		end
-	end)
+	end))
 	Compose.watch(function(use: ComposeTypes.Use)
 		local field = use(selected)
 		if
