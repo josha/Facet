@@ -255,6 +255,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				and (if edge == "leading" then live > 0 else live < 0)
 				and math.abs(live) >= use(dimensions).X * FULL_SWIPE
 		end
+		local noActions: { RowAction } = {}
+		local traysBuilt = Compose.cell(false)
+		local trayFilled = Compose.cell(0)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if
+				not traysBuilt:peek()
+				and (readSource(open, use) ~= nil or use(drag) ~= nil or use(committing) ~= nil)
+			then
+				traysBuilt:set(true)
+			end
+		end)
 		local function tray(edge: RowEdge): Frame
 			local nativeProps: Types.FrameProps = {
 				Name = edge,
@@ -280,7 +291,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				},
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use)
-						return actions(edge, use)
+						if use(traysBuilt) then
+							return actions(edge, use)
+						end
+						return noActions
 					end,
 					key = function(action: RowAction)
 						return action.id
@@ -327,6 +341,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 							end,
 						}
 						local button = UI.Button(buttonProps)
+						trayFilled:set(trayFilled:peek() + 1)
 						button:AddTag("facet-row-action")
 						local caption = button:FindFirstChild("Title", true)
 						local bounds = if caption and caption:IsA("TextLabel")
@@ -1002,14 +1017,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local previousSelection: GuiObject?
 		Compose.watch(function(use: ComposeTypes.Use)
 			local edge = use(open)
+			use(trayFilled)
 			if gui == nil then
 				return
 			end
 			if edge ~= nil then
 				local current = ctx.selection.get()
-				if current and current:IsDescendantOf(scope()) then
+				local trayNode = root:FindFirstChild(edge)
+				if
+					current
+					and current:IsDescendantOf(scope())
+					and not (trayNode and current:IsDescendantOf(trayNode))
+				then
 					previousSelection = current
-					local trayNode = root:FindFirstChild(edge)
 					if trayNode then
 						for _, child in trayNode:GetChildren() do
 							if child:IsA("GuiButton") and child.Selectable and child.Interactable then
