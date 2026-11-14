@@ -1,6 +1,6 @@
 # Make art without image generation
 
-Use this page when the direction needs a material, a scene, shaped control
+Use this page when the UI direction needs a material, shaped control
 surfaces or icons, and no image model is available. A missing image model
 changes how the art is made. It does not change the target to flat panels.
 When image generation is available, it remains a good source; apply the same
@@ -9,6 +9,18 @@ script cannot reach, such as a figure or an object in perspective, and draw
 flat marks, plates and materials by script. For a cut-out of a dark object,
 generate it on white and remove the background by script; a colored
 background leaves a fringe. View every cut-out edge at twice its size.
+
+Apply the [UI scope](../SKILL.md#ui-scope) before making files. Scene backgrounds
+and game subjects come from the game-building agent. The scene and subject
+roles below describe how supplied content is displayed, not a requirement
+for Facet to generate it. Reuse game assets for previews so the UI represents
+what the game actually offers.
+
+An appearance preview must show the change that its action applies. Use the
+game's supplied model or matching preview assets. A tint on the whole image
+also changes tires, faces, shadows and other unrelated parts; it does not
+prove a material or body-color change. If the brief asks only for a mockup,
+label that limit and keep it out of claims about the game's rendered result.
 
 Generated pieces that share one scene must agree with each other. When the
 direction has depth, choose one view (for example straight down, or three
@@ -94,6 +106,18 @@ Keep files small and few. One plate that stretches serves every button. Draw
 state variants (default, pressed, selected, disabled) only where a tint or a
 180-degree rotation of the default cannot express the state; see
 `Themes.chrome`.
+
+### Keep live content inside the artwork
+
+An image's painted bounds are not its safe text area. Reserve slanted ends,
+arrows, borders and shadows with `contentInsets`; `paintRect` only identifies
+the paint's bounds. Stretching a whole image also stretches those regions,
+while fixed padding stays fixed. Use `nineSlice` for a resizable frame with
+fixed edges, or keep the art's proportions and reflow its content. Check the
+longest action label at the smallest control size and selected plus focused
+together. Leave clear space between both state outlines, including their
+curves and glow. A label or focus center inside the target does not prove
+that its complete paint fits.
 
 ## Spend the detail where the player looks
 

@@ -474,7 +474,7 @@ local function resolve(query: Query): Candidate?
 	return found[query.index or 1]
 end
 
-local function blocker(point: Vector2): GuiObject?
+local function blocker(point: Vector2, dragging: boolean?): GuiObject?
 	local base = origin()
 	local absolute = point + base
 	for _, object in playerGui():GetGuiObjectsAtPosition(math.floor(absolute.X), math.floor(absolute.Y)) do
@@ -482,7 +482,11 @@ local function blocker(point: Vector2): GuiObject?
 		if root ~= nil and EXCLUDED[root.Name] then
 			continue
 		end
-		if (object:IsA("GuiButton") or object:IsA("TextBox") or object.Active) and object.Interactable then
+		local detector = if dragging then object:FindFirstChildWhichIsA("UIDragDetector") else nil
+		if
+			(object:IsA("GuiButton") or object:IsA("TextBox") or object.Active or (detector and detector.Enabled))
+			and object.Interactable
+		then
 			local interactive = true
 			local ancestor = object.Parent
 			while ancestor and not ancestor:IsA("LayerCollector") do
@@ -649,25 +653,41 @@ local function nudge(scroller: ScrollingFrame, window: Rect, deltaX: number, del
 		local moveY = math.clamp(deltaY, -limitY, limitY)
 		local moveX = math.clamp(deltaX, -limitX, limitX)
 		local device = input()
-		local start = middle + Vector2.new(moveX / 2, moveY / 2)
-		local finish = middle - Vector2.new(moveX / 2, moveY / 2)
-		device:SendMousePosition(start)
-		device:SendMouseButton(start, Enum.UserInputType.MouseButton1, true, 0)
-		local started = os.clock()
-		while true do
-			local progress = math.clamp((os.clock() - started) / 0.2, 0, 1)
-			device:SendMousePosition(start:Lerp(finish, progress))
-			if progress >= 1 then
-				break
+		local travel = Vector2.new(moveX, moveY)
+		for _, fraction in { 0.05, 0.95, 0.01, 0.99, 0.25, 0.75, 0.5 } do
+			local offset = if math.abs(moveY) >= math.abs(moveX)
+				then Vector2.new(window.width * (fraction - 0.5), 0)
+				else Vector2.new(0, window.height * (fraction - 0.5))
+			local start = middle + travel / 2 + offset
+			local hit = blocker(start, true)
+			if hit and hit ~= scroller and not scroller:IsDescendantOf(hit) then
+				local detector = hit:FindFirstChildWhichIsA("UIDragDetector")
+				if not hit:IsA("GuiButton") or not hit:IsDescendantOf(scroller) or (detector and detector.Enabled) then
+					continue
+				end
 			end
-			frames(1)
-		end
-		task.wait(0.1)
-		device:SendMouseButton(finish, Enum.UserInputType.MouseButton1, false, 0)
-		frames(10)
-		local deadline = os.clock() + 3
-		while scroller:GetScrollVelocity().Magnitude > 1 and os.clock() < deadline do
-			frames(1)
+			local finish = start - travel
+			device:SendMousePosition(start)
+			device:SendMouseButton(start, Enum.UserInputType.MouseButton1, true, 0)
+			local started = os.clock()
+			while true do
+				local progress = math.clamp((os.clock() - started) / 0.2, 0, 1)
+				device:SendMousePosition(start:Lerp(finish, progress))
+				if progress >= 1 then
+					break
+				end
+				frames(1)
+			end
+			task.wait(0.1)
+			device:SendMouseButton(finish, Enum.UserInputType.MouseButton1, false, 0)
+			frames(10)
+			local deadline = os.clock() + 3
+			while scroller:GetScrollVelocity().Magnitude > 1 and os.clock() < deadline do
+				frames(1)
+			end
+			if (scroller.CanvasPosition - before).Magnitude >= 0.5 then
+				return true
+			end
 		end
 	else
 		local wheel = if math.abs(deltaY) >= math.abs(deltaX) then -math.sign(deltaY) else -math.sign(deltaX)
@@ -1531,10 +1551,29 @@ handlers.navigate = function(request)
 	return { selected = selectedInfo() }
 end
 
-handlers.activate = function()
+local function activateSelected(): { activated: boolean, selected: Info? }
 	local before = selectedInfo()
+	local selected = GuiService.SelectedObject
+	if selected == nil or not selected:IsA("GuiButton") then
+		return { activated = false, selected = before }
+	end
+	local fired = false
+	local connection = selected.Activated:Connect(function()
+		fired = true
+	end)
 	key(Enum.KeyCode.Return)
-	return { activated = before }
+	for _ = 1, 20 do
+		if fired or selected.Parent == nil then
+			break
+		end
+		frames(1)
+	end
+	connection:Disconnect()
+	return { activated = fired, selected = before }
+end
+
+handlers.activate = function()
+	return activateSelected()
 end
 
 handlers.path = function(request)
@@ -1955,8 +1994,8 @@ handlers.preview = function(request: Request): unknown
 			end
 			local now, destination = GuiService.SelectedObject, targetOf(query)
 			if now ~= nil and destination ~= nil and same(now, destination) then
-				tapped = { tapped = true, activated = true, info = selectedInfo() }
-				key(Enum.KeyCode.Return)
+				local activation = activateSelected()
+				tapped = { tapped = true, activated = activation.activated, info = activation.selected }
 				break
 			end
 			tapped.reason = "gamepad navigation did not settle on the target"
