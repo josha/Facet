@@ -131,6 +131,25 @@ local function fixture(
 end
 
 return function(harness: Verify.Harness)
+	harness:case("selected activation requires a native activation acknowledgment", function(t)
+		local qa = hostFixture("console")
+		qa.gamepadSelect = function()
+			return true, "Buy"
+		end
+		local responses: { { activated: unknown } } = {
+			{},
+			{ activated = false },
+			{ activated = { label = "Buy" } },
+			{ activated = true },
+		}
+		for _, response in responses do
+			qa.call = function(_self: QA.QA, command: string): unknown
+				t:expect(command):toBe("activate")
+				return response
+			end
+			t:expect((qa:gamepadActivate({ exact = "Buy" }))):toBe(response.activated == true)
+		end
+	end)
 	for _, mode in { "mouse", "touch", "gamepad" } do
 		for _, label in { "Home", "01  Overview" } do
 			harness:case(

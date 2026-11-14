@@ -4,6 +4,15 @@ Judge the screens as a player of this game would see them. Use the capture for
 the whole impression, the squint render for what leads, and the blocks render
 for layout. Use design.txt as evidence, not as the verdict: a rule can find a
 deliberate choice and miss a real problem.
+
+Respect the scope of the work under review. For a Facet UI task, supplied game
+scenes and subjects are context; their creation belongs to the game-building
+agent. Judge the UI's presentation of that content, including readability,
+clearance and truthful previews. Do not credit a detailed world background as
+finished UI art, or require Facet to generate game content to match a UI
+concept. Apply the target contract to the authored interface. When comparing
+UI authors, report differences in supplied game art as a comparison limit.
+
 Judge the requested visual direction, including restrained, familiar or
 text-led designs. Do not penalize an appropriate design for lacking an example's
 art, large numerals, borders, exposed world or screen structure.

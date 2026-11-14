@@ -52,6 +52,11 @@ readable live text. State sizes and strengths as quantities. Words such as
 restrained, sparse and subtle ask the tool for the neutral theme; use them
 only when the brief asks for a quiet product.
 
+Keep the supplied game scene and subjects fixed across the UI alternatives.
+If they are unavailable, label their stand-ins as context. The concept's
+commitment applies to the interface, not to invented world content; follow
+the [UI scope](../SKILL.md#ui-scope).
+
 Compare them together for character, finished craft, task clarity and a
 credible route to runtime assets. If all three are generic, revise the set.
 Choose one without a user approval step, and keep the image.
@@ -78,7 +83,8 @@ interface.
 ### Translate the selected screen
 
 Take the target apart into the skill's layers: ground, lead, controls and
-type. Derive one asset per runtime role and keep quiet areas for live text. Do
+type. Derive UI assets for their runtime roles, reuse supplied game content,
+and keep quiet areas for live text. Do
 not flatten controls, labels or focus into a picture, and do not rebuild the
 target as one fixed canvas. A fixed canvas matches the picture at one size and
 fails on every other screen.

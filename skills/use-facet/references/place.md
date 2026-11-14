@@ -6,13 +6,19 @@ such a screen are made from Facet, how each layer scales, and where its art
 comes from. A quiet tool or a text-led design does not need it; use
 [quiet interfaces](finish.md#quiet-interfaces).
 
+This page composes an interface around supplied game content. It does not
+assign world or subject creation to Facet. Follow the [UI scope](../SKILL.md#ui-scope):
+the game-building agent chooses whether a scene is live, modeled or illustrated.
+Facet must not generate a scene background to replace that choice.
+
 ## The layers
 
 Build the screen in layers.
 
 1. **Ground.** It reaches every edge of the glass on every device, including
    the bands beside a phone's notch. `UI.Screen { ground = ... }` does this for
-   art. A flat neutral fill is correct only when the card says so.
+   UI art. Over live gameplay, leave the ground transparent and preserve the
+   game's view. A covering surface needs a reason in the UI task.
 2. **Lead.** The subject at the size on the card. It grows and shrinks with the
    room. Its objects are the largest things on the screen, larger than any
    message panel, and its markings span the room.
@@ -92,11 +98,13 @@ type roles, radii, strokes, gradients, shadows, focus look, control art and
 motion are all theme values. [Finish](finish.md) maps each line of
 the card to the theme field or control that realizes it.
 
-Make the art that the card needs. Native gradients, strokes, paths and type
-can carry a graphic direction. A material, a scene or shaped control surfaces
-need image files: [make them without image generation](art.md)
-when no image model is available, then [upload them](asset-upload.md)
-and verify that they load. Do not use EditableImage or packed pixels for
+Make the UI art that the card needs. Reuse supplied scene and subject art.
+Native gradients, strokes, paths and type
+can carry a graphic direction. Choose native drawing or image files by the
+[visible result and task](../SKILL.md#choose-native-drawing-or-image-assets).
+When a UI material or shaped control needs authored image detail,
+[make the art](art.md), then [upload it](asset-upload.md) and verify that it
+loads. Do not use EditableImage or packed pixels for
 authored UI art. A missing image model does not reduce the target to flat
 panels; it changes how the art is made.
 

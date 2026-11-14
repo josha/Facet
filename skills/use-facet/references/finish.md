@@ -134,6 +134,9 @@ back silently.
 
 Check the actual labels, numerals and punctuation in the chosen family at the
 smallest size. Some display families draw thin colons or have capitals only.
+`TextSize` is not the visible letter height: display families can look much
+smaller at the same value. Judge rendered text at the intended viewing size,
+then adjust its role and recheck control insets and compact layout together.
 Use `textRole` or `textSize` roles on Text so accessibility scaling works.
 
 ## The ground
@@ -141,6 +144,11 @@ Use `textRole` or `textSize` roles on Text so accessibility scaling works.
 The ground is the largest surface on the screen, so it sets the first
 impression. Choose its kind from the card.
 
+Follow the [UI scope](../SKILL.md#ui-scope). A scene comes from the game-building
+agent. Do not generate a replacement world background to finish a HUD.
+
+- **The live game view.** Omit `ground` and a covering `surface`. Preserve the
+  world behind the interface and check readability over its changing content.
 - **A color field.** `UI.Screen { surface = "surface" }`. The plate reaches the
   glass under the top bar and the device cutouts, and the content stays safe.
 - **A gradient or a lit field.** Add `extra.chromeGradient.surface` to the
