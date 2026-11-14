@@ -5603,6 +5603,35 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("creates the row key actions only while selection is inside the row", {
+			id = "native_collections::Compose native collections::creates the row key actions only while selection is inside the row",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local stop, node: any = runtime.mount(function()
+					return UI.RowActions {
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
+						trailing = {
+							{
+								id = "Erase",
+								label = "Delete",
+								role = "destructive" :: "destructive",
+								onActivate = function() end,
+							} :: FixtureCollectionTypes.RowAction,
+						},
+					}
+				end, target)
+				expect(target:FindFirstChild("FacetRowActionsDelete")):toBeNil()
+				expect(target:FindFirstChild("FacetRowActionsReveal")):toBeNil()
+				gui.SelectedObject = node:FindFirstChild("Action", true)
+				expect(target:FindFirstChild("FacetRowActionsDelete") ~= nil):toBe(true)
+				expect(target:FindFirstChild("FacetRowActionsReveal") ~= nil):toBe(true)
+				gui.SelectedObject = nil
+				expect(target:FindFirstChild("FacetRowActionsDelete")):toBeNil()
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("uses the shared native menu for all actions and restores focus after cancellation", {
 			id = "native_collections::Compose native collections::uses the shared native menu for all actions and restores focus after cancellation",
 			run = function()

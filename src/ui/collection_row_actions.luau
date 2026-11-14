@@ -878,20 +878,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				and readSource(committing, use) == nil
 				and not (node:IsA("TextBox") and node:IsFocused())
 		end
-		ctx.action(
-			root,
-			"RowActionsReveal",
-			{ E.KeyCode.ButtonX, E.KeyCode.Menu },
-			eligible,
-			reveal,
-			{ priority = 450 }
-		)
-		ctx.action(root, "RowActionsClose", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
-			return eligible(use) and (readSource(open, use) ~= nil or use(menuOpen))
-		end, function()
-			menuOpen:set(false)
-			setOpen(nil)
-		end, { priority = 300 })
 		local function destructive(use: ComposeTypes.Use?): (RowAction?, RowEdge?)
 			local edges: { RowEdge } = { "trailing", "leading" }
 			for _, edge in edges do
@@ -909,20 +895,65 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				execute(action, edge)
 			end
 		end
-		ctx.action(root, "RowActionsDelete", { E.KeyCode.Delete, E.KeyCode.Backspace }, function(use: ComposeTypes.Use)
-			return eligible(use) and readSource(open, use) == nil and not use(menuOpen) and destructive(use) ~= nil
-		end, delete, { priority = 300 })
-		local toggleKeys: { Types.InputBindingNativeProps } = {
-			{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.LeftShift },
-			{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.RightShift },
-		}
-		ctx.action(root, "RowActionsToggle", toggleKeys, eligible, function()
-			if menuOpen:peek() then
+		local function installKeys(): ()
+			ctx.action(
+				root,
+				"RowActionsReveal",
+				{ E.KeyCode.ButtonX, E.KeyCode.Menu },
+				eligible,
+				reveal,
+				{ priority = 450 }
+			)
+			ctx.action(root, "RowActionsClose", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
+				return eligible(use) and (readSource(open, use) ~= nil or use(menuOpen))
+			end, function()
 				menuOpen:set(false)
-			else
-				reveal()
+				setOpen(nil)
+			end, { priority = 300 })
+			ctx.action(
+				root,
+				"RowActionsDelete",
+				{ E.KeyCode.Delete, E.KeyCode.Backspace },
+				function(use: ComposeTypes.Use)
+					return eligible(use)
+						and readSource(open, use) == nil
+						and not use(menuOpen)
+						and destructive(use) ~= nil
+				end,
+				delete,
+				{ priority = 300 }
+			)
+			local toggleKeys: { Types.InputBindingNativeProps } = {
+				{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.LeftShift },
+				{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.RightShift },
+			}
+			ctx.action(root, "RowActionsToggle", toggleKeys, eligible, function()
+				if menuOpen:peek() then
+					menuOpen:set(false)
+				else
+					reveal()
+				end
+			end, { priority = 300 })
+		end
+		local keyScope: ComposeTypes.RootScope? = nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			local node = readSource(selected, use)
+			local inside = node ~= nil and node:IsDescendantOf(scope())
+			if inside and keyScope == nil then
+				keyScope = Compose.createRootOwner(installKeys, runtime.reactor)
+			elseif not inside and keyScope ~= nil then
+				local released = keyScope
+				keyScope = nil
+				released.dispose()
 			end
-		end, { priority = 300 })
+		end)
+		Compose.cleanup(function()
+			local released = keyScope
+			keyScope = nil
+			if released then
+				released.dispose()
+			end
+		end)
 		ctx.shiftRoute(root, function()
 			if read(spec.enabled) == false then
 				return
