@@ -9,7 +9,8 @@ View each capture at its real size. A text report does not show the screen.
 Check these in order and stop at the first failure.
 
 1. **Fit.** Nothing is clipped, overlapped or unreachable at any size. The
-   ground reaches every edge, with no band of the game world beside it. The
+   UI ground reaches every edge when a covering surface is intended. A HUD
+   preserves the game view; visible world is not a missing UI background. The
    main action is inside the thumb's reach on a phone. Every part of the
    desktop screen is present at every size under the same label: a part can
    move or shrink, but it does not vanish or change its name. List the parts

@@ -9,6 +9,13 @@ Review the interface against its brief, intended users and visual direction.
 An independent judgment can expose assumptions, but its scores do not replace
 the owner's intent, input tests or player evidence.
 
+For a UI review, identify supplied game art separately from authored UI art
+in the packet. The world behind a HUD and the game subjects inside previews
+remain context owned by the game-building agent. Judge how the interface
+presents them; do not require Facet to generate them or credit their detail
+alone as UI craft. A whole-screen UI concept does not make its incidental
+world imagery a Facet implementation requirement.
+
 ## When
 
 - When a new composition or substantial visual change needs deeper review.

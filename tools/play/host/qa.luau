@@ -90,7 +90,7 @@ export type QA = {
 	selected: (self: QA) -> Info?,
 	autoSelect: (self: QA) -> Info?,
 	navigate: (self: QA, direction: string) -> Info?,
-	activate: (self: QA) -> (),
+	activate: (self: QA) -> boolean,
 	route: (self: QA, query: Query) -> Route,
 	gamepadSelect: (self: QA, query: Query) -> (boolean, string),
 	gamepadActivate: (self: QA, query: Query) -> (boolean, string),
@@ -430,7 +430,7 @@ local function create(context: Context, device: Devices.Device): QA
 	end
 
 	function qa.activate(self: QA)
-		self:call("activate")
+		return record(self:call("activate")).activated == true
 	end
 
 	function qa.route(self: QA, query: Query): Route
@@ -498,7 +498,9 @@ local function create(context: Context, device: Devices.Device): QA
 		if not selected then
 			return false, detail
 		end
-		self:activate()
+		if not self:activate() then
+			return false, "the selected target did not activate"
+		end
 		return true, detail
 	end
 

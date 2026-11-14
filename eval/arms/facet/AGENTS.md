@@ -27,8 +27,8 @@ through Studio MCP in Edit mode.
 Studio MCP is the only way to change the place and to look at it, and there
 is no second agent. Look at your tool list for an image generator. When it
 has one, use it for the concept of the first screen. Use it also for the
-art that the chosen concept shows as drawn material (a ground, a plate
-texture, icons), one file for each role, when the Studio connection uploads
+UI art that needs authored detail to preserve the chosen concept (control
+materials, plate textures or icons), when the Studio connection uploads
 a file as `references/asset-upload.md` describes. When the upload is
 refused, say so in one message and draw that material with the theme and
 native shapes at the strength that the concept shows.
@@ -42,3 +42,10 @@ in the theme. Step 4, the first playable screen, is steps 2 to 4 of the
 skill. Do not mount a game screen before the specimen has been captured
 beside the concept.
 Use this installed library; do not add another UI library.
+
+The Facet skill covers the interface. As the game author, choose the world's
+rendering from the game brief separately. A generated scene background can
+be a game-author decision; Facet does not require it or count it as UI art.
+Keep game presentation assets separate from UI assets when reporting uploads
+and assessing the interface. A whole-screen concept may show game context
+without requiring that context to become an uploaded image.

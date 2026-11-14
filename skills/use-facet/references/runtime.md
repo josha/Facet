@@ -5,6 +5,15 @@ task's pages and overlays in the same mount. For a plugin or existing host, read
 [runtime details](runtime-details.md) before choosing the mount target.
 Edit persistent source; Play-only edits are not the delivered change.
 
+If Studio's command executor cannot require a module because its capabilities
+are restricted, run the inspection from a temporary LocalScript during Play
+and read its output. Do not change the installed library's `Sandboxed` or
+`Capabilities` properties to make a command-side require succeed. Those
+properties also govern callbacks registered by the library; changing them can
+prevent a working UI button from invoking the application's RemoteFunction.
+Remove the temporary script after inspection. Keep intentional application
+capability boundaries intact and test callbacks across them with real input.
+
 For a new game direction, give the first task its authored `theme`. Set the
 type families, weights and sizes in `metrics.typography`. Give the most
 important text a role that leads, such as the `title` specimen in this

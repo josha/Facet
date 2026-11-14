@@ -5,12 +5,27 @@ description: Design, build and refine Roblox game UI and Studio plugin interface
 
 # Use Facet
 
-**Design the product first, then choose the controls that realize it.**
+**Design the interface first, then choose the controls that realize it.**
 
 Facet supplies behavior: input, focus, navigation, adaptive layout and state
 paint. The product supplies character through one authored theme and its own
 composition. Aim for one build that looks like this product and works on a
 phone, a desktop and a television.
+
+## UI scope
+
+Facet owns the interface. Generate art for UI roles such as icons, control
+surfaces, textures and selection marks. The game-building agent owns the
+world, environments, characters, vehicles and their rendering. Use the game
+content it supplies; displaying that content in an `Image` or `Stage` does
+not make its creation a Facet task. A game scene used as a background remains
+a game-art decision, even when the same agent also builds the UI.
+
+Show the supplied game view or a clearly marked stand-in behind a UI concept.
+That context is not an instruction to generate replacement game art, and it
+does not become part of the UI's visual-target commitment. Keep a gameplay
+HUD transparent to the world unless the game brief explicitly calls for a
+covering surface. Abstract UI backgrounds and control materials remain UI art.
 
 ## Size the work
 
@@ -20,7 +35,7 @@ phone, a desktop and a television.
 | A new interface or a visual redesign | Steps 1 to 5 below. Finish steps 1 to 4 on one screen before you build a second screen. |
 | A new interface with a reference from the user | [Step 1](#start-from-the-reference) says how much the reference fixes. Then do steps 2 to 5. |
 | A game that already has an interface: replace it with Facet, improve it, or add a screen | The game is the reference. [An existing game](#an-existing-game) says how much of its look is fixed. Then do steps 2 to 5, one screen at a time. |
-| An open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with finished concept art as the concept; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
+| UI for an open game brief, and image generation is available or the user asks to explore concepts | Do step 1 with UI concept art over the game's supplied context; see [rendered alternatives](references/game-themes.md#resolve-the-whole-composition). Then do steps 2 to 5. |
 | A wireframe, a functional spike or a tool in its host's style | Stop at the stated scope. Keep the host's conventions. |
 
 Identify the user's decision, the accepted outcome and the return path.
@@ -115,8 +130,8 @@ player can see, not a mood.
 | Line | Decide |
 | --- | --- |
 | Premise | Where the player is and what they do there, in one concrete sentence taken from the brief. It adds no game systems. |
-| Lead | The one subject or scene that owns the first screen, and about how much of the screen it takes. A place needs the things that make it that place: its surface, its markings and its furniture. |
-| Ground | What covers the whole screen behind the content: a material, a scene, a color field. |
+| Lead | The content or supplied game subject that leads the task, and its share of the view. Preserve the game view when it leads play. |
+| Ground | The supplied game view, or a UI material or color field when the task needs a covering surface. |
 | Palette | Five to seven colors by role, with values: ground, surface, ink, action, selection, and one or two colors from the world. |
 | Type | A display family and a reading family, plus numerals when numbers decide. Choose from [fonts that load](references/finish.md#type). |
 | Shape and edge | The corner, the edge and the depth that every surface shares. |
@@ -151,9 +166,9 @@ states](references/finish.md#quiet-interfaces), not from decoration.
 
 ### Make the concept before the build
 
-When the direction is a place, a material or an illustrated world, the first
-picture of the work is a concept of the first screen. It comes before the
-world is detailed, before the game logic and before any second surface. The
+When the UI direction uses a place, a material or illustration, the first
+picture of the UI work is a concept of the first screen in its game context.
+It comes before UI implementation and before any second surface. The
 card is only words, and a build shows a weak composition after the routes
 exist, when it costs most to change.
 
@@ -162,8 +177,11 @@ before you say that a means is missing.
 
 - **An image tool.** Generate two or three whole-screen compositions of the
   same task and data on one sheet, in the palette and the type of the card.
-  Write the prompt from the card's quantities. A prompt that asks for
-  restraint gets it.
+  Keep game content fixed and vary the interface. Write the prompt from the
+  card's quantities. A prompt that asks for
+  restraint gets it. Do not constrain the concept to native shapes or omit
+  textures just to avoid making assets. Such a constraint needs a reason in
+  the brief, the visual direction or the delivery environment.
 - **A drawing script.** Draw the same compositions as flat shapes, type and
   color.
 - **The engine alone.** Block the screen in. Mount the ground, the lead at
@@ -196,13 +214,39 @@ adjective where the concept shows a size is not finished.
 
 Then decide, for each line, what draws it in the build.
 
+### Choose native drawing or image assets
+
+For UI assets within the scope above, choose by the visible result and the
+task, not by tool availability or the ease of the first implementation.
+Native drawing is a complete solution when
+it preserves the target's defining shapes, material detail and visual
+character at the sizes where people use it. Flat graphic work, live text,
+diagrams and quiet tools often meet this condition without image assets.
+An image tool being available does not require decorative art.
+
+Use an image asset when illustration, texture, irregular shape or authored
+detail carries the identity and the native version loses it. Consider resize
+quality, readable states, loading cost and supported devices for either
+choice. Keep text and interaction live even when their surrounding art is an
+image. A mixed solution is often appropriate.
+
+When the choice is uncertain, build one representative treatment at its
+intended size and compare it with the target before repeating it. If native
+drawing loses a defining quality, try an image treatment when the tools and
+permissions allow it, then compare both in the screen. Keep the treatment
+that serves the target and remains usable. Point to the capture and name the
+qualities it preserves or loses. Fewer files, a working button or a matching
+palette alone do not justify a native substitute. If an asset route is
+blocked, report the constraint and the visual loss as a fallback.
+
 | The concept shows | The build uses |
 | --- | --- |
 | Flat color, lines, light, gradients and type | The theme: `finish`, the palette and the type roles |
 | A drawn material on plates or controls: a texture, a bevel, a shaped or pixel-cut edge | Images in `chrome`, when you can make and upload them; see [three ways to use images](references/game-themes.md#three-ways-to-use-images) |
-| An illustrated ground, a subject or icons | `UI.Image` and theme `icons` from separate files in the concept's style |
+| UI illustrations, materials or icons | `UI.Image` and theme `icons` from separate UI asset files |
+| A game scene or subject shown for context | Supplied game content; its creation and rendering remain the game author's choice |
 
-Make each image as its own file for its role; do not cut pieces from the
+Make each UI image as its own file for its role; do not cut pieces from the
 concept sheet. [Art](references/art.md) has the geometry of each role and
 [upload](references/asset-upload.md) has the route into the place. When
 there is no image tool, or the upload is refused, write that line again in
@@ -418,7 +462,8 @@ a second screen before they do.
 
 ## 3. Make one build fit every screen
 
-Each layer scales by its own rule. The ground covers the viewport and crops.
+Each layer scales by its own rule. A UI backdrop, when needed, covers the
+viewport and crops.
 The lead fits its region and keeps its aspect ratio. Controls and text keep
 their sizes and reflow. On a short wide screen the height is the scarce side:
 the lead takes the full height and the other parts sit beside it, not above
@@ -482,7 +527,8 @@ Check these in order and stop at the first failure.
 check.
 
 1. **Fit.** Nothing is clipped, overlapped or unreachable at any size. The
-   ground reaches every edge. Every part of the desktop screen is present at
+   UI ground reaches every edge when a covering surface is intended; a HUD
+   leaves the game view visible. Every part of the desktop screen is present at
    every size under the same label. The main action is inside the thumb's
    reach on a phone.
 2. **Lead.** The subject or the content is the largest and clearest thing on
@@ -614,7 +660,7 @@ use `search.read(path)` for a complete contract. Do not guess filenames.
 | Lay out a group of peer actions, or a named palette of colors | [Game screens](references/game-screens.md#a-group-of-peers) |
 | Decide a game design tradeoff | [Game UI design](references/GAME_UI_DESIGN_GUIDE.md) |
 | Define the theme or use image surfaces | [Finish](references/finish.md), then [theme contracts](references/game-themes.md#theme-contracts) |
-| Build a place, a material or an illustrated world | [Build a screen as a place](references/place.md) |
+| Compose UI materials and controls around supplied game art | [Build a screen as a place](references/place.md) |
 | Browse records, products or equipment | [Collection](examples/collection.luau) and [patterns](references/patterns.md) |
 | Inspect a selected object | [Inspection](examples/inspection.luau) |
 | Preview a 3D object or choose its color | Node `Tasks.appearance` |

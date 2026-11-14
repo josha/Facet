@@ -1,8 +1,15 @@
-# Upload original game art
+# Upload original UI art
 
 Use this route when a design needs authored image files: icons, illustrations,
 textures and control surfaces. Native text, paths and standard controls need no
-image asset when they already give the intended result.
+image asset when they already give the intended result. Use the
+[native or image criteria](../SKILL.md#choose-native-drawing-or-image-assets)
+to establish that fit from the visible result; availability of a native
+control alone does not establish it.
+
+This workflow supplies UI assets within the [UI scope](../SKILL.md#ui-scope).
+Uploading a game background or subject through the same tool does not make
+it Facet work; that asset choice belongs to the game-building agent.
 
 Create ordinary image files, upload them to Roblox through Open Cloud and use
 the returned asset IDs. Do not use EditableImage, embedded pixel buffers or

@@ -5,10 +5,23 @@ product requirements. Make persistent
 changes in Edit and test them in Play. Keep supplied libraries and documents
 unchanged.
 
+Keep library `Sandboxed` and `Capabilities` properties unchanged too. If the
+command executor cannot require a module, inspect it from a temporary Play
+LocalScript and read its output. Do not alter persistent library permissions
+to enable command-side inspection: callbacks can then lose access to game
+remotes. Remove the inspection script afterward.
+
 Plan the brief as connected player routes. Identify each route's entry, shared
 state, accepted game effect, cancellation or failure, and return. Track the
 required routes that remain incomplete. A missing route is not offset by polish
 elsewhere. Fix a defect that blocks later routes first.
+
+Separate game rendering from UI rendering. The game author chooses the world
+and subject assets from the brief. UI guidance governs interface assets and
+must not prescribe a generated background in place of the game. Report each
+generated asset's purpose as UI or game presentation. Assess UI quality from
+its type, controls, layout and states as well as its fit over the supplied
+game view; detailed game art alone is not evidence of better UI.
 
 ## Order of work
 
@@ -30,9 +43,19 @@ and one input captures that form only.
    play with its interface over it. With an image tool, generate two or
    three whole-screen compositions and choose one. Give sizes and strengths
    as quantities; a prompt that asks for restraint gets a plain screen. The
-   same tool can make art for the game, one file for each use, when the
-   Studio connection uploads the file; say so in one message when an upload
-   is refused, and carry on without it. Without an image tool, block the
+   concept must not be restricted to native parts or no textures merely to
+   avoid asset work. A native direction is valid when it serves the brief.
+   Choose native drawing, image assets or a mixture by how well the build
+   preserves the target's defining shapes, materials, detail and visual
+   character at the supported sizes. Also check readable states, resizing
+   and loading cost. If a representative native treatment loses a defining
+   quality, use the image tool to make a treatment for that role, upload it
+   and compare both in the screen. Keep the better fit and name the visible
+   evidence for the choice. A matching palette, fewer files or functional
+   controls alone do not establish visual quality. No asset is required when
+   the native result meets the target. When an upload is refused, report the
+   refusal and the visual loss, and continue with the fallback. Without an
+   image tool, block the
    screen in: its ground, its main subject at its size and its main action,
    with fixed sample data and no game logic, and capture it. In a 3D game
    the ground is the world: its sky and its light belong to the picture, and

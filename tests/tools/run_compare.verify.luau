@@ -115,6 +115,17 @@ return function(harness: Core.Harness)
 						t:expect(command.argv[modelIndex + 1]):toBe(model)
 						t:expect(table.find(command.argv, 'model_reasoning_effort="medium"') ~= nil):toBe(true)
 						t:expect(table.find(command.argv, "--ignore-user-config") ~= nil):toBe(true)
+						t:expect(command.argv[assert(table.find(command.argv, "--enable")) + 1])
+							:toBe("skip_host_skill_discovery")
+						for _, setting in
+							{
+								"project_doc_max_bytes=0",
+								"skills.include_instructions=false",
+								"skills.bundled.enabled=false",
+							}
+						do
+							t:expect(command.argv[assert(table.find(command.argv, setting)) - 1]):toBe("-c")
+						end
 						t:expect(command.argv[assert(table.find(command.argv, "--sandbox")) + 1]):toBe("read-only")
 						t:expect(command.deadlineSeconds):toBe(180)
 						local cwd = assert(command.cwd)

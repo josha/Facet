@@ -10,6 +10,11 @@ The [guidance trials](guidance-trials/README.md) keep the small paired trials
 that changed the use-facet guidance: one screen, fresh authors and blind
 reviews of captures. They are development evidence, not this baseline.
 
+The [controlled UI study](controlled-ui/README.md) holds the game, camera and
+server behavior fixed while comparing plain Roblox and old/new Facet guidance.
+It reports six Sol runs, native input checks and both-order visual judgments.
+It is a separate key-screen experiment, not the full-game baseline below.
+
 Build one complete Roblox game from a blank place in **30 minutes**.
 Compare Plain Roblox with Facet using the same brief, model, tools, deadline,
 and device requirements. There are no smaller modes or follow-up author turns.
@@ -29,6 +34,23 @@ author gets one prompt and one fresh Studio place. Coding, reading guidance,
 tool calls, play checks, and self-correction all consume the same 1800-second
 window. The brief does not state the limit; the runner stops the author at the
 deadline. No operator coaches either author.
+
+Keep automatic instruction discovery off. Codex's `--ignore-user-config`
+excludes `config.toml`; it does not exclude ancestor `AGENTS.md` files or the
+host's skill catalog. The suite disables project document loading and automatic
+skill discovery. Pass each arm's frozen instructions explicitly. Facet still
+receives its skill in those instructions and its references in StudioDocs;
+Plain must not inherit Facet guidance from the evaluator's repository.
+The judge policy uses the same isolation settings in its neutral directory.
+Before an author run, inspect the model-visible prompt with the installed
+CLI's `debug prompt-input` command under the same instruction and skill
+settings. Retain the prompt audit and CLI version with the frozen inputs.
+Check tool availability separately in the actual author session; the local
+prompt audit does not include every tool supplied at runtime.
+The [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+describes the document and skill settings. A leaked instruction makes the
+affected run an invalid pilot; preserve it and restart from a fresh fixture
+and session after correcting the profile.
 
 ## Starting conditions
 

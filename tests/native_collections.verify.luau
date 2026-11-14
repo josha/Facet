@@ -3813,6 +3813,12 @@ return function(verifyHarness: Verify.Harness)
 					body.AbsoluteWindowSize
 				)
 				local first, second = body:FindFirstChild("1", true), body:FindFirstChild("2", true)
+				for _, row in { first, second } do
+					local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+					detector.DragStart:Fire(engine.types.Vector2.new(250, 20))
+					detector.DragContinue:Fire(engine.types.Vector2.new(200, 20))
+					detector.DragEnd:Fire()
+				end
 				expect((first:FindFirstChild("trailing", true):FindFirstChild("delete"))):toBeNil()
 				expect(first:FindFirstChild("trailing", true):FindFirstChild("flag") ~= nil):toBe(true)
 				expect(second:FindFirstChild("trailing", true):FindFirstChild("delete") ~= nil):toBe(true)
@@ -4795,15 +4801,15 @@ return function(verifyHarness: Verify.Harness)
 					"AbsoluteSize",
 					engine.types.Vector2.new(300, 40)
 				)
+				local detector = node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
+				detector.DragStart:Fire(engine.types.Vector2.new(250, 20))
+				detector.DragContinue:Fire(engine.types.Vector2.new(200, 20))
 				local tray = node:FindFirstChild("trailing")
 				local delete, flag = tray:FindFirstChild("delete"), tray:FindFirstChild("flag")
 				expect((delete:GetAttribute("label"))):toBe("Delete")
 				expect(delete:FindFirstChild("LeadingIcon", true) ~= nil):toBe(true)
 				local caption = delete:FindFirstChild("Title", true)
 				expect(caption == nil or caption.Visible == false or caption.Text == ""):toBe(true)
-				local detector = node:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
-				detector.DragStart:Fire(engine.types.Vector2.new(250, 20))
-				detector.DragContinue:Fire(engine.types.Vector2.new(200, 20))
 				expect(tray.Size.X.Offset):toBe(50)
 				expect(`{delete.Size.X.Scale} {delete.Size.X.Offset}`):toBe("0 64")
 				detector.DragContinue:Fire(engine.types.Vector2.new(170, 20))
@@ -5598,6 +5604,59 @@ return function(verifyHarness: Verify.Harness)
 				expect(invoked):toBe(1)
 				node:FindFirstChild("Delete").Activated:Fire()
 				expect(invoked):toBe(1)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		it("builds the action trays on the first swipe or open, not at mount", {
+			id = "native_collections::Compose native collections::builds the action trays on the first swipe or open, not at mount",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local open = Compose.cell(nil :: ("leading" | "trailing")?)
+				local stop, node: any = runtime.mount(function()
+					return UI.RowActions {
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
+						open = open,
+						leading = { { id = "read", label = "Read" } :: FixtureCollectionTypes.RowAction },
+						trailing = { { id = "erase", label = "Erase" } :: FixtureCollectionTypes.RowAction },
+					}
+				end, target)
+				expect(#node:FindFirstChild("leading"):GetChildren() <= 1):toBe(true)
+				expect(node:FindFirstChild("trailing"):FindFirstChild("erase")):toBeNil()
+				open:set("trailing")
+				expect(node:FindFirstChild("trailing"):FindFirstChild("erase") ~= nil):toBe(true)
+				expect(node:FindFirstChild("leading"):FindFirstChild("read") ~= nil):toBe(true)
+				open:set(nil)
+				expect(node:FindFirstChild("trailing"):FindFirstChild("erase") ~= nil):toBe(true)
+				stop()
+			end,
+		})
+
+		it("creates the row key actions only while selection is inside the row", {
+			id = "native_collections::Compose native collections::creates the row key actions only while selection is inside the row",
+			run = function()
+				local engine, runtime, UI, target, gui = setup()
+				local stop, node: any = runtime.mount(function()
+					return UI.RowActions {
+						content = UI.Button "Action" { label = "Row" } :: GuiObject,
+						trailing = {
+							{
+								id = "Erase",
+								label = "Delete",
+								role = "destructive" :: "destructive",
+								onActivate = function() end,
+							} :: FixtureCollectionTypes.RowAction,
+						},
+					}
+				end, target)
+				expect(target:FindFirstChild("FacetRowActionsDelete")):toBeNil()
+				expect(target:FindFirstChild("FacetRowActionsReveal")):toBeNil()
+				gui.SelectedObject = node:FindFirstChild("Action", true)
+				expect(target:FindFirstChild("FacetRowActionsDelete") ~= nil):toBe(true)
+				expect(target:FindFirstChild("FacetRowActionsReveal") ~= nil):toBe(true)
+				gui.SelectedObject = nil
+				expect(target:FindFirstChild("FacetRowActionsDelete")):toBeNil()
 				stop()
 				runtime:dispose()
 			end,

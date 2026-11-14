@@ -255,6 +255,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				and (if edge == "leading" then live > 0 else live < 0)
 				and math.abs(live) >= use(dimensions).X * FULL_SWIPE
 		end
+		local noActions: { RowAction } = {}
+		local traysBuilt = Compose.cell(false)
+		local trayFilled = Compose.cell(0)
+		Compose.watch(function(use: ComposeTypes.Use)
+			if
+				not traysBuilt:peek()
+				and (readSource(open, use) ~= nil or use(drag) ~= nil or use(committing) ~= nil)
+			then
+				traysBuilt:set(true)
+			end
+		end)
 		local function tray(edge: RowEdge): Frame
 			local nativeProps: Types.FrameProps = {
 				Name = edge,
@@ -280,7 +291,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				},
 				Compose.keyed({
 					from = function(use: ComposeTypes.Use)
-						return actions(edge, use)
+						if use(traysBuilt) then
+							return actions(edge, use)
+						end
+						return noActions
 					end,
 					key = function(action: RowAction)
 						return action.id
@@ -327,6 +341,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 							end,
 						}
 						local button = UI.Button(buttonProps)
+						trayFilled:set(trayFilled:peek() + 1)
 						button:AddTag("facet-row-action")
 						local caption = button:FindFirstChild("Title", true)
 						local bounds = if caption and caption:IsA("TextLabel")
@@ -878,20 +893,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				and readSource(committing, use) == nil
 				and not (node:IsA("TextBox") and node:IsFocused())
 		end
-		ctx.action(
-			root,
-			"RowActionsReveal",
-			{ E.KeyCode.ButtonX, E.KeyCode.Menu },
-			eligible,
-			reveal,
-			{ priority = 450 }
-		)
-		ctx.action(root, "RowActionsClose", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
-			return eligible(use) and (readSource(open, use) ~= nil or use(menuOpen))
-		end, function()
-			menuOpen:set(false)
-			setOpen(nil)
-		end, { priority = 300 })
 		local function destructive(use: ComposeTypes.Use?): (RowAction?, RowEdge?)
 			local edges: { RowEdge } = { "trailing", "leading" }
 			for _, edge in edges do
@@ -909,20 +910,65 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				execute(action, edge)
 			end
 		end
-		ctx.action(root, "RowActionsDelete", { E.KeyCode.Delete, E.KeyCode.Backspace }, function(use: ComposeTypes.Use)
-			return eligible(use) and readSource(open, use) == nil and not use(menuOpen) and destructive(use) ~= nil
-		end, delete, { priority = 300 })
-		local toggleKeys: { Types.InputBindingNativeProps } = {
-			{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.LeftShift },
-			{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.RightShift },
-		}
-		ctx.action(root, "RowActionsToggle", toggleKeys, eligible, function()
-			if menuOpen:peek() then
+		local function installKeys(): ()
+			ctx.action(
+				root,
+				"RowActionsReveal",
+				{ E.KeyCode.ButtonX, E.KeyCode.Menu },
+				eligible,
+				reveal,
+				{ priority = 450 }
+			)
+			ctx.action(root, "RowActionsClose", { E.KeyCode.Escape, E.KeyCode.ButtonB }, function(use: ComposeTypes.Use)
+				return eligible(use) and (readSource(open, use) ~= nil or use(menuOpen))
+			end, function()
 				menuOpen:set(false)
-			else
-				reveal()
+				setOpen(nil)
+			end, { priority = 300 })
+			ctx.action(
+				root,
+				"RowActionsDelete",
+				{ E.KeyCode.Delete, E.KeyCode.Backspace },
+				function(use: ComposeTypes.Use)
+					return eligible(use)
+						and readSource(open, use) == nil
+						and not use(menuOpen)
+						and destructive(use) ~= nil
+				end,
+				delete,
+				{ priority = 300 }
+			)
+			local toggleKeys: { Types.InputBindingNativeProps } = {
+				{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.LeftShift },
+				{ KeyCode = E.KeyCode.Return, PrimaryModifier = E.KeyCode.RightShift },
+			}
+			ctx.action(root, "RowActionsToggle", toggleKeys, eligible, function()
+				if menuOpen:peek() then
+					menuOpen:set(false)
+				else
+					reveal()
+				end
+			end, { priority = 300 })
+		end
+		local keyScope: ComposeTypes.RootScope? = nil
+		Compose.watch(function(use: ComposeTypes.Use)
+			local node = readSource(selected, use)
+			local inside = node ~= nil and node:IsDescendantOf(scope())
+			if inside and keyScope == nil then
+				keyScope = Compose.createRootOwner(installKeys, runtime.reactor)
+			elseif not inside and keyScope ~= nil then
+				local released = keyScope
+				keyScope = nil
+				released.dispose()
 			end
-		end, { priority = 300 })
+		end)
+		Compose.cleanup(function()
+			local released = keyScope
+			keyScope = nil
+			if released then
+				released.dispose()
+			end
+		end)
 		ctx.shiftRoute(root, function()
 			if read(spec.enabled) == false then
 				return
@@ -971,14 +1017,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local previousSelection: GuiObject?
 		Compose.watch(function(use: ComposeTypes.Use)
 			local edge = use(open)
+			use(trayFilled)
 			if gui == nil then
 				return
 			end
 			if edge ~= nil then
 				local current = ctx.selection.get()
-				if current and current:IsDescendantOf(scope()) then
+				local trayNode = root:FindFirstChild(edge)
+				if
+					current
+					and current:IsDescendantOf(scope())
+					and not (trayNode and current:IsDescendantOf(trayNode))
+				then
 					previousSelection = current
-					local trayNode = root:FindFirstChild(edge)
 					if trayNode then
 						for _, child in trayNode:GetChildren() do
 							if child:IsA("GuiButton") and child.Selectable and child.Interactable then

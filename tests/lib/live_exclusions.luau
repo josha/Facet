@@ -28,6 +28,7 @@ local EXCLUSIONS: { [string]: { string } } = {
 		"needs_live_input/touch-drag-scrolls-reorderable-list",
 		"needs_live_input/tray-grows-with-text-size",
 		"scroll_live/files-nested-touch-handoff",
+		"scroll_live/play-probe-swipes-inactive-scroller-above-backdrop",
 	},
 	["CI source budget exceeded"] = {
 		"gamepad_walk/reach-all-controls",

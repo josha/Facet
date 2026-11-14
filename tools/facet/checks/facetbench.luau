@@ -69,8 +69,15 @@ local function check(context: Rule.Context): { string }
 		need(agent.options.sandbox == "read-only", "the author filesystem must be read-only")
 		local disabled: { [string]: boolean } = {}
 		local isolated = false
+		local skipHostSkills = false
 		for index, argument in arguments do
 			isolated = isolated or argument == "--ignore-user-config"
+			if
+				(argument == "--enable" or argument == "--disable")
+				and arguments[index + 1] == "skip_host_skill_discovery"
+			then
+				skipHostSkills = argument == "--enable"
+			end
 			if argument == "--disable" then
 				local feature = arguments[index + 1]
 				if type(feature) == "string" then
@@ -85,6 +92,13 @@ local function check(context: Rule.Context): { string }
 				table.find(declared, "image-generation") ~= nil and table.find(declared, "asset-upload") ~= nil,
 				"an author with image generation must declare the image-generation and asset-upload preflights"
 			)
+		end
+		need(skipHostSkills, "the author must not discover host skills")
+		local config: Json.Array = Json.asArray(agent.options.config) or {}
+		for _, setting in
+			{ "project_doc_max_bytes=0", "skills.include_instructions=false", "skills.bundled.enabled=false" }
+		do
+			need(table.find(config, setting) ~= nil, "the author must isolate instructions with " .. setting)
 		end
 		for _, feature in
 			{ "shell_tool", "view_image", "apps", "multi_agent", "computer_use", "browser_use", "plugins" }
@@ -198,6 +212,25 @@ local function register(harness: Verify.Harness, prefix: string): ()
 				Files.write(suitePath, (string.gsub(suiteSource, '"shell_tool"', '"unused_feature"')))
 				if not Rule.contains(check(context), "must disable shell_tool") then
 					error("filesystem tools were accepted", 0)
+				end
+				Files.write(suitePath, suiteSource)
+				for _, setting in
+					{
+						"project_doc_max_bytes=0",
+						"skills.include_instructions=false",
+						"skills.bundled.enabled=false",
+						"skip_host_skill_discovery",
+					}
+				do
+					Files.write(suitePath, (string.gsub(suiteSource, setting:gsub("%p", "%%%0"), "unused_setting")))
+					Verify.expect(
+						Rule.contains(
+							check(context),
+							if setting == "skip_host_skill_discovery"
+								then "must not discover host skills"
+								else "must isolate instructions"
+						)
+					):toBeTrueWith("inherited instructions were accepted after removing " .. setting)
 				end
 				Files.write(suitePath, suiteSource)
 				Files.write(context.path("eval/tasks/run/starter/solution.rbxlx"), "asset")
