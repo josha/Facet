@@ -519,6 +519,12 @@ return function(verifyHarness: Verify.Harness)
 				find(find(body, "notes"), "RowHit").Activated:Fire()
 				expect(built.report().selection.warmup):toBe(true)
 				expect(built.report().selection.notes):toBe(nil)
+				for _, name in { "grid", "main" } do
+					local detector = find(find(body, name), "SwipeGrip"):FindFirstChildWhichIsA("UIDragDetector")
+					detector.DragStart:Fire(ctx.types.Vector2.new(250, 20))
+					detector.DragContinue:Fire(ctx.types.Vector2.new(200, 20))
+					detector.DragEnd:Fire()
+				end
 				expect(find(find(body, "grid"), "Move").Interactable):toBe(false)
 				local protected = find(find(body, "main"), "delete")
 				expect(protected.Interactable):toBe(false)
