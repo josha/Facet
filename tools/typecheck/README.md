@@ -16,7 +16,7 @@ Native test doubles can expose methods that Roblox instances do not have. Give t
 
 The solver can require explicit `Instance` or `GuiObject` return annotations for content factories. Preserve singleton types for literal options. Give cells the full type of the values they can store. Give arrays their shared entry type when entries have different optional fields.
 
-Run `lute run tools/facet types --files src/ui/inputs.luau` while editing a module. This focused mode reports errors in the requested files and records dependency errors separately. It is not complete verification. `--source-only` checks Facet-owned source. `lute run tools/facet types selftest` checks repository inventory, analysis contexts, strict directives and diagnostic policy. It also proves that the analyzer accepts a native `UDim2` and rejects an incompatible scalar assignment.
+Run `lute run tools/facet types --files src/ui/input_button.luau` while editing a module. This focused mode reports errors in the requested files and records dependency errors separately. It is not complete verification. `--source-only` checks Facet-owned source. `lute run tools/facet types selftest` checks repository inventory, analysis contexts, strict directives and diagnostic policy. It also proves that the analyzer accepts a native `UDim2` and rejects an incompatible scalar assignment.
 
 The analyzer and Lute versions are pinned in `rokit.toml`. `roblox.lock.json` and `roblox-plugin.lock.json` pin the upstream Roblox declaration URLs and SHA-256 hashes. The checker verifies those hashes and caches declarations under `artifacts/verify/types/`. Tests and benchmarks resolve `@std` and `@lute` through the Lute declarations named in `.luaurc`. These declarations are build tools.
 

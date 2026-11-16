@@ -1,5 +1,11 @@
 # Current package
 
+The library no longer has the modules `ui/inputs`, `ui/media`, `ui/nav_pages`,
+`ui/nav_surfaces` and `ui/travel_geometry`. No control loaded them:
+`Facet.controls` loads each control family on first use, and Travel calculates
+its arc in `ui/travel`. The public surface and the control behavior do not
+change.
+
 The use-facet skill covers a game that already has an interface. The game is
 the reference: a request to replace the interface with Facet matches its
 screens, controls and words; a request to improve it keeps what makes the

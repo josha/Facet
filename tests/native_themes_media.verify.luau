@@ -95,7 +95,7 @@ return function(verifyHarness: Verify.Harness)
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
 	local controls = require("../src/ui")
-	local media = require("../src/ui/media")
+	local media = require("./lib/control_families").media
 	local themes: FixtureThemeTypes.Themes = require("../src/ui/themes")(Compose)
 	local engineLib = require("./lib/native_engine")
 
