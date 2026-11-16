@@ -10,7 +10,6 @@ local ThemeTypes = require("./theme_types")
 local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ComposeTypes = require("../vendor/compose/core")
-local Environment = require("./environment_types")
 local ControlTypes = require("./control_types")
 
 type Spec = InputTypes.TextInputImplementationProps

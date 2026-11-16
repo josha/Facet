@@ -1,7 +1,6 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
-local Radial = require("./radial_types")
 local Inputs = require("./input_types")
 local Overlay = require("./overlay_types")
 

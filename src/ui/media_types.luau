@@ -1,7 +1,6 @@
 --!strict
 local ComposeTypes = require("../vendor/compose/core")
 local Types = require("./types")
-local Engine = require("./engine_types")
 
 export type ControlSize = "xsmall" | "compact" | "regular" | "large"
 export type Status = "neutral" | "info" | "success" | "warning" | "error" | "accent" | "voice" | "contrast"

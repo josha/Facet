@@ -22,7 +22,7 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
-	local register = require("../src/ui/inputs")
+	local register = require("./lib/control_families").inputs
 	local Facet = require("../src")
 	local function fixtureTheme(definition: ThemeTypes.ThemeDefinition): ThemeTypes.ThemePackage
 		local package = Facet.themes.define(definition)

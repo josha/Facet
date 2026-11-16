@@ -1,6 +1,5 @@
 --!strict
 local Types = require("./types")
-local Engine = require("./engine_types")
 local Media = require("./media_types")
 local ComposeTypes = require("../vendor/compose/core")
 local ControlTypes = require("./control_types")

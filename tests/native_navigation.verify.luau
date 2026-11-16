@@ -3949,8 +3949,8 @@ return function(verifyHarness: Verify.Harness)
 				local ctx = require("../src/ui/context")(Compose, runtime, { types = engine.types })
 				local UI = ({} :: unknown) :: SharedTypes.Controls
 				require("../src/ui/layout")(ctx, UI)
-				require("../src/ui/inputs")(ctx, UI)
-				require("../src/ui/nav_pages")(ctx, UI, require("../src/ui/nav_modal")(ctx))
+				require("./lib/control_families").inputs(ctx, UI)
+				require("./lib/control_families").pages(ctx, UI, require("../src/ui/nav_modal")(ctx))
 				local observeSize = ctx.observe.AbsoluteSize
 				local framed = Compose.cell(engine.types.Vector2.zero)
 				ctx.observe.AbsoluteSize = function(node: GuiBase2d)
@@ -4035,7 +4035,7 @@ return function(verifyHarness: Verify.Harness)
 				})
 				local UI = ({} :: unknown) :: SharedTypes.Controls
 				require("../src/ui/layout")(ctx, UI)
-				require("../src/ui/inputs")(ctx, UI)
+				require("./lib/control_families").inputs(ctx, UI)
 				require("../src/ui/nav_menu")(ctx, UI, require("../src/ui/nav_modal")(ctx))
 				local observeSize, observeBounds = ctx.observe.AbsoluteSize, ctx.observe.TextBounds
 				local size = Compose.cell(engine.types.Vector2.zero)

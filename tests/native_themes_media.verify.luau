@@ -95,7 +95,7 @@ return function(verifyHarness: Verify.Harness)
 	local Roblox = require("../src/vendor/compose/roblox")
 	local context = require("../src/ui/context")
 	local controls = require("../src/ui")
-	local media = require("../src/ui/media")
+	local media = require("./lib/control_families").media
 	local themes: FixtureThemeTypes.Themes = require("../src/ui/themes")(Compose)
 	local engineLib = require("./lib/native_engine")
 
@@ -2094,20 +2094,20 @@ return function(verifyHarness: Verify.Harness)
 		it("rejects malformed media policy and retains valid reactive captions", {
 			id = "native_themes_media::native themes and media::rejects malformed media policy and retains valid reactive captions",
 			run = function()
-				local builders: { (media.MediaControls) -> GuiObject } = {
-					function(UI: media.MediaControls): GuiObject
+				local builders: { (Facet.Controls) -> GuiObject } = {
+					function(UI: Facet.Controls): GuiObject
 						return UI.Badge({ label = 3 } :: any)
 					end,
-					function(UI: media.MediaControls): GuiObject
+					function(UI: Facet.Controls): GuiObject
 						return UI.Badge { icon = "checkmark" }
 					end,
-					function(UI: media.MediaControls): GuiObject
+					function(UI: Facet.Controls): GuiObject
 						return UI.AvatarGroup({ items = {}, overflow = "unexpected" } :: any)
 					end,
-					function(UI: media.MediaControls): GuiObject
+					function(UI: Facet.Controls): GuiObject
 						return UI.AvatarGroup { items = { { id = "a", name = "A" }, { id = "a", name = "B" } } }
 					end,
-					function(UI: media.MediaControls): GuiObject
+					function(UI: Facet.Controls): GuiObject
 						return UI.StatusIndicator { count = 1, max = -1 }
 					end,
 				}

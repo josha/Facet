@@ -21,16 +21,12 @@ stylua.toml
 # ^ Luau formatting configuration and the exclusion preserving pinned vendor bytes.
 .luaurc
 # ^ Strict Luau mode and repository aliases used by the comprehensive type checker.
-run-tests.sh
 src/
 assets/
 examples/
 docs/guide/
 docs/reference/
-docs/reference/constitution.md
 docs/extending/
-docs/performance/
-# ^ The generated Facet versus plain Roblox UI comparison report.
 docs/MAINTAINERS.md
 tests/
 bench/
@@ -41,19 +37,6 @@ eval/
 package/
 # docs/plans/, docs/superpowers/ and artifacts/distribution-readiness/ hold private
 #   planning; `lute run tools/facet check public-allowlist` refuses them even if a line here allows them.
-!tools/lune/gate_manifest.luau
-!tools/lune/gate_legacy.luau
-!tools/lune/verify/convert_manifest.py
-# ^ the retired gate path and its one-shot converter: archived with phases.json;
-#   the graph is the living system and check_manifest_integrity audits it.
-# --- never public, even inside an allowed directory ---
-!tools/lune/_probe_*.luau
-!tools/lune/_tmp/
-!tools/__pycache__/
-!examples/table_phaseb/
-!src/core/fusion_adapter.luau
-!tests/fusion_vendor.spec.luau
-!tests/lib/fusion_*.luau
 # --- secret-shaped files are never public, even inside an allowed tree ---
 !*API_KEYS*
 !*.env
@@ -62,45 +45,3 @@ package/
 !*.pem
 !*id_rsa*
 !*.keychain
-
-# Native-cutover evidence linked by PR22; retained for verification review.
-artifacts/gamepad/
-
-# Zoom and travel design and evidence requested for the control review.
-artifacts/zoom-travel-report.md
-artifacts/inter-e-files.txt
-
-artifacts/gesture-arbitration-report.md
-
-# Slot-motion convergence design and port evidence.
-artifacts/converge-request-to-d.md
-artifacts/inter-e-converge-files.txt
-artifacts/interaction-converge.patch
-artifacts/travel-convergence-report.md
-
-artifacts/converge-response-from-d.md
-artifacts/inter-d-files.txt
-artifacts/interaction-port-notes.md
-artifacts/interaction.patch
-artifacts/interaction-cases.md
-
-artifacts/inter-e-2-status.md
-artifacts/inter-e-2-files.txt
-artifacts/inter-e-2-done.txt
-
-artifacts/inter-d-2-status.md
-artifacts/inter-d-2-files.txt
-artifacts/interaction-2-report.md
-
-
-
-
-artifacts/zoom-live-fix-report.md
-artifacts/zoom-live-fix-to-d.md
-artifacts/interaction-2-port-notes.md
-artifacts/interaction-2-case-ids.md
-artifacts/interaction-2.patch
-
-artifacts/lab-mount-report.md
-
-# Agent evals: the engine and Compose replacement review and the task recipe proposal.

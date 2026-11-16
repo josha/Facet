@@ -123,7 +123,7 @@ The tool reads `build/Facet.manifest.json` from the `.rbxmx` twin:
   "instanceCount": 110,
   "moduleCount": 99,
   "bodyHash": "<sha256 over the instance list>",
-  "instances": [ { "path": "Facet/ui/inputs", "className": "ModuleScript", "sourceSha256": "…" }, … ]
+  "instances": [ { "path": "Facet/ui/input_button", "className": "ModuleScript", "sourceSha256": "…" }, … ]
 }
 ```
 

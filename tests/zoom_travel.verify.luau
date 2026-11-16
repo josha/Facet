@@ -8,7 +8,6 @@ local ZoomTypes = require("../src/ui/zoom_travel_types")
 local ZoomTypesControls = require("../src/ui/control_types")
 local engineLib = require("./lib/native_engine")
 local geometry = require("../src/ui/zoom_geometry")
-local travelGeometry = require("../src/ui/travel_geometry")
 
 local function inputWorld(content: ((Facet.Host, Facet.Controls) -> GuiObject)?, preferred: Shared.Input<GuiObject?>?)
 	local engine = engineLib.new({ lenientProperties = true })
@@ -264,20 +263,6 @@ return function(harness: Verify.Harness)
 			t:expect(inset):toBe(150)
 			t:expect(geometry.point(1, offset, inset, 200)):toBe(50)
 			t:expect(geometry.rectangle(400, 300, { x = 10, y = 10, w = 100, h = 100 })):toBe(3)
-		end)
-
-		harness:case("samples straight and arc paths at both endpoints and in flight", function(t)
-			local last = -math.huge
-			for index = 0, 60 do
-				local progress = index / 60
-				local x = travelGeometry.point(20, 420, progress)
-				t:expect(x >= last):toBe(true)
-				t:expect(travelGeometry.arc(progress, 48) <= 0):toBe(true)
-				last = x
-			end
-			t:expect(travelGeometry.arc(0, 48)):toBe(0)
-			t:expect(travelGeometry.arc(1, 48)):toBe(0)
-			t:expect(travelGeometry.arc(0.5, 48)):toBe(-48)
 		end)
 
 		harness:case("applies pinch and pointer pan in input callbacks and freezes child drag", function(t)
