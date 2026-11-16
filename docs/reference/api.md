@@ -178,8 +178,8 @@ option places one on the sheet's bottom edge, and the `buttonGuides` app
 option lets players hide every guide.
 
 Theme authoring types: `Facet.RGB` types a color as `{ r, g, b }`,
-`Facet.Gradient` types a theme gradient, `Facet.Rule` types one StyleSheet
-rule, and `Facet.AuthoredRuleProperties` types the properties of that rule.
+`Facet.Gradient` types a theme gradient, `Facet.ThemeRule` types one StyleSheet
+rule, and `Facet.ThemeRuleProperties` types the properties of that rule.
 `Facet.WorldAnchorPoint` types one point of a world anchor.
 `Facet.SplitColumn` names a NavigationSplitView column: `"sidebar"` or
 `"detail"`.

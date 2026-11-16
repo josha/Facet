@@ -297,7 +297,6 @@ type AnchoredOptions
 type App
 type AppOptions
 type AsyncImageProps
-type AuthoredRuleProperties
 type AvatarGroupProps
 type AvatarMember
 type AvatarProps
@@ -501,7 +500,6 @@ type ReviewSnapshot
 type RowAction
 type RowActionsOptions
 type RowActionsSpec
-type Rule
 type Runtime
 type SafeInsets
 type ScreenProps
