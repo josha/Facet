@@ -95,9 +95,10 @@ results.
 
 ### The official Roblox Package
 
-The Package asset is not published yet. When it exists, its id and creator are
-recorded in `package/facet-package.json`. Take new versions with **Get Latest
-Package**, and leave `AutoUpdate` off for a production game.
+The Package asset is not public yet. `package/facet-package.json` records its
+id, its creator and each published version. Until the asset is public, use one
+of the routes below. After that, take new versions with **Get Latest Package**,
+and leave `AutoUpdate` off for a production game.
 [`package/README.md`](package/README.md) has the full policy.
 
 ### Git and Rojo

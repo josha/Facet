@@ -65,11 +65,11 @@ third-party asset, and no trade dress.
 ## 2. Generated English word data (SCOWL)
 
 **Origin.** SCOWL (Spell Checker Oriented Word Lists) 2020.12.07,
-<http://wordlist.aspell.net/>. The generator
-[`tools/facet/commands/words.luau`](tools/facet/commands/words.luau)
-(`lute run tools/facet words`) reads a pinned archive
+<http://wordlist.aspell.net/>. A generator read a pinned archive
 (SHA-256 `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`) and
-writes the word lists under `examples/gallery/examples/words/`.
+wrote the word lists under `examples/gallery/examples/words/`.
+[`PROVENANCE.md`](examples/gallery/examples/words/PROVENANCE.md) in that
+directory records the policy and where Git history keeps the generator.
 
 **What uses it.** Two of the shipped example games. Nothing in `src/`, and
 therefore nothing in the built model or the Roblox Package, reads this data.

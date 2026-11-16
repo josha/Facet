@@ -151,9 +151,6 @@ local GENERATED: any = {
 			button = {
 				padding = 12,
 			},
-			image = {
-				defaultSize = 48,
-			},
 			label = {
 
 				gap = 6,
