@@ -221,7 +221,6 @@ local neutral: ThemeTypes.ThemePackage = {
 				circularThickness = 3,
 				spinnerDotSize = 4,
 			},
-			image = { defaultSize = 48 },
 			alert = { maxWidth = 560 },
 			popup = { panelWidth = 360 },
 			typography = { preferredSizeStep = 2, minimumSize = 14 },

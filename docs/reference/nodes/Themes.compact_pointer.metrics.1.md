@@ -15,7 +15,6 @@ Resolved metrics tokens.
 | `metrics.controlSizes.regular.paddingX` | `10` |
 | `metrics.controls.alert.maxWidth` | `560` |
 | `metrics.controls.dialog.wideWidth` | `800` |
-| `metrics.controls.image.defaultSize` | `48` |
 | `metrics.controls.navigationBack.swipeEdge` | `24` |
 | `metrics.controls.popup.panelWidth` | `360` |
 | `metrics.controls.progress.circularSize` | `18` |
