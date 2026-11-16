@@ -70,17 +70,21 @@ cannot be won and neither list can see the problem on its own.
 5. Sort, pack each length into one fixed-width string, and record a SHA-256 per
    generated file in `manifest.luau`.
 
-## Regenerating
+## Checking and regenerating
 
 ```sh
-lute run tools/facet words            # generate (downloads the archive once)
-lute run tools/facet words --check    # verify the checked-in files; no network
+lute run tools/facet check word-data    # verify the checked-in files; no network
 ```
 
-`--check` is the half that runs anywhere: it re-hashes the generated files
-against `manifest.luau` and needs neither the archive nor a network. The suite
-runs the same comparison, so hand-edited word data fails a test rather than
-quietly changing what the games accept.
+The check hashes the generated files again and compares them with
+`manifest.luau`. It needs neither the archive nor a network. The gate runs the
+same comparison, so hand-edited word data fails a check and does not quietly
+change what the games accept.
+
+The generator is not in the tree. The archive is pinned and the policy above is
+fixed, so the output does not change. Git history keeps the generator as
+`tools/facet/commands/words.luau`; commit `53c57ef` is the last one that has it.
+Restore it from there to change the policy.
 
 ## Required notices
 

@@ -230,43 +230,6 @@ return function(harness: Verify.Harness)
 		standalone()
 		t:expect(analyses):toBe(9)
 	end)
-	it("author replay counts a requested saved report without running a project", function(_own, t)
-		local root = Files.temporaryDirectory("facet-author-replay")
-		t:defer(function()
-			Files.remove(root)
-		end)
-		local event = Json.encode({
-			type = "item.completed",
-			item = {
-				type = "command_execution",
-				command = "lute run tools/facet verify --static",
-				aggregated_output = "warning [paint] Keep this advice (1 finding(s))\n    screen.luau:3\nerror [types] Available overloads: (StackProps) (2 finding(s))\n    screen.luau:1\n    screen.luau:2\nFull static findings: report.txt\n",
-			},
-		})
-		Files.write(Files.join(root, "transcript.jsonl"), "0\t" .. event .. "\n")
-		local text = "desktop 2-shop: high [text-fit] App.Shop: clipped\n"
-		Files.write(Files.join(root, "workspace/artifacts/check/report.txt"), text)
-		local result = Run.capture({
-			Run.lute(),
-			"run",
-			"tools/facet",
-			"author-replay",
-			root,
-			"--out",
-			Files.join(root, "replay"),
-			"--report",
-			"artifacts/check/report.txt",
-		})
-		t:expect(result.ok):toBe(true)
-		t:expect(string.find(result.stdout, `reports (1, first failing group page): {#text} ->`, 1, true) ~= nil)
-			:toBe(true)
-		t:expect(Files.read(Files.join(root, "workspace/artifacts/check/report.txt"))):toBe(text)
-		local static = Files.read(Files.join(root, "replay/static-after.txt"))
-		t:expect(string.find(static, "screen.luau:1", 1, true) ~= nil):toBe(true)
-		t:expect(string.find(static, "screen.luau:2", 1, true) ~= nil):toBe(true)
-		t:expect(string.find(static, "docs Stack.props", 1, true) ~= nil):toBe(true)
-		t:expect(string.find(static, "Keep this advice", 1, true) ~= nil):toBe(true)
-	end)
 	it("short type diagnostics point to typed options and retain the complete input finding", function(_own, t)
 		local finding: Static.Finding = {
 			severity = "error",

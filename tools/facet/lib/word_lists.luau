@@ -17,7 +17,6 @@ local WordLists = {}
 
 WordLists.OUT_DIR = "examples/gallery/examples/words"
 WordLists.MANIFEST = "manifest.luau"
-WordLists.REGENERATE = "lute run tools/facet words"
 
 function WordLists.hashText(contents: string): string
 	return Hash.sha256Text(contents)
@@ -39,7 +38,7 @@ function WordLists.verify(root: string): Verification
 	local verification: Verification = { manifest = manifestPath, refusal = nil, recorded = 0, mismatches = {} }
 	local absoluteManifest = Files.join(directory, WordLists.MANIFEST)
 	if not Files.isFile(absoluteManifest) then
-		verification.refusal = ("%s is missing; run the generator"):format(manifestPath)
+		verification.refusal = ("%s is missing; restore the committed file"):format(manifestPath)
 		return verification
 	end
 	local recorded = WordLists.recordedHashes(Files.text(absoluteManifest))
@@ -80,12 +79,7 @@ function WordLists.findings(root: string): { string }
 	for _, mismatch in verification.mismatches do
 		table.insert(
 			findings,
-			("%s/%s: %s; regenerate with `%s`"):format(
-				WordLists.OUT_DIR,
-				mismatch.name,
-				mismatch.problem,
-				WordLists.REGENERATE
-			)
+			("%s/%s: %s; restore the committed file"):format(WordLists.OUT_DIR, mismatch.name, mismatch.problem)
 		)
 	end
 	return findings

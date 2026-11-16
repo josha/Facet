@@ -27,7 +27,7 @@
     {"id": "call-shape-drift", "tier": "full", "run": "lute run tools/facet check call-shape-drift", "why": "documented call shapes match the control types"},
     {"id": "theme-drift", "tier": "full", "run": "lute run tools/facet check theme-drift", "why": "controls use theme tokens instead of literal paint and metrics"},
     {"id": "source-size", "tier": "full", "run": "lute run tools/facet check source-size", "why": "every source file fits the Studio script size limit"},
-    {"id": "word-data", "tier": "full", "run": "lute run tools/facet words --check", "why": "the generated word lists match their pinned source archive"},
+    {"id": "word-data", "tier": "full", "run": "lute run tools/facet check word-data", "why": "the committed word lists match the hashes in their manifest"},
     {"id": "public-allowlist", "tier": "full", "run": "lute run tools/facet check public-allowlist", "why": "public and private paths match the allowlist"},
     {"id": "public-surface", "tier": "full", "run": "lute run tools/engine/check_public_surface.luau", "why": "the exported surface matches tools/public_surface.txt"},
     {"id": "group-costs", "tier": "full", "run": "lute run tools/engine/group_costs.luau", "why": "native group transparency preserves container resource and idle work costs"},
