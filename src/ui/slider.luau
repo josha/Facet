@@ -87,12 +87,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local state = (spec :: unknown) :: { enabled: unknown, disabled: unknown, busy: unknown }
 		return dynamic(state.enabled) or dynamic(state.disabled) or dynamic(state.busy)
 	end
-	local function enabledValue(spec: Spec): Shared.Input<boolean>
-		local function compute(use: ComposeTypes.Use?): boolean
-			return h.enabled(spec, use)
-		end
-		return if enabledLive(spec) then compute else compute(nil)
-	end
 	local function construction(spec: Spec)
 		for _, key in { "axis", "range", "minGap", "thumb", "tapToPosition" } do
 			local source = (spec :: { [unknown]: unknown })[key]
