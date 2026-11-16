@@ -1,5 +1,17 @@
 # Current package
 
+`Facet.Rule` and `Facet.AuthoredRuleProperties` are removed. They were second
+names for `Facet.ThemeRule` and `Facet.ThemeRuleProperties`. Use those names;
+the types do not change.
+
+The neutral theme no longer has `metrics.controls.image.defaultSize`. No
+control read it, so a theme that set it saw no effect. A theme that still sets
+it loads as before.
+
+The reference no longer has nodes for the three themes that declare
+`testOnly = true`: `content_alias_test`, `fantasy_parchment_stub` and
+`layered_test`. The theme index lists only themes that a game can choose.
+
 The library no longer has the modules `ui/inputs`, `ui/media`, `ui/nav_pages`,
 `ui/nav_surfaces` and `ui/travel_geometry`. No control loaded them:
 `Facet.controls` loads each control family on first use, and Travel calculates
