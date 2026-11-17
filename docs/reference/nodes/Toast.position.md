@@ -13,7 +13,7 @@ Toast.position option values and behavior.
   Width and placement use the configured overlay parent when one is supplied.
 - `fade`: by default the row fades in and out as it slides (the fade draws
   the row through a CanvasGroup only while it runs, so settled text keeps
-  native glyph rendering). `false` only slides.
+  native glyph rendering). `false` disables the fade.
 
 At most three toasts show on an edge and eight wait. The queue is in priority
 order, first in first out within a priority. A more urgent toast replaces the
@@ -26,6 +26,7 @@ least urgent waiting toast retires with `capacity`; a showing toast never does.
   supplied, passive toasts wait for this host instead of using the screen.
   Keep the host Instance stable while notices exist; resize its native bounds
   for layout changes. Other overlays and action toasts keep their normal host.
+  Rows fade in place so entrance and exit do not cross the host's bounds.
 - `toastMaxVisible`: a positive integer, default `3`, for each passive edge.
   Use `1` when the host has room for only one notice. Content must still fit;
   this limit does not clip or shrink a row.

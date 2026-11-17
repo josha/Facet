@@ -482,6 +482,57 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("app.presentToast", function()
 		local engineLib = require("./lib/native_engine")
+		verifyHarness:case("keeps custom-host rows inside their slots throughout entrance and exit", {
+			id = "native_toast_schedule::app.presentToast::keeps custom-host rows inside their slots throughout entrance and exit",
+			run = function()
+				local edges: { "top" | "bottom" } = { "top", "bottom" }
+				for _, edge in edges do
+					local engine = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local target = engine.new("PlayerGui")
+					local panel = engine.new("Frame")
+					panel.Parent = target
+					engine.environment.poke(panel, "AbsoluteSize", Vector2.new(360, 180))
+					local app = Facet.app({
+						runtime = runtime,
+						types = engine.types,
+						parent = target,
+						motionLevel = "normal",
+						toastParent = panel,
+					})
+					local presented = Compose.cell(true)
+					app.mount(function()
+						return app.UI.Toast {
+							message = "Saved",
+							position = edge,
+							isPresented = presented,
+							onPresentedChange = function(value: boolean)
+								presented:set(value)
+							end,
+						}
+					end)
+					local samples = 0
+					local function advance()
+						for _ = 1, 30 do
+							engine.heartbeat:Fire(1 / 60)
+							for _, lane in overlay.findAll(panel, "ToastLane") do
+								expect(lane.AnchorPoint):toBe(engine.types.Vector2.zero)
+								expect(lane.Position):toBe(engine.types.UDim2.fromOffset(0, 0))
+								samples += 1
+							end
+						end
+					end
+					advance()
+					expect(samples):toBe(30)
+					presented:set(false)
+					advance()
+					expect(samples > 30):toBe(true)
+					expect(#overlay.findAll(panel, "ToastRow")):toBe(0)
+					app.dispose()
+					runtime:dispose()
+				end
+			end,
+		})
 		verifyHarness:case("waits for its passive host and preserves queued reading time while paused", {
 			id = "native_toast_schedule::app.presentToast::waits for its passive host and preserves queued reading time while paused",
 			run = function()

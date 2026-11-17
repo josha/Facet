@@ -424,6 +424,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 
 	local function passiveRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec = record.spec
+		local bounded = ctx.config.toastParent ~= nil
 		local bottom = spec.position == "bottom"
 		local hug = spec.width == "hug"
 		local contentHug = hug and spec.content ~= nil
@@ -533,9 +534,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			AnchorPoint = function(use: ComposeTypes.Use)
-				return V2.new(0, if bottom then 0 else 1 - amount(use))
+				return V2.new(0, if bounded or bottom then 0 else 1 - amount(use))
 			end,
 			Position = function(use: ComposeTypes.Use)
+				if bounded then
+					return D2.fromOffset(0, 0)
+				end
 				local travel = (1 - amount(use)) * (MARGIN + use(stack.inset))
 				return D2.new(0, 0, if bottom then 1 - amount(use) else 0, if bottom then travel else -travel)
 			end,
