@@ -470,6 +470,18 @@ return function(verifyHarness: Verify.Harness)
 						{ message = "m", closeButton = true },
 						{ message = "m", action = UNDO, position = "top" },
 						{ message = "m", action = UNDO, onPresentedChange = noop },
+						{ message = "m", reading = { duration = -1 } },
+						{ message = "m", reading = { duration = math.huge } },
+						{ message = "m", reading = { duration = 1, readFloor = 0 / 0 } },
+						{ message = "m", reading = { duration = 1 }, duration = 1 },
+						{ message = "m", reading = { duration = 1 }, readFloor = 1 },
+						{
+							message = "m",
+							action = UNDO,
+							isPresented = true,
+							closeButton = false,
+							reading = { duration = 1 },
+						},
 					} :: { any }
 				do
 					local ok = pcall(function()

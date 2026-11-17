@@ -268,6 +268,7 @@ export type DialogPresentation = OverlayTypes.DialogPresentation
 export type DialogBodyHeight = OverlayTypes.DialogBodyHeight
 export type PopoverDismissReason = OverlayTypes.PopoverDismissReason
 export type ToastDismissReason = OverlayTypes.ToastDismissReason
+export type ToastReading = OverlayTypes.ToastReading
 export type NoticeSeverity = OverlayTypes.NoticeSeverity
 export type ColorSwatch = ColorPickerTypes.Swatch
 export type ColorPickerMode = ColorPickerTypes.Mode

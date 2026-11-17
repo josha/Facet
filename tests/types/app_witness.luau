@@ -33,7 +33,14 @@ end
 local stop: () -> (), root: ScreenGui = app.mount(Counter)
 local runtime: Facet.Runtime = app.runtime
 local parent: Instance = root
-local other = Facet.app({ runtime = runtime, parent = parent })
+local other = Facet.app({
+	runtime = runtime,
+	parent = parent,
+	toastParent = Compose.cell<<GuiBase2d?>>(nil),
+	toastMaxVisible = 1,
+	toastQueueCapacity = math.huge,
+	toastPaused = Compose.cell(false),
+})
 other.dispose()
 stop()
 app.dispose()

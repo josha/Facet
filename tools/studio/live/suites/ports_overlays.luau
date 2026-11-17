@@ -1565,8 +1565,8 @@ add("snackbar-composition-widths", {}, function(t)
 			local undo: typeof(require("@repo/tools/typecheck/aliases").ToastSpec.action) =
 				{ label = "Undo", onActivate = function(): () end }
 			local close = cell("WithClose")
-			local function answer(name: string): (boolean) -> ()
-				return function(nextValue: boolean)
+			local function answer(name: string): (boolean, string?) -> ()
+				return function(nextValue: boolean, _reason: string?)
 					cells[name]:set(nextValue)
 				end
 			end

@@ -38,7 +38,7 @@ local function find(root: any, name: string): any
 end
 
 local function new(
-	build: (Facet.Controls, RobloxHost, engineLib.Engine) -> Facet.Child,
+	build: (Facet.Controls, RobloxHost, engineLib.Engine, ComposeRuntime) -> Facet.Child,
 	options: { [string]: any }?,
 	engineOptions: engineLib.Options?
 ): World
@@ -64,7 +64,7 @@ local function new(
 	local Host = Facet.host(runtime)
 	local parent = engine.new("Folder")
 	local stop, screen: any = runtime.mount(function()
-		return Host.ScreenGui { build(UI, Host, engine) }
+		return Host.ScreenGui { build(UI, Host, engine, runtime) }
 	end, parent)
 	local world: World
 	world = {

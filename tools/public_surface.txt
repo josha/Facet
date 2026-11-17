@@ -564,6 +564,7 @@ type TimerProps
 type ToastAction
 type ToastDismissReason
 type ToastOptions
+type ToastReading
 type ToastSpec
 type ToggleCellProps
 type ToggleProps

@@ -35,6 +35,7 @@ export type Push<T = unknown> = {
 export type Schedule<T = unknown, R = string> = {
 	push: (Push<T>) -> number,
 	update: () -> (),
+	renew: (number, number, number?) -> boolean,
 	dismiss: (number, R?) -> boolean,
 	visible: () -> { Entry<T> },
 	queued: () -> { Entry<T> },
@@ -52,7 +53,9 @@ function toast_schedule.new<T, R>(options: Options<T, R>?): Schedule<T, R>
 	local settings: Options<T, R> = options or {}
 	local defaults = toast_schedule.DEFAULTS
 	local maxVisible = math.max(1, math.floor(positive(settings.maxVisible, defaults.maxVisible)))
-	local queueCap = math.max(1, math.floor(positive(settings.queueCap, defaults.queueCap)))
+	local queueCap = if settings.queueCap == math.huge
+		then math.huge
+		else math.max(1, math.floor(positive(settings.queueCap, defaults.queueCap)))
 	local duration = positive(settings.duration, defaults.duration)
 	local readFloor = positive(settings.readFloor, defaults.readFloor)
 	local now = settings.now or os.clock
@@ -60,7 +63,7 @@ function toast_schedule.new<T, R>(options: Options<T, R>?): Schedule<T, R>
 	local queue: { Entry<T> } = {}
 	local sequence = 0
 	local changed = false
-	local proposals: { { entry: Entry<T>, reason: Reason } } = {}
+	local proposals: { { entry: Entry<T>, reason: Reason, asked: { [string]: boolean } } } = {}
 	local depth = 0
 	local pending: { () -> () } = {}
 	local function guarded<T, A...>(body: (A...) -> T, ...: A...): T
@@ -89,6 +92,7 @@ function toast_schedule.new<T, R>(options: Options<T, R>?): Schedule<T, R>
 		return a.id < b.id
 	end
 	local function retire(entry: Entry<T>, reason: Reason | R)
+		entry.asked = {}
 		changed = true
 		local onDismiss = settings.onDismiss
 		if onDismiss then
@@ -122,7 +126,7 @@ function toast_schedule.new<T, R>(options: Options<T, R>?): Schedule<T, R>
 	local function ask(entry: Entry<T>, reason: Reason)
 		if not entry.asked[reason] then
 			entry.asked[reason] = true
-			table.insert(proposals, { entry = entry, reason = reason })
+			table.insert(proposals, { entry = entry, reason = reason, asked = entry.asked })
 		end
 	end
 	local function show(index: number, at: number)
@@ -192,7 +196,9 @@ function toast_schedule.new<T, R>(options: Options<T, R>?): Schedule<T, R>
 		for _, proposal in proposals do
 			if onPropose then
 				table.insert(pending, function()
-					onPropose(proposal.entry, proposal.reason)
+					if proposal.entry.asked == proposal.asked then
+						onPropose(proposal.entry, proposal.reason)
+					end
 				end)
 			end
 		end
@@ -237,6 +243,22 @@ function toast_schedule.new<T, R>(options: Options<T, R>?): Schedule<T, R>
 	end
 	function schedule.update()
 		guarded(resolve)
+	end
+	function schedule.renew(id: number, seconds: number, floor: number?): boolean
+		return guarded(function()
+			for _, list in { visible, queue } do
+				for _, entry in list do
+					if entry.id == id then
+						entry.duration = if seconds == math.huge then math.huge else positive(seconds, duration)
+						entry.readFloor = positive(floor, readFloor)
+						entry.shownAt = if entry.shownAt ~= nil then now() else nil
+						entry.asked = {}
+						return true
+					end
+				end
+			end
+			return false
+		end)
 	end
 	function schedule.dismiss(id: number, reason: R?): boolean
 		return guarded(function()

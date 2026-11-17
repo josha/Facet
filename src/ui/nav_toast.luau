@@ -53,6 +53,7 @@ local KEYS = {
 	"priority",
 	"duration",
 	"readFloor",
+	"reading",
 	"position",
 	"width",
 	"fade",
@@ -63,10 +64,24 @@ local MARGIN, GAP, HUG_MAX, ROW_Z, ACTION_Z = 8, 8, 560, 70, 60
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local readText = ctx.read<<string?>>
+	local readParent = ctx.read<<GuiBase2d?>>
+	local readReading = ctx.read<<Overlay.ToastReading>>
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames
 	local gui = surfaces.service("GuiService")
+	local maxVisible = ctx.config.toastMaxVisible
+	local queueCapacity = ctx.config.toastQueueCapacity
+	assert(
+		maxVisible == nil or (maxVisible >= 1 and maxVisible < math.huge and maxVisible % 1 == 0),
+		"Facet toastMaxVisible must be a positive integer"
+	)
+	assert(
+		queueCapacity == nil
+			or queueCapacity == math.huge
+			or (queueCapacity >= 1 and queueCapacity < math.huge and queueCapacity % 1 == 0),
+		"Facet toastQueueCapacity must be a positive integer or math.huge"
+	)
 	local stacks: { [Instance]: { [string]: Stack } } = {}
 	setmetatable(stacks, { __mode = "k" })
 	local actionRows: { [GuiObject]: boolean } = setmetatable({}, { __mode = "k" })
@@ -94,7 +109,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local change = spec.onPresentedChange
 		if spec.isPresented ~= nil and change and not record.torn and wanted(record) then
-			parts.call(change, nil, false)
+			parts.call(change, nil, false, reason)
 		end
 		record.pending = nil
 		if spec.onDismiss then
@@ -125,7 +140,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local change = record.spec.onPresentedChange
 		if record.spec.isPresented ~= nil and change then
 			offer(record, reason, function()
-				change(false)
+				change(false, reason)
 			end)
 		else
 			dismiss(record, reason)
@@ -133,6 +148,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	end
 
 	local function paused(stack: Stack): boolean
+		if stack.lane ~= "action" and read(ctx.config.toastPaused) == true then
+			return true
+		end
 		local top = stack.schedule.visible()[1]
 		if stack.lane ~= "action" or top == nil then
 			return false
@@ -165,7 +183,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local stack: Stack
 		local schedule: toastSchedule.Schedule<Record, Reason> = toastSchedule.new<<Record, Reason>>({
-			maxVisible = if lane == "action" then 1 else nil,
+			maxVisible = if lane == "action" then 1 else maxVisible,
+			queueCap = if lane == "action" then nil else queueCapacity,
 			now = function(): number
 				return stack.time
 			end,
@@ -177,10 +196,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end,
 			onChange = function()
 				for _, entry in stack.schedule.queued() do
+					entry.data.id = entry.id
 					status(entry.data, "queued")
 				end
 				for index, entry in stack.schedule.visible() do
 					local record = entry.data
+					record.id = entry.id
 					local order = if lane == "bottom" then -index else index
 					if record.order ~= order then
 						record.order = order
@@ -276,17 +297,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end)
 		end
 		local spec = record.spec
-		local duration = spec.duration
+		local reading = if spec.reading then readReading(spec.reading) else nil
+		local duration = if reading then reading.duration else spec.duration
+		local readFloor = if reading then reading.readFloor else spec.readFloor
 		if spec.action then
-			duration = if duration
-				then math.max(duration, spec.readFloor or toastSchedule.DEFAULTS.readFloor)
-				else math.huge
+			duration = if duration then math.max(duration, readFloor or toastSchedule.DEFAULTS.readFloor) else math.huge
 		end
 		local id = stack.schedule.push({
 			key = spec.key,
 			priority = spec.priority,
 			duration = duration,
-			readFloor = spec.readFloor,
+			readFloor = readFloor,
 			data = record,
 			held = spec.isPresented ~= nil,
 		})
@@ -295,10 +316,30 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 	end
 
+	local function validateReading(value: Overlay.ToastReading)
+		assert(type(value) == "table", "Facet UI.Toast: reading must contain duration and optional readFloor")
+		assert(
+			type(value.duration) == "number" and value.duration >= 0 and value.duration < math.huge,
+			"Facet UI.Toast: reading.duration is seconds, 0 or more"
+		)
+		assert(
+			value.readFloor == nil
+				or (type(value.readFloor) == "number" and value.readFloor >= 0 and value.readFloor < math.huge),
+			"Facet UI.Toast: reading.readFloor is seconds, 0 or more"
+		)
+	end
+
 	local function validate(spec: OverlayProps.ToastSpec)
 		local where = "UI.Toast"
 		local fields = (spec :: unknown) :: { [string]: unknown }
 		local interactive = spec.action ~= nil
+		if spec.reading ~= nil then
+			assert(
+				spec.duration == nil and spec.readFloor == nil,
+				"Facet UI.Toast: reading replaces duration and readFloor; give only one timing form"
+			)
+			validateReading(readReading(spec.reading))
+		end
 		if (spec.message == nil) == (spec.content == nil) then
 			error(`Facet {where}: give exactly one of message or content`, 0)
 		end
@@ -360,7 +401,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		if spec.isPresented ~= nil and not parts.bound(ctx, spec.isPresented, "boolean") then
 			error(`Facet {where}: isPresented is the caller's boolean fact`, 0)
 		end
-		local endsItself = not interactive or spec.closeButton ~= false or spec.duration ~= nil
+		local endsItself = not interactive or spec.closeButton ~= false or spec.duration ~= nil or spec.reading ~= nil
 		if spec.isPresented ~= nil and endsItself and spec.onPresentedChange == nil then
 			error(
 				`Facet {where}: a bound toast that can end itself (a duration or a close button) needs `
@@ -415,6 +456,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 
 	local function passiveRow(record: Record, stack: Stack, phase: Nav.PresencePhase?): Instance
 		local spec = record.spec
+		local bounded = ctx.config.toastParent ~= nil
 		local bottom = spec.position == "bottom"
 		local hug = spec.width == "hug"
 		local contentHug = hug and spec.content ~= nil
@@ -524,9 +566,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			Size = D2.fromScale(1, 0),
 			AutomaticSize = E.AutomaticSize.Y,
 			AnchorPoint = function(use: ComposeTypes.Use)
-				return V2.new(0, if bottom then 0 else 1 - amount(use))
+				return V2.new(0, if bounded or bottom then 0 else 1 - amount(use))
 			end,
 			Position = function(use: ComposeTypes.Use)
+				if bounded then
+					return D2.fromOffset(0, 0)
+				end
 				local travel = (1 - amount(use)) * (MARGIN + use(stack.inset))
 				return D2.new(0, 0, if bottom then 1 - amount(use) else 0, if bottom then travel else -travel)
 			end,
@@ -833,7 +878,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local function locate()
 			local collector = root:FindFirstAncestorWhichIsA("LayerCollector")
-			local layer = if collector then surfaces.parent(root) else nil
+			local configured = if not interactive then ctx.config.toastParent else nil
+			local layer = if collector == nil
+				then nil
+				elseif configured ~= nil then readParent(configured)
+				else surfaces.parent(root)
 			if record.stack == nil and layer then
 				local stack = stackFor(layer, if interactive then "action" else spec.position or "top")
 				record.stack = stack
@@ -843,6 +892,31 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end
 		end
 		runtime.connect(root, "AncestryChanged", locate)
+		if not interactive and ctx.config.toastParent ~= nil then
+			Compose.watch(function(use: ComposeTypes.Use)
+				readParent(ctx.config.toastParent, use)
+				locate()
+			end)
+		end
+		if spec.reading ~= nil then
+			local last = readReading(spec.reading)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local value = readReading(spec.reading, use)
+				if value == last then
+					return
+				end
+				validateReading(value)
+				last = value
+				local stack, id = record.stack, record.id
+				if stack and id then
+					local floor = value.readFloor or toastSchedule.DEFAULTS.readFloor
+					local seconds = if interactive then math.max(value.duration, floor) else value.duration
+					if stack.schedule.renew(id, seconds, value.readFloor) then
+						record.pending = nil
+					end
+				end
+			end)
+		end
 		locate()
 		if spec.isPresented ~= nil then
 			local last = armed

@@ -4321,6 +4321,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			"priority",
 			"duration",
 			"readFloor",
+			"reading",
 			"position",
 			"width",
 			"fade",
@@ -4405,6 +4406,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 						return UI.Toast(entry:peek().spec)
 					end,
 				}),
+				require("./toast_host_demo")(c),
 			}))
 		end,
 	},

@@ -167,7 +167,12 @@ return function(verifyHarness: Verify.Harness)
 						end
 						local mounted = false
 						local w = worlds.new(
-							function(UI: FacetControls, Host: RobloxHost, engine: engineLib.Engine): Instance
+							function(
+								UI: FacetControls,
+								Host: RobloxHost,
+								engine: engineLib.Engine,
+								runtime: ComposeRuntime
+							): Instance
 								runService.Heartbeat = engine.heartbeat
 								local constructor = ((UI) :: { [string]: (Props) -> Instance })[id]
 								if constructor == nil then
@@ -178,6 +183,7 @@ return function(verifyHarness: Verify.Harness)
 									Host = Host,
 									Compose = Compose,
 									Facet = Facet,
+									app = { runtime = runtime },
 									types = engine.types,
 									logical = Compose.cell({ width = size[1], height = size[2] }),
 									cell = function<T>(_name: string, initial: T)

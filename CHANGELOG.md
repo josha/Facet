@@ -1,5 +1,13 @@
 # Current package
 
+`UI.Toast` and `app.presentToast` accept `reading`, a readable
+`Facet.ToastReading` record with `duration` and optional `readFloor`.
+A new record restarts reading time without requeueing the row. Waiting time
+does not count, and the existing pause setting applies to each period.
+`onPresentedChange` receives the dismissal reason as its second argument.
+`app.presentToast` exposes the same controlled presentation options.
+The Toast page in Facet Lab exercises host resizing and controlled continuation.
+
 `Facet.Rule` and `Facet.AuthoredRuleProperties` are removed. They were second
 names for `Facet.ThemeRule` and `Facet.ThemeRuleProperties`. Use those names;
 the types do not change.

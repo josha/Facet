@@ -96,6 +96,53 @@ return function(verifyHarness: Verify.Harness)
 	end)
 
 	verifyHarness:suite("toast schedule: priority", function()
+		verifyHarness:case("renewal preserves queued order and restarts the visible replacement floor", function()
+			local f = fixture({ maxVisible = 1 })
+			local a = f.schedule.push({ data = "a", duration = 10, readFloor = 2, key = "same" })
+			local b = f.schedule.push({ data = "b", duration = 1 })
+			f.advance(1.9)
+			expect(f.schedule.renew(a, 10, 2)):toBe(true)
+			expect(f.schedule.renew(b, 3, 0)):toBe(true)
+			f.schedule.push({ data = "replacement", key = "same", duration = 1 })
+			f.advance(1.9)
+			expect(f.keys()):toBe("a")
+			f.advance(0.2)
+			expect(f.keys()):toBe("b")
+			expect(f.events[1].reason):toBe("supersede")
+			expect(f.schedule.renew(a, 10, 2)):toBe(false)
+			f.advance(2.9)
+			expect(f.keys()):toBe("b")
+			f.advance(0.2)
+			expect(f.keys()):toBe("replacement")
+		end)
+
+		verifyHarness:case("a renewed period cancels other proposals from the old period", function()
+			local now = 0
+			local requests: { string } = {}
+			local schedule: toast_schedule.Schedule<string, string>
+			schedule = toast_schedule.new<<string, string>>({
+				maxVisible = 1,
+				now = function()
+					return now
+				end,
+				onPropose = function(entry, reason)
+					table.insert(requests, reason)
+					schedule.renew(entry.id, 2, 2)
+				end,
+			})
+			schedule.push({ data = "a", key = "same", duration = 2, readFloor = 2, held = true })
+			schedule.push({ data = "b", key = "same" })
+			now = 2
+			schedule.update()
+			expect(requests):toEqual({ "timeout" })
+			now = 3.9
+			schedule.update()
+			expect(#requests):toBe(1)
+			now = 4
+			schedule.update()
+			expect(requests):toEqual({ "timeout", "timeout" })
+		end)
+
 		verifyHarness:case("a more urgent toast NEVER truncates a showing toast's read floor", {
 			id = "native_toast_schedule::toast schedule: priority::a more urgent toast NEVER truncates a showing toast's read floor",
 			run = function()
@@ -482,6 +529,319 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("app.presentToast", function()
 		local engineLib = require("./lib/native_engine")
+		verifyHarness:case("renews controlled reading in place across pauses and motion preferences", function()
+			local levels: { "normal" | "limited" | "none" } = { "normal", "limited", "none" }
+			for _, level in levels do
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local target = engine.new("PlayerGui")
+				local paused = Compose.cell(false)
+				local app = Facet.app({
+					runtime = runtime,
+					types = engine.types,
+					parent = target,
+					motionLevel = level,
+					toastMaxVisible = 1,
+					toastPaused = paused,
+				})
+				local reading = Compose.cell<<Facet.ToastReading>>({ duration = 2 })
+				local shown = Compose.cell(true)
+				local page = Compose.cell(1)
+				local proposals, builds, cleaned = 0, 0, 0
+				local reasons: { string } = {}
+				local order: { string } = {}
+				app.presentToast(function(UI: FacetControls)
+					builds += 1
+					table.insert(order, "a")
+					Compose.cleanup(function()
+						cleaned += 1
+					end)
+					return UI.Text {
+						text = function(use: Use)
+							return `Page {use(page)}`
+						end,
+					}
+				end, {
+					reading = reading,
+					isPresented = shown,
+					onPresentedChange = function(value, reason)
+						expect(reason):toBe("timeout")
+						proposals += 1
+						if proposals == 1 then
+							page:set(2)
+							reading:set({ duration = 2 })
+						else
+							shown:set(value)
+						end
+					end,
+					onDismiss = function(reason)
+						table.insert(reasons, reason)
+					end,
+				})
+				app.presentToast(function(UI: FacetControls)
+					table.insert(order, "b")
+					return UI.Text { text = "Next event" }
+				end, { duration = 2 })
+				engine.heartbeat:Fire(1.8)
+				local row = overlay.find(target, "ToastRow")
+				paused:set(true)
+				reading:set({ duration = 2 })
+				engine.heartbeat:Fire(20)
+				expect(proposals):toBe(0)
+				paused:set(false)
+				engine.heartbeat:Fire(1.8)
+				reading:set(reading:peek())
+				expect(proposals):toBe(0)
+				engine.heartbeat:Fire(0.3)
+				expect(proposals):toBe(1)
+				expect(page:peek()):toBe(2)
+				expect(overlay.find(target, "ToastRow")):toBe(row)
+				expect(builds):toBe(1)
+				expect(order):toEqual({ "a" })
+				paused:set(true)
+				engine.heartbeat:Fire(20)
+				expect(proposals):toBe(1)
+				paused:set(false)
+				engine.heartbeat:Fire(1.8)
+				expect(proposals):toBe(1)
+				engine.heartbeat:Fire(0.3)
+				expect(proposals):toBe(2)
+				expect(reasons):toEqual({ "timeout" })
+				expect(order):toEqual({ "a", "b" })
+				engine.heartbeat:Fire(1)
+				expect(cleaned):toBe(1)
+				reading:set({ duration = 20 })
+				expect(builds):toBe(1)
+				app.dispose()
+				runtime:dispose()
+			end
+		end)
+
+		verifyHarness:case("renews queued reading and initial content without aging or rebuilding", function()
+			local engine = engineLib.new()
+			local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+			local target = engine.new("PlayerGui")
+			local app = Facet.app({
+				runtime = runtime,
+				types = engine.types,
+				parent = target,
+				motionLevel = "none",
+				toastMaxVisible = 1,
+			})
+			local first = app.presentToast(function(UI: FacetControls)
+				return UI.Text { text = "First" }
+			end, { duration = 20 })
+			local reading = Compose.cell<<Facet.ToastReading>>({ duration = 1 })
+			local built, cleaned = 0, 0
+			local reasons: { string } = {}
+			local nextToast = app.presentToast(function(UI: FacetControls)
+				built += 1
+				reading:set({ duration = 3 })
+				Compose.cleanup(function()
+					cleaned += 1
+				end)
+				return UI.Text { text = "Second" }
+			end, {
+				reading = reading,
+				onDismiss = function(reason)
+					table.insert(reasons, reason)
+				end,
+			})
+			reading:set({ duration = 2 })
+			engine.heartbeat:Fire(10)
+			expect(built):toBe(0)
+			first.dismiss()
+			expect(built):toBe(1)
+			engine.heartbeat:Fire(2.9)
+			expect(cleaned):toBe(0)
+			engine.heartbeat:Fire(0.2)
+			expect(reasons):toEqual({ "timeout" })
+			expect(cleaned):toBe(1)
+			expect(nextToast.dismiss()):toBe(false)
+			reading:set({ duration = 3 })
+			expect(built):toBe(1)
+			app.dispose()
+			runtime:dispose()
+		end)
+		verifyHarness:case("honors finite and unbounded passive queue capacity through pause and drain", {
+			id = "native_toast_schedule::app.presentToast::honors finite and unbounded passive queue capacity through pause and drain",
+			run = function()
+				for _, capacity in { 12, math.huge } do
+					local engine = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local target = engine.new("PlayerGui")
+					local paused = Compose.cell(true)
+					local app = Facet.app({
+						runtime = runtime,
+						types = engine.types,
+						parent = target,
+						motionLevel = "none",
+						toastMaxVisible = 1,
+						toastQueueCapacity = capacity,
+						toastPaused = paused,
+					})
+					local built: { number } = {}
+					local timedOut, dropped, active = 0, 0, 0
+					for index = 1, 18 do
+						app.presentToast(function(UI: FacetControls)
+							table.insert(built, index)
+							active += 1
+							Compose.cleanup(function()
+								active -= 1
+							end)
+							return UI.Text { text = `Notice {index}` }
+						end, {
+							duration = 4,
+							onDismiss = function(reason)
+								if reason == "capacity" then
+									dropped += 1
+								elseif reason == "timeout" then
+									timedOut += 1
+								end
+							end,
+						})
+					end
+					local retained = math.min(18, capacity + 1)
+					expect(dropped):toBe(18 - retained)
+					engine.heartbeat:Fire(20)
+					expect(built):toEqual({ 1 })
+					expect(timedOut):toBe(0)
+					paused:set(false)
+					for index = 1, retained do
+						expect(built[index]):toBe(index)
+						expect(active):toBe(1)
+						engine.heartbeat:Fire(4)
+					end
+					expect(#built):toBe(retained)
+					expect(timedOut):toBe(retained)
+					expect(active):toBe(0)
+					app.dispose()
+					runtime:dispose()
+				end
+			end,
+		})
+		verifyHarness:case("keeps custom-host rows inside their slots throughout entrance and exit", {
+			id = "native_toast_schedule::app.presentToast::keeps custom-host rows inside their slots throughout entrance and exit",
+			run = function()
+				local edges: { "top" | "bottom" } = { "top", "bottom" }
+				for _, edge in edges do
+					local engine = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local target = engine.new("PlayerGui")
+					local panel = engine.new("Frame")
+					panel.Parent = target
+					engine.environment.poke(panel, "AbsoluteSize", Vector2.new(360, 180))
+					local app = Facet.app({
+						runtime = runtime,
+						types = engine.types,
+						parent = target,
+						motionLevel = "normal",
+						toastParent = panel,
+					})
+					local presented = Compose.cell(true)
+					app.mount(function()
+						return app.UI.Toast {
+							message = "Saved",
+							position = edge,
+							isPresented = presented,
+							onPresentedChange = function(value: boolean)
+								presented:set(value)
+							end,
+						}
+					end)
+					local samples = 0
+					local function advance()
+						for _ = 1, 30 do
+							engine.heartbeat:Fire(1 / 60)
+							for _, lane in overlay.findAll(panel, "ToastLane") do
+								expect(lane.AnchorPoint):toBe(engine.types.Vector2.zero)
+								expect(lane.Position):toBe(engine.types.UDim2.fromOffset(0, 0))
+								samples += 1
+							end
+						end
+					end
+					advance()
+					expect(samples):toBe(30)
+					presented:set(false)
+					advance()
+					expect(samples > 30):toBe(true)
+					expect(#overlay.findAll(panel, "ToastRow")):toBe(0)
+					app.dispose()
+					runtime:dispose()
+				end
+			end,
+		})
+		verifyHarness:case("waits for its passive host and preserves queued reading time while paused", {
+			id = "native_toast_schedule::app.presentToast::waits for its passive host and preserves queued reading time while paused",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local target = engine.new("PlayerGui")
+				local destination = Compose.cell<<GuiBase2d?>>(nil)
+				local paused = Compose.cell(false)
+				local app = Facet.app({
+					runtime = runtime,
+					types = engine.types,
+					parent = target,
+					motionLevel = "none",
+					toastParent = destination,
+					toastMaxVisible = 1,
+					toastPaused = paused,
+				})
+				local built: { number } = {}
+				local retired: { number } = {}
+				local active = 0
+				for index = 1, 3 do
+					app.presentToast(function(UI: FacetControls)
+						expect(UI):toBe(app.UI)
+						table.insert(built, index)
+						active += 1
+						Compose.cleanup(function()
+							active -= 1
+						end)
+						return UI.Text { text = `Notice {index}` }
+					end, {
+						duration = 4,
+						onDismiss = function()
+							table.insert(retired, index)
+						end,
+					})
+				end
+				engine.heartbeat:Fire(20)
+				expect(#built):toBe(0)
+				expect(#retired):toBe(0)
+				local host: Frame? = nil
+				app.mount(function()
+					local Host = Facet.host(runtime)
+					host = Host.Frame "NoticeHost" {}
+					return assert(host)
+				end)
+				local panel = assert(host)
+				engine.environment.poke(overlay.find(target, "NoticeHost"), "AbsoluteSize", Vector2.new(360, 180))
+				destination:set(panel)
+				engine.heartbeat:Fire(0.1)
+				expect(built):toEqual({ 1 })
+				expect(active):toBe(1)
+				expect(#overlay.findAll(panel, "ToastRow")):toBe(1)
+				paused:set(true)
+				engine.heartbeat:Fire(20)
+				expect(built):toEqual({ 1 })
+				expect(#retired):toBe(0)
+				paused:set(false)
+				engine.heartbeat:Fire(4)
+				expect(built):toEqual({ 1, 2 })
+				expect(retired):toEqual({ 1 })
+				expect(active):toBe(1)
+				engine.heartbeat:Fire(4)
+				expect(built):toEqual({ 1, 2, 3 })
+				expect(retired):toEqual({ 1, 2 })
+				engine.heartbeat:Fire(4)
+				expect(retired):toEqual({ 1, 2, 3 })
+				expect(active):toBe(0)
+				app.dispose()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("parents imperative passive toasts to their edge stack", {
 			id = "native_toast_schedule::app.presentToast::parents imperative passive toasts to their edge stack",
 			run = function()
