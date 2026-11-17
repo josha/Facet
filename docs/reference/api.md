@@ -130,6 +130,9 @@ not change layout or the overlay parent.
 `toastQueueCapacity` and `toastPaused` to place passive notices in one stable
 native host, set visible and waiting capacity, and pause reading time. These settings keep the same controls
 context and do not move other overlays. See [Toast placement](nodes/Toast.position.md).
+`Facet.ToastReading` supplies a renewable reading period for `UI.Toast` and
+`app.presentToast`. Changed content can get full reading time while its row
+keeps its queue position. See [Toast lifetime](nodes/Toast.Toast.md).
 For a direct Compose mount, call the provider inside the mount:
 
 ```luau

@@ -56,10 +56,13 @@ export type AnchoredOptions = {
 	onDismiss: ((Overlay.PopoverDismissReason) -> ())?,
 }
 export type ToastOptions = {
+	isPresented: Types.ValueBoolean?,
+	onPresentedChange: ((boolean, Overlay.ToastDismissReason?) -> ())?,
 	key: string?,
 	priority: number?,
 	duration: number?,
 	readFloor: number?,
+	reading: Types.Input<Overlay.ToastReading>?,
 	position: ("top" | "bottom")?,
 	width: ("fill" | "hug")?,
 	fade: boolean?,

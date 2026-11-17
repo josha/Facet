@@ -63,6 +63,14 @@ sequence, collection editing, picker and overlay pages exercise the other
 recent public changes. Internal type, observation and tooling changes do not
 need duplicate control pages. Check geometry and input in Studio.
 
+The Toast page includes a custom host with one visible notice and unbounded
+waiting capacity. Queue 18 notices, pause and resume their reading time, resize
+the same host, then clear it. Delivered counts timeout completions. Changing
+the Lab device rebuilds the page; use Resize host to test live bounds changes.
+Queue a two-part notice to test controlled continuation in the same row. Each
+part receives three seconds. Resizing restarts its current reading period;
+pause holds that period. Queue the burst behind it to check event order.
+
 Table, VirtualList, and VirtualGrid start with a working **Editing** section.
 Rename items, create an item, select several items, reorder them, delete the
 selection, and Undo. Enable editing controls permission. Desktop names are

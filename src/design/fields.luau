@@ -2900,6 +2900,7 @@ local derived: Types.Derived = {
 				position = { type = "choice", options = { "top", "bottom" } },
 				priority = { type = "number" },
 				readFloor = { type = "number" },
+				reading = { type = "value" },
 				width = { type = "choice", options = { "fill", "hug" } },
 			},
 		},

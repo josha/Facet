@@ -124,6 +124,7 @@ export type ToastDismissReason =
 	| "close"
 	| "cancel"
 export type ToastAction = { read label: Types.ValueString, read onActivate: () -> () }
+export type ToastReading = { read duration: number, read readFloor: number? }
 export type ToastOptions = {
 	message: Types.ValueString?,
 	content: (() -> Instance)?,
@@ -131,11 +132,12 @@ export type ToastOptions = {
 	action: ToastAction?,
 	closeButton: boolean?,
 	isPresented: Types.ValueBoolean?,
-	onPresentedChange: ((boolean) -> ())?,
+	onPresentedChange: ((boolean, ToastDismissReason?) -> ())?,
 	key: string?,
 	priority: number?,
 	duration: number?,
 	readFloor: number?,
+	reading: Input<ToastReading>?,
 	position: ("top" | "bottom")?,
 	width: ("fill" | "hug")?,
 	fade: boolean?,
