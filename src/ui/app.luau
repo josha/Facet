@@ -20,6 +20,7 @@ export type AppOptions = {
 	overlayParent: Instance?,
 	toastParent: Types.Input<GuiBase2d?>?,
 	toastMaxVisible: number?,
+	toastQueueCapacity: number?,
 	toastPaused: Types.Input<boolean>?,
 	touchReservations: Types.Input<{ Types.TouchReservation }>?,
 	controlSize: Types.Input<Types.ControlSize?>?,

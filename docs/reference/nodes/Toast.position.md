@@ -20,7 +20,7 @@ order, first in first out within a priority. A more urgent toast replaces the
 weakest showing one, but only after that toast's read floor. At the cap the
 least urgent waiting toast retires with `capacity`; a showing toast never does.
 
-`Facet.app` and `Facet.controls` accept three passive Toast settings:
+`Facet.app` and `Facet.controls` accept these passive Toast settings:
 
 - `toastParent`: a native GuiBase2d or a readable GuiBase2d-or-nil value. When
   supplied, passive toasts wait for this host instead of using the screen.
@@ -30,6 +30,10 @@ least urgent waiting toast retires with `capacity`; a showing toast never does.
 - `toastMaxVisible`: a positive integer, default `3`, for each passive edge.
   Use `1` when the host has room for only one notice. Content must still fit;
   this limit does not clip or shrink a row.
+- `toastQueueCapacity`: a positive integer, default `8`, for waiting notices
+  on each passive edge. `math.huge` removes capacity eviction. Same-key
+  replacement and priority preemption still apply. Action toasts keep their
+  normal queue capacity.
 - `toastPaused`: a readable boolean, default `false`. While true, passive
   reading time stops. The current row remains visible and waiting rows retain
   their place. Action toasts keep their own focus and hover pause behavior.

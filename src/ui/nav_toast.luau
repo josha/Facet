@@ -69,9 +69,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	local frames = runtime.host.frames
 	local gui = surfaces.service("GuiService")
 	local maxVisible = ctx.config.toastMaxVisible
+	local queueCapacity = ctx.config.toastQueueCapacity
 	assert(
 		maxVisible == nil or (maxVisible >= 1 and maxVisible < math.huge and maxVisible % 1 == 0),
 		"Facet toastMaxVisible must be a positive integer"
+	)
+	assert(
+		queueCapacity == nil
+			or queueCapacity == math.huge
+			or (queueCapacity >= 1 and queueCapacity < math.huge and queueCapacity % 1 == 0),
+		"Facet toastQueueCapacity must be a positive integer or math.huge"
 	)
 	local stacks: { [Instance]: { [string]: Stack } } = {}
 	setmetatable(stacks, { __mode = "k" })
@@ -175,6 +182,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local stack: Stack
 		local schedule: toastSchedule.Schedule<Record, Reason> = toastSchedule.new<<Record, Reason>>({
 			maxVisible = if lane == "action" then 1 else maxVisible,
+			queueCap = if lane == "action" then nil else queueCapacity,
 			now = function(): number
 				return stack.time
 			end,

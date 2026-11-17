@@ -38,6 +38,7 @@ local other = Facet.app({
 	parent = parent,
 	toastParent = Compose.cell<<GuiBase2d?>>(nil),
 	toastMaxVisible = 1,
+	toastQueueCapacity = math.huge,
 	toastPaused = Compose.cell(false),
 })
 other.dispose()

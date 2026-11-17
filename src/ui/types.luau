@@ -170,6 +170,7 @@ export type Config = {
 	overlayParent: Instance?,
 	toastParent: Input<GuiBase2d?>?,
 	toastMaxVisible: number?,
+	toastQueueCapacity: number?,
 	toastPaused: Input<boolean>?,
 	compositionScope: Instance?,
 	touchReservations: Input<{ TouchReservation }>?,

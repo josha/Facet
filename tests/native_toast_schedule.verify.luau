@@ -482,6 +482,63 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("app.presentToast", function()
 		local engineLib = require("./lib/native_engine")
+		verifyHarness:case("honors finite and unbounded passive queue capacity through pause and drain", {
+			id = "native_toast_schedule::app.presentToast::honors finite and unbounded passive queue capacity through pause and drain",
+			run = function()
+				for _, capacity in { 12, math.huge } do
+					local engine = engineLib.new()
+					local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+					local target = engine.new("PlayerGui")
+					local paused = Compose.cell(true)
+					local app = Facet.app({
+						runtime = runtime,
+						types = engine.types,
+						parent = target,
+						motionLevel = "none",
+						toastMaxVisible = 1,
+						toastQueueCapacity = capacity,
+						toastPaused = paused,
+					})
+					local built: { number } = {}
+					local timedOut, dropped, active = 0, 0, 0
+					for index = 1, 18 do
+						app.presentToast(function(UI: FacetControls)
+							table.insert(built, index)
+							active += 1
+							Compose.cleanup(function()
+								active -= 1
+							end)
+							return UI.Text { text = `Notice {index}` }
+						end, {
+							duration = 4,
+							onDismiss = function(reason)
+								if reason == "capacity" then
+									dropped += 1
+								elseif reason == "timeout" then
+									timedOut += 1
+								end
+							end,
+						})
+					end
+					local retained = math.min(18, capacity + 1)
+					expect(dropped):toBe(18 - retained)
+					engine.heartbeat:Fire(20)
+					expect(built):toEqual({ 1 })
+					expect(timedOut):toBe(0)
+					paused:set(false)
+					for index = 1, retained do
+						expect(built[index]):toBe(index)
+						expect(active):toBe(1)
+						engine.heartbeat:Fire(4)
+					end
+					expect(#built):toBe(retained)
+					expect(timedOut):toBe(retained)
+					expect(active):toBe(0)
+					app.dispose()
+					runtime:dispose()
+				end
+			end,
+		})
 		verifyHarness:case("keeps custom-host rows inside their slots throughout entrance and exit", {
 			id = "native_toast_schedule::app.presentToast::keeps custom-host rows inside their slots throughout entrance and exit",
 			run = function()
