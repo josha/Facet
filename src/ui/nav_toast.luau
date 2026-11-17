@@ -63,10 +63,16 @@ local MARGIN, GAP, HUG_MAX, ROW_Z, ACTION_Z = 8, 8, 560, 70, 60
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Surfaces): ()
 	local readText = ctx.read<<string?>>
+	local readParent = ctx.read<<GuiBase2d?>>
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local E, D2, V2, UD = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2, ctx.types.UDim
 	local frames = runtime.host.frames
 	local gui = surfaces.service("GuiService")
+	local maxVisible = ctx.config.toastMaxVisible
+	assert(
+		maxVisible == nil or (maxVisible >= 1 and maxVisible < math.huge and maxVisible % 1 == 0),
+		"Facet toastMaxVisible must be a positive integer"
+	)
 	local stacks: { [Instance]: { [string]: Stack } } = {}
 	setmetatable(stacks, { __mode = "k" })
 	local actionRows: { [GuiObject]: boolean } = setmetatable({}, { __mode = "k" })
@@ -133,6 +139,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 	end
 
 	local function paused(stack: Stack): boolean
+		if stack.lane ~= "action" and read(ctx.config.toastPaused) == true then
+			return true
+		end
 		local top = stack.schedule.visible()[1]
 		if stack.lane ~= "action" or top == nil then
 			return false
@@ -165,7 +174,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local stack: Stack
 		local schedule: toastSchedule.Schedule<Record, Reason> = toastSchedule.new<<Record, Reason>>({
-			maxVisible = if lane == "action" then 1 else nil,
+			maxVisible = if lane == "action" then 1 else maxVisible,
 			now = function(): number
 				return stack.time
 			end,
@@ -833,7 +842,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		end
 		local function locate()
 			local collector = root:FindFirstAncestorWhichIsA("LayerCollector")
-			local layer = if collector then surfaces.parent(root) else nil
+			local configured = if not interactive then ctx.config.toastParent else nil
+			local layer = if collector == nil
+				then nil
+				elseif configured ~= nil then readParent(configured)
+				else surfaces.parent(root)
 			if record.stack == nil and layer then
 				local stack = stackFor(layer, if interactive then "action" else spec.position or "top")
 				record.stack = stack
@@ -843,6 +856,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 			end
 		end
 		runtime.connect(root, "AncestryChanged", locate)
+		if not interactive and ctx.config.toastParent ~= nil then
+			Compose.watch(function(use: ComposeTypes.Use)
+				readParent(ctx.config.toastParent, use)
+				locate()
+			end)
+		end
 		locate()
 		if spec.isPresented ~= nil then
 			local last = armed

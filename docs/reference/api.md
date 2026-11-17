@@ -126,6 +126,10 @@ Without a scope, the screen checks keep their normal behavior. This option does
 not change layout or the overlay parent.
 
 `Facet.app` provides `app.UI` to mounted components and presented content.
+`Facet.app` and `Facet.controls` accept `toastParent`, `toastMaxVisible` and
+`toastPaused` to place passive notices in one stable native host, limit the
+visible count and pause reading time. These settings keep the same controls
+context and do not move other overlays. See [Toast placement](nodes/Toast.position.md).
 For a direct Compose mount, call the provider inside the mount:
 
 ```luau

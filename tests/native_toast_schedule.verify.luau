@@ -482,6 +482,77 @@ return function(verifyHarness: Verify.Harness)
 
 	verifyHarness:suite("app.presentToast", function()
 		local engineLib = require("./lib/native_engine")
+		verifyHarness:case("waits for its passive host and preserves queued reading time while paused", {
+			id = "native_toast_schedule::app.presentToast::waits for its passive host and preserves queued reading time while paused",
+			run = function()
+				local engine = engineLib.new()
+				local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)
+				local target = engine.new("PlayerGui")
+				local destination = Compose.cell<<GuiBase2d?>>(nil)
+				local paused = Compose.cell(false)
+				local app = Facet.app({
+					runtime = runtime,
+					types = engine.types,
+					parent = target,
+					motionLevel = "none",
+					toastParent = destination,
+					toastMaxVisible = 1,
+					toastPaused = paused,
+				})
+				local built: { number } = {}
+				local retired: { number } = {}
+				local active = 0
+				for index = 1, 3 do
+					app.presentToast(function(UI: FacetControls)
+						expect(UI):toBe(app.UI)
+						table.insert(built, index)
+						active += 1
+						Compose.cleanup(function()
+							active -= 1
+						end)
+						return UI.Text { text = `Notice {index}` }
+					end, {
+						duration = 4,
+						onDismiss = function()
+							table.insert(retired, index)
+						end,
+					})
+				end
+				engine.heartbeat:Fire(20)
+				expect(#built):toBe(0)
+				expect(#retired):toBe(0)
+				local host: Frame? = nil
+				app.mount(function()
+					local Host = Facet.host(runtime)
+					host = Host.Frame "NoticeHost" {}
+					return assert(host)
+				end)
+				local panel = assert(host)
+				engine.environment.poke(overlay.find(target, "NoticeHost"), "AbsoluteSize", Vector2.new(360, 180))
+				destination:set(panel)
+				engine.heartbeat:Fire(0.1)
+				expect(built):toEqual({ 1 })
+				expect(active):toBe(1)
+				expect(#overlay.findAll(panel, "ToastRow")):toBe(1)
+				paused:set(true)
+				engine.heartbeat:Fire(20)
+				expect(built):toEqual({ 1 })
+				expect(#retired):toBe(0)
+				paused:set(false)
+				engine.heartbeat:Fire(4)
+				expect(built):toEqual({ 1, 2 })
+				expect(retired):toEqual({ 1 })
+				expect(active):toBe(1)
+				engine.heartbeat:Fire(4)
+				expect(built):toEqual({ 1, 2, 3 })
+				expect(retired):toEqual({ 1, 2 })
+				engine.heartbeat:Fire(4)
+				expect(retired):toEqual({ 1, 2, 3 })
+				expect(active):toBe(0)
+				app.dispose()
+				runtime:dispose()
+			end,
+		})
 		verifyHarness:case("parents imperative passive toasts to their edge stack", {
 			id = "native_toast_schedule::app.presentToast::parents imperative passive toasts to their edge stack",
 			run = function()

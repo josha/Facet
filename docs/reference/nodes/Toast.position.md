@@ -20,6 +20,19 @@ order, first in first out within a priority. A more urgent toast replaces the
 weakest showing one, but only after that toast's read floor. At the cap the
 least urgent waiting toast retires with `capacity`; a showing toast never does.
 
+`Facet.app` and `Facet.controls` accept three passive Toast settings:
+
+- `toastParent`: a native GuiBase2d or a readable GuiBase2d-or-nil value. When
+  supplied, passive toasts wait for this host instead of using the screen.
+  Keep the host Instance stable while notices exist; resize its native bounds
+  for layout changes. Other overlays and action toasts keep their normal host.
+- `toastMaxVisible`: a positive integer, default `3`, for each passive edge.
+  Use `1` when the host has room for only one notice. Content must still fit;
+  this limit does not clip or shrink a row.
+- `toastPaused`: a readable boolean, default `false`. While true, passive
+  reading time stops. The current row remains visible and waiting rows retain
+  their place. Action toasts keep their own focus and hover pause behavior.
+
 The row is input-transparent: it is neither `Active` nor `Interactable`,
 nothing in it is `Selectable`, it binds no input and it never takes the
 selection, so the controls under it work as before. Rows (`ToastRow`) paint
