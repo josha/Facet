@@ -45,12 +45,25 @@ local fixes: { [string]: string } = {
 	["touching-controls"] = "The edge or the shadow of a control is drawn outside its box and reaches the control beside it, so the two read as one. Set finish.edge.controls in the theme so that the edge is drawn inside the box, and give the stack that holds the two a gap that is larger than the shadow.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
 	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
+	["emoji-icon"] = 'Some texts use emoji as icons. A Roblox font does not draw every emoji, so some show as an empty box, and an emoji does not take the theme color or the ten-foot scale. Give the control an icon from the Facet icon names, such as icon = "coin" or icon = "settings", and keep the text for words.',
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 	["oversized-target"] = "A control is larger than the scroll area that holds it, so the player never sees it whole at this size. Measure the room of the list with UI.environment(body) and give the record a shorter form there, such as a thumbnail beside its facts, or move the header and the filters out of the room of the list. See the compact-compositions reference in the use-facet skill.",
 }
 local EDGE_CUT = 4
 local FIXES = table.freeze(fixes)
+
+local function pictured(content: string): boolean
+	local ok, found = pcall(function(): boolean
+		for _, point in utf8.codes(content) do
+			if point >= 0x1F000 or (point >= 0x2600 and point <= 0x27BF) or point == 0xFE0F then
+				return true
+			end
+		end
+		return false
+	end)
+	return ok and found
+end
 
 local function clean(content: string): string
 	local plain = string.gsub(content, "<[^>]+>", "")
@@ -1425,6 +1438,20 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if textOf(element).native == true and textOf(element).size >= 8 then
 			table.insert(foreign, element)
 		end
+	end
+	local emoji: { ReviewElement } = {}
+	for _, element in texts do
+		if pictured(textOf(element).content) then
+			table.insert(emoji, element)
+		end
+	end
+	if #emoji > 0 then
+		add(
+			"emoji-icon",
+			"medium",
+			emoji[1],
+			("%d texts draw emoji as icons, such as %s"):format(#emoji, quote(clean(textOf(emoji[1]).content)))
+		)
 	end
 	if #foreign >= 3 then
 		add(

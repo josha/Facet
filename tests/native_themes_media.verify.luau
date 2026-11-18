@@ -1407,8 +1407,11 @@ return function(verifyHarness: Verify.Harness)
 				light.colors = table.clone(light.colors)
 				light.colors.surface = { r = 0.9, g = 0.9, b = 0.9 }
 				light.colors.content = { r = 0.1, g = 0.1, b = 0.1 }
+				light.colors.surfaceStrong = { r = 1, g = 1, b = 1 }
+				light.colors.contentStrong = { r = 0, g = 0, b = 0 }
 				light.extra = if light.extra then table.clone(light.extra) else {}
 				assert(light.extra).onSelected = { r = 1, g = 1, b = 1 }
+				assert(light.extra).contentSecondary = nil
 				package.style.themes = { package.style.themes[1], light }
 				package = assert((themes.define(package)))
 				local selection, reduced, explicit: FixtureComposeTypes.Value<(TweenInfo | false)?> =
@@ -3810,6 +3813,73 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			it("derives the unstated roles of a palette from its own surface, content and accent", {
+				id = "native_themes_media::native parity paint::derives the unstated roles of a palette from its own surface, content and accent",
+				run = function()
+					local function hex(value: string): ThemeTypes.RGB
+						return {
+							r = tonumber(string.sub(value, 1, 2), 16) / 255,
+							g = tonumber(string.sub(value, 3, 4), 16) / 255,
+							b = tonumber(string.sub(value, 5, 6), 16) / 255,
+						}
+					end
+					local function ratio(first: ThemeTypes.RGB, second: ThemeTypes.RGB): number
+						local a, b = luminance(first), luminance(second)
+						return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
+					end
+					local surface, strong = hex("23305a"), hex("2f4075")
+					local definition: ThemeTypes.ThemeDefinition = {
+						base = themes.neutralPackage(),
+						identity = { id = "derived-palette-roles" },
+						style = {
+							defaultTheme = "Dusk",
+							themes = {
+								{
+									name = "Dusk",
+									colors = {
+										surface = surface,
+										surfaceStrong = strong,
+										content = hex("fff6dc"),
+										accent = hex("ffc83d"),
+										onAccent = hex("2a1a00"),
+									},
+								},
+							},
+						},
+					}
+					local package, report = themes.define(definition)
+					expect(report.ok):toBe(true)
+					local extra = assert(assert(package).style.themes[1].extra)
+					local secondary = assert(extra.contentSecondary)
+					expect(ratio(secondary, strong) >= 4.5):toBe(true)
+					expect(ratio(secondary, surface) >= 4.5):toBe(true)
+					local neutral = assert(themes.neutralPackage().style.themes[1].extra)
+					local control = assert(extra.control)
+					expect(control.b > control.r):toBe(true)
+					expect(ratio(control, assert(neutral.control)) > 1.1):toBe(true)
+					expect(extra.controlHover ~= nil and extra.controlPressed ~= nil):toBe(true)
+					local pairs: { [string]: boolean } = {}
+					for _, entry in report.contrast do
+						pairs[entry.pair] = entry.ok
+					end
+					expect(pairs["contentSecondary/surface"]):toBe(true)
+					expect(pairs["contentSecondary/surfaceStrong"]):toBe(true)
+					local faint = table.clone(definition)
+					faint.style = {
+						defaultTheme = "Dusk",
+						themes = {
+							{
+								name = "Dusk",
+								colors = { surface = surface, surfaceStrong = strong, content = hex("fff6dc") },
+								extra = { contentSecondary = hex("5a6480") },
+							},
+						},
+					}
+					local refused, refusal = themes.define(faint)
+					expect(refused):toBeNil()
+					expect(refusal.ok):toBe(false)
+				end,
+			})
 			it("keeps the contrast step on a saturated control plate", {
 				id = "native_themes_media::native parity paint::keeps the contrast step on a saturated control plate",
 				run = function()

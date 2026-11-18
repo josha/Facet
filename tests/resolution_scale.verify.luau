@@ -85,6 +85,39 @@ return function(harness: Verify.Harness)
 			Verify.expect(scaled.metrics.motion.normal):toBe(base.metrics.motion.normal)
 		end,
 	})
+	harness:case("authored pixel lengths follow the theme scale and computed lengths stay as given", {
+		id = "resolution-scale-authored-lengths",
+		run = function()
+			local engine = require("./lib/native_engine").new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local distance = Facet.Compose.cell<<("near" | "ten-foot")>>("ten-foot")
+			local literal: Frame?, computed: Frame?, picture: ImageLabel?, spaced: Frame? = nil, nil, nil, nil
+			local stop = runtime.mount(function()
+				local UI = Facet.controls(
+					runtime,
+					{ types = engine.types, theme = theme(), environment = { viewingDistance = distance } }
+				)
+				literal = UI.VStack "Literal" { width = 220, height = 40 }
+				computed = UI.VStack "Computed" { width = UI.environment().scaled(220) }
+				picture = UI.Image { image = "rbxassetid://1", width = 200, height = 112 }
+				spaced = UI.VStack "Spaced" { padding = 8, gap = 8 }
+				return Facet.host(runtime).Folder({ literal, computed, picture, spaced })
+			end, engine.new("ScreenGui"))
+			Verify.expect(assert(literal).Size.X.Offset):toBe(330)
+			Verify.expect(assert(literal).Size.Y.Offset):toBe(60)
+			Verify.expect(assert(computed).Size.X.Offset):toBe(330)
+			Verify.expect(assert(picture).Size.X.Offset):toBe(300)
+			Verify.expect(assert(picture).Size.Y.Offset):toBe(168)
+			local list = assert(assert(spaced):FindFirstChildWhichIsA("UIListLayout"))
+			Verify.expect(list.Padding.Offset):toBe(12)
+			distance:set("near")
+			Verify.expect(assert(literal).Size.X.Offset):toBe(220)
+			Verify.expect(assert(computed).Size.X.Offset):toBe(220)
+			Verify.expect(assert(picture).Size.X.Offset):toBe(200)
+			stop()
+			runtime:dispose()
+		end,
+	})
 	harness:case("custom geometry follows the same reactive resolution scale as controls", {
 		id = "resolution-scale-environment",
 		run = function()

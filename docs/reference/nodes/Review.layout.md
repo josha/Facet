@@ -12,6 +12,7 @@ Review rules for parts that collide or that leave the Facet layout.
 | `covered-control` | A control with a tenth to nine tenths of its box under a plate or an image of another part that is drawn above it. Medium. A control under a modal, wholly under a part, in a scrolling view or in a fan does not count, and neither does a cover smaller than half of the control. |
 | `covered-text` | A text with half or more of its glyphs under a plate or the paint of an image from another part. An overlay that hides three or more texts and a fan (a stack with a negative `gap`) do not count. |
 | `escaped-text` | A text whose glyphs run past the edge of the plate or the paint of the image that it sits on, or that a clip cuts. A scrolling view does not count as a clip. An image counts only when it is built beside the text, within three levels. A text that still sits inside a larger plate does not count. |
+| `emoji-icon` | A text that contains emoji or pictographic symbols. Medium. A Roblox font does not draw every emoji, and an emoji does not take the theme color or the ten-foot scale. Use an `icon` name from the Facet icon names. |
 | `native-text` | Three or more texts that are native labels and not `UI.Text`. They miss the type roles of the theme, the text size of the player and the ten-foot scale. |
 | `oversized-target` | Buttons taller or wider than the scroll view that holds them, so no scroll position shows one whole. One finding for each scroll view. |
 

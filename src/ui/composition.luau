@@ -74,6 +74,15 @@ local ENGINE_MARGIN = 2
 local SETTLE_PASSES = 30
 local SIMILAR_ROW = 0.5
 local PHONES: { { X: number, Y: number } } = { { X = 358, Y = 812 }, { X = 812, Y = 358 } }
+local STICK_REACH, JUMP_REACH, JUMP_INSET, JUMP_SIZE = 111, 132, 60, 72
+
+local function phoneControls(phone: { X: number, Y: number }): { resolver.Area }
+	local stick = if phone.X > phone.Y then phone.X * 0.4 else phone.X
+	return {
+		{ left = 0, right = stick, reach = STICK_REACH },
+		{ left = phone.X - JUMP_INSET - JUMP_SIZE, right = phone.X - JUMP_INSET, reach = JUMP_REACH },
+	}
+end
 local OUTSIDE = "facet-button-outside"
 
 local function lowered(moved: resolver.Shift, column: number, row: number): number
@@ -1274,7 +1283,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 			for _, phone in PHONES do
 				if extent.X > phone.X or extent.Y > phone.Y then
-					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil).overflow
+					local guiService = ctx.config.guiService
+					local controls = if guiService and guiService.TouchControlsEnabled == false
+						then nil
+						else phoneControls(phone)
+					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls).overflow
 					local names = misfits(phone.X, missed)
 					if #names > 0 then
 						table.insert(

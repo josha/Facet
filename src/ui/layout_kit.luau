@@ -79,13 +79,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		return themeDistance.metricScale(ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 	end
 	function kit.spacing(value: Shared.Input<Shared.Space>?, use: ComposeTypes.Use?): number
+		local authored = not live(value)
 		local step = read(value, use)
 		if step == nil then
 			return 0
 		end
 		if type(step) == "number" then
 			assert(step >= 0 and step < math.huge, "Facet spacing must be a finite number of pixels, 0 or more")
-			return step * kit.lengthScale(use)
+			return if authored then step * kit.lengthScale(use) else step
 		end
 		assert(type(step) == "string", "Facet spacing must be a number or a spacing step")
 		local package: Theme.ReadOnlyThemePackage? = read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
@@ -265,10 +266,16 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local function offset(value: Shared.Extent, factor: number): number
 			return if type(value) == "number" then math.floor(value * factor + 0.5) else 0
 		end
+		local wideAuthored, tallAuthored = not live(box.width), not live(box.height)
 		return derive(function(use)
 			local w: Shared.Extent, h: Shared.Extent = resolve(use)
 			local factor = kit.lengthScale(use)
-			return types.UDim2.new(scale(w), offset(w, factor), scale(h), offset(h, factor))
+			return types.UDim2.new(
+				scale(w),
+				offset(w, if wideAuthored then factor else 1),
+				scale(h),
+				offset(h, if tallAuthored then factor else 1)
+			)
 		end, box.width, box.height, ctx.config.theme),
 			derive(function(use)
 				local w: Shared.Extent, h: Shared.Extent = resolve(use)

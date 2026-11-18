@@ -142,10 +142,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				local side = controlSize(nil, "height", use)
 				local factor = themeDistance.metricScale(ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 				local width, height = readExtent(spec.width, use), readExtent(spec.height, use)
-				if type(width) == "number" then
+				if type(width) == "number" and type(spec.width) == "number" then
 					width = math.floor(width * factor + 0.5)
 				end
-				if type(height) == "number" then
+				if type(height) == "number" and type(spec.height) == "number" then
 					height = math.floor(height * factor + 0.5)
 				end
 				if ratio ~= nil then
