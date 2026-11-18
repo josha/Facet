@@ -166,6 +166,91 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native navigation controls", function()
+		for _, initialFill in { false, true } do
+			it(`retains Sheet content through hug and fill changes from {initialFill}`, {
+				id = `native_navigation::Sheet reactive content::{initialFill}`,
+				run = function(own)
+					local roots: { VerifyRoblox.Instance } = {}
+					local viewport = { X = 390, Y = 844 }
+					local filled = Compose.cell(initialFill)
+					local detent = Compose.cell(if initialFill then "window" else "hug")
+					local world = setup(function(UI: FacetControls, Host: RobloxHost, engine, gui)
+						local D2, E = engine.types.UDim2, engine.types.Enum
+						engine.environment.fakeOn(gui, "GetInsetArea", function()
+							return engine.types.Rect.new(0, 0, viewport.X, viewport.Y)
+						end)
+						return UI.Sheet {
+							isPresented = Compose.cell(true),
+							detent = detent,
+							detents = { "hug", { id = "window", fraction = 0.9 } },
+							placement = "center",
+							title = "Details",
+							content = function(): Instance
+								return Host.Frame "RetainedBody" {
+									BackgroundTransparency = 1,
+									Size = function(use: Use): UDim2
+										return D2.fromScale(1, if use(filled) then 1 else 0)
+									end,
+									AutomaticSize = function(use: Use): Enum.AutomaticSize
+										return if use(filled) then E.AutomaticSize.None else E.AutomaticSize.Y
+									end,
+									Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder },
+									Host.TextBox "Draft" { Size = D2.new(1, 0, 0, 160), Text = "Saved draft" },
+									Host.TextButton "Action" {
+										Size = D2.new(1, 0, 0, 48),
+										Text = "Done",
+										LayoutOrder = 1,
+									},
+								}
+							end,
+						}
+					end, {
+						motionLevel = "none",
+						layout = {
+							roots = function()
+								return roots
+							end,
+							viewport = function()
+								return viewport
+							end,
+						},
+					})
+					own(world.stop)
+					table.insert(roots, VerifyRoblox.assertInstance(world.screen))
+					local body: Frame = find(world.screen, "RetainedBody")
+					local draft: TextBox = find(body, "Draft")
+					local action: TextButton = find(body, "Action")
+					for _, nextFill in { initialFill, true, false, true, false } do
+						viewport = if nextFill then { X = 844, Y = 390 } else { X = 390, Y = 844 }
+						filled:set(nextFill)
+						detent:set(if nextFill then "window" else "hug")
+						for _ = 1, 90 do
+							world.engine.environment.step(1 / 60)
+						end
+						local panel: Frame = find(world.screen, "SheetPanel")
+						local window: ScrollingFrame = find(world.screen, "SheetContent")
+						local detail =
+							`initialFill={initialFill} fill={nextFill} body={body.AbsoluteSize} window={window.AbsoluteWindowSize} panel={panel.AbsoluteSize}`
+						expect(find(world.screen, "RetainedBody")):toBe(body)
+						expect(find(body, "Draft")):toBe(draft)
+						expect(find(body, "Action")):toBe(action)
+						expect(draft.Text):toBe("Saved draft")
+						if nextFill then
+							expect(math.abs(body.AbsoluteSize.Y - (window.AbsoluteWindowSize.Y - 16)) <= 1):toBeTrueWith(
+								detail
+							)
+						else
+							expect(math.abs(body.AbsoluteSize.Y - 208) <= 1):toBeTrueWith(detail)
+						end
+						expect(
+							action.AbsolutePosition.Y + action.AbsoluteSize.Y
+								<= panel.AbsolutePosition.Y + panel.AbsoluteSize.Y + 1
+						):toBeTrueWith(detail)
+					end
+				end,
+			})
+		end
+
 		it("samples tab badge bounds after the layout property signal", {
 			id = "native_navigation::native navigation controls::samples tab badge bounds after the layout property signal",
 			run = function()
@@ -3589,7 +3674,7 @@ return function(verifyHarness: Verify.Harness)
 						end,
 					}
 				end)
-				expect(find(world.screen, "DetailBody").Parent.Name):toBe("SheetFlow")
+				expect(find(world.screen, "DetailBody"):IsDescendantOf(find(world.screen, "SheetFlow"))):toBe(true)
 				local body = find(world.screen, "SheetContent")
 				expect(body.ClassName):toBe("ScrollingFrame")
 				expect(body.AutomaticCanvasSize):toBe(world.engine.types.Enum.AutomaticSize.None)

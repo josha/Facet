@@ -22,6 +22,7 @@ return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local FixtureNavigationTypes = require("../src/ui/navigation_types")
+	local NavigationProps = require("../src/ui/navigation_props")
 
 	local Facet = require("../src")
 	local worlds = require("./lib/content_world")
@@ -82,6 +83,43 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("native lab audit: drag and drop", function()
+		verifyHarness:case("mounts the live Sheet body-height demo when presented", {
+			id = "native_lab_audit::live Sheet body height presented",
+			run = function()
+				for _, size in { { 389, 824 }, { 1280, 720 } } do
+					local initial = engineLib.new()
+					local w = worlds.new(function(UI, _Host, engine)
+						local environment = record(engine.types)
+						environment.require = function(path: string)
+							assert(path == "./catalog_types")
+							return {}
+						end
+						local demo: (
+							{
+								UI: FacetControls,
+								Compose: ComposeModule,
+								cell: <T>(string, T) -> Facet.Value<T>,
+							}
+						) -> NavigationProps.SheetSpec =
+							loadSource("examples/facet-lab/src/sheet_content_demo.luau", environment)
+						local props = demo({
+							UI = UI,
+							Compose = Compose,
+							cell = function<T>(_name: string, value: T): Facet.Value<T>
+								return Compose.cell(value)
+							end,
+						})
+						props.isPresented = Compose.cell(true)
+						return UI.Sheet(props)
+					end, {
+						environment = { viewportSize = initial.types.Vector2.new(size[1], size[2]) },
+						motionLevel = "none",
+					})
+					Verify.expect(w.find("SheetPanel") ~= nil):toBe(true)
+					w.stop()
+				end
+			end,
+		})
 		verifyHarness:case("Travel rows use the theme surface and its changing readout wraps at each smoke width", {
 			id = "native_lab_audit::native lab audit: drag and drop::Travel rows use the theme surface and its changing readout wraps at each smoke width",
 			run = function()
