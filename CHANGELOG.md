@@ -8,6 +8,13 @@ does not count, and the existing pause setting applies to each period.
 `app.presentToast` exposes the same controlled presentation options.
 The Toast page in Facet Lab exercises host resizing and controlled continuation.
 
+Each standard icon name now has a built-in vector glyph. When no theme
+package or `icons` map supplies image art for a name, the icon draws as native
+Path2D strokes in the theme's icon color. Before, only the names that controls
+use for their own parts drew strokes, and a name such as `settings`, `coin` or
+`car` showed an empty image. The glyphs need no uploaded asset. Image art in a
+theme package still takes precedence.
+
 `Facet.Rule` and `Facet.AuthoredRuleProperties` are removed. They were second
 names for `Facet.ThemeRule` and `Facet.ThemeRuleProperties`. Use those names;
 the types do not change.

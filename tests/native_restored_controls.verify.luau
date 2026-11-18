@@ -259,6 +259,39 @@ return function(verifyHarness: Verify.Harness)
 				Verify.expect((mentions(unknown, "unknown icon 'kart'"))):toBe(true)
 			end,
 		})
+
+		verifyHarness:case("draws every standard name as strokes when no theme supplies its art", {
+			id = "native_restored_controls::native restored controls: Label::draws every standard name as strokes when no theme supplies its art",
+			run = function()
+				local icons = require("../src/ui/icons")
+				local iconStrokes = require("../src/ui/icon_strokes")
+				for name in icons.ART do
+					Verify.expect(`{name} strokes: {iconStrokes[name] ~= nil}`):toBe(`{name} strokes: true`)
+				end
+				local root, _, stop = build(nil, function(UI)
+					return UI.Button { icon = "settings", name = "Settings" }
+				end)
+				local icon: ImageLabel? = nil
+				local paths: { Path2D } = {}
+				for _, node in root:GetDescendants() do
+					if node:IsA("Path2D") and node.Name == "Stroke" then
+						local parent = node.Parent
+						if parent and parent:IsA("ImageLabel") then
+							icon = parent
+							table.insert(paths, node)
+						end
+					end
+				end
+				local expected = iconStrokes.settings
+				Verify.expect(#paths):toBe(#expected)
+				Verify.expect(assert(icon).Image):toBe("")
+				for index, path in paths do
+					Verify.expect(#path:GetControlPoints()):toBe(#expected[index].points)
+					Verify.expect(path.Closed):toBe(expected[index].closed)
+				end
+				stop()
+			end,
+		})
 	end)
 
 	verifyHarness:suite("native restored controls: Image", function()
