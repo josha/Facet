@@ -4,9 +4,11 @@ local Shared = require("./types")
 local extentMatch = require("./extent_match")
 local sizeFloor = require("./size_floor")
 local Theme = require("./theme_types")
+local themeDistance = require("./theme_distance")
 
 export type Place = (GuiObject, number) -> ()
 export type Room = { top: number, right: number, bottom: number, left: number }
+export type TouchArea = { left: number, right: number, reach: number }
 
 local function plain<N>(node: N & Instance, properties: unknown?): N & Instance
 	if type(properties) ~= "table" or properties.BackgroundTransparency == nil then
@@ -20,9 +22,10 @@ export type Kit = {
 	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?) -> UIPadding?,
 	shadowRoom: (GuiObject, ComposeTypes.Value<Room>) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
+	lengthScale: (ComposeTypes.Use?) -> number,
 	list: (Shared.Flow, Shared.Input<boolean>, boolean?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
-	touchClearance: (GuiObject, ComposeTypes.Value<number>) -> (),
+	touchClearance: (GuiObject, ComposeTypes.Value<number>, ComposeTypes.Value<{ TouchArea }>?) -> (),
 	ordered: (Shared.ChildList, Place?) -> { ComposeTypes.Child },
 	assemble: <P>(P, unknown?, { Instance? }, Shared.ChildList, Place?) -> P,
 	plain: typeof(plain),
@@ -72,6 +75,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return compute(nil)
 	end
+	function kit.lengthScale(use: ComposeTypes.Use?): number
+		return themeDistance.metricScale(ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
+	end
 	function kit.spacing(value: Shared.Input<Shared.Space>?, use: ComposeTypes.Use?): number
 		local step = read(value, use)
 		if step == nil then
@@ -79,7 +85,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		if type(step) == "number" then
 			assert(step >= 0 and step < math.huge, "Facet spacing must be a finite number of pixels, 0 or more")
-			return step
+			return step * kit.lengthScale(use)
 		end
 		assert(type(step) == "string", "Facet spacing must be a number or a spacing step")
 		local package: Theme.ReadOnlyThemePackage? = read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
@@ -256,13 +262,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local function scale(value: Shared.Extent): number
 			return if value == "fill" then 1 else 0
 		end
-		local function offset(value: Shared.Extent): number
-			return if type(value) == "number" then value else 0
+		local function offset(value: Shared.Extent, factor: number): number
+			return if type(value) == "number" then math.floor(value * factor + 0.5) else 0
 		end
 		return derive(function(use)
 			local w: Shared.Extent, h: Shared.Extent = resolve(use)
-			return types.UDim2.new(scale(w), offset(w), scale(h), offset(h))
-		end, box.width, box.height),
+			local factor = kit.lengthScale(use)
+			return types.UDim2.new(scale(w), offset(w, factor), scale(h), offset(h, factor))
+		end, box.width, box.height, ctx.config.theme),
 			derive(function(use)
 				local w: Shared.Extent, h: Shared.Extent = resolve(use)
 				local wide, tall = w == "hug", h == "hug"
@@ -1035,7 +1042,11 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			table.clear(watched)
 		end)
 	end
-	function kit.touchClearance(frame: GuiObject, clearance: ComposeTypes.Value<number>)
+	function kit.touchClearance(
+		frame: GuiObject,
+		clearance: ComposeTypes.Value<number>,
+		areas: ComposeTypes.Value<{ TouchArea }>?
+	)
 		local input = config.userInputService
 		if input == nil then
 			return
@@ -1051,6 +1062,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				watching = nil
 			end
 			clearance:set(0)
+			if areas then
+				areas:set({})
+			end
 			local player = frame:FindFirstAncestorWhichIsA("PlayerGui")
 			if player == nil or frame:FindFirstAncestorWhichIsA("ScreenGui") == nil then
 				return
@@ -1085,7 +1099,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					end
 					local region = node:FindFirstAncestor("DynamicThumbstickFrame")
 					if region and region:IsA("GuiObject") then
-						if node:IsA("ImageLabel") then
+						if node:IsA("GuiObject") and not node:IsA("GuiButton") then
 							local art = stickArt[region] or {}
 							stickArt[region] = art
 							table.insert(art, node)
@@ -1121,6 +1135,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						and (controlsEnabled == nil or use(controlsEnabled) ~= false)
 					local at, box, scale = use(position), use(size), use(unit)
 					local bottom = 0
+					local found: { TouchArea } = {}
 					local function reserve(start: Vector2, bounds: Vector2, shown: boolean, from: number?)
 						local top = from or start.Y
 						if
@@ -1133,7 +1148,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							and top < at.Y + box.Y
 							and start.Y + bounds.Y > at.Y
 						then
-							bottom = math.max(bottom, math.min(box.Y, at.Y + box.Y - top) / scale)
+							local reach = math.min(box.Y, at.Y + box.Y - top) / scale
+							bottom = math.max(bottom, reach)
+							table.insert(found, {
+								left = (math.max(start.X, at.X) - at.X) / scale,
+								right = (math.min(start.X + bounds.X, at.X + box.X) - at.X) / scale,
+								reach = reach,
+							})
 						end
 					end
 					for _, control in controls do
@@ -1149,8 +1170,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						end
 						local tallest = 0
 						for _, image in stickArt[control] or {} do
-							if use(ctx.observe.Visible(image)) then
-								tallest = math.max(tallest, use(ctx.observe.AbsoluteSize(image)).Y)
+							local drawn = use(ctx.observe.AbsoluteSize(image)).Y
+							if use(ctx.observe.Visible(image)) and drawn < bounds.Y / 2 then
+								tallest = math.max(tallest, drawn)
 							end
 						end
 						local from: number? = nil
@@ -1188,6 +1210,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						end
 					end
 					clearance:set(bottom)
+					if areas then
+						areas:set(found)
+					end
 				end)
 			end)
 		end

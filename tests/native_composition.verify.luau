@@ -197,7 +197,12 @@ return function(verifyHarness: Verify.Harness)
 				settle()
 				local button = player:FindFirstChild("Continue", true) :: TextButton
 				expect(button.AbsoluteSize.Y >= 48):toBe(true)
-				expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+				expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+				if kind == "Screen" then
+					expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+				else
+					expect(button.AbsolutePosition.Y > thumb.AbsolutePosition.Y):toBe(true)
+				end
 				tap(button)
 			end
 			expect(activations):toBe(3)
@@ -225,7 +230,7 @@ return function(verifyHarness: Verify.Harness)
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
 			thumb.Visible = true
 			settle()
-			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(kind == "Screen")
 			local art: ImageLabel = engine.new("ImageLabel")
 			art.Name, art.Image = "ThumbstickStart", "rbxassetid://1"
 			art.Size, art.Position = T.UDim2.fromOffset(60, 60), T.UDim2.new(0, 30, 1, -80)
@@ -815,6 +820,58 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("slides a side zone clear of its corner zone and lifts only the zones over a touch area", {
+			id = "native_composition::Composition::slides a side zone clear of its corner zone and lifts only the zones over a touch area",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local coins: Declared =
+					{ zone = "topRight" :: "topRight", rank = 2, mayDrop = false, sizes = { wide(72, 40) } }
+				local menu: Declared =
+					{ zone = "right" :: "right", rank = 1, mayDrop = false, sizes = { wide(98, 96) } }
+				local forms, _, shift, overflow = resolver.resolve(733, 400, 8, { coins, menu })
+				expect(#overflow):toBe(0)
+				expect(shift.lift[14] or 0):toBe(0)
+				forms, _, shift, overflow = resolver.resolve(733, 175, 8, { coins, menu })
+				expect(forms[1]):toBe(1)
+				expect(forms[2]):toBe(1)
+				expect(#overflow):toBe(0)
+				expect((175 - 96) / 2 + shift.lift[14]):toBe(48)
+				forms, _, shift, overflow = resolver.resolve(733, 140, 8, { coins, menu })
+				expect(#overflow):toBe(2)
+				local chat: Declared =
+					{ zone = "bottomLeft" :: "bottomLeft", rank = 1, mayDrop = false, sizes = { wide(160, 40) } }
+				local prompt: Declared =
+					{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { wide(120, 48) } }
+				local stick = { left = 0, right = 300, reach = 111 }
+				local jump = { left = 609, right = 681, reach = 132 }
+				forms, _, shift, overflow = resolver.resolve(
+					733,
+					307,
+					8,
+					{ coins, menu, chat },
+					nil,
+					nil,
+					nil,
+					{ stick, jump }
+				)
+				expect(#overflow):toBe(0)
+				expect(shift.lift[7]):toBe(-111)
+				local menuTop = (307 - 96) / 2 + shift.lift[14]
+				expect(menuTop >= 48):toBe(true)
+				expect(menuTop + 96 <= 307 - 132):toBe(true)
+				forms, _, shift, overflow = resolver.resolve(733, 307, 8, { chat, prompt }, nil, nil, nil, { stick })
+				expect(#overflow):toBe(0)
+				expect(shift.lift[7]):toBe(-111)
+				expect(shift.lift[15]):toBe(0)
+				forms, _, shift = resolver.resolve(733, 307, 8, { chat, prompt }, nil, nil, nil, { stick, jump })
+				expect(shift.lift[15]):toBe(-132)
+			end,
+		})
+
 		it("stacks a center-lane zone under its corners when no region can give way", {
 			id = "native_composition::Composition::stacks a center-lane zone under its corners when no region can give way",
 			run = function()
@@ -1109,7 +1166,7 @@ return function(verifyHarness: Verify.Harness)
 					local zones = w.find("Zones")
 					w.size(zones, 800, 400)
 					expect((form:peek())):toBe(1)
-					w.size(zones, 800, 200)
+					w.size(zones, 800, 160)
 					expect((form:peek())):toBe(if reveal then 2 else 0)
 					if disc then
 						expect(disc.Parent.Visible):toBe(true)
@@ -1155,7 +1212,7 @@ return function(verifyHarness: Verify.Harness)
 				w.size(w.find("Reveal"), 28, 20)
 				local zones = w.find("Zones")
 				w.size(zones, 800, 400)
-				w.size(zones, 800, 200)
+				w.size(zones, 800, 160)
 				expect((form:peek())):toBe(2)
 				local target = w.find("Feed"):FindFirstChild("Expand")
 				expect(target.Visible):toBe(true)

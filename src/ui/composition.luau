@@ -77,10 +77,38 @@ local PHONES: { { X: number, Y: number } } = { { X = 358, Y = 812 }, { X = 812, 
 local OUTSIDE = "facet-button-outside"
 
 local function lowered(moved: resolver.Shift, column: number, row: number): number
+	local lift = moved.lift[column * 4 + row] or 0
 	return if row == 3
-		then -moved.hang - (if column == 2 then moved.bottom else 0)
+		then -moved.hang - (if column == 2 then moved.bottom else 0) + lift
 		elseif row == 1 and column == 2 then moved.top
-		else 0
+		else lift
+end
+
+local function sameLift(a: { [number]: number }, b: { [number]: number }): boolean
+	for key, value in a do
+		if b[key] ~= value then
+			return false
+		end
+	end
+	for key in b do
+		if a[key] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+local function sameAreas(a: { resolver.Area }, b: { resolver.Area }): boolean
+	if #a ~= #b then
+		return false
+	end
+	for index, area in a do
+		local other = b[index]
+		if area.left ~= other.left or area.right ~= other.right or area.reach ~= other.reach then
+			return false
+		end
+	end
+	return true
 end
 
 local function leaned(moved: resolver.Shift, column: number, row: number): number
@@ -565,6 +593,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local base: Types.Input<Types.Padding> = if spec.padding == nil then "s" else spec.padding
 		local under = Compose.cell(0)
 		local touch = Compose.cell(0)
+		local touchAreas: ComposeTypes.Value<{ resolver.Area }> = Compose.cell({}, sameAreas)
 		local direct = Compose.cell(false)
 		local distant = ctx.tenFoot()
 		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
@@ -593,7 +622,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				{
 					top = side("top", kit.spacing(sides.top, use) + use(under)),
 					right = side("right", kit.spacing(sides.right, use)),
-					bottom = side("bottom", kit.spacing(sides.bottom, use) + use(touch)),
+					bottom = side("bottom", kit.spacing(sides.bottom, use)),
 					left = side("left", kit.spacing(sides.left, use)),
 				} :: unknown
 			) :: Types.Padding
@@ -663,7 +692,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local zones: { [string]: Frame } = {}
 		local placed: { Frame } = {}
-		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0, leanTop = 0, leanBottom = 0 }
+		local resting: resolver.Shift = { top = 0, bottom = 0, hang = 0, leanTop = 0, leanBottom = 0, lift = {} }
 		local shift: ComposeTypes.Value<resolver.Shift> = Compose.cell(resting)
 		local rows: ComposeTypes.Value<resolver.Rows> = Compose.cell({ top = 0, bottom = 0 })
 		for zone, children in members do
@@ -729,7 +758,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end)
 		end
 		kit.underTopbar(root, under)
-		kit.touchClearance(root, touch)
+		kit.touchClearance(root, touch, touchAreas)
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
@@ -894,6 +923,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local safeUnit = ctx.layoutUnit(safe)
 		local floor = ctx.hitFloor()
 		local safeSize = ctx.observe.AbsoluteSize(safe)
+		local safeOrigin = ctx.observe.AbsolutePosition(safe)
+		local rootOrigin = ctx.observe.AbsolutePosition(root)
 		local actionZone = Compose.formula(function(use: ComposeTypes.Use): resolver.Zone
 			local size = use(safeSize) / use(safeUnit)
 			return if size.Y > size.X then "bottom" else "bottomRight"
@@ -1111,14 +1142,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			spacing: number,
 			list: { resolver.Declared },
 			listKey: string,
-			band: resolver.Strip?
+			band: resolver.Strip?,
+			areas: { resolver.Area }?
 		): Resolution
-			local key = `{width},{height},{spacing},{if band then `{band.x},{band.y},{band.lanes}` else "-"}|{listKey}`
+			local reserved: { string } = {}
+			for _, area in areas or {} do
+				table.insert(reserved, `{area.left}:{area.right}:{area.reach}`)
+			end
+			local key =
+				`{width},{height},{spacing},{if band then `{band.x},{band.y},{band.lanes}` else "-"}|{table.concat(
+					reserved,
+					";"
+				)}|{listKey}`
 			local known = resolutions[key]
 			if known then
 				return known
 			end
-			local chosen, down, moved, overflow, packed = resolver.resolve(width, height, spacing, list, band)
+			local chosen, down, moved, overflow, packed =
+				resolver.resolve(width, height, spacing, list, band, nil, nil, areas)
 			local made: Resolution =
 				{ chosen = chosen, down = down, moved = moved, overflow = overflow, packed = packed }
 			if resolutionCount >= RESOLUTIONS then
@@ -1195,13 +1236,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				else nil
 			local spacing = kit.spacing(gap, use)
 			local listKey = regionsKey(list)
+			local offset = (use(safeOrigin).X - use(rootOrigin).X) / use(safeUnit)
+			local areas: { resolver.Area } = {}
+			for _, area in use(touchAreas) do
+				table.insert(areas, { left = area.left - offset, right = area.right - offset, reach = area.reach })
+			end
 			local result = resolved(
 				extent.X,
 				extent.Y,
 				spacing,
 				list,
 				listKey,
-				if band and strip and strip.X > 0 then band else nil
+				if band and strip and strip.X > 0 then band else nil,
+				areas
 			)
 			local chosen, down, moved, overflow, packed =
 				result.chosen, result.down, result.moved, result.overflow, result.packed
@@ -1258,6 +1305,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				or was.hang ~= moved.hang
 				or was.leanTop ~= moved.leanTop
 				or was.leanBottom ~= moved.leanBottom
+				or not sameLift(was.lift, moved.lift)
 			then
 				shift:set(moved)
 			end

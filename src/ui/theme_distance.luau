@@ -243,4 +243,12 @@ local function resolutionScale(package: ThemeTypes.ReadOnlyThemePackage?): numbe
 	return if origin then origin.scale else 1
 end
 
-return { create = create, resolutionScale = resolutionScale }
+local function metricScale(package: ThemeTypes.ReadOnlyThemePackage?): number
+	local origin = if package then origins[package] else nil
+	if origin == nil then
+		return 1
+	end
+	return origin.scale * (if origin.distant then adaptive.TEN_FOOT_SCALE else 1)
+end
+
+return { create = create, resolutionScale = resolutionScale, metricScale = metricScale }
