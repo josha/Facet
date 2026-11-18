@@ -2705,30 +2705,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ name = "no header", props = properties { header = false } },
 			{
 				name = "live header",
-				props = function(c: Context)
-					local visible = c.cell("headerVisible", true)
-					return {
-						placement = "center",
-						headerVisible = visible,
-						content = function()
-							return c.UI.VStack(stacked({
-								width = "fill",
-								gap = "s",
-								c.UI.Toggle(toggleProps { label = "Show header", value = visible }),
-								c.UI.TextInput { value = c.cell("draft", ""), placeholder = "Draft" },
-							}))
-						end,
-						actions = actionList {
-							{
-								id = "Done",
-								label = "Done",
-								onActivate = function()
-									c.cell("open", false):set(false)
-								end,
-							},
-						},
-					}
-				end,
+				props = require("./sheet_header_demo"),
+			},
+			{
+				name = "live body height",
+				props = require("./sheet_content_demo"),
 			},
 			{
 				name = "hug + fraction + fixed detents",

@@ -219,7 +219,7 @@ return function(
 		local content: Instance = if type(spec.content) == "function" then spec.content() else spec.content
 		local scrollViewport: Frame? = nil
 		local bodyContent = content
-		if content:IsA("GuiObject") and content.Size.Y.Scale > 0 then
+		if content:IsA("GuiObject") then
 			scrollViewport = Host.Frame "SheetScrollViewport" {
 				BackgroundTransparency = 1,
 				Size = D2.new(1, 0, 0, 0),
@@ -257,11 +257,20 @@ return function(
 			flex,
 		}
 		local body = parts.scroller(ctx, bodyProps, bodyChildren, { name = "SheetFlow" })
-		if scrollViewport then
+		if scrollViewport and content:IsA("GuiObject") then
 			local window = ctx.observe.AbsoluteWindowSize(body)
+			local size = ctx.observe.Size(content)
 			runtime.decorate(scrollViewport, {
 				Size = function(use: ComposeTypes.Use): UDim2
-					return D2.new(1, 0, 0, math.max(0, use(window).Y / use(unit) - inset * 2))
+					return D2.new(
+						1,
+						0,
+						0,
+						if use(size).Y.Scale > 0 then math.max(0, use(window).Y / use(unit) - inset * 2) else 0
+					)
+				end,
+				AutomaticSize = function(use: ComposeTypes.Use): Enum.AutomaticSize
+					return if use(size).Y.Scale > 0 then E.AutomaticSize.None else E.AutomaticSize.Y
 				end,
 			})
 		end
