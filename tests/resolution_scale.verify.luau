@@ -90,8 +90,9 @@ return function(harness: Verify.Harness)
 		run = function()
 			local engine = require("./lib/native_engine").new()
 			local runtime = Facet.Roblox.createRuntime(engine)
-			local distance = Facet.Compose.cell<<("near" | "ten-foot")>>("ten-foot")
-			local literal: Frame?, computed: Frame?, picture: ImageLabel?, spaced: Frame? = nil, nil, nil, nil
+			local distance = Facet.Compose.cell<<("automatic" | "near" | "ten-foot")?>>("ten-foot")
+			local literal: GuiObject?, computed: GuiObject?, picture: GuiObject?, spaced: GuiObject? =
+				nil, nil, nil, nil
 			local stop = runtime.mount(function()
 				local UI = Facet.controls(
 					runtime,

@@ -3818,9 +3818,9 @@ return function(verifyHarness: Verify.Harness)
 				run = function()
 					local function hex(value: string): ThemeTypes.RGB
 						return {
-							r = tonumber(string.sub(value, 1, 2), 16) / 255,
-							g = tonumber(string.sub(value, 3, 4), 16) / 255,
-							b = tonumber(string.sub(value, 5, 6), 16) / 255,
+							r = assert(tonumber(string.sub(value, 1, 2), 16)) / 255,
+							g = assert(tonumber(string.sub(value, 3, 4), 16)) / 255,
+							b = assert(tonumber(string.sub(value, 5, 6), 16)) / 255,
 						}
 					end
 					local function ratio(first: ThemeTypes.RGB, second: ThemeTypes.RGB): number
