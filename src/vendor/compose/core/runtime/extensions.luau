@@ -101,13 +101,13 @@ local function connect<Args...>(
 	return detach
 end
 
-local function adopt(
+local function adopt<T>(
 	host: Host.Host,
 	requireOwner: (string) -> Owner.Owner,
 	destroyOwnedNode: (unknown) -> (),
 	inspector: () -> typeof(require "../ownership/inspect"),
-	node: Node
-): Node
+	node: T & Node
+): T
 	local owner = requireOwner "adopt"
 	if Nodes.custodyOf(node) == "owned" then
 		return Diagnostics.raise("owner/already-owned", "adopt was given a node Compose already owns", {

@@ -84,7 +84,7 @@ export type Runtime = {
 
 	connect: <Args...>(node: Node, event: string, handler: (Args...) -> ()) -> () -> (),
 
-	adopt: (node: Node) -> Node,
+	adopt: <T>(node: T & Node) -> T,
 	borrow: (node: Node) -> Node,
 
 	motion: <T>(codec: Codec.Codec<T>) -> CoreTypes.Motion<T>,
@@ -519,7 +519,7 @@ local function createRuntime(host: Host.Host): Runtime
 		return loaded.connect(host, requireOwner, node, event, handler)
 	end
 
-	local function adopt(node: Node): Node
+	local adopt: index<Runtime, "adopt"> = function<T>(node: T & Node): T
 		local loaded = extensionsModule or require "@self/extensions"
 		extensionsModule = loaded
 		return loaded.adopt(host, requireOwner, destroyOwnedNode, inspector, node)
