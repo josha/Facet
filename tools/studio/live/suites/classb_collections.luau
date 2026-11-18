@@ -94,6 +94,60 @@ local function theme(t: any, pattern: string): any
 	return nil
 end
 
+add("retained-grid-fits-after-ancestor-scale-change", {}, function(t)
+	local resize: ((number) -> ())? = nil
+	local stage = t.mount(function(UI: FacetControls, Host: RobloxHost, Compose: ComposeModule)
+		local scale = Compose.cell(1)
+		resize = function(value: number)
+			scale:set(value)
+		end
+		return Host.Frame "ScaledCollection" {
+			Size = function(use: Use)
+				return UDim2.fromOffset(688 / use(scale), 360 / use(scale))
+			end,
+			BackgroundTransparency = 1,
+			Host.UIScale { Scale = scale },
+			UI.ScrollView "Reading" {
+				width = "fill",
+				height = "fill",
+				UI.VirtualGrid "RetainedGrid" {
+					from = rows(20),
+					key = "id",
+					columns = 2,
+					itemSize = 100,
+					gap = 16,
+					mode = "all",
+					hug = true,
+					measure = true,
+					render = function(current)
+						return UI.Card {
+							title = function(use: Use)
+								return (use(current) :: { name: string }).name
+							end,
+							caption = "Requirement 8 | Workshop | Four bars and one thread",
+						}
+					end,
+				},
+			},
+		}
+	end, { size = Vector2.new(800, 600), motionLevel = "none" })
+	local grid = assert(stage:FindFirstChild("RetainedGrid", true)) :: ScrollingFrame
+	local reading = assert(stage:FindFirstChild("Reading", true)) :: ScrollingFrame
+	local held = assert(rowOf(grid, "r10")) :: GuiObject
+	reading.CanvasPosition = Vector2.new(0, 400)
+	t.settle(12)
+	for _, scale in { 1.25, 1, 0.8, 1.25 } do
+		assert(resize)(scale)
+		t.settle(195)
+		t.check("retains the keyed row at scale " .. scale, rowOf(grid, "r10") == held)
+		t.check(
+			"fits the second column at scale " .. scale,
+			held.AbsolutePosition.X + held.AbsoluteSize.X <= grid.AbsolutePosition.X + grid.AbsoluteWindowSize.X + 1,
+			{ row = held.AbsoluteSize.X, window = grid.AbsoluteWindowSize.X }
+		)
+	end
+end)
+
 type PurchaseConfig = {
 	name: string,
 	motion: string,

@@ -306,9 +306,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): BuildList
 			end)
 		end)
 		Compose.watch(function(use: ComposeTypes.Use)
-			local scale = use(view.unitSize).X
+			use(view.unitSize)
 			use(size)
 			use(position)
+			local scale = view.unit.AbsoluteSize.X
 			local dimensions, at = root.AbsoluteWindowSize, root.CanvasPosition
 			use(ancestryVersion)
 			local ancestor = use(mountParent)

@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/voidmeld/compose.git",
-  "commit": "90f0209e9e31d7bc04d090c8cdc8ffad2bcb7319",
+  "commit": "2694de7cdf0bbc44c001e1a50f0c2e536e96cd3a",
   "source": "src",
   "patches": [],
   "sha256": {
@@ -57,8 +57,8 @@
     "core/runtime/bindings.luau": "938187860c2372a177ed97a5b2da000b6e9d8ec301b6994c8518730b3ce7d706",
     "core/runtime/children.luau": "6062f9935c49fad8a1d749e02df24b25cd92c3e4699dc05a23264e97865bb115",
     "core/runtime/clock.luau": "cb4e49ed1d3b781a049a5bcc8d814e8af2fc791d84453e6a9219103644d45610",
-    "core/runtime/extensions.luau": "083e6c646d2a93877300060d916ddb6103783cc47d5d9ccda0737a039fa79de4",
-    "core/runtime/init.luau": "ca69e6d1aa3f8dde59877f91f2c57d6fa6ed10c88cc1af191246d95b3a6e8b93",
+    "core/runtime/extensions.luau": "d61e3762816f38c9759d63d4262080e07a4f1beaa65dfb9920f6ad0836a67ee1",
+    "core/runtime/init.luau": "db451bfd2411f4d534edc395b86fcc1449a38883575d9fb3ad45b56a9b6a4fca",
     "core/runtime/observe.luau": "f46d0390cff8b4ddfdb0de450c5ad8f31ce89e39d0796a8847973f4a733aa869",
     "core/runtime/props-state.luau": "26a25a504a1e75baa4e8ef2f52e9d0aab4f99db5f2b6f1c00b1814bb0da34eca",
     "core/runtime/props.luau": "2c16a3265eca5320ccef499690c74108b09c91e458dfc62c697dcea71596aed1",
@@ -133,7 +133,7 @@
     "roblox/viewport.luau": "4dcfd52abe4d78211f77a57a4c62d247a1c7fd1f8bec683fdce4ad0a1d56c10e"
   },
   "docs": {
-    "SKILL.md": "0664d0cbdb0b0ca4684ac943dd942998ef5d0eced502920e0a163c34d34d2068",
+    "SKILL.md": "a69eabf98ecd7608a0c39a09988a6175362abeafbf16e348598e235d4354c042",
     "references/design.md": "16b19606e8a247ceff8d587b93760206c8dcdb9f6d60eb6e9e4d057684a27ee8"
   }
 }
