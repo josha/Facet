@@ -29,6 +29,7 @@ local KEYS = {
 	"width",
 	"closeButton",
 	"header",
+	"headerVisible",
 	"hero",
 	"actions",
 	"actionLayout",

@@ -2265,6 +2265,7 @@ local derived: Types.Derived = {
 				guide = { type = "value" },
 				guideAlignment = { type = "choice", options = { "start", "end" } },
 				header = { type = "value" },
+				headerVisible = { type = "boolean" },
 				hero = { type = "value" },
 				interactiveDismissDisabled = { type = "boolean" },
 				isPresented = { type = "value" },

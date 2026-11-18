@@ -314,6 +314,7 @@ export type SheetOptions = {
 	width: Input<Overlay.WidthPreset?>?,
 	closeButton: (boolean | Types.ValueString)?,
 	header: (Content | false)?,
+	headerVisible: Types.ValueBoolean?,
 	hero: Overlay.Hero?,
 	actions: { Overlay.Action }?,
 	actionLayout: Input<Overlay.ActionLayout?>?,
