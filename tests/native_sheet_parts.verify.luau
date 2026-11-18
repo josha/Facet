@@ -1146,6 +1146,7 @@ return function(verifyHarness: Verify.Harness)
 					{
 						{ header = true } :: any,
 						{ header = "Title" },
+						{ headerVisible = "hidden" },
 						{ contentInset = "wide" },
 						{ hero = { image = "rbxassetid://1", content = function() end, height = 10 } },
 						{ hero = { height = 10 } },
@@ -1166,6 +1167,39 @@ return function(verifyHarness: Verify.Harness)
 					end)
 					Verify.expect(ok):toBe(false)
 				end
+			end,
+		})
+
+		verifyHarness:case("returns hidden header space without remounting its content", {
+			id = "native_sheet_parts::reactive-header-space",
+			run = function()
+				local headerVisible = Compose.cell(true)
+				local w = mount({
+					headerVisible = headerVisible,
+					placement = "center",
+					closeButton = true,
+					detents = { { id = "fixed", height = 420 } },
+				}, { detent = "fixed", motionLevel = "none" })
+				local header, body, close = w.find("Header"), w.find("SheetContent"), w.find("Close")
+				w.size(header, 500, 44)
+				content(w, 600)
+				local original = body.Size.Y.Offset
+				headerVisible:set(false)
+				w.advance(1 / 60, 3)
+				Verify.expect(header.Visible):toBe(false)
+				Verify.expect(close.Visible):toBe(false)
+				Verify.expect(body.Size.Y.Offset):toBe(original + 52)
+				Verify.expect(w.find("Header")):toBe(header)
+				Verify.expect(w.find("SheetContent")):toBe(body)
+				Verify.expect((w.builds())):toBe(1)
+				headerVisible:set(true)
+				w.advance(1 / 60, 3)
+				Verify.expect(header.Visible):toBe(true)
+				Verify.expect(close.Visible):toBe(true)
+				Verify.expect(body.Size.Y.Offset):toBe(original)
+				close.Activated:Fire()
+				Verify.expect(w.shown:peek()):toBe(false)
+				w.stop()
 			end,
 		})
 

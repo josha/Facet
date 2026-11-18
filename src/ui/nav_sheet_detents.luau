@@ -40,6 +40,10 @@ return function(ctx: Types.Context): Detents
 		)
 		local header = spec.header
 		assert(
+			spec.headerVisible == nil or parts.bound(ctx, spec.headerVisible, "boolean"),
+			"Sheet.headerVisible must be a boolean or a readable boolean"
+		)
+		assert(
 			header == nil or header == false or parts.instance(header) or type(header) == "function",
 			"Sheet.header must be an Instance, a content factory or false"
 		)

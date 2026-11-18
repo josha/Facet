@@ -1,6 +1,6 @@
 # Sheet.layout
 
-Placement, width, header, hero, pinned actions, body padding, scroll policy and Close.
+Placement, content regions, scrolling and dismissal.
 
 - `placement`: `automatic` (the default, the bottom edge), `adaptive`,
   `bottom`, `center` or `side`. On a ten-foot screen `automatic` and
@@ -14,9 +14,11 @@ Placement, width, header, hero, pinned actions, body padding, scroll policy and 
   `center` presents a floating task panel with Close and no grabber or drag
   resizing. Use it for a bounded task such as comparing upgrades. Detents
   still set its height; use one `hug` detent for short intrinsic content.
-- `width`: `automatic`, `narrow` or `wide`. These are the Dialog widths:
+- `width`: `automatic`, `narrow` or `wide`. Uses the Dialog tokens:
   `controls.alert.maxWidth`, `controls.popup.panelWidth` and `controls.dialog.wideWidth`. The safe room bounds each one.
 - `header`: absent shows `title`. An Instance or a factory replaces the title. `false` removes the title row.
+- `headerVisible`: boolean or readable boolean, default `true`. Hiding the header
+  and its Close returns space to the body without remounting content. Provide another visible exit.
 - `hero`: `{ image | content, aspectRatio | height, scaleMode?, background?,
   sticky? }`. A sticky hero stays pinned above the body. Otherwise it scrolls
   with the body. With `header = false`, the close control sits over the hero
@@ -51,7 +53,6 @@ moves into one scrolling column named `Room`, so each action stays
 reachable. The on-screen keyboard height comes off the room, and the panel
 sits above the keyboard.
 
-When a pointer dismisses the keyboard from a TextInput, keep that clearance
-until the native InputObject ends or cancels and Compose publishes its next
-frame. This keeps an accessory button under the same touch while Roblox
-handles activation or cancellation. Keyboard submission releases it directly.
+Pointer dismissal keeps keyboard clearance until the InputObject ends or cancels
+and Compose publishes its next frame, so the accessory button stays under the
+touch. Keyboard submission releases clearance directly.

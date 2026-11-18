@@ -407,18 +407,24 @@ function parts.room(
 	local function filling(use: ComposeTypes.Use): boolean
 		return if type(fill) == "boolean" then fill else use(fill)
 	end
-	local sizes: { ComposeTypes.ReadOnlyValue<Vector2> } = {}
+	local sizes: { { size: ComposeTypes.ReadOnlyValue<Vector2>?, visible: ComposeTypes.ReadOnlyValue<boolean> } } = {}
 	for _, region in regions do
-		if region ~= body then
-			table.insert(sizes, ctx.layoutSize(region, unit))
-		end
+		table.insert(sizes, {
+			size = if region ~= body then ctx.layoutSize(region, unit) else nil,
+			visible = ctx.observe.Visible(region),
+		})
 	end
 	local pinned = Compose.formula(function(use: ComposeTypes.Use): number
-		local total = math.max(0, #regions - 1) * gap
-		for _, size in sizes do
-			total += use(size).Y
+		local total, count = 0, 0
+		for _, region in sizes do
+			if use(region.visible) then
+				count += 1
+				if region.size then
+					total += use(region.size).Y
+				end
+			end
 		end
-		return total
+		return total + math.max(0, count - 1) * gap
 	end)
 	local tight = Compose.formula(function(use: ComposeTypes.Use): boolean
 		local limit = maximum(use)

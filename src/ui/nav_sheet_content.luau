@@ -28,6 +28,7 @@ return function(
 ): (NavigationProps.SheetSpec, sheetGesture.Gesture) -> SheetContent
 	local Compose, Host, runtime, read = ctx.Compose, ctx.Host, ctx.runtime, ctx.read
 	local readString = read<<string?>>
+	local readBoolean = read<<boolean?>>
 	local E, D2, V2 = ctx.types.Enum, ctx.types.UDim2, ctx.types.Vector2
 	return function(spec: NavigationProps.SheetSpec, gesture: sheetGesture.Gesture): SheetContent
 		local grabber, canDismiss, close, unit, extent =
@@ -40,8 +41,12 @@ return function(
 		local sticky = hero ~= nil and hero.sticky == true
 		local overHero = spec.header == false and hero ~= nil
 		local closeCommand: TextButton? = nil
+		local function showHeader(use: ComposeTypes.Use?): boolean
+			return readBoolean(spec.headerVisible, use) ~= false
+		end
 		local function showClose(use: ComposeTypes.Use?): boolean
-			return spec.closeButton ~= false
+			return (overHero or showHeader(use))
+				and spec.closeButton ~= false
 				and (spec.closeButton ~= nil or (not gesture.showGrabber(use) and canDismiss(use)))
 		end
 		local function linkClose(button: TextButton): TextButton
@@ -59,6 +64,7 @@ return function(
 			end
 			if explicit ~= nil and explicit ~= true then
 				return linkClose(UI.Button "Close" {
+					Visible = showClose,
 					label = explicit :: Types.Input<string>,
 					icon = "close",
 					appearance = if overHero then "inverse" else "utility",
@@ -171,6 +177,7 @@ return function(
 			if #header > 0 then
 				local row: Types.FrameProps = {
 					Name = "Header",
+					Visible = showHeader,
 					BackgroundTransparency = 1,
 					Size = D2.new(1, 0, 0, 0),
 					AutomaticSize = E.AutomaticSize.Y,
