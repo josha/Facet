@@ -106,7 +106,11 @@ local function derivePalette(
 		authored.contentStrong = content
 	end
 	if declared.contentSecondary == nil then
-		declared.contentSecondary = readable(content, { strong, surface }, 0.35, 4.5)
+		local grounds = { strong, surface }
+		local clear = readable(content, grounds, 0.25, 7)
+		declared.contentSecondary = if ratioOf(clear, strong) >= 7 and ratioOf(clear, surface) >= 7
+			then clear
+			else readable(content, grounds, 0.35, 4.5)
 	end
 	if declared.control == nil then
 		declared.control = mix(strong, content, 0.1)

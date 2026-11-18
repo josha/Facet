@@ -51,6 +51,7 @@ local CELLS: { [string]: { number } } = {
 type Extent = { x: number, y: number }
 
 local FLOWS: { [number]: number } = { [9] = 1, [11] = 3 }
+local ANCHOR = 48
 local BOTTOM: { number } = { 7, 11, 15 }
 
 local function cellOf(zone: string, riding: boolean, trailing: boolean?): (number, number)
@@ -233,6 +234,19 @@ local function resolve(
 				end
 			end
 		end
+		local function anchorFloor(column: number): number
+			if areas == nil then
+				return 0
+			end
+			local reach = 0
+			local x0 = if column == 1 then 0 elseif column == 3 then width - ANCHOR else (width - ANCHOR) / 2
+			for _, area in areas do
+				if area.right > area.left and x0 < area.right and x0 + ANCHOR > area.left then
+					reach = math.max(reach, area.reach)
+				end
+			end
+			return reach
+		end
 		local function raised(key: number): number
 			local tall = zoneH[key] or 0
 			return if tall > 0 then tall + floorOf(key) else 0
@@ -267,7 +281,7 @@ local function resolve(
 						end
 					end
 				end
-				check(key, room, if row == 1 then height else height - floorOf(key))
+				check(key, room, height - floorOf(key))
 			end
 			local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
 			local f2, f3 = floorOf(middle), floorOf(bottom)
@@ -277,26 +291,41 @@ local function resolve(
 				h3 = if stackedBottom then corner.bottom + gap + h3 else h3
 			end
 			local base = if h3 <= 0 then 0 elseif stackedBottom then math.max(0, f3 - corner.bottom - gap) else f3
-			if h3 > 0 then
-				lift[bottom] = -base
-			end
+			lift[bottom] = if h3 > 0 then -base else -anchorFloor(column)
 			if h2 > 0 then
-				local desired = (height - h2) / 2
+				local centered = (height - h2) / 2
+				local desired = (height - f2 - h2) / 2
 				if column == 2 then
+					lift[middle] = desired - centered
 					if h1 > 0 and h1 + gap > desired then
 						fail(top)
 						fail(middle)
 					end
-					if h3 > 0 and (height + h2) / 2 + gap > height - h3 - base then
+					if h3 > 0 and desired + h2 + gap > height - h3 - base then
 						fail(bottom)
-						fail(middle)
-					end
-					if (height + h2) / 2 > height - f2 then
 						fail(middle)
 					end
 				else
 					local high = if h1 > 0 then h1 + gap else 0
 					local low = if h3 > 0 then height - h3 - base - gap else height
+					local w = zoneW[middle] or 0
+					local x0, x1 = if column == 1 then 0 else width - w, if column == 1 then w else width
+					if (zoneW[9] or 0) > 0 and (zoneH[9] or 0) > 0 then
+						local a, b = span(9)
+						if a < x1 + gap and b + gap > x0 then
+							high = math.max(high, (zoneH[9] or 0) + (if stack.top then corner.top + gap else 0) + gap)
+						end
+					end
+					if (zoneW[11] or 0) > 0 and (zoneH[11] or 0) > 0 then
+						local a, b = span(11)
+						if a < x1 + gap and b + gap > x0 then
+							local reach = floorOf(11)
+							local raise = if stack.bottom
+								then math.max(0, reach - corner.bottom - gap) + corner.bottom + gap
+								else reach
+							low = math.min(low, height - (zoneH[11] or 0) - raise - gap)
+						end
+					end
 					local limit = math.min(low, height - f2)
 					if limit - high < h2 then
 						fail(middle)
@@ -307,7 +336,7 @@ local function resolve(
 							fail(bottom)
 						end
 					end
-					lift[middle] = math.clamp(desired, high, math.max(high, limit - h2)) - desired
+					lift[middle] = math.clamp(desired, high, math.max(high, limit - h2)) - centered
 				end
 			elseif h1 > 0 and h3 > 0 and h1 + gap + h3 + base > height then
 				fail(top)

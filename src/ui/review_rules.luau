@@ -56,7 +56,7 @@ local FIXES = table.freeze(fixes)
 local function pictured(content: string): boolean
 	local ok, found = pcall(function(): boolean
 		for _, point in utf8.codes(content) do
-			if point >= 0x1F000 or (point >= 0x2600 and point <= 0x27BF) or point == 0xFE0F then
+			if point >= 0x1F000 or point == 0xFE0F then
 				return true
 			end
 		end

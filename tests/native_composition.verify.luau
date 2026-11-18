@@ -522,6 +522,13 @@ return function(verifyHarness: Verify.Harness)
 				holder.Parent = root.Parent
 				root.Parent = holder
 				expect(inset.PaddingLeft):toBe(T.UDim.new(0, inset.PaddingLeft.Offset))
+				local bare = inset.PaddingLeft.Offset
+				sized(engine, root:FindFirstAncestorWhichIsA("ScreenGui"), 1920, 1080)
+				sized(engine, holder, 1920, 1080)
+				sized(engine, root, 1920, 1080)
+				expect(inset.PaddingLeft.Scale):toBe(0)
+				expect(inset.PaddingLeft.Offset):toBe(bare + 90)
+				expect(inset.PaddingTop.Offset >= 60):toBe(true)
 				stop()
 				local near, _, _, _, stopNear = mount()
 				expect(near:FindFirstChildWhichIsA("UIPadding").PaddingLeft.Scale):toBe(0)
@@ -869,6 +876,61 @@ return function(verifyHarness: Verify.Harness)
 				expect(shift.lift[15]):toBe(0)
 				forms, _, shift = resolver.resolve(733, 307, 8, { chat, prompt }, nil, nil, nil, { stick, jump })
 				expect(shift.lift[15]):toBe(-132)
+			end,
+		})
+
+		it("keeps the reviewed touch-floor cases: center band, center-lane neighbors, top rows and empty corners", {
+			id = "native_composition::Composition::keeps the reviewed touch-floor cases: center band, center-lane neighbors, top rows and empty corners",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function zone(name: resolver.Zone, x: number, y: number): Declared
+					return { zone = name, rank = 1, mayDrop = false, sizes = { { x = x, y = y } } }
+				end
+				local function controls(width: number): { resolver.Area }
+					return {
+						{ left = 0, right = width * 0.4, reach = 111 },
+						{ left = width - 132, right = width - 60, reach = 132 },
+					}
+				end
+				local _, _, shift, overflow =
+					resolver.resolve(790, 340, 8, { zone("center", 200, 120) }, nil, nil, nil, controls(790))
+				expect(#overflow):toBe(0)
+				expect((340 - 120) / 2 + shift.lift[10] + 120 <= 340 - 132):toBe(true)
+				_, _, _, overflow = resolver.resolve(
+					790,
+					340,
+					8,
+					{ zone("left", 98, 60), zone("bottom", 600, 40) },
+					nil,
+					nil,
+					nil,
+					controls(790)
+				)
+				expect(#overflow):toBe(0)
+				_, _, _, overflow = resolver.resolve(
+					790,
+					340,
+					8,
+					{ zone("right", 98, 60), zone("bottom", 700, 40) },
+					nil,
+					nil,
+					nil,
+					controls(790)
+				)
+				expect(#overflow):toBe(0)
+				_, _, _, overflow =
+					resolver.resolve(921, 292, 8, { zone("topRight", 332, 162) }, nil, nil, nil, controls(921))
+				expect(#overflow):toBe(1)
+				_, _, _, overflow =
+					resolver.resolve(921, 292, 8, { zone("topRight", 332, 150) }, nil, nil, nil, controls(921))
+				expect(#overflow):toBe(0)
+				_, _, shift = resolver.resolve(790, 340, 8, { zone("topLeft", 98, 40) }, nil, nil, nil, controls(790))
+				expect(shift.lift[7]):toBe(-111)
+				expect(shift.lift[15]):toBe(0)
+				local corner = { { left = 700, right = 790, reach = 90 } }
+				_, _, shift = resolver.resolve(790, 340, 8, { zone("topLeft", 98, 40) }, nil, nil, nil, corner)
+				expect(shift.lift[15]):toBe(-90)
 			end,
 		})
 

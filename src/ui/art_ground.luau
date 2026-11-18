@@ -5,7 +5,7 @@ local Paint = require("./paint_bounds")
 local decoration = require("./native_decoration")
 
 export type Margins = { top: number, right: number, bottom: number, left: number }
-type Spacing = (Types.Input<Types.Space>?, ComposeTypes.Use?) -> number
+type Spacing = (Types.Input<Types.Space>?, ComposeTypes.Use?, boolean?) -> number
 
 local SIDES: { "top" | "right" | "bottom" | "left" } = { "top", "right", "bottom", "left" }
 
@@ -20,6 +20,7 @@ local function padding(
 	carve: ComposeTypes.ReadOnlyValue<Margins>
 ): Types.Input<Types.Padding>
 	local D = ctx.types.UDim
+	local literal = not (ctx.Compose.isValue(authored) or type(authored) == "function")
 	return function(use: ComposeTypes.Use): Types.Padding
 		local value = ctx.read<<Types.Padding?>>(authored, use)
 		local given: { [string]: unknown } = if type(value) == "table"
@@ -31,7 +32,7 @@ local function padding(
 			local side = given[name]
 			sides[name] = if typeof(side) == "UDim"
 				then D.new(side.Scale, side.Offset + extra[name])
-				else D.new(0, spacing(side :: Types.Space?, use) + extra[name])
+				else D.new(0, spacing(side :: Types.Space?, use, literal) + extra[name])
 		end
 		return (sides :: unknown) :: Types.Padding
 	end

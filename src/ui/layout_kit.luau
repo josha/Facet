@@ -18,11 +18,12 @@ local function plain<N>(node: N & Instance, properties: unknown?): N & Instance
 end
 
 export type Kit = {
-	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?) -> number,
+	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?, boolean?) -> number,
 	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?) -> UIPadding?,
 	shadowRoom: (GuiObject, ComposeTypes.Value<Room>) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	lengthScale: (ComposeTypes.Use?) -> number,
+	literal: (unknown) -> boolean,
 	list: (Shared.Flow, Shared.Input<boolean>, boolean?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
 	touchClearance: (GuiObject, ComposeTypes.Value<number>, ComposeTypes.Value<{ TouchArea }>?) -> (),
@@ -78,8 +79,11 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	function kit.lengthScale(use: ComposeTypes.Use?): number
 		return themeDistance.metricScale(ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 	end
-	function kit.spacing(value: Shared.Input<Shared.Space>?, use: ComposeTypes.Use?): number
-		local authored = not live(value)
+	function kit.literal(value: unknown): boolean
+		return not live(value)
+	end
+	function kit.spacing(value: Shared.Input<Shared.Space>?, use: ComposeTypes.Use?, literal: boolean?): number
+		local authored = if literal == nil then not live(value) else literal
 		local step = read(value, use)
 		if step == nil then
 			return 0
@@ -101,19 +105,22 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		return pixels
 	end
 	local function gapValue(value: Shared.Input<Shared.Space>?): Shared.Input<UDim>
+		local authored = not live(value)
 		return derive(function(use)
 			local step = read(value, use)
 			if type(step) == "number" and step < 0 then
 				assert(step > -math.huge, "Facet gap must be a finite number of pixels")
-				return types.UDim.new(0, step)
+				local factor = if authored then kit.lengthScale(use) else 1
+				return types.UDim.new(0, math.floor(step * factor + 0.5))
 			end
 			return types.UDim.new(0, kit.spacing(value, use))
-		end, value, if type(read(value)) == "string" then config.theme else nil)
+		end, value, if read(value) ~= nil then config.theme else nil)
 	end
 	function kit.insets(padding: Shared.Input<Shared.Padding>?, room: ComposeTypes.ReadOnlyValue<Room>?): UIPadding?
 		if padding == nil then
 			return nil
 		end
+		local authored = not live(padding)
 		local function side(name: "top" | "right" | "bottom" | "left"): Shared.Input<UDim>
 			local function pick(use: ComposeTypes.Use?): Shared.Space?
 				local value = read<<Shared.Padding?>>(padding, use)
@@ -132,8 +139,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					local given = value
 					return if extra > 0 then types.UDim.new(given.Scale, given.Offset + extra) else given
 				end
-				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use) + extra)
-			end, padding, if type(pick(nil)) == "string" then config.theme else nil, room)
+				return types.UDim.new(0, kit.spacing(value :: Shared.Space?, use, authored) + extra)
+			end, padding, if pick(nil) ~= nil then config.theme else nil, room)
 		end
 		return Host.UIPadding {
 			PaddingTop = side("top"),
@@ -1100,13 +1107,19 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				end
 				local controls: { GuiObject } = {}
 				local stickArt: { [GuiObject]: { GuiObject } } = {}
+				local stickButtons: { [GuiObject]: { GuiButton } } = {}
+				local resting: { [GuiObject]: number } = {}
 				for _, node in if touchGui then touchGui:GetDescendants() else {} do
 					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
 						continue
 					end
 					local region = node:FindFirstAncestor("DynamicThumbstickFrame")
 					if region and region:IsA("GuiObject") then
-						if node:IsA("GuiObject") and not node:IsA("GuiButton") then
+						if node:IsA("GuiButton") then
+							local buttons = stickButtons[region] or {}
+							stickButtons[region] = buttons
+							table.insert(buttons, node)
+						elseif node:IsA("GuiObject") then
 							local art = stickArt[region] or {}
 							stickArt[region] = art
 							table.insert(art, node)
@@ -1175,12 +1188,20 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							node = node.Parent
 						end
-						local tallest = 0
+						local held = false
+						for _, button in stickButtons[control] or {} do
+							held = held or use(runtime.observe(button, "GuiState")) == Enum.GuiState.Press
+						end
+						local tallest, top = 0, math.huge
 						for _, image in stickArt[control] or {} do
 							local drawn = use(ctx.observe.AbsoluteSize(image)).Y
-							if use(ctx.observe.Visible(image)) and drawn < bounds.Y / 2 then
-								tallest = math.max(tallest, drawn)
+							if use(ctx.observe.Visible(image)) and drawn < bounds.Y / 2 and drawn >= tallest then
+								tallest = drawn
+								top = use(ctx.observe.AbsolutePosition(image)).Y
 							end
+						end
+						if not held or resting[control] == nil then
+							resting[control] = top
 						end
 						local from: number? = nil
 						if tallest > 0 then
@@ -1191,7 +1212,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 									+ use(ctx.observe.AbsoluteSize(host)).Y
 								rest = math.min(rest, hostEnd)
 							end
-							from = math.max(start.Y, rest - tallest * STICK_REACH)
+							from = math.max(start.Y, math.min(resting[control], rest - tallest * STICK_REACH))
 						end
 						reserve(start, bounds, shown and nativeActive, from)
 					end

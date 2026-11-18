@@ -260,6 +260,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		padding: Types.Input<Types.Padding>,
 		bend: (ComposeTypes.Use) -> (number, boolean?)
 	): Types.Input<Types.Padding>
+		local authored = kit.literal(padding)
 		return function(use: ComposeTypes.Use): Types.Padding
 			local value = read<<Types.Padding>>(padding, use)
 			local given: { [string]: unknown } = if type(value) == "table"
@@ -274,7 +275,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					end
 					pixels[name] = side.Offset
 				else
-					pixels[name] = kit.spacing(side :: Types.Space?, use)
+					pixels[name] = kit.spacing(side :: Types.Space?, use, authored)
 				end
 			end
 			local radius, wide = bend(use)
@@ -289,7 +290,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					grown[grow] = math.max(grown[grow], reach)
 				end
 			end
-			return { top = grown.top, right = grown.right, bottom = grown.bottom, left = grown.left }
+			local D = ctx.types.UDim
+			return (
+				{
+					top = D.new(0, grown.top),
+					right = D.new(0, grown.right),
+					bottom = D.new(0, grown.bottom),
+					left = D.new(0, grown.left),
+				} :: unknown
+			) :: Types.Padding
 		end
 	end
 	local function cornerShape(corners: Types.Input<Layout.StackCorners>?, owner: string, use: ComposeTypes.Use?): UDim
@@ -566,6 +575,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end)
 		local FRACTION: { [string]: number } =
 			{ top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
+		local authoredPadding = kit.literal(base)
 		local flow: Types.Flow = {
 			gap = spec.gap,
 			align = spec.align,
@@ -577,7 +587,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					else { top = value, right = value, bottom = value, left = value }
 				local margins = read<<(Environment.SafeInsets | "none")?>>(authored, use)
 				local function side(name: "top" | "right" | "bottom" | "left", extra: number): UDim
-					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use) + extra
+					local pixels = kit.spacing((sides :: { [string]: Types.Space? })[name], use, authoredPadding)
+						+ extra
 					local available = use(clearance)
 					if available and chrome ~= "edge" then
 						return ctx.types.UDim.new(0, pixels + available[name])

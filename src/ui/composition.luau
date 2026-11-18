@@ -600,10 +600,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		local gap: Types.Input<Types.Space> = if spec.gap == nil then "s" else spec.gap
 		local base: Types.Input<Types.Padding> = if spec.padding == nil then "s" else spec.padding
+		local literalPadding = kit.literal(base)
 		local under = Compose.cell(0)
 		local touch = Compose.cell(0)
 		local touchAreas: ComposeTypes.Value<{ resolver.Area }> = Compose.cell({}, sameAreas)
 		local direct = Compose.cell(false)
+		local nested: ComposeTypes.Value<{ [string]: number }?> = Compose.cell(nil :: { [string]: number }?)
 		local distant = ctx.tenFoot()
 		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
 		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
@@ -616,7 +618,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				else { top = value, right = value, bottom = value, left = value }
 			local margins = readOverscan(overscan, use)
 			local framed = use(direct)
+			local within = if framed then nil else use(nested)
 			local function side(name: "top" | "right" | "bottom" | "left", pixels: number): UDim
+				if within then
+					return D.new(0, pixels + within[name])
+				end
 				if framed and type(margins) == "table" then
 					local inset = if name == "top"
 						then margins.top
@@ -629,10 +635,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			end
 			return (
 				{
-					top = side("top", kit.spacing(sides.top, use) + use(under)),
-					right = side("right", kit.spacing(sides.right, use)),
-					bottom = side("bottom", kit.spacing(sides.bottom, use)),
-					left = side("left", kit.spacing(sides.left, use)),
+					top = side("top", kit.spacing(sides.top, use, literalPadding) + use(under)),
+					right = side("right", kit.spacing(sides.right, use, literalPadding)),
+					bottom = side("bottom", kit.spacing(sides.bottom, use, literalPadding)),
+					left = side("left", kit.spacing(sides.left, use, literalPadding)),
 				} :: unknown
 			) :: Types.Padding
 		end)
@@ -665,7 +671,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local function stripEnd(use: ComposeTypes.Use): number
 			local value = readPadding(base, use)
 			local right: Types.Space? = if type(value) == "table" then value.right else value
-			return math.max(kit.spacing(gap, use), kit.spacing(right, use))
+			return math.max(kit.spacing(gap, use), kit.spacing(right, use, literalPadding))
 		end
 		local function landingFrame(name: string, alignment: Enum.HorizontalAlignment): Frame
 			return Host.Frame(name)({
@@ -768,6 +774,64 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		kit.underTopbar(root, under)
 		kit.touchClearance(root, touch, touchAreas)
+		do
+			local owner = assert(Compose.currentOwner())
+			local measuring: ComposeTypes.Owner? = nil
+			local function measure()
+				if ComposeTypes.owner.isDisposed(owner) then
+					return
+				end
+				if measuring then
+					ComposeTypes.owner.dispose(measuring)
+					measuring = nil
+				end
+				local layer = root:FindFirstAncestorWhichIsA("LayerCollector")
+				if layer == nil or root.Parent == layer or not layer:IsA("GuiBase2d") then
+					nested:set(nil)
+					return
+				end
+				local scope = ComposeTypes.owner.createChild(owner)
+				measuring = scope
+				Compose.withOwner(scope, function()
+					local position, size = ctx.observe.AbsolutePosition(root), ctx.observe.AbsoluteSize(root)
+					local origin = ctx.observe.AbsolutePosition(layer :: GuiBase2d)
+					local extent = ctx.observe.AbsoluteSize(layer :: GuiBase2d)
+					local unit = ctx.layoutUnit(root)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local margins = readOverscan(overscan, use)
+						local at, box, start, bounds = use(position), use(size), use(origin), use(extent)
+						if
+							not (type(margins) == "table" or (margins == nil and distant(use)))
+							or box.X <= 0
+							or bounds.X <= 0
+						then
+							nested:set(nil)
+							return
+						end
+						local scale = use(unit)
+						local function remaining(
+							name: "top" | "right" | "bottom" | "left",
+							span: number,
+							gap: number
+						): number
+							local fraction: number = FRACTION[name]
+							local inset = if type(margins) == "table"
+								then ((margins :: { [string]: number })[name] or 0) * scale
+								else span * fraction
+							return math.max(0, inset - gap) / scale
+						end
+						nested:set({
+							top = remaining("top", bounds.Y, at.Y - start.Y),
+							left = remaining("left", bounds.X, at.X - start.X),
+							bottom = remaining("bottom", bounds.Y, start.Y + bounds.Y - at.Y - box.Y),
+							right = remaining("right", bounds.X, start.X + bounds.X - at.X - box.X),
+						})
+					end)
+				end)
+			end
+			runtime.connect(root, "AncestryChanged", measure)
+			measure()
+		end
 		local riding: (ComposeTypes.Use) -> boolean = function()
 			return false
 		end
@@ -934,6 +998,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local safeSize = ctx.observe.AbsoluteSize(safe)
 		local safeOrigin = ctx.observe.AbsolutePosition(safe)
 		local rootOrigin = ctx.observe.AbsolutePosition(root)
+		local zoneOffset = Compose.formula(function(use: ComposeTypes.Use): number
+			return (use(safeOrigin).X - use(rootOrigin).X) / use(safeUnit)
+		end)
+		local touchControls = if ctx.config.guiService
+			then runtime.observe(ctx.config.guiService, "TouchControlsEnabled")
+			else nil
 		local actionZone = Compose.formula(function(use: ComposeTypes.Use): resolver.Zone
 			local size = use(safeSize) / use(safeUnit)
 			return if size.Y > size.X then "bottom" else "bottomRight"
@@ -1245,7 +1315,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				else nil
 			local spacing = kit.spacing(gap, use)
 			local listKey = regionsKey(list)
-			local offset = (use(safeOrigin).X - use(rootOrigin).X) / use(safeUnit)
+			local offset = use(zoneOffset)
 			local areas: { resolver.Area } = {}
 			for _, area in use(touchAreas) do
 				table.insert(areas, { left = area.left - offset, right = area.right - offset, reach = area.reach })
@@ -1281,12 +1351,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if #here > 0 then
 				table.insert(unfit, `{math.floor(extent.X)} by {math.floor(extent.Y)} now: {table.concat(here, ", ")}`)
 			end
-			for _, phone in PHONES do
+			for _, phone in if distant(use) then {} else PHONES do
 				if extent.X > phone.X or extent.Y > phone.Y then
-					local guiService = ctx.config.guiService
-					local controls = if guiService and guiService.TouchControlsEnabled == false
-						then nil
-						else phoneControls(phone)
+					local observed = touchControls
+					local shown = if observed then use(observed) ~= false else true
+					local controls = if shown then phoneControls(phone) else nil
 					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls).overflow
 					local names = misfits(phone.X, missed)
 					if #names > 0 then

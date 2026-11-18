@@ -93,6 +93,7 @@ return function(harness: Verify.Harness)
 			local distance = Facet.Compose.cell<<("automatic" | "near" | "ten-foot")?>>("ten-foot")
 			local literal: GuiObject?, computed: GuiObject?, picture: GuiObject?, spaced: GuiObject? =
 				nil, nil, nil, nil
+			local plate: GuiObject?, given: GuiObject? = nil, nil
 			local stop = runtime.mount(function()
 				local UI = Facet.controls(
 					runtime,
@@ -102,7 +103,9 @@ return function(harness: Verify.Harness)
 				computed = UI.VStack "Computed" { width = UI.environment().scaled(220) }
 				picture = UI.Image { image = "rbxassetid://1", width = 200, height = 112 }
 				spaced = UI.VStack "Spaced" { padding = 8, gap = 8 }
-				return Facet.host(runtime).Folder({ literal, computed, picture, spaced })
+				plate = UI.VStack "Plate" { surface = "panel", padding = "m" }
+				given = UI.VStack "Given" { padding = UI.environment().scaled(8) }
+				return Facet.host(runtime).Folder({ literal, computed, picture, spaced, plate, given })
 			end, engine.new("ScreenGui"))
 			Verify.expect(assert(literal).Size.X.Offset):toBe(330)
 			Verify.expect(assert(literal).Size.Y.Offset):toBe(60)
@@ -111,7 +114,17 @@ return function(harness: Verify.Harness)
 			Verify.expect(assert(picture).Size.Y.Offset):toBe(168)
 			local list = assert(assert(spaced):FindFirstChildWhichIsA("UIListLayout"))
 			Verify.expect(list.Padding.Offset):toBe(12)
+			local function inset(node: GuiObject?): number
+				return assert(assert(node):FindFirstChildWhichIsA("UIPadding")).PaddingLeft.Offset
+			end
+			Verify.expect(inset(spaced)):toBe(12)
+			Verify.expect(inset(plate)):toBe(24)
+			Verify.expect(inset(given)):toBe(12)
 			distance:set("near")
+			Verify.expect(list.Padding.Offset):toBe(8)
+			Verify.expect(inset(spaced)):toBe(8)
+			Verify.expect(inset(plate)):toBe(16)
+			Verify.expect(inset(given)):toBe(8)
 			Verify.expect(assert(literal).Size.X.Offset):toBe(220)
 			Verify.expect(assert(computed).Size.X.Offset):toBe(220)
 			Verify.expect(assert(picture).Size.X.Offset):toBe(200)
