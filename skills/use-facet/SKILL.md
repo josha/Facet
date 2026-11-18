@@ -14,8 +14,12 @@ phone, a desktop and a television.
 
 ## UI scope
 
-Facet owns the interface. Generate art for UI roles such as icons, control
-surfaces, textures and selection marks. The game-building agent owns the
+Facet owns the interface. Facet draws a standard set of icons in the theme
+color at every size (node `Icons.names`): settings, close, back, menu, bag,
+coin, gem, trophy, star, heart, lock, timer and others. Use those names
+before you make icon art. Generate art for UI roles that the set does not
+cover, such as a game-specific icon, control surfaces, textures and selection
+marks. The game-building agent owns the
 world, environments, characters, vehicles and their rendering. Use the game
 content it supplies; displaying that content in an `Image` or `Stage` does
 not make its creation a Facet task. A game scene used as a background remains
@@ -243,7 +247,8 @@ blocked, report the constraint and the visual loss as a fallback.
 | --- | --- |
 | Flat color, lines, light, gradients and type | The theme: `finish`, the palette and the type roles |
 | A drawn material on plates or controls: a texture, a bevel, a shaped or pixel-cut edge | Images in `chrome`, when you can make and upload them; see [three ways to use images](references/game-themes.md#three-ways-to-use-images) |
-| UI illustrations, materials or icons | `UI.Image` and theme `icons` from separate UI asset files |
+| Icons for standard commands and common objects | The Facet `icon` names on the control |
+| UI illustrations, materials or other icons | `UI.Image` and theme `icons` from separate UI asset files |
 | A game scene or subject shown for context | Supplied game content; its creation and rendering remain the game author's choice |
 
 Make each UI image as its own file for its role; do not cut pieces from the
@@ -498,9 +503,46 @@ the first screen on a desktop, a phone in portrait and the same phone in
 landscape before you build more screens. Restore the desktop preview when you
 finish.
 
-Let a plate hug its content. A pixel width that makes a text fit on a
-desktop does not shrink on a phone, and `mayDrop = true` does not repair it:
-the Popover that shows the dropped part is as wide as the part.
+Let a plate hug its content. A number for `width`, `height`, `padding` or
+`gap` is a length in layout units: Facet scales it with the theme at ten feet
+and on large displays, as it scales text. A readable such as
+`env.scaled(220)` is a length that you computed, and Facet uses it as it is.
+A number does not shrink on a phone. A width that makes a text fit on a
+desktop is too wide there, and `mayDrop = true` does not repair it: the
+Popover that shows the dropped part is as wide as the part.
+
+**A HUD gives way.** In a `Composition`, every `Region` needs a way to give
+room when the screen is short or when touch controls take a corner. Give it
+one of these:
+
+- a shorter form: a second child, such as an icon with one numeral in
+  place of a panel with a label;
+- `mayDrop = true`, when the player can play without the region;
+- a higher `rank` number than the regions that must stay, so that it steps
+  down first.
+
+`reveal = false` only removes the badge of a dropped region. It does not let
+a region give way. A region with one form, no `mayDrop` and the lowest rank
+cannot move, so it overlaps its neighbor when the room ends. After you build
+the HUD, read the `FacetUnfit` attribute and the `FacetUnfitDetails` value on
+the Composition at each size. Facet also checks a reference phone in both
+orientations with the default touch controls, so a desktop capture reports a
+HUD that does not fit a phone.
+
+Put compact status that the player looks at quickly, such as the round, the
+score, a timer or the currency, in `zone = "topbar"` with `leading = true` or
+`trailing = true`. It sits in the strip at the top of the screen beside the
+Roblox controls, and it leaves the play area clear. Composition moves it
+below the strip when the strip has no room.
+
+A standard command, such as settings, close, back, menu or more, is an
+icon-only Button with a name: `UI.Button { icon = "settings", name =
+"Settings" }`. Players know these marks on every platform, and the HUD stays
+small. A common destination, such as a shop, an inventory or stats, shows
+its icon and a short word in its full form, for example `icon = "bag"` with
+`label = "Shop"`, and the icon alone in its shorter form. Use a Facet icon
+name, not an emoji: a Roblox font does not draw every emoji, and an emoji
+does not take the theme color.
 
 A size that you fix stays fixed in a short room; Facet does not choose a
 shorter form for you. A record that is taller than the room that scrolls it
@@ -530,7 +572,7 @@ check.
    UI ground reaches every edge when a covering surface is intended; a HUD
    leaves the game view visible. Every part of the desktop screen is present at
    every size under the same label. The main action is inside the thumb's
-   reach on a phone.
+   reach on a phone. A HUD Composition has no `FacetUnfit` attribute.
 2. **Lead.** The subject or the content is the largest and clearest thing on
    the screen, at every size. On a desktop its objects and markings span most
    of the width.

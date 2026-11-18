@@ -7,6 +7,33 @@ does not count, and the existing pause setting applies to each period.
 `onPresentedChange` receives the dismissal reason as its second argument.
 `app.presentToast` exposes the same controlled presentation options.
 The Toast page in Facet Lab exercises host resizing and controlled continuation.
+A HUD `Composition` reserves room for the Roblox touch controls only under the
+zones that they cover. Before, the space above the highest control was taken
+from the whole width of the screen: on a phone in landscape the thumbstick's
+touch area left the HUD a band about 90 pixels tall, and regions on the other
+side overlapped. Facet now finds the thumbstick art that the current
+PlayerModule draws with Frames, and a side region (`left` or `right`) moves
+down below the corner region above it when the center does not fit, in place
+of overlapping it. The reference phone check behind `FacetUnfit` and
+`composition-unfit` now includes the default stick and jump controls.
+
+A number for `width`, `height`, `padding` or `gap` on a stack, and for the
+size of `UI.Image`, follows the theme scale: it grows by 1.5 at ten feet and
+with the resolution factor on large displays, as text and controls do. Before,
+a panel with `width = 220` stayed 220 pixels on a console while its text grew.
+A readable, such as `env.scaled(220)`, is used as it is, so code that already
+scales its lengths keeps its size.
+
+`themes.define` derives the palette roles that a theme does not state from the
+theme's own colors when it states a `surface`: secondary text from `content`,
+the control plate and the selected plate from the surfaces and `accent`.
+Before, they came from the neutral palette, so a navy theme had slate controls
+and a gray caption below 4.5:1 contrast. The contrast report now checks
+`contentSecondary` on `surface` and on `surfaceStrong`, and a pair below 4.5:1
+is an error.
+
+`Facet.review` has a rule `emoji-icon` for a text that draws an emoji as an
+icon. A Roblox font does not draw every emoji.
 
 Each standard icon name now has a built-in vector glyph. When no theme
 package or `icons` map supplies image art for a name, the icon draws as native

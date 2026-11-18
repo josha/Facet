@@ -84,15 +84,17 @@ room. See [compact compositions](compact-compositions.md).
 
 Actions and choices of one kind are one stack of equal parts. A Button hugs
 its label, so a column of Buttons with no `align` has a different width for
-each label, and a row of them leaves the last one short. Give the group one
-width and let the stack size the parts: `align = "stretch"` for a column,
-`Grid` with `columns` for a row of equal cells.
+each label, and a row of them leaves the last one short. Let the stack size
+the parts: `align = "stretch"` for a column, so that each part is as wide as
+the widest one, and `Grid` with `columns` for a row of equal cells. The group
+then hugs its content, and it is as wide as its longest label at every text
+size.
 
 ```luau
 local function drive(app: Facet.App, speed: Facet.ReadOnlyValue<string>,
   boost: () -> (), recover: () -> (), chat: () -> ()): Frame
   local UI = app.UI
-  return UI.VStack "Drive" { width = 220, align = "stretch", gap = "s",
+  return UI.VStack "Drive" { align = "stretch", gap = "s",
     surface = "panel", padding = "s",
     UI.Text { text = speed, textRole = "numeral" },
     UI.Button "Boost" { label = "Boost", appearance = "emphasis", onActivate = boost },
