@@ -3,13 +3,15 @@ local CatalogTypes = require("./catalog_types")
 
 return function(c: CatalogTypes.Context): CatalogTypes.Properties
 	local fill = c.cell("fillBody", false)
+	local detent = c.cell("bodyDetent", "hug")
+	c.Compose.watch(function(use: CatalogTypes.Use)
+		detent:set(if use(fill) then "window" else "hug")
+	end)
 	local detents: { CatalogTypes.SheetDetent } = { "hug", { id = "window", fraction = 0.9 } }
 	return {
 		placement = "center",
 		detents = detents,
-		detent = function(use: CatalogTypes.Use)
-			return if use(fill) then "window" else "hug"
-		end,
+		detent = detent,
 		content = function()
 			local toggle: CatalogTypes.ToggleCellProps = { label = "Fill available height", value = fill }
 			local body: CatalogTypes.StackProps = {
