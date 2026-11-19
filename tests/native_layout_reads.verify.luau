@@ -199,26 +199,34 @@ return function(harness: Verify.Harness)
 					return UI.VStack { width = 80, UI.Text "Caption" { text = "Ready to race", textSize = 15 } }
 				end)
 				local label = VerifyRoblox.assertInstance(assert(root:FindFirstChild("Caption")))
-				local function settle(size: Vector2, bounds: Vector2, fits: boolean)
+				local function settle(size: Vector2, bounds: Vector2, fits: boolean, text: string?)
+					if text then
+						poke(label, "Text", text)
+					end
 					poke(label, "AbsoluteSize", size)
 					poke(label, "TextBounds", bounds)
 					poke(label, "TextFits", fits)
 					world.step(1)
+				end
+				local function width(): number
+					return math.round(((label :: unknown) :: TextLabel).Size.X.Scale * 100)
 				end
 				local function scale(): number
 					local fit = ((label :: unknown) :: Instance):FindFirstChild("TextFit")
 					return if fit ~= nil and fit:IsA("UIScale") then fit.Scale else 1
 				end
 				settle(V2.new(80, 15), V2.new(100, 15), false)
-				local shrunk = scale()
-				settle(V2.new(64, 12), V2.new(80, 12), true)
+				local shrunk, wide = scale(), width()
+				settle(V2.new(80, 12), V2.new(80, 12), true)
 				local held = scale()
-				settle(V2.new(64, 12), V2.new(48, 9), true)
-				expect({ shrunk = math.round(shrunk * 100), held = math.round(held * 100), grown = scale() }):toEqual({
-					shrunk = 80,
-					held = 80,
-					grown = 1,
-				})
+				settle(V2.new(80, 12), V2.new(48, 9), true, "Ready")
+				expect({
+					shrunk = math.round(shrunk * 100),
+					wide = wide,
+					held = math.round(held * 100),
+					grown = scale(),
+					restored = width(),
+				}):toEqual({ shrunk = 80, wide = 125, held = 80, grown = 1, restored = 100 })
 				expect(world.engine.layoutReadsInChange()):toEqual({})
 				world.stop()
 			end,

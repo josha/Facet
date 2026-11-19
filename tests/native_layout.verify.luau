@@ -2660,10 +2660,11 @@ return function(verifyHarness: Verify.Harness)
 					local label = assert(root:FindFirstChild("Caption"))
 					engine.environment.poke(root, "AbsoluteSize", Vector2.new(80, 20))
 					engine.environment.poke(label, "TextBounds", Vector2.new(100, 15))
-					engine.environment.poke(label, "TextFits", false)
 					engine.environment.poke(label, "AbsoluteSize", Vector2.new(80, 15))
+					engine.environment.poke(label, "TextFits", false)
 					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
 					expect(math.abs(fit.Scale - 0.8) < 0.01):toBe(true)
+					expect(math.abs((label :: TextLabel).Size.X.Scale - 1.25) < 0.02):toBe(true)
 					stop()
 				end,
 			})
