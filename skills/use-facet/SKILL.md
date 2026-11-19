@@ -538,9 +538,11 @@ below the strip when the strip has no room.
 A standard command, such as settings, close, back, menu or more, is an
 icon-only Button with a name: `UI.Button { icon = "settings", name =
 "Settings" }`. Players know these marks on every platform, and the HUD stays
-small. A common destination, such as a shop, an inventory or stats, shows
-its icon and a short word in its full form, for example `icon = "bag"` with
-`label = "Shop"`, and the icon alone in its shorter form. Use a Facet icon
+small. A destination whose mark players know, such as a bag for the
+inventory or a trophy for the rankings, is icon-only in the same way. A
+destination or an action that is particular to the game, such as Boost or a
+named shop, shows its icon and a short word, and the icon alone in the
+shorter form of its region. Use a Facet icon
 name, not an emoji: a Roblox font does not draw every emoji, and an emoji
 does not take the theme color.
 

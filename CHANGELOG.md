@@ -24,11 +24,23 @@ a panel with `width = 220` stayed 220 pixels on a console while its text grew.
 A readable, such as `env.scaled(220)`, is used as it is, so code that already
 scales its lengths keeps its size.
 
+**Breaking:** a theme whose `contentSecondary` is below 4.5:1 on `surface` or
+`surfaceStrong` no longer defines; `themes.define` returns nil and a report with
+the error. Before, the theme loaded with a caption that players could not read.
+Raise the contrast of that color, or remove it so that Facet derives one.
+
+A `Composition` inside a full-screen frame now gets the TV overscan margins at
+ten feet, the part of each margin that its position does not already clear.
+Before, only a Composition placed directly in a ScreenGui had them. The phone
+reference check of `FacetUnfit` is skipped at ten feet, where its sizes do not
+apply.
+
 `themes.define` derives the palette roles that a theme does not state from the
 theme's own colors when it states a `surface`: secondary text from `content`,
 the control plate and the selected plate from the surfaces and `accent`.
-Before, they came from the neutral palette, so a navy theme had slate controls
-and a gray caption below 4.5:1 contrast. The contrast report now checks
+Secondary text aims at 7:1 on both surfaces and keeps the hue of `content`.
+Before, these roles came from the neutral palette, so a navy theme had slate
+controls and a gray caption below 4.5:1 contrast. The contrast report now checks
 `contentSecondary` on `surface` and on `surfaceStrong`, and a pair below 4.5:1
 is an error.
 

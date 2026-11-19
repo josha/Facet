@@ -226,6 +226,10 @@ uploaded asset. To use image art, map the name to image content or a font glyph
 in the theme package `icons`. That art takes precedence over the built-in glyph.
 An unknown name causes an error.
 
+For filled icons, a theme can map each name to the uploaded filled set in
+[`assets/icons/upload-manifest.json`](../../assets/icons/upload-manifest.json).
+Those images are Open Use, so any experience can load them.
+
 Icons resolve through `themes.resolveIcon`. An icon entry is image content,
 the name of a declared asset or a font glyph. A font glyph is
 `{ font, codepoint, tintRole? }`. `font` is a `Font` or a font spec, and
