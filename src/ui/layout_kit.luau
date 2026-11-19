@@ -27,7 +27,7 @@ export type Kit = {
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	lengthScale: (ComposeTypes.Use?) -> number,
 	literal: (unknown) -> boolean,
-	list: (Shared.Flow, Shared.Input<boolean>, boolean?, ((ComposeTypes.Use) -> Room)?) -> UIListLayout,
+	list: (Shared.Flow, Shared.Input<boolean>, boolean?, Shared.Input<UDim>?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
 	touchClearance: (GuiObject, ComposeTypes.Value<number>, ComposeTypes.Value<{ TouchArea }>?) -> (),
 	ordered: (Shared.ChildList, Place?) -> { ComposeTypes.Child },
@@ -318,7 +318,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		flow: Shared.Flow,
 		vertical: Shared.Input<boolean>,
 		matched: boolean?,
-		reach: ((ComposeTypes.Use) -> Room)?
+		padding: Shared.Input<UDim>?
 	): UIListLayout
 		local function column(use: ComposeTypes.Use?): boolean
 			return read(vertical, use) == true
@@ -337,18 +337,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}
 		if flow.gap ~= nil then
-			local gap = gapValue(flow.gap)
-			native.Padding = if reach
-				then function(use: ComposeTypes.Use): UDim
-					local base = read<<UDim>>(gap, use)
-					if base.Offset <= 0 and base.Scale <= 0 then
-						return base
-					end
-					local room = reach(use)
-					local extra = if column(use) then room.top + room.bottom else room.left + room.right
-					return types.UDim.new(base.Scale, base.Offset + extra)
-				end
-				else gap
+			native.Padding = padding or gapValue(flow.gap)
 		end
 		if flow.wrap ~= nil then
 			native.Wraps = flow.wrap
@@ -618,51 +607,65 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local matched = (flow.align == "stretch" or live(flow.align))
 			and (across == nil or across == "hug")
 			and not live(if column then flow.width else flow.height)
-		local reactive = flow.gap ~= nil and live(config.theme)
-		local shadowed = flow.gap ~= nil
-			and (reactive or themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme)) > 0)
-		local between: ComposeTypes.Value<Room>? = if shadowed
+		local function lifted(use: ComposeTypes.Use?): boolean
+			return themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)) > 0
+		end
+		local between: ComposeTypes.Value<Room>? = if flow.gap ~= nil and lifted()
 			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
 			else nil
-		local attach: (() -> ())? = nil
-		local attached = not reactive
-		local function reach(use: ComposeTypes.Use): Room
-			local pending = if attached then nil else attach
-			if
-				pending ~= nil
-				and themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)) > 0
-			then
-				attached = true
-				pending()
+		local frame: Frame? = nil
+		local padding: Shared.Input<UDim>? = nil
+		if flow.gap ~= nil and (between ~= nil or live(config.theme)) then
+			local gap = gapValue(flow.gap)
+			local owner = Compose.currentOwner()
+			padding = function(use: ComposeTypes.Use): UDim
+				local base = read<<UDim>>(gap, use)
+				if (base.Offset <= 0 and base.Scale <= 0) or not lifted(use) then
+					return base
+				end
+				local existing = between
+				local cell: ComposeTypes.Value<Room>
+				if existing ~= nil then
+					cell = existing
+				else
+					local host = frame
+					if host == nil then
+						return base
+					end
+					local scope = owner
+					if scope == nil then
+						return base
+					end
+					local made: ComposeTypes.Value<Room> = Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
+					Compose.withOwner(scope, function()
+						kit.shadowRoom(host, made, true)
+					end)
+					between = made
+					cell = made
+				end
+				local held: Room = use(cell)
+				local extra = if read(vertical, use) == true then held.top + held.bottom else held.left + held.right
+				return types.UDim.new(base.Scale, base.Offset + extra)
 			end
-			return use(assert(between))
 		end
-		local list = kit.list(flow, vertical, matched, if between then reach else nil)
-		local frame = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
+		local list = kit.list(flow, vertical, matched, padding)
+		local built = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
+		frame = built
 		if room then
-			kit.shadowRoom(frame, room)
+			kit.shadowRoom(built, room)
 		end
-		if between and reactive then
-			local cell = between
-			attach = Compose.bindOwner(function()
-				kit.shadowRoom(frame, cell, true)
-			end) :: () -> ()
-			if themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme)) > 0 then
-				attached = true
-				(assert(attach))()
-			end
-		elseif between then
-			kit.shadowRoom(frame, between, true)
+		if between then
+			kit.shadowRoom(built, between, true)
 		end
 		if matched then
-			kit.match(frame, column == true, function(use: ComposeTypes.Use?): boolean
+			kit.match(built, column == true, function(use: ComposeTypes.Use?): boolean
 				return read(flow.align, use) == "stretch"
 			end)
 		end
 		if flow.wrap ~= nil and flow.wrap ~= false then
 			local content = ctx.observe.AbsoluteContentSize(list)
-			local unit = ctx.layoutUnit(frame, "WrapUnit")
-			local liftX, liftY = kit.lifter(frame, "x"), kit.lifter(frame, "y")
+			local unit = ctx.layoutUnit(built, "WrapUnit")
+			local liftX, liftY = kit.lifter(built, "x"), kit.lifter(built, "y")
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size, scale = use(content), use(unit)
 				local inset = if room then use(room) else { top = 0, right = 0, bottom = 0, left = 0 }
@@ -671,7 +674,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				liftY(if wraps and not vertical then size.Y / scale + inset.top + inset.bottom else 0)
 			end)
 		end
-		return kit.plain(frame, properties)
+		return kit.plain(built, properties)
 	end
 	local PLATES = { "facet-panel", "facet-surface", "facet-pane" }
 	local function plated(node: Instance): boolean
