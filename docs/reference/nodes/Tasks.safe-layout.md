@@ -24,8 +24,9 @@ cutouts and core UI. Screen with default `chrome = "device"` and Composition
 also reserve the bottom band occupied by visible Roblox TouchGui buttons and
 thumbstick regions when UserInputService.TouchEnabled is true. For the
 dynamic thumbstick the band covers the stick where it rests, not the larger
-region that takes the drag. They observe native bounds, visibility and
-lifetime. Rotation updates the clearance.
+region that takes the drag. Composition lifts only the zones above a
+control, and keeps the room while a Facet overlay holds the controls off.
+Rotation updates the clearance.
 Nested surfaces add only clearance that their own bounds still overlap.
 Bottom actions stay grouped above these controls; the world stays visible.
 

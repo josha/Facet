@@ -1384,6 +1384,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if not same then
 				landed:set(down)
 			end
+			local stacked = if moved.top > 0 then true else nil
+			if root:GetAttribute("FacetTopStacked") ~= stacked then
+				root:SetAttribute("FacetTopStacked", stacked)
+			end
 			local was = shift:peek()
 			if
 				was.top ~= moved.top

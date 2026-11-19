@@ -698,6 +698,40 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("washes a finish sheen over a plate that stays opaque", {
+			id = "native_themes_media::native themes and media::washes a finish sheen over a plate that stays opaque",
+			run = function()
+				local engine, runtime = setup()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "washed" },
+					finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0.2, role = "accent" } },
+				}
+				local package = assert((themes.define(definition)))
+				local stop, mounted = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themeState(package), { types = engine.types })
+				end, engine.new("ScreenGui"))
+				local sheet = mounted :: StyleSheet
+				local function last(selector: string)
+					local found: StyleRule? = nil
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							found = rule
+						end
+					end
+					return styleProperties(assert(found, "No rule: " .. selector))
+				end
+				local gradient = last(".facet-panel::UIGradient")
+				for _, point in (gradient.Transparency :: NumberSequence).Keypoints do
+					expect(point.Value):toBe(0)
+				end
+				local plate = last(".facet-panel").BackgroundColor3 :: Color3
+				expect(typeof(plate)):toBe("Color3")
+				stop()
+				runtime:dispose()
+			end,
+		})
+
 		it("resolves authored metric rules through distance and theme changes", {
 			id = "native_themes_media::native themes and media::resolves authored metric rules through distance and theme changes",
 			run = function()

@@ -86,8 +86,6 @@ local function suspended(ctx: Types.Context): ComposeTypes.ReadOnlyValue<boolean
 	end)
 end
 
--- True while a Facet overlay holds the Roblox touch controls off. They come back when it
--- closes, so a HUD keeps their room meanwhile instead of moving under the overlay.
 local function held(ctx: Types.Context): ComposeTypes.ReadOnlyValue<boolean>
 	local gui = ctx.config.guiService
 	local source = if gui then leaseFor(ctx, gui).holding else nil

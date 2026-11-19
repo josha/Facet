@@ -1116,10 +1116,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				end
 				local controls: { GuiObject } = {}
 				local stickArt: { [GuiObject]: { GuiObject } } = {}
-				local resting: {
-					[GuiObject]: { size: Vector2, tallest: number, top: number, left: number, right: number },
-				} =
-					{}
+				local resting: { [GuiObject]: { size: Vector2, tallest: number, top: number } } = {}
+				local columns: { [GuiObject]: { size: Vector2, left: number, right: number } } = {}
 				for _, node in if touchGui then touchGui:GetDescendants() else {} do
 					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
 						continue
@@ -1148,6 +1146,16 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					end
 				end
 				local touch = ctx.observe.TouchEnabled(input)
+				local fingers: { [InputObject]: boolean } = {}
+				local free = Compose.cell(true)
+				runtime.connect(input, "TouchStarted", function(contact: InputObject)
+					fingers[contact] = true
+					free:set(false)
+				end)
+				runtime.connect(input, "TouchEnded", function(contact: InputObject)
+					fingers[contact] = nil
+					free:set(next(fingers) == nil)
+				end)
 				local enabled = if touchGui then ctx.observe.Enabled(touchGui) else nil
 				local controlsEnabled = if config.guiService
 					then runtime.observe(config.guiService, "TouchControlsEnabled")
@@ -1157,8 +1165,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				local holding = gameplayHold.held(ctx)
 				local measured = false
 				Compose.watch(function(use: ComposeTypes.Use)
-					-- A Facet overlay turns the touch controls off while it is open and back on when it
-					-- closes. Keep their room meanwhile, so the HUD does not move under the overlay.
 					if use(holding) and measured then
 						return
 					end
@@ -1211,11 +1217,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							node = node.Parent
 						end
+						local idle = use(free)
 						local tallestNow, topNow, leftNow, rightNow = 0, math.huge, start.X, start.X + bounds.X
 						for _, image in stickArt[control] or {} do
 							local drawn = use(ctx.observe.AbsoluteSize(image))
 							if use(ctx.observe.Visible(image)) and drawn.Y < bounds.Y / 2 and drawn.Y >= tallestNow then
-								local placed = ctx.observe.AbsolutePosition(image):peek()
+								local spot = ctx.observe.AbsolutePosition(image)
+								local placed = if idle then use(spot) else spot:peek()
 								tallestNow = drawn.Y
 								topNow = placed.Y
 								leftNow, rightNow = placed.X, placed.X + drawn.X
@@ -1223,9 +1231,15 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 						end
 						local sample = resting[control]
 						if sample == nil or sample.size ~= bounds or tallestNow > sample.tallest then
-							sample =
-								{ size = bounds, tallest = tallestNow, top = topNow, left = leftNow, right = rightNow }
+							sample = { size = bounds, tallest = tallestNow, top = topNow }
 							resting[control] = sample
+						end
+						if idle and tallestNow > 0 then
+							columns[control] = { size = bounds, left = leftNow, right = rightNow }
+						end
+						local column = columns[control]
+						if column and column.size ~= bounds then
+							column = nil
 						end
 						local tallest = sample.tallest
 						local from: number? = nil
@@ -1239,12 +1253,9 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							from = math.max(start.Y, math.min(sample.top, rest - tallest * STICK_REACH))
 						end
-						-- A dynamic stick appears where the thumb lands, anywhere in its wide frame, but it
-						-- rests at its art. Reserve the columns around the resting art, as far as the
-						-- stick can travel to either side, so a HUD region beside it keeps its place.
 						local travel = tallest * (STICK_REACH - 1)
-						local near = if tallest > 0 then sample.left - travel else nil
-						local far = if tallest > 0 then sample.right + travel else nil
+						local near = if column and tallest > 0 then column.left - travel else nil
+						local far = if column and tallest > 0 then column.right + travel else nil
 						reserve(start, bounds, shown and nativeActive, from, near, far)
 					end
 					for _, declaration in read(config.touchReservations, use) or {} do

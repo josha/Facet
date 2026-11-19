@@ -36,6 +36,8 @@ local fixes: { [string]: string } = {
 	["floating-text"] = "Several texts sit straight on the 3D world with no plate, so the scene shows through and they collide with signs and bright objects. Group HUD readouts on a panel surface, or give each a stroke.",
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["composition-unfit"] = "A HUD Composition does not fit this screen or a phone screen: the named regions overlap there even at their last form, or their fullest form is wider than that screen, so the Popover that shows it runs past the edge. Give each of them a compact second form, such as one Menu circle for the destinations, a fullest form that hugs its content in place of a pixel width, or mayDrop = true for an optional region.",
+	["worded-command"] = 'A HUD button shows a standard command or a destination that players know, such as Settings or Shop, as a word. The word takes room that the HUD needs, most of all on a phone in portrait. Make it an icon-only Button with a name, such as UI.Button { icon = "settings", name = "Settings" }, and put the commands in zone = "topbar".',
+	["top-row-stacked"] = 'The top-center regions of a HUD Composition sit below a corner region, because the top row has no room beside it, and every region under them moves down. Put compact status and commands in zone = "topbar", make the corner region icon-only or give it a shorter form.',
 	["unnamed-reveal"] = 'A HUD region that the screen has no room for shows as a "..." mark, and the mark does not say what is behind it. Give the Region a label, an icon or both: the mark shows them, and the popover of several regions names each one. For a readout whose shorter form loses nothing, set reveal = false.',
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
@@ -48,6 +50,22 @@ local fixes: { [string]: string } = {
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 	["oversized-target"] = "A control is larger than the scroll area that holds it, so the player never sees it whole at this size. Measure the room of the list with UI.environment(body) and give the record a shorter form there, such as a thumbnail beside its facts, or move the header and the filters out of the room of the list. See the compact-compositions reference in the use-facet skill.",
+}
+local COMMANDS: { [string]: string } = {
+	settings = "settings",
+	options = "settings",
+	menu = "menu",
+	more = "more",
+	shop = "bag",
+	store = "bag",
+	inventory = "bag",
+	backpack = "bag",
+	stats = "trophy",
+	["lifetime stats"] = "trophy",
+	leaderboard = "trophy",
+	rankings = "trophy",
+	profile = "person",
+	chat = "chat",
 }
 local EDGE_CUT = 4
 local FIXES = table.freeze(fixes)
@@ -1511,6 +1529,50 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if element.reveal and element.visible and marks < 3 and area(element.rect) > 0 then
 			add("unnamed-reveal", "medium", element, `the mark does not say that it holds {element.reveal}`)
 			marks += 1
+		end
+	end
+
+	local worded = 0
+	for _, element in texts do
+		local label = string.lower(clean((element.text :: ReviewText).content))
+		local icon = COMMANDS[label]
+		if icon == nil or worded >= 3 then
+			continue
+		end
+		local button: ReviewElement? = nil
+		local inRegion = false
+		local parent = element.parent
+		while parent ~= nil do
+			local ancestor = prepared.byIndex[parent]
+			if ancestor == nil then
+				break
+			end
+			if
+				button == nil
+				and ancestor.interactive
+				and (ancestor.class == "TextButton" or ancestor.class == "ImageButton")
+			then
+				button = ancestor
+			end
+			if ancestor.region then
+				inRegion = true
+				break
+			end
+			parent = if ancestor.parent ~= nil and ancestor.parent < ancestor.index then ancestor.parent else nil
+		end
+		if button and inRegion then
+			add(
+				"worded-command",
+				"medium",
+				button,
+				`{quote(clean((element.text :: ReviewText).content))} can be icon = "{icon}"`
+			)
+			worded += 1
+		end
+	end
+	for _, element in snapshot.elements do
+		if element.stacked and element.visible then
+			add("top-row-stacked", "medium", element, "the top row moved below a corner region")
 		end
 	end
 

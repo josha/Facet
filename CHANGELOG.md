@@ -7,6 +7,7 @@ does not count, and the existing pause setting applies to each period.
 `onPresentedChange` receives the dismissal reason as its second argument.
 `app.presentToast` exposes the same controlled presentation options.
 The Toast page in Facet Lab exercises host resizing and controlled continuation.
+
 A HUD `Composition` reserves room for the Roblox touch controls only under the
 zones that they cover. Before, the space above the highest control was taken
 from the whole width of the screen: on a phone in landscape the thumbstick's
@@ -33,7 +34,18 @@ dynamic thumbstick, and as far as the stick travels to either side, in place
 of the whole width of its touch frame. In landscape the current PlayerModule
 draws that frame across the left 40 percent of the screen, and a region at
 the bottom center rose above the stick. In portrait the frame is the full
-width, and every bottom region did.
+width, and every bottom region did. Facet measures the resting art only while no
+finger is down, and reserves the whole frame until it has.
+
+A finish `sheen` is a wash over an opaque plate. Before, the sheen was
+the plate's own transparency, so the top of each plate showed the world
+through it and the hidden half of a Popover tail showed inside the plate.
+
+`Facet.review` reports two HUD findings, both `medium`. `worded-command`: a
+Button in a Composition region spells out a standard command or a known
+destination, such as Settings, Shop or Lifetime Stats, in place of its icon.
+`top-row-stacked`: the top-center regions sit below a corner region,
+because the top row has no room. Both fixes name `zone = "topbar"`.
 
 A HUD `Composition` keeps the room of the Roblox touch controls while a Facet
 overlay holds them off. Before, opening a Popover, Sheet or Dialog turned the

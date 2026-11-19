@@ -730,7 +730,28 @@ local function rulesFor(
 		for _, stop in alphaStops do
 			table.insert(alpha, types.NumberSequenceKeypoint.new(stop.t, stop.v))
 		end
-		if #stops >= 2 then
+		local fill = if gradient.wash then color(types, source(gradient.wash)) else nil
+		local first = gradient.stops[1]
+		if fill and first then
+			local lit = types.Color3.new(first.r, first.g, first.b)
+			local strength = math.clamp(if alphaStops[1] then alphaStops[1].v else 0, 0, 1)
+			local top = fill:Lerp(lit, strength)
+			local function ratio(base: number, over: number): number
+				return if over > 0 then math.min(1, base / over) else 1
+			end
+			rule(".facet-" .. role, { BackgroundColor3 = top })
+			if role == "panel" then
+				rule(".facet-tail-floating", { BackgroundColor3 = top:Lerp(fill, 0.5) })
+			end
+			rule(".facet-" .. role .. "::UIGradient", {
+				Color = types.ColorSequence.new(
+					types.Color3.new(1, 1, 1),
+					types.Color3.new(ratio(fill.R, top.R), ratio(fill.G, top.G), ratio(fill.B, top.B))
+				),
+				Transparency = types.NumberSequence.new(0),
+				Rotation = gradient.rotation or 90,
+			})
+		elseif #stops >= 2 then
 			local properties: ThemeTypes.RuleProperties =
 				{ Color = types.ColorSequence.new(stops), Rotation = gradient.rotation or 90 }
 			if #alpha >= 2 then

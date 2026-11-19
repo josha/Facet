@@ -126,8 +126,7 @@ return function(
 			end
 			return if declared == "automatic" then "bottom" else declared
 		end)
-		-- A centered sheet floats like a dialog, so it keeps space.m clear of every
-		-- screen edge. A bottom or side sheet meets its edge.
+
 		local function gutter(use: ComposeTypes.Use?): number
 			return if ctx.readSource(placed, use) == "center" then ctx.metric("space.m", use) else 0
 		end

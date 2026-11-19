@@ -310,8 +310,7 @@ return function(verifyHarness: Verify.Harness)
 		)
 		local native = engine.new("ScreenGui")
 		native.Name, native.IgnoreGuiInset, native.Parent = "TouchGui", true, player
-		-- The current PlayerModule: a stick frame across the lower half of a portrait phone, with a
-		-- full-size ImageButton inside it and the resting art at the lower left.
+
 		local thumb: Frame = engine.new("Frame")
 		thumb.Name, thumb.Size, thumb.Position, thumb.Parent =
 			"DynamicThumbstickFrame", T.UDim2.new(1, 100, 0.5, 0), T.UDim2.new(0, -100, 0.5, 0), native
@@ -319,7 +318,9 @@ return function(verifyHarness: Verify.Harness)
 		modifier.Name, modifier.Size, modifier.Parent = "DynamicThumbstickUIModifier", T.UDim2.fromScale(1, 1), thumb
 		local art: Frame = engine.new("Frame")
 		art.Name, art.Size, art.Position, art.Parent =
-			"ThumbstickStart", T.UDim2.fromOffset(74, 74), T.UDim2.new(0, 164, 1, -240), thumb
+			"ThumbstickStart", T.UDim2.fromOffset(74, 74), T.UDim2.new(0, 400, 1, -300), thumb
+		local finger = engine.new("InputObject")
+		engine.environment.fire(Roblox.assertInstance(input), "TouchStarted", finger, false)
 		local app = Facet.app({
 			runtime = runtime,
 			types = T,
@@ -335,6 +336,13 @@ return function(verifyHarness: Verify.Harness)
 				UI.Region { zone = "bottomRight", rank = 1, UI.Text "Right" { text = "SCORE" } },
 			}
 		end)
+		for _ = 1, 8 do
+			assert(bridge.layout).step()
+			engine.environment.step(1 / 60)
+			engine.heartbeat:Fire(1 / 60)
+		end
+		art.Position = T.UDim2.new(0, 164, 1, -240)
+		engine.environment.fire(Roblox.assertInstance(input), "TouchEnded", finger, false)
 		for _ = 1, 8 do
 			assert(bridge.layout).step()
 			engine.environment.step(1 / 60)

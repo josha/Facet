@@ -157,8 +157,7 @@ local function apply(
 				LineJoinMode = if package.metrics.radii.panel == 0 then "Miter" else nil,
 			},
 		})
-		-- A Popover or Menu with a tail draws its edge as one path around the plate and the
-		-- tail. The plate's own stroke stays off there, so the tail joins the edge.
+
 		table.insert(rules, {
 			selector = ".facet-outline",
 			properties = { Color3 = { role = line }, Thickness = width, Transparency = faint },
@@ -232,6 +231,7 @@ local function apply(
 				local extra = (each.extra or {}) :: Table
 				local gradients = table.clone((extra.chromeGradient or {}) :: Table)
 				gradients.panel = {
+					wash = "surfaceStrong",
 					rotation = 90,
 					stops = { { t = 0, r = lit.r, g = lit.g, b = lit.b }, { t = 1, r = lit.r, g = lit.g, b = lit.b } },
 					alpha = { { t = 0, v = sheen }, { t = 1, v = 0 } },
