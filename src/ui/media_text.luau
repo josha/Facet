@@ -16,6 +16,8 @@ local textChanges = require("./text_changes")
 local textMeasure = require("./text_measure")
 
 local LOOSE_MEASURE = 320
+local ICON_ROLES: { [string]: boolean } =
+	{ info = true, success = true, warning = true, error = true, accent = true, neutral = true, contrast = true }
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShared.Shared)
 	local Host, runtime, Compose = ctx.Host, ctx.runtime, ctx.Compose
@@ -460,7 +462,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					return D2.fromOffset(pixels, pixels)
 				end
 			end
-			table.insert(children, ctx.icon(assert(icon), iconProps))
+			local mark = ctx.icon(assert(icon), iconProps)
+			local role = spec.iconRole
+			if role ~= nil then
+				assert(
+					ICON_ROLES[role] == true,
+					"Facet UI.Label: iconRole must be info, success, warning, error, accent, neutral or contrast"
+				)
+				mark:AddTag("facet-icon-" .. role)
+			end
+			table.insert(children, mark)
 		end
 		if effective ~= "iconOnly" then
 			local titleSize: Media.TextSize = spec.textSize or "body"
@@ -473,7 +484,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			end
 			children = reversed
 		end
-		local keys = { "title", "icon", "presentation", "iconSize", "textSize", "gap", "iconPosition" }
+		local keys = { "title", "icon", "presentation", "iconSize", "textSize", "gap", "iconPosition", "iconRole" }
 		local root = ctx.row(children, ctx.props(spec, keys, { Name = "Label" }))
 		local layout = assert(root:FindFirstChildWhichIsA("UIListLayout"))
 		layout.VerticalAlignment = E.VerticalAlignment.Center

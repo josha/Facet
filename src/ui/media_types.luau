@@ -36,7 +36,9 @@ export type LabelOptions = {
 	textSize: (number | TextRole)?,
 	gap: Types.Input<Types.Space>?,
 	iconPosition: ("leading" | "trailing")?,
+	iconRole: LabelIconRole?,
 }
+export type LabelIconRole = "info" | "success" | "warning" | "error" | "accent" | "neutral" | "contrast"
 export type ScaleMode = "fit" | "fill" | "crop" | "stretch" | "tile" | "slice"
 export type PaintRect = { x0: number, y0: number, x1: number, y1: number, width: number, height: number }
 export type ImageOptions = {

@@ -277,6 +277,7 @@ export type LabelProps = {
 	textSize: (number | Media.TextRole)?,
 	gap: Types.Input<Types.Space>?,
 	iconPosition: ("leading" | "trailing")?,
+	iconRole: Media.LabelIconRole?,
 	[number]: Compose.Child?,
 }
 export type LabelPropsInput = {
@@ -353,6 +354,7 @@ export type LabelPropsInput = {
 	read textSize: (number | Media.TextRole)?,
 	read gap: Types.Input<Types.Space>?,
 	read iconPosition: ("leading" | "trailing")?,
+	read iconRole: Media.LabelIconRole?,
 	read [number]: Compose.Child?,
 }
 export type ImageProps = {

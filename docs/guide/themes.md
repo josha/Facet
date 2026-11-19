@@ -219,16 +219,14 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 
 The report lists the covered entries and the missing entries.
 
-Each standard icon name has a built-in vector glyph. When no theme package or
-`icons` map supplies image art for the name, the glyph draws as native Path2D
-strokes in the theme's icon color. The glyph is sharp at each size and needs no
-uploaded asset. To use image art, map the name to image content or a font glyph
-in the theme package `icons`. That art takes precedence over the built-in glyph.
-An unknown name causes an error.
-
-For filled icons, a theme can map each name to the uploaded filled set in
-[`assets/icons/upload-manifest.json`](../../assets/icons/upload-manifest.json).
-Those images are Open Use, so any experience can load them.
+The game glyphs, such as `settings`, `bag`, `coin` and `heart`, draw filled image
+art from [`assets/icons/upload-manifest.json`](../../assets/icons/upload-manifest.json).
+Those images are Open Use, so any experience can load them. The names that
+controls use for their own parts, such as `close`, the chevrons and `checkmark`,
+draw as native Path2D strokes in the theme's icon color. Every standard name has
+a stroke glyph, which draws when the name has no image art. To use other art,
+map the name to image content or a font glyph in the theme package `icons`. That
+art takes precedence. An unknown name causes an error.
 
 Icons resolve through `themes.resolveIcon`. An icon entry is image content,
 the name of a declared asset or a font glyph. A font glyph is
