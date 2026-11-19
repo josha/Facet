@@ -39,12 +39,13 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 		lease.watch = gui:GetPropertyChangedSignal("TouchControlsEnabled"):Connect(function()
 			if gui.TouchControlsEnabled and lease.touches > 0 then
 				lease.before = true
+				lease.holding:set(true)
 				gui.TouchControlsEnabled = false
 			end
 		end)
 	end
 	lease.touches += 1
-	lease.holding:set(true)
+	lease.holding:set(lease.before ~= false)
 	if gui.TouchControlsEnabled ~= false then
 		gui.TouchControlsEnabled = false
 	end
@@ -66,7 +67,6 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 		end
 		lease.touches -= 1
 		if lease.touches == 0 then
-			lease.holding:set(false)
 			if lease.watch then
 				lease.watch:Disconnect()
 				lease.watch = nil
@@ -74,6 +74,7 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 			if gui.TouchControlsEnabled ~= lease.before then
 				gui.TouchControlsEnabled = lease.before
 			end
+			lease.holding:set(false)
 		end
 	end
 end

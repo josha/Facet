@@ -159,7 +159,7 @@ local function apply(
 		})
 
 		table.insert(rules, {
-			selector = ".facet-outline",
+			selector = ".facet-outline-floating",
 			properties = { Color3 = { role = line }, Thickness = width, Transparency = faint },
 		})
 		table.insert(rules, { selector = ".facet-outlined::UIStroke", properties = { Transparency = 1 } })

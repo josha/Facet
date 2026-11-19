@@ -34,8 +34,9 @@ dynamic thumbstick, and as far as the stick travels to either side, in place
 of the whole width of its touch frame. In landscape the current PlayerModule
 draws that frame across the left 40 percent of the screen, and a region at
 the bottom center rose above the stick. In portrait the frame is the full
-width, and every bottom region did. Facet measures the resting art only while no
-finger is down, and reserves the whole frame until it has.
+width, and every bottom region did. Facet reads the resting art when the HUD mounts
+and follows it only while no finger is down, after it has seen a finger lift,
+so a HUD that mounts during a drag does not follow the drag.
 
 A finish `sheen` is a wash over an opaque plate. Before, the sheen was
 the plate's own transparency, so the top of each plate showed the world
@@ -44,6 +45,7 @@ through it and the hidden half of a Popover tail showed inside the plate.
 `Facet.review` reports two HUD findings, both `medium`. `worded-command`: a
 Button in a Composition region spells out a standard command or a known
 destination, such as Settings, Shop or Lifetime Stats, in place of its icon.
+A Button that already shows its icon is told to drop the label.
 `top-row-stacked`: the top-center regions sit below a corner region,
 because the top row has no room. Both fixes name `zone = "topbar"`.
 
@@ -51,7 +53,9 @@ A HUD `Composition` keeps the room of the Roblox touch controls while a Facet
 overlay holds them off. Before, opening a Popover, Sheet or Dialog turned the
 controls off, the HUD moved into their room, and a region could change form
 under the overlay. A region's reveal Popover then closed as it opened, since
-the region now fit at its richest form.
+the region now fit at its richest form. While the hold lasts, Facet keeps
+measuring the controls as the game last showed them, so a rotation, a rebuilt
+Jump button or a HUD that mounts under the overlay still clears them.
 
 A theme with a `finish` edge draws the edge of a Popover or Menu with a tail
 as one line around the plate and the tail. Before, the plate kept its own

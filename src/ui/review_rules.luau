@@ -1533,42 +1533,78 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 	end
 
 	local worded = 0
-	for _, element in texts do
-		local label = string.lower(clean((element.text :: ReviewText).content))
-		local icon = COMMANDS[label]
-		if icon == nil or worded >= 3 then
-			continue
+	local function inside(element: ReviewElement, holder: ReviewElement): boolean
+		local parent = element.parent
+		while parent ~= nil do
+			if parent == holder.index then
+				return true
+			end
+			local ancestor = prepared.byIndex[parent]
+			if ancestor == nil then
+				return false
+			end
+			parent = if ancestor.parent ~= nil and ancestor.parent < ancestor.index then ancestor.parent else nil
 		end
-		local button: ReviewElement? = nil
-		local inRegion = false
+		return false
+	end
+	local function regional(element: ReviewElement): boolean
 		local parent = element.parent
 		while parent ~= nil do
 			local ancestor = prepared.byIndex[parent]
 			if ancestor == nil then
-				break
-			end
-			if
-				button == nil
-				and ancestor.interactive
-				and (ancestor.class == "TextButton" or ancestor.class == "ImageButton")
-			then
-				button = ancestor
+				return false
 			end
 			if ancestor.region then
-				inRegion = true
-				break
+				return true
 			end
 			parent = if ancestor.parent ~= nil and ancestor.parent < ancestor.index then ancestor.parent else nil
 		end
-		if button and inRegion then
-			add(
-				"worded-command",
-				"medium",
-				button,
-				`{quote(clean((element.text :: ReviewText).content))} can be icon = "{icon}"`
-			)
-			worded += 1
+		return false
+	end
+	for _, button in snapshot.elements do
+		if worded >= 3 then
+			break
 		end
+		if
+			not button.interactive
+			or (button.class ~= "TextButton" and button.class ~= "ImageButton")
+			or not shown(button, snapshot.width, snapshot.height)
+		then
+			continue
+		end
+		local own = button.text
+		local label = if own and clean(own.content) ~= "" then clean(own.content) else nil
+		if label == nil then
+			for _, text in prepared.descendantTexts(button) do
+				label = clean((text.text :: ReviewText).content)
+				break
+			end
+		end
+		local icon = if label then COMMANDS[string.lower(label)] else nil
+		if label == nil or icon == nil or not regional(button) then
+			continue
+		end
+		local pictured = false
+		for _, other in snapshot.elements do
+			if
+				other.visible
+				and string.match(other.path, "Icon$") ~= nil
+				and area(other.rect) > 0
+				and inside(other, button)
+			then
+				pictured = true
+				break
+			end
+		end
+		add(
+			"worded-command",
+			"medium",
+			button,
+			if pictured
+				then `{quote(label)} already has its icon; drop the label`
+				else `{quote(label)} can be icon = "{icon}"`
+		)
+		worded += 1
 	end
 	for _, element in snapshot.elements do
 		if element.stacked and element.visible then

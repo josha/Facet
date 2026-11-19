@@ -1071,6 +1071,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		areas: ComposeTypes.Value<{ TouchArea }>?
 	)
 		local input = config.userInputService
+		local before: { [string]: boolean } = {}
 		if input == nil then
 			return
 		end
@@ -1148,13 +1149,21 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				local touch = ctx.observe.TouchEnabled(input)
 				local fingers: { [InputObject]: boolean } = {}
 				local free = Compose.cell(true)
+				local lifted = Compose.cell(false)
+				local function lift(contact: InputObject)
+					fingers[contact] = nil
+					free:set(next(fingers) == nil)
+					lifted:set(true)
+				end
 				runtime.connect(input, "TouchStarted", function(contact: InputObject)
 					fingers[contact] = true
 					free:set(false)
 				end)
-				runtime.connect(input, "TouchEnded", function(contact: InputObject)
-					fingers[contact] = nil
-					free:set(next(fingers) == nil)
+				runtime.connect(input, "TouchEnded", lift)
+				runtime.connect(input, "InputEnded", function(contact: InputObject)
+					if contact.UserInputType == types.Enum.UserInputType.Touch then
+						lift(contact)
+					end
 				end)
 				local enabled = if touchGui then ctx.observe.Enabled(touchGui) else nil
 				local controlsEnabled = if config.guiService
@@ -1163,16 +1172,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				local position, size = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
 				local unit = ctx.layoutUnit(frame)
 				local holding = gameplayHold.held(ctx)
-				local measured = false
 				Compose.watch(function(use: ComposeTypes.Use)
-					if use(holding) and measured then
-						return
-					end
+					local held = use(holding)
 					local active = use(touch)
 					local nativeActive = active
 						and enabled ~= nil
-						and use(enabled)
-						and (controlsEnabled == nil or use(controlsEnabled) ~= false)
+						and (use(enabled) or held)
+						and (controlsEnabled == nil or use(controlsEnabled) ~= false or held)
 					local at, box, scale = use(position), use(size), use(unit)
 					local bottom = 0
 					local found: { TouchArea } = {}
@@ -1209,21 +1215,31 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					for _, control in controls do
 						local start = use(ctx.observe.AbsolutePosition(control))
 						local bounds = use(ctx.observe.AbsoluteSize(control))
-						local shown = true
+						local visible = true
 						local node: Instance? = control
 						while node and node ~= touchGui do
 							if node:IsA("GuiObject") and not use(ctx.observe.Visible(node)) then
-								shown = false
+								visible = false
 							end
 							node = node.Parent
 						end
+						local shown = visible
+						local key = control:GetFullName()
+						if held then
+							local kept = before[key]
+							shown = if kept == nil then true else kept
+						else
+							before[key] = visible
+						end
 						local idle = use(free)
+						local settled = idle and use(lifted)
 						local tallestNow, topNow, leftNow, rightNow = 0, math.huge, start.X, start.X + bounds.X
 						for _, image in stickArt[control] or {} do
 							local drawn = use(ctx.observe.AbsoluteSize(image))
-							if use(ctx.observe.Visible(image)) and drawn.Y < bounds.Y / 2 and drawn.Y >= tallestNow then
+							local visible = use(ctx.observe.Visible(image)) or held
+							if visible and drawn.Y < bounds.Y / 2 and drawn.Y >= tallestNow then
 								local spot = ctx.observe.AbsolutePosition(image)
-								local placed = if idle then use(spot) else spot:peek()
+								local placed = if settled then use(spot) else spot:peek()
 								tallestNow = drawn.Y
 								topNow = placed.Y
 								leftNow, rightNow = placed.X, placed.X + drawn.X
@@ -1234,12 +1250,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							sample = { size = bounds, tallest = tallestNow, top = topNow }
 							resting[control] = sample
 						end
-						if idle and tallestNow > 0 then
-							columns[control] = { size = bounds, left = leftNow, right = rightNow }
-						end
 						local column = columns[control]
 						if column and column.size ~= bounds then
 							column = nil
+						end
+						if idle and tallestNow > 0 and (settled or column == nil) then
+							column = { size = bounds, left = leftNow, right = rightNow }
+							columns[control] = column
 						end
 						local tallest = sample.tallest
 						local from: number? = nil
@@ -1279,7 +1296,6 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							reserve(start, bounds, shown and screen and node == player)
 						end
 					end
-					measured = true
 					clearance:set(bottom)
 					if areas then
 						areas:set(found)

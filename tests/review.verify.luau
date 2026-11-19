@@ -327,7 +327,7 @@ return function(harness: Verify.Harness)
 		t:expect(neonReport.ok and neon ~= nil):toBe(true)
 		local last = count(at(plain, "rules")) + 1
 		t:expect(count(at(neon, "rules"))):toBe(last + 2)
-		t:expect(at(neon, "rules", last + 1, "selector")):toBe(".facet-outline")
+		t:expect(at(neon, "rules", last + 1, "selector")):toBe(".facet-outline-floating")
 		t:expect(at(neon, "rules", last + 1, "properties", "Thickness")):toBe(2)
 		t:expect(at(neon, "rules", last + 2, "selector")):toBe(".facet-outlined::UIStroke")
 		t:expect(at(neon, "rules", last, "selector")):toBe(".facet-panel::UIStroke, .facet-sheet::UIStroke")

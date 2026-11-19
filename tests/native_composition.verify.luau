@@ -217,10 +217,22 @@ return function(verifyHarness: Verify.Harness)
 			local gameplayHold = require("../src/ui/gameplay_hold")
 			local resting = button.AbsolutePosition.Y
 			local release = gameplayHold.hold({ Compose = Compose } :: any, gui, true)
+			jump.Visible = false
 			settle()
 			expect(gui.TouchControlsEnabled):toBe(false)
 			expect(button.AbsolutePosition.Y):toBe(resting)
+			jump.Parent = nil
+			jump.Parent = native
+			settle()
+			expect(button.AbsolutePosition.Y):toBe(resting)
+			viewport.X, viewport.Y = 844, 390
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			viewport.X, viewport.Y = 390, 844
+			settle()
+			expect(button.AbsolutePosition.Y):toBe(resting)
 			release()
+			jump.Visible = true
 			settle()
 			expect(gui.TouchControlsEnabled):toBe(true)
 			expect(button.AbsolutePosition.Y):toBe(resting)
@@ -277,6 +289,63 @@ return function(verifyHarness: Verify.Harness)
 			bridge.close()
 		end)
 	end
+
+	it("reports a HUD button that spells out a standard command, from a live Composition", function()
+		local roots: { Roblox.Instance } = {}
+		local viewport = { X = 844, Y = 390 }
+		local engine, bridge = engineLib.new({
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return viewport
+				end,
+			},
+		})
+		local T = engine.types
+		local player: PlayerGui = engine.new("PlayerGui")
+		player.Parent = engine.new("DataModel")
+		table.insert(roots, Roblox.assertInstance(player))
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local UI = Facet.controls(runtime, { types = T, motionLevel = "none" })
+		local app = Facet.app({ runtime = runtime, types = T, parent = player, motionLevel = "none" })
+		local function noop() end
+		app.mount(function()
+			return UI.Composition "HUD" {
+				topbar = false,
+				UI.Region "Commands" {
+					zone = "topRight",
+					rank = 1,
+					UI.HStack {
+						gap = "s",
+						UI.Button "Shop" { label = "Shop", onActivate = noop },
+						UI.Button "Gear" { label = "Settings", icon = "settings", onActivate = noop },
+						UI.Button "Race" { label = "Race", onActivate = noop },
+					},
+				},
+			}
+		end)
+		for _ = 1, 8 do
+			assert(bridge.layout).step()
+			engine.environment.step(1 / 60)
+			engine.heartbeat:Fire(1 / 60)
+		end
+		local snapshot = Facet.review.collect({ root = player })
+		snapshot.width, snapshot.height = viewport.X, viewport.Y
+		local details: { string } = {}
+		for _, finding in require("../src/ui/review_rules").analyze(snapshot).findings do
+			if finding.rule == "worded-command" then
+				table.insert(details, finding.detail)
+			end
+		end
+		table.sort(details)
+		expect(details):toEqual({ '"Settings" already has its icon; drop the label', '"Shop" can be icon = "bag"' })
+		app.dispose()
+		runtime:dispose()
+		player:Destroy()
+		bridge.close()
+	end)
 
 	it("reserves the columns around a dynamic stick's resting art, not its whole touch frame", function()
 		local roots: { Roblox.Instance } = {}
@@ -336,22 +405,35 @@ return function(verifyHarness: Verify.Harness)
 				UI.Region { zone = "bottomRight", rank = 1, UI.Text "Right" { text = "SCORE" } },
 			}
 		end)
-		for _ = 1, 8 do
-			assert(bridge.layout).step()
-			engine.environment.step(1 / 60)
-			engine.heartbeat:Fire(1 / 60)
+		local function settle()
+			for _ = 1, 8 do
+				assert(bridge.layout).step()
+				engine.environment.step(1 / 60)
+				engine.heartbeat:Fire(1 / 60)
+			end
 		end
-		art.Position = T.UDim2.new(0, 164, 1, -240)
-		engine.environment.fire(Roblox.assertInstance(input), "TouchEnded", finger, false)
-		for _ = 1, 8 do
-			assert(bridge.layout).step()
-			engine.environment.step(1 / 60)
-			engine.heartbeat:Fire(1 / 60)
-		end
+		settle()
 		local left = player:FindFirstChild("Left", true) :: TextLabel
 		local right = player:FindFirstChild("Right", true) :: TextLabel
+		local dragged = right.AbsolutePosition.Y
+		art.Position = T.UDim2.new(0, 300, 1, -300)
+		settle()
+		expect(right.AbsolutePosition.Y):toBe(dragged)
+		art.Position = T.UDim2.new(0, 164, 1, -240)
+		engine.environment.fire(Roblox.assertInstance(input), "TouchEnded", finger, false)
+		settle()
 		expect(left.AbsolutePosition.Y + left.AbsoluteSize.Y <= art.AbsolutePosition.Y):toBe(true)
 		expect(right.AbsolutePosition.Y + right.AbsoluteSize.Y > art.AbsolutePosition.Y + art.AbsoluteSize.Y):toBe(true)
+		local resting = right.AbsolutePosition.Y
+		local second = engine.new("InputObject")
+		engine.environment.fire(Roblox.assertInstance(input), "TouchStarted", second, false)
+		art.Position = T.UDim2.new(0, 300, 1, -300)
+		settle()
+		expect(right.AbsolutePosition.Y):toBe(resting)
+		art.Position = T.UDim2.new(0, 164, 1, -240)
+		engine.environment.fire(Roblox.assertInstance(input), "TouchEnded", second, false)
+		settle()
+		expect(right.AbsolutePosition.Y):toBe(resting)
 		app.dispose()
 		runtime:dispose()
 		player:Destroy()

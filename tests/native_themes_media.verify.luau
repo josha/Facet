@@ -690,7 +690,12 @@ return function(verifyHarness: Verify.Harness)
 						> order(".facet-button.facet-disabled::UIStroke")
 				):toBe(true)
 				expect(order(".facet-button.facet-disabled::UIStroke") > order(".facet-button::UIStroke")):toBe(true)
-				expect(authored(".facet-outline").Thickness):toBe(4)
+				expect(authored(".facet-outline-floating").Thickness):toBe(4)
+				local styleRules = require("./lib/style_rules")
+				local tip: Frame = engine.new("Frame")
+				tip:AddTag("facet-outline")
+				tip:AddTag("facet-outline-tooltip")
+				expect(styleRules.resolve(sheet, tip, "Thickness")):toBe(1)
 				expect(authored(".facet-outlined::UIStroke").Transparency):toBe(1)
 				expect(order(".facet-outlined::UIStroke") > order(".facet-panel::UIStroke")):toBe(true)
 				stop()
@@ -727,6 +732,21 @@ return function(verifyHarness: Verify.Harness)
 				end
 				local plate = last(".facet-panel").BackgroundColor3 :: Color3
 				expect(typeof(plate)):toBe("Color3")
+				local styleRules = require("./lib/style_rules")
+				local function node(tags: { string }): Frame
+					local frame: Frame = engine.new("Frame")
+					for _, tag in tags do
+						frame:AddTag(tag)
+					end
+					return frame
+				end
+				local status = styleRules.resolve(sheet, node({ "facet-status-error" }), "BackgroundColor3")
+				local panel = node({ "facet-panel", "facet-status-surface", "facet-status-error" })
+				expect(styleRules.resolve(sheet, panel, "BackgroundColor3")):toBe(status)
+				local selected = styleRules.resolve(sheet, node({ "facet-selected" }), "BackgroundColor3")
+				expect(styleRules.resolve(sheet, node({ "facet-panel", "facet-selected" }), "BackgroundColor3")):toBe(
+					selected
+				)
 				stop()
 				runtime:dispose()
 			end,
