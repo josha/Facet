@@ -119,6 +119,7 @@ end
 
 local REQUIRES: { [string]: { [string]: { Literal } } } = {
 	corners = { surface = {} },
+	tail = { surface = { "panel" } },
 	sliceCenter = { scaleMode = { "slice" } },
 	sliceScale = { scaleMode = { "slice" }, sliceCenter = {} },
 	visibleLines = { multiline = { true } },

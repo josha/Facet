@@ -392,7 +392,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local carve = if art ~= nil then artGround.margins(ctx) else nil
 		if carve then
 			flow = table.clone(flow)
-			flow.padding = artGround.padding(ctx, kit.spacing, flow.padding, carve)
+			local authored: Types.Input<Types.Padding>? = (flow :: Types.Flow).padding
+			flow.padding = artGround.padding(ctx, kit.spacing, authored, carve)
 		end
 		local room: ComposeTypes.Value<FillAxis>? = nil
 		if properties.AutomaticSize == nil and fills(children) then
@@ -553,10 +554,11 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				return if radius.Scale == 0 then radius.Offset else math.min(extent.X, extent.Y) / 2
 			end)
 		end
-		if spec.status ~= nil then
+		local declared: Types.Input<Media.Status?>? = spec.status
+		if declared ~= nil then
 			local worn: string? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
-				local status = read<<Media.Status?>>(spec.status, use)
+				local status = read<<Media.Status?>>(declared, use)
 				local tag = if status then "facet-status-" .. status else nil
 				if tag == worn then
 					return

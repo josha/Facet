@@ -12,6 +12,11 @@ content and then scrolls, use `ScrollView { height = "hug", maxHeight = limit }`
 The Design library preserves both limits, including input and token bindings.
 See [ScrollView](nodes/ScrollView.reference.md).
 
+A `VStack` or `HStack` with `surface = "panel"` takes `tail`, typed
+`Facet.StackTail`: a `Facet.StackTailSide` (`"top"`, `"bottom"`, `"left"` or
+`"right"`) or `{ side, at }`. See
+[VStack-and-HStack.tail](nodes/VStack-and-HStack.tail.md).
+
 `Dialog.bodyHeight` offers a finite logical height or `"fill"` to a navigable
 body. `Dialog.presentation = "inset"` keeps the panel inset on short screens.
 `Facet.DialogBodyHeight` and `Facet.DialogPresentation` type these options.
