@@ -32,24 +32,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local ELLIPSIS = "\u{2026}"
 	local function fitToRoom(label: TextLabel)
 		label:AddTag("facet-text-fits")
-		local measured: ComposeTypes.ReadOnlyValue<Vector2>? = nil
-		local evaluate: () -> () = function() end
-		local measure = Compose.bindOwner(function(): ComposeTypes.ReadOnlyValue<Vector2>
-			local natural = textMeasure.natural(ctx, label)
-			local primed = false
-			Compose.watch(function(use: ComposeTypes.Use)
-				use(natural)
-				if primed then
-					evaluate()
-				end
-				primed = true
-			end)
-			return natural
-		end)
 		local makeScale = Compose.bindOwner(function(): UIScale
 			return Host.UIScale { Name = "TextFit" }
 		end)
-		evaluate = function()
+		local function evaluate()
 			if label.Parent == nil or textFit.eligible(ctx, label) == nil then
 				return
 			end
@@ -58,27 +44,36 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				return
 			end
 			local own = textFit.current(label)
-			if label.TextFits and own >= 1 and measured == nil then
+			if label.TextFits and own >= 1 then
 				return
 			end
-			local natural = measured or measure()
-			measured = natural
-			local width = natural:peek().X
-			local room = label.AbsoluteSize.X / (textFit.chainScale(label.Parent) * math.max(own, 1e-3))
+			local unit = textFit.chainScale(label.Parent) * math.max(own, 1e-3)
+			local width = label.TextBounds.X / unit
+			if width <= 0 then
+				return
+			end
+			local room = label.AbsoluteSize.X / unit
 			local inset = label:FindFirstChildWhichIsA("UIPadding")
 			if inset then
 				room -= inset.PaddingLeft.Offset + inset.PaddingRight.Offset
 			end
 			textFit.apply(label, textFit.target(ctx, label, room, width), makeScale)
 		end
+		local makeSchedule = Compose.bindOwner(function(): () -> ()
+			return ctx.afterLayout(evaluate)
+		end)
+		local schedule: (() -> ())? = nil
 		textChanges(ctx, label, function(property: string)
 			if
 				property == "TextFits"
+				or property == "TextBounds"
 				or property == "AbsoluteSize"
 				or property == "AutomaticSize"
 				or property == "Parent"
 			then
-				evaluate()
+				local run = schedule or makeSchedule()
+				schedule = run
+				run()
 			end
 		end)
 	end

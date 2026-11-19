@@ -188,6 +188,41 @@ return function(harness: Verify.Harness)
 				expect(#engine.layoutReadsInChange()):toBe(1)
 			end,
 		})
+		it("a filled one-line text fits its room after the layout settles", {
+			id = "native_layout_reads::layout change signals::a filled one-line text fits its room after the layout settles",
+			run = function()
+				local world = live()
+				local UI = world.UI
+				local V2 = world.engine.types.Vector2
+				local poke = world.engine.environment.poke
+				local root = world.mount(function(): Instance
+					return UI.VStack { width = 80, UI.Text "Caption" { text = "Ready to race", textSize = 15 } }
+				end)
+				local label = VerifyRoblox.assertInstance(assert(root:FindFirstChild("Caption")))
+				local function settle(size: Vector2, bounds: Vector2, fits: boolean)
+					poke(label, "AbsoluteSize", size)
+					poke(label, "TextBounds", bounds)
+					poke(label, "TextFits", fits)
+					world.step(1)
+				end
+				local function scale(): number
+					local fit = ((label :: unknown) :: Instance):FindFirstChild("TextFit")
+					return if fit ~= nil and fit:IsA("UIScale") then fit.Scale else 1
+				end
+				settle(V2.new(80, 15), V2.new(100, 15), false)
+				local shrunk = scale()
+				settle(V2.new(64, 12), V2.new(80, 12), true)
+				local held = scale()
+				settle(V2.new(64, 12), V2.new(48, 9), true)
+				expect({ shrunk = math.round(shrunk * 100), held = math.round(held * 100), grown = scale() }):toEqual({
+					shrunk = 80,
+					held = 80,
+					grown = 1,
+				})
+				expect(world.engine.layoutReadsInChange()):toEqual({})
+				world.stop()
+			end,
+		})
 		it("a measured collection resized quickly reads layout only after the change", {
 			id = "native_layout_reads::layout change signals::a measured collection resized quickly reads layout only after the change",
 			run = function()

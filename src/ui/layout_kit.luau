@@ -627,13 +627,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local attach: (() -> ())? = nil
 		local attached = not reactive
 		local function reach(use: ComposeTypes.Use): Room
+			local pending = if attached then nil else attach
 			if
-				not attached
-				and attach ~= nil
+				pending ~= nil
 				and themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)) > 0
 			then
 				attached = true
-				attach()
+				pending()
 			end
 			return use(assert(between))
 		end
@@ -646,7 +646,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			local cell = between
 			attach = Compose.bindOwner(function()
 				kit.shadowRoom(frame, cell, true)
-			end)
+			end) :: () -> ()
 			if themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme)) > 0 then
 				attached = true
 				(assert(attach))()

@@ -81,7 +81,15 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		lists.shadowRoom(controls, room, true)
 		local function inset(side: "top" | "right" | "bottom" | "left"): (ComposeTypes.Use) -> UDim
 			return function(use: ComposeTypes.Use): UDim
-				return D.new(0, (use(room) :: layoutKit.Room)[side])
+				local held: layoutKit.Room = use(room)
+				return D.new(
+					0,
+					if side == "top"
+						then held.top
+						elseif side == "right" then held.right
+						elseif side == "bottom" then held.bottom
+						else held.left
+				)
 			end
 		end
 		local parts: { ComposeTypes.Child } = {
