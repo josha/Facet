@@ -37,6 +37,7 @@ local fixes: { [string]: string } = {
 	["touch-control-overlap"] = "A control covers the place where Roblox draws the Jump button on touch screens. On touch, raise the bottom of the Composition above the thumb controls with bottom padding, or move the control.",
 	["composition-unfit"] = "A HUD Composition does not fit this screen or a phone screen: the named regions overlap there even at their last form, or their fullest form is wider than that screen, so the Popover that shows it runs past the edge. Give each of them a compact second form, such as one Menu circle for the destinations, a fullest form that hugs its content in place of a pixel width, or mayDrop = true for an optional region.",
 	["worded-command"] = 'A HUD button shows a standard command or a destination that players know, such as Settings or Shop, as a word. The word takes room that the HUD needs, most of all on a phone in portrait. Make it an icon-only Button with a name, such as UI.Button { icon = "settings", name = "Settings" }, and put the commands in zone = "topbar".',
+	["duplicate-close"] = 'A Sheet, Dialog or Popover shows its own Close in its header, and a button in its content closes it again, so the player sees two controls for one task. Remove the button. When closing does work, such as saving or buying, name the button for that work and put it in actions. For a labeled close in place of the mark, set closeButton = "Done" on a Sheet, or closeButton = false and one action with role = "cancel".',
 	["top-row-stacked"] = 'The top-center regions of a HUD Composition sit below a corner region, because the top row has no room beside it, and every region under them moves down. Put compact status and commands in zone = "topbar", make the corner region icon-only or give it a shorter form.',
 	["unnamed-reveal"] = 'A HUD region that the screen has no room for shows as a "..." mark, and the mark does not say what is behind it. Give the Region a label, an icon or both: the mark shows them, and the popover of several regions names each one. For a readout whose shorter form loses nothing, set reveal = false.',
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
@@ -67,6 +68,10 @@ local COMMANDS: { [string]: string } = {
 	profile = "person",
 	chat = "chat",
 }
+local OVERLAY_PANELS: { [string]: boolean } = { SheetPanel = true, Panel = true }
+local DISMISSALS: { [string]: boolean } =
+	{ close = true, done = true, dismiss = true, cancel = true, ok = true, exit = true }
+local LEAVING: { [string]: boolean } = { close = true, dismiss = true, exit = true }
 local EDGE_CUT = 4
 local FIXES = table.freeze(fixes)
 
@@ -1605,6 +1610,72 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				else `{quote(label)} can be icon = "{icon}"`
 		)
 		worded += 1
+	end
+	local function labelOf(button: ReviewElement): string?
+		local own = button.text
+		if own and clean(own.content) ~= "" then
+			return clean(own.content)
+		end
+		for _, text in prepared.descendantTexts(button) do
+			return clean((text.text :: ReviewText).content)
+		end
+		return nil
+	end
+	local function lastName(element: ReviewElement): string
+		return string.match(element.path, "([^%.]+)$") or element.path
+	end
+	local function panelOf(element: ReviewElement): ReviewElement?
+		local parent = element.parent
+		while parent ~= nil do
+			local ancestor = prepared.byIndex[parent]
+			if ancestor == nil then
+				return nil
+			end
+			if OVERLAY_PANELS[lastName(ancestor)] then
+				return ancestor
+			end
+			parent = if ancestor.parent ~= nil and ancestor.parent < ancestor.index then ancestor.parent else nil
+		end
+		return nil
+	end
+	local marked: { [number]: boolean } = {}
+	for _, button in snapshot.elements do
+		local name = lastName(button)
+		if
+			button.interactive
+			and (name == "Close" or name == "CloseCommand")
+			and labelOf(button) == nil
+			and shown(button, snapshot.width, snapshot.height)
+		then
+			local panel = panelOf(button)
+			if panel then
+				marked[panel.index] = true
+			end
+		end
+	end
+	local doubled = 0
+	for _, button in snapshot.elements do
+		if doubled >= 3 then
+			break
+		end
+		if
+			not button.interactive
+			or (button.class ~= "TextButton" and button.class ~= "ImageButton")
+			or not shown(button, snapshot.width, snapshot.height)
+		then
+			continue
+		end
+		local label = labelOf(button)
+		local lowered = if label then string.lower(label) else ""
+		local first = string.match(lowered, "^(%a+) ")
+		if label == nil or not (DISMISSALS[lowered] or (first ~= nil and LEAVING[first])) then
+			continue
+		end
+		local panel = panelOf(button)
+		if panel and marked[panel.index] then
+			add("duplicate-close", "medium", button, `{quote(label)} repeats the Close in the header`)
+			doubled += 1
+		end
 	end
 	for _, element in snapshot.elements do
 		if element.stacked and element.visible then

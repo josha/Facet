@@ -546,6 +546,13 @@ shorter form of its region. An icon can be a Facet icon name or an emoji.
 The Roblox emoji font does not have every emoji, and some newer ones draw as
 an empty box, so look at each emoji on the device.
 
+A Sheet, Dialog or Popover draws its own Close. Do not add a Close, Done or
+Cancel button to its content, because the player then sees two controls for
+one task. When closing does work, such as saving or buying, name the action
+for that work and put it in `actions`. For a labeled close in place of the
+mark, set `closeButton = "Done"` on a Sheet. `appearance = "emphasis"` marks
+the one main action of a screen, and Close is never that action.
+
 A phone in portrait is the narrowest case. A corner region wider than about
 a third of it, such as a column of worded buttons, leaves the top center no
 room, so the top row and every region below it move down the screen. Put the

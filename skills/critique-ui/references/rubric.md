@@ -186,6 +186,10 @@ that `FacetUnfitDetails` lists.
 An emoji that draws as an empty box is a `must` fix: the Roblox emoji font
 does not have every emoji. A standard command (settings, close,
 back, menu, more) that shows a word in place of its icon is a `should` fix.
+A Close, Done or Cancel button in the content of a Sheet, Dialog or Popover
+that already shows Close in its header is a `should` fix: the player sees two
+controls for one task. So is a Close that takes `appearance = "emphasis"`,
+the mark of the main action.
 
 ## Scores
 
