@@ -1271,6 +1271,80 @@ return function(harness: Verify.Harness)
 		t:expect(math.abs(part.height - 75 * 62 / 91) < 0.01):toBe(true)
 	end)
 
+	harness:case("collect measures the parts from the top of the screen, past the engine GUI inset", function(t)
+		type Fake = { [string]: unknown }
+		local function vector(x: number, y: number): Fake
+			return { X = x, Y = y }
+		end
+		local function node(class: string, name: string, properties: Fake, kids: { Fake }?): Fake
+			local made: Fake = table.clone(properties)
+			made.ClassName, made.Name = class, name
+			made.IsA = function(_: Fake, asked: string): boolean
+				return asked == class
+					or (asked == "GuiObject" and class ~= "ScreenGui")
+					or (asked == "LayerCollector" and class == "ScreenGui")
+			end
+			made.GetChildren = function(): { Fake }
+				return kids or {}
+			end
+			made.GetFullName = function(): string
+				return "Gui." .. name
+			end
+			return made
+		end
+		local function collect(inset: Fake?): Rules.ReviewSnapshot
+			local services: { [string]: Fake } = {
+				Workspace = { CurrentCamera = { ViewportSize = vector(749, 389) } },
+			}
+			if inset then
+				services.GuiService = {
+					GetGuiInset = function(): (Fake, Fake)
+						return inset, vector(0, 0)
+					end,
+				}
+			end
+			local game: Fake = {
+				GetService = function(_: Fake, name: string): Fake?
+					return services[name]
+				end,
+			}
+			local words = node("TextLabel", "Say", {
+				AbsolutePosition = vector(46, 304),
+				AbsoluteSize = vector(134, 24),
+				Text = "Play with me? Pleeease?",
+				TextSize = 18,
+				TextBounds = vector(134, 24),
+				BackgroundTransparency = 1,
+			})
+			local plate = node("Frame", "Words", {
+				AbsolutePosition = vector(16, 294),
+				AbsoluteSize = vector(194, 51),
+				BackgroundTransparency = 0,
+				BackgroundColor3 = { R = 1, G = 0.95, B = 0.88 },
+			}, { words })
+			local screen = node("ScreenGui", "Screen", {
+				FindFirstAncestorWhichIsA = function(): Fake
+					return game
+				end,
+			}, { plate })
+			local review = require("../src/ui/review")
+			return review.collect({ root = (screen :: unknown) :: Instance })
+		end
+		local raised = collect(vector(0, 58))
+		t:expect(raised.height):toBe(389)
+		t:expect(raised.elements[1].rect.y):toBe(352)
+		t:expect(raised.elements[2].rect.y):toBe(362)
+		local findings = Rules.analyze(raised).findings
+		local cut = 0
+		for _, finding in findings do
+			if finding.rule == "cut-at-edge" then
+				cut += 1
+			end
+		end
+		t:expect(cut):toBe(1)
+		t:expect(collect(nil).elements[1].rect.y):toBe(294)
+	end)
+
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)
 		local add, snapshot = scene()
 		add(nil, "TextButton", 1600, 880, 300, 80, { text = "Enter race", interactive = true })
@@ -1335,6 +1409,31 @@ return function(harness: Verify.Harness)
 		wide(nil, "TextButton", -40, 0, 2000, 80, { interactive = true })
 		t:expect(rules(Rules.analyze(bleed()))["cut-at-edge"]):toBe(nil)
 	end)
+
+	harness:case(
+		"a plate that crosses the edge of the screen is reported while its text stays on the screen",
+		function(t)
+			local add, snapshot = scene()
+			local bubble = add(nil, "Frame", 140, 1000, 440, 120, { opaque = true })
+			add(bubble, "TextLabel", 170, 1030, 380, 40, { text = "Play with me?" })
+			local report = Rules.analyze(snapshot())
+			t:expect(rules(report)["cut-at-edge"]):toBe(1)
+			for _, finding in report.findings do
+				if finding.rule == "cut-at-edge" then
+					t:expect(finding.severity):toBe("medium")
+				end
+			end
+			local docked, sheet = scene()
+			docked(nil, "Frame", 560, 700, 800, 400, { opaque = true })
+			t:expect(rules(Rules.analyze(sheet()))["cut-at-edge"]):toBe(nil)
+			local band, bar = scene()
+			band(nil, "Frame", 0, 900, 1920, 200, { opaque = true })
+			t:expect(rules(Rules.analyze(bar()))["cut-at-edge"]):toBe(nil)
+			local clear, inside = scene()
+			clear(nil, "Frame", 140, 900, 440, 120, { opaque = true })
+			t:expect(rules(Rules.analyze(inside()))["cut-at-edge"]):toBe(nil)
+		end
+	)
 
 	harness:case("a control whose edge or shadow reaches its neighbor is reported", function(t)
 		local add, snapshot = scene()

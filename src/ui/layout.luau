@@ -759,12 +759,35 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			properties
 		)
 		if aligned then
+			local outer = ctx.observe.AbsoluteSize(frame)
+			local function contentBox(use: ComposeTypes.Use): Vector2
+				local box = use(outer)
+				local pad = frame:FindFirstChildWhichIsA("UIPadding")
+				if pad == nil then
+					return box
+				end
+				local scale = 1
+				local at: Instance? = frame
+				while at and at:IsA("GuiObject") do
+					local factor = at:FindFirstChildWhichIsA("UIScale")
+					if factor then
+						scale *= factor.Scale
+					end
+					at = at.Parent
+				end
+				return V2.new(
+					box.X
+						- (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) * scale
+						- (pad.PaddingLeft.Scale + pad.PaddingRight.Scale) * box.X,
+					box.Y
+						- (pad.PaddingTop.Offset + pad.PaddingBottom.Offset) * scale
+						- (pad.PaddingTop.Scale + pad.PaddingBottom.Scale) * box.Y
+				)
+			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				use(members)
 				local x, y =
 					fraction(read<<Types.Edge?>>(spec.alignH, use)), fraction(read<<Types.Edge?>>(spec.alignV, use))
-				local wide, tall =
-					hugs(read<<Types.Extent?>>(spec.width, use)), hugs(read<<Types.Extent?>>(spec.height, use))
 				local nodes: { GuiObject } = {}
 				local extents: { [GuiObject]: Vector2 } = {}
 				local widest, tallest = 0, 0
@@ -777,6 +800,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 						tallest = math.max(tallest, extent.Y)
 					end
 				end
+				local box = contentBox(use)
+				local wide = hugs(read<<Types.Extent?>>(spec.width, use)) and box.X <= widest + 1
+				local tall = hugs(read<<Types.Extent?>>(spec.height, use)) and box.Y <= tallest + 1
 				for _, node in nodes do
 					local extent = extents[node]
 					node.AnchorPoint = V2.new(if wide then 0 else x, if tall then 0 else y)

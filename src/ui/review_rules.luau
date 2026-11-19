@@ -43,7 +43,7 @@ local fixes: { [string]: string } = {
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
 	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder. Give the holder a width: a width in pixels or fill, a Size with a width, or align = "stretch" on the list that holds it.',
-	["cut-at-edge"] = "A text or a control crosses the edge of the screen, so part of it is not drawn. A part with a width in pixels, or a row that hugs its content, is wider than the room at this size. Give the part a width that follows the room (fill, a share or a maxWidth), let the row reflow with an AdaptiveStack or wrap = true, or use a shorter form of the part at this size.",
+	["cut-at-edge"] = "A text, a control or a plate crosses the edge of the screen, so part of it is not drawn. A part with a width in pixels, or a row that hugs its content, is wider than the room at this size. A bounded HStack that does not fit wraps its last parts onto a new line, and that line can fall below the room. Give the part a width that follows the room (fill, a share or a maxWidth), let the row reflow with an AdaptiveStack, set wrap = false on a row whose parts must stay side by side and make them fit, or use a shorter form of the part at this size.",
 	["covered-control"] = "A plate from another part covers a part of a control at this size. The control reads as joined to the plate, and the covered part does not take a press. A Callout, a Popover, a help plate and the layers of a ZStack float over the screen and do not make room for what is under them. Give the floating part an edge and an align where it has room, give it a shorter form at this size, or put the control and the part in one stack. A control that is wholly under another part, or under a presented modal, is taken as layered on purpose.",
 	["touching-controls"] = "The edge or the shadow of a control is drawn outside its box and reaches the control beside it, so the two read as one. Set finish.edge.controls in the theme so that the edge is drawn inside the box, and give the stack that holds the two a gap that is larger than the shadow.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
@@ -73,6 +73,7 @@ local DISMISSALS: { [string]: boolean } =
 	{ close = true, done = true, dismiss = true, cancel = true, ok = true, exit = true }
 local LEAVING: { [string]: boolean } = { close = true, dismiss = true, exit = true }
 local EDGE_CUT = 4
+local PLATE_CUT = 0.15
 local FIXES = table.freeze(fixes)
 
 local function clean(content: string): string
@@ -1237,7 +1238,8 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 		local text = element.text
 		local lettered = text ~= nil and text.size >= 8 and clean(text.content) ~= ""
-		if not element.visible or not (lettered or element.interactive) then
+		local plate = not lettered and not element.interactive and isPlate(element)
+		if not element.visible or not (lettered or element.interactive or plate) then
 			continue
 		end
 		local box = if text and lettered then text.ink or element.rect else element.rect
@@ -1252,6 +1254,15 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			or (box.width - seen.width < EDGE_CUT and box.height - seen.height < EDGE_CUT)
 		then
 			continue
+		end
+		if plate then
+			local acrossX = box.width - seen.width >= math.max(EDGE_CUT, PLATE_CUT * box.width)
+				and box.width <= 0.5 * snapshot.width
+			local acrossY = box.height - seen.height >= math.max(EDGE_CUT, PLATE_CUT * box.height)
+				and box.height <= 0.5 * snapshot.height
+			if not (acrossX or acrossY) then
+				continue
+			end
 		end
 		local clipped = false
 		for _, ancestor in lineage(element) do

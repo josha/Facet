@@ -553,6 +553,24 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 		end
 	end
 	paint(game, paintJobs)
+	local hasGui, guiService = call(game, "GetService", "GuiService")
+	local hasInset, inset = call(if hasGui then guiService else nil, "GetGuiInset")
+	local dx, dy = vector(if hasInset then inset else nil)
+	if dx ~= 0 or dy ~= 0 then
+		local moved: { [Rules.ReviewRect]: boolean } = {}
+		local function shift(rect: Rules.ReviewRect?)
+			if rect ~= nil and not moved[rect] then
+				moved[rect] = true
+				rect.x += dx
+				rect.y += dy
+			end
+		end
+		for _, element in elements do
+			shift(element.rect)
+			shift(element.paint)
+			shift(if element.text then element.text.ink else nil)
+		end
+	end
 	if width <= 0 or height <= 0 then
 		for _, element in elements do
 			width = math.max(width, element.rect.x + element.rect.width)

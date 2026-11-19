@@ -5,11 +5,12 @@ local InputTypes = require("./input_types")
 local Shared = require("./types")
 local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
+local layoutKit = require("./layout_kit")
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local Host, read, Compose = ctx.Host, ctx.read, ctx.Compose
 	local readValue = read<<number>>
-	local D2, E = ctx.types.UDim2, ctx.types.Enum
+	local D, D2, E = ctx.types.UDim, ctx.types.UDim2, ctx.types.Enum
 	local lists, enabled = kit.lists, kit.enabled
 	local changed = kit.changed
 	UI.Stepper = ctx.construct("Stepper", function(spec: InputTypes.StepperImplementationProps): Frame
@@ -76,8 +77,21 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			},
 			"stepper-track"
 		)
+		local room: ComposeTypes.Value<layoutKit.Room> = Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
+		lists.shadowRoom(controls, room)
+		local function inset(side: "top" | "right" | "bottom" | "left"): (ComposeTypes.Use) -> UDim
+			return function(use: ComposeTypes.Use): UDim
+				return D.new(0, (use(room) :: layoutKit.Room)[side])
+			end
+		end
 		local parts: { ComposeTypes.Child } = {
 			lists.list({ gap = 12, align = "center" }, false),
+			Host.UIPadding {
+				PaddingTop = inset("top"),
+				PaddingRight = inset("right"),
+				PaddingBottom = inset("bottom"),
+				PaddingLeft = inset("left"),
+			},
 			controls,
 		}
 		if spec.label then
@@ -118,7 +132,11 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		p[#p + 1] = Host.Frame "Content" {
 			ZIndex = 1,
 			BackgroundTransparency = 1,
-			Size = if spec.label then D2.new(1, 0, 0, 44) else D2.fromOffset(0, 44),
+			Size = function(use: ComposeTypes.Use): UDim2
+				local reach = use(room) :: layoutKit.Room
+				local height = 44 + reach.top + reach.bottom
+				return if spec.label then D2.new(1, 0, 0, height) else D2.fromOffset(0, height)
+			end,
 			AutomaticSize = if spec.label then E.AutomaticSize.None else E.AutomaticSize.X,
 			table.unpack(parts),
 		}

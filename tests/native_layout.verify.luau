@@ -2472,6 +2472,41 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
+		describe("Stepper", function()
+			it("keeps the shadows of its keys inside its own box", {
+				id = "native_layout::Stepper::keeps the shadows of its keys inside its own box",
+				run = function()
+					local definition: Facet.ThemeDefinition = {
+						identity = { id = "lifted" },
+						finish = {
+							edge = { width = 0 },
+							depth = { lift = 6, side = 4, blur = 0, glow = 0, sheen = 0, controls = true },
+						},
+					}
+					local lifted = assert((Facet.themes.define(definition)))
+					local root, engine, stop = build({ theme = lifted }, function(UI)
+						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9 }
+					end)
+					local T = engine.types
+					local content = assert(root:FindFirstChild("Content"))
+					local padding = child(content, "UIPadding")
+					expect(content.Size):toBe(T.UDim2.fromOffset(0, 50))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 6))
+					expect(padding.PaddingRight):toBe(T.UDim.new(0, 4))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 0))
+					stop()
+					root, engine, stop = build(nil, function(UI)
+						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9, label = "Jars" }
+					end)
+					T = engine.types
+					content = assert(root:FindFirstChild("Content"))
+					expect(content.Size):toBe(T.UDim2.new(1, 0, 0, 44))
+					expect(child(content, "UIPadding").PaddingBottom):toBe(T.UDim.new(0, 0))
+					stop()
+				end,
+			})
+		end)
+
 		describe("ZStack", function()
 			it("aligns children by offset along a hugging axis", {
 				id = "native_layout::ZStack::aligns children by offset along a hugging axis",
@@ -2495,6 +2530,31 @@ return function(verifyHarness: Verify.Harness)
 					engine.environment.poke(dot, "AbsoluteSize", V2.new(16, 50))
 					expect(card.Position):toBe(D2.new(1, 0, 0, 10))
 					expect(dot.Position):toBe(D2.new(1, 0, 0, 0))
+					stop()
+				end,
+			})
+			it("centres a child inside an authored Size that is larger than the child", {
+				id = "native_layout::ZStack::centres a child inside an authored Size that is larger than the child",
+				run = function()
+					local root, engine, stop = build(nil, function(UI, Host)
+						return UI.ZStack {
+							Name = "Ring",
+							Size = engineLib.types.UDim2.fromOffset(100, 100),
+							alignH = "center" :: "center",
+							alignV = "center" :: "center",
+							Host.Frame { Name = "Chip" },
+						}
+					end)
+					local V2, D2 = engine.types.Vector2, engine.types.UDim2
+					local ring = root
+					local chip = assert(ring:FindFirstChild("Chip"))
+					engine.environment.poke(chip, "AbsoluteSize", V2.new(82, 82))
+					engine.environment.poke(ring, "AbsoluteSize", V2.new(100, 100))
+					expect(chip.AnchorPoint):toBe(V2.new(0.5, 0.5))
+					expect(chip.Position):toBe(D2.new(0.5, 0, 0.5, 0))
+					engine.environment.poke(ring, "AbsoluteSize", V2.new(82, 82))
+					expect(chip.AnchorPoint):toBe(V2.new(0, 0))
+					expect(chip.Position):toBe(D2.new(0, 0, 0, 0))
 					stop()
 				end,
 			})

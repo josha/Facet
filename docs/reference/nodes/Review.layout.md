@@ -6,7 +6,7 @@ Review rules for parts that collide or that leave the Facet layout.
 |---|---|
 | `overlapping-text` | Two different texts whose glyphs cover each other by a fifth or more of the smaller text. High. A text hidden by a clip, or under an opaque plate or image, does not count. |
 | `offscreen-text` | A text with less than half of its glyphs on the screen, while the stack that holds it is on the screen. High. A text inside a clip or a scrolling view does not count, and neither does a text whose holder is off the screen. |
-| `cut-at-edge` | A text (high) or a control (medium) that crosses the edge of the screen by 4 pixels or more, outside a clip. |
+| `cut-at-edge` | A text (high) or a control (medium) that crosses the edge of the screen by 4 pixels or more, outside a clip. A plate (medium) counts when the edge cuts 15 percent or more of it along an axis where it is at most half the screen, also when its text stays on the screen. |
 | `touching-controls` | A control whose stroke or shadow, drawn outside its box, reaches the control beside it. Medium. |
 | `collapsed-text` | A text that is 0 pixels wide inside a holder that is on the screen. High. Its holder hugs its content, and the content waits for a width from the holder. A text in a part that is closed to no size does not count. |
 | `covered-control` | A control with a tenth to nine tenths of its box under a plate or an image of another part that is drawn above it. Medium. A control under a modal, wholly under a part, in a scrolling view or in a fan does not count, and neither does a cover smaller than half of the control. |
