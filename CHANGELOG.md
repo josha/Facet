@@ -41,6 +41,11 @@ so a HUD that mounts during a drag does not follow the drag.
 A finish `sheen` is a wash over an opaque plate. Before, the sheen was
 the plate's own transparency, so the top of each plate showed the world
 through it and the hidden half of a Popover tail showed inside the plate.
+Each end of the wash is exact on dark and light palettes: the plate takes the
+lighter of the washed top and the fill in each channel, and the gradient
+darkens toward the other. A Popover tail matches the plate where it joins it:
+the washed top on the top edge, the fill on the bottom edge and the middle
+tone on a side.
 
 `Facet.review` reports two HUD findings, both `medium`. `worded-command`: a
 Button in a Composition region spells out a standard command or a known
