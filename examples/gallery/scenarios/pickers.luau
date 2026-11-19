@@ -154,7 +154,7 @@ return {
 				text = words,
 				textRole = role,
 				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 		local function page()

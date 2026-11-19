@@ -999,7 +999,7 @@ function screens.create(Facet: FacetModule, runtime: Runtime, actions: Actions)
 				end,
 				textRole = "caption",
 				role = "secondary",
-				TextXAlignment = E.TextXAlignment.Right,
+				textAlign = "end",
 				Visible = function(use: Use)
 					return not short(use) and use(model.shelf) == "saved"
 				end,

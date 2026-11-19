@@ -184,7 +184,7 @@ local button = UI.Button {
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
         Host.UIScale "FaceScale" {},
-        UI.Text { text = "DRIFT", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center },
+        UI.Text { text = "DRIFT", Size = UDim2.fromScale(1, 1), textAlign = "center" },
     },
 }
 button:AddTag("toy-button")

@@ -86,7 +86,7 @@ return function(UI: Controls, Host: Host, C: ComposeModule): Frame
 						return UI.Text {
 							Name = `Tile{current:peek()}`,
 							text = "A",
-							TextXAlignment = Enum.TextXAlignment.Center,
+							textAlign = "center",
 							TextYAlignment = Enum.TextYAlignment.Center,
 						}
 					end,

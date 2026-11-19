@@ -68,7 +68,7 @@ function rows.build(ctx: { [string]: any }, current: ReadOnlyValue<any>, options
 				end,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				TextXAlignment = E.TextXAlignment.Left,
+				textAlign = "start",
 				TextTruncate = E.TextTruncate.AtEnd,
 			},
 			UI.Text "Detail" {
@@ -79,7 +79,7 @@ function rows.build(ctx: { [string]: any }, current: ReadOnlyValue<any>, options
 				end,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				TextXAlignment = E.TextXAlignment.Left,
+				textAlign = "start",
 				TextTruncate = E.TextTruncate.AtEnd,
 			},
 		},

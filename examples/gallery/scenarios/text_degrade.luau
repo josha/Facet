@@ -102,7 +102,7 @@ return {
 						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "Lead" {
 						BackgroundTransparency = 1,
@@ -113,7 +113,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					widthPicker(),
 					Host.Frame "RowPanel" {
@@ -141,7 +141,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						Host.Frame "Row" {
 							LayoutOrder = 2,
@@ -170,7 +170,7 @@ return {
 								text = COPY.rankLabel,
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 							UI.Text "Date" {
 								LayoutOrder = 3,
@@ -181,7 +181,7 @@ return {
 								text = COPY.dateLabel,
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 						},
 					},
@@ -210,7 +210,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text "WrapBody" {
 							LayoutOrder = 2,
@@ -223,7 +223,7 @@ return {
 							text = COPY.wrapBody,
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 					},
 					UI.Text "Footnote" {
@@ -235,7 +235,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 				},
 			}

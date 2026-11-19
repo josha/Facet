@@ -70,7 +70,7 @@ return {
 				text = copy.lobby,
 				textRole = "title",
 				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 			local lobbyDetents: { SheetDetent } = { "hug", "large" }
 			local lobbyActions: { OverlayAction } = {
@@ -113,7 +113,7 @@ return {
 						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text {
 						LayoutOrder = 2,
@@ -124,7 +124,7 @@ return {
 						text = copy.intro,
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "Status" {
 						LayoutOrder = 3,
@@ -135,7 +135,7 @@ return {
 						text = status,
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Button "Open" {
 						LayoutOrder = 4,
@@ -178,7 +178,7 @@ return {
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = copy.lobbyBody,
 							TextWrapped = true,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						}
 					end,
 					actions = lobbyActions,
@@ -207,7 +207,7 @@ return {
 								AutomaticSize = Enum.AutomaticSize.Y,
 								text = copy.filtersBody,
 								TextWrapped = true,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 							UI.Toggle "Night" {
 								LayoutOrder = 2,
@@ -255,7 +255,7 @@ return {
 								text = copy.description,
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 							UI.Text {
 								LayoutOrder = 2,
@@ -266,7 +266,7 @@ return {
 								text = "Weather: clear skies. Surface: dry. Recommended tires: sport.",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 							UI.Toggle "Membership" {
 								LayoutOrder = 3,
@@ -282,7 +282,7 @@ return {
 								text = "The first corner tightens as you exit. Leave room for the next driver, then accelerate toward the harbor straight.",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 							UI.Button "Start" {
 								LayoutOrder = 5,

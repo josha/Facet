@@ -2854,6 +2854,7 @@ local derived: Types.Derived = {
 				hours = { type = "boolean" },
 				onComplete = { type = "event" },
 				start = { type = "number" },
+				textAlign = { type = "choice", options = { "start", "center", "end" } },
 				textRole = {
 					type = "choice",
 					options = { "caption", "label", "body", "heading", "title", "control", "strong", "numeral" },

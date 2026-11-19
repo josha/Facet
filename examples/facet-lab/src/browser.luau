@@ -424,7 +424,7 @@ function browser.mount(opts: MountOpts)
 					wrap = true,
 					Size = UDim2.fromOffset(240, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 					ref = function(label)
 						label:AddTag("facet-validation")
 					end,

@@ -70,7 +70,7 @@ return {
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
 				TextWrapped = true,
-				TextXAlignment = E.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 		local function row(name: string, title: string, description: string, control: Child)

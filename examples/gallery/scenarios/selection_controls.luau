@@ -289,7 +289,7 @@ return {
 				textRole = "heading",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 
@@ -304,7 +304,7 @@ return {
 				textRole = "caption",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 
@@ -328,7 +328,7 @@ return {
 					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Button "Reset" { label = "Reset", onActivate = reset },
 				caption("CapSwitch", "Toggle · switch"),

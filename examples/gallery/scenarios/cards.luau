@@ -72,7 +72,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					TextTruncate = Enum.TextTruncate.AtEnd,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.VirtualGrid "Games" {
 					LayoutOrder = 2,

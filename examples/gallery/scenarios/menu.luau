@@ -229,7 +229,7 @@ return {
 					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 			})
 		end
@@ -260,7 +260,7 @@ return {
 					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Body" {
 					LayoutOrder = 2,
@@ -272,7 +272,7 @@ return {
 					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 			})
 		end
@@ -305,7 +305,7 @@ return {
 						textRole = "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "Intro" {
 						BackgroundTransparency = 1,
@@ -316,7 +316,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					Host.Frame "Cards" {
 						Size = UDim2.new(1, 0, 0, 0),
@@ -365,7 +365,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 					},
 					readout("Opened", COPY.openedTitle, lastOpen),
@@ -381,7 +381,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					readout("Honest", COPY.honestTitle, COPY.honest),
 				},

@@ -233,7 +233,7 @@ return function(ctx: any): Frame
 				wrap = true,
 				Size = D2.new(1, 0, 0, 0),
 				AutomaticSize = E.AutomaticSize.Y,
-				TextXAlignment = E.TextXAlignment.Center,
+				textAlign = "center",
 			},
 			choice,
 		}

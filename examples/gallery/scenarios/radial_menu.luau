@@ -556,7 +556,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 				},
 				Host.Frame "ResultPlate" {
@@ -573,7 +573,7 @@ return {
 						textRole = "body",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 				},
 				disclosure,

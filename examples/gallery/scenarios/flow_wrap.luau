@@ -100,7 +100,7 @@ return {
 						textRole = "body",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Toggle "WrapToggle" {
 						LayoutOrder = 2,
@@ -117,7 +117,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "CloudCaption" {
 						LayoutOrder = 4,
@@ -129,7 +129,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					Host.Frame "Cloud" {
 						LayoutOrder = 5,
@@ -154,7 +154,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Picker "BlockAlign" {
 						LayoutOrder = 7,
