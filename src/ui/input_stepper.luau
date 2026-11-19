@@ -6,6 +6,8 @@ local Shared = require("./types")
 local ControlTypes = require("./control_types")
 local ComposeTypes = require("../vendor/compose/core")
 local layoutKit = require("./layout_kit")
+local themeSupport = require("./theme_support")
+local ThemeTypes = require("./theme_types")
 
 return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Kit): ()
 	local Host, read, Compose = ctx.Host, ctx.read, ctx.Compose
@@ -77,29 +79,10 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			},
 			"stepper-track"
 		)
-		local room: ComposeTypes.Value<layoutKit.Room> = Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
-		lists.shadowRoom(controls, room, true)
-		local function inset(side: "top" | "right" | "bottom" | "left"): (ComposeTypes.Use) -> UDim
-			return function(use: ComposeTypes.Use): UDim
-				local held: layoutKit.Room = use(room)
-				return D.new(
-					0,
-					if side == "top"
-						then held.top
-						elseif side == "right" then held.right
-						elseif side == "bottom" then held.bottom
-						else held.left
-				)
-			end
-		end
+		local inset = Host.UIPadding {}
 		local parts: { ComposeTypes.Child } = {
 			lists.list({ gap = 12, align = "center" }, false),
-			Host.UIPadding {
-				PaddingTop = inset("top"),
-				PaddingRight = inset("right"),
-				PaddingBottom = inset("bottom"),
-				PaddingLeft = inset("left"),
-			},
+			inset,
 			controls,
 		}
 		if spec.label then
@@ -137,17 +120,46 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 		})
-		p[#p + 1] = Host.Frame "Content" {
+		local function sized(height: number): UDim2
+			return if spec.label then D2.new(1, 0, 0, height) else D2.fromOffset(0, height)
+		end
+		local content = Host.Frame "Content" {
 			ZIndex = 1,
 			BackgroundTransparency = 1,
-			Size = function(use: ComposeTypes.Use): UDim2
-				local reach = use(room) :: layoutKit.Room
-				local height = 44 + reach.top + reach.bottom
-				return if spec.label then D2.new(1, 0, 0, height) else D2.fromOffset(0, height)
-			end,
+			Size = sized(44),
 			AutomaticSize = if spec.label then E.AutomaticSize.None else E.AutomaticSize.X,
 			table.unpack(parts),
 		}
+		p[#p + 1] = content
+		local theme = ctx.config.theme
+		local function lifted(use: ComposeTypes.Use?): boolean
+			return themeSupport.plateReach(read<<ThemeTypes.ReadOnlyThemePackage?>>(theme, use)) > 0
+		end
+		if Compose.isValue(theme) or type(theme) == "function" or lifted() then
+			local owner = Compose.currentOwner()
+			local room: ComposeTypes.Value<layoutKit.Room>? = nil
+			Compose.watch(function(use: ComposeTypes.Use)
+				local held = room
+				if held == nil then
+					if owner == nil or not lifted(use) then
+						return
+					end
+					local made: ComposeTypes.Value<layoutKit.Room> =
+						Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
+					Compose.withOwner(owner, function()
+						lists.shadowRoom(controls, made, true)
+					end)
+					room = made
+					held = made
+				end
+				local reach: layoutKit.Room = use(assert(held))
+				inset.PaddingTop = D.new(0, reach.top)
+				inset.PaddingRight = D.new(0, reach.right)
+				inset.PaddingBottom = D.new(0, reach.bottom)
+				inset.PaddingLeft = D.new(0, reach.left)
+				content.Size = sized(44 + reach.top + reach.bottom)
+			end)
+		end
 		local node = ctx.styled(Host.Frame(p), "stepper")
 		ctx.skin(node, "stepperPlate")
 		kit.valueAttributes(node, spec.value, model, readout)
