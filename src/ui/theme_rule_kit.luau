@@ -292,6 +292,13 @@ return function(
 				end
 			end
 			rule(definition.selector, properties, true)
+			if table.find(string.split(definition.selector, ", "), ".facet-panel::UIStroke") ~= nil then
+				rule(".facet-outline-panel", {
+					Color3 = properties.Color,
+					Thickness = properties.Thickness,
+					Transparency = properties.Transparency or 0,
+				}, true)
+			end
 		end
 		local present: { [string]: boolean } = {}
 		local presence: { NativeRule } = {}

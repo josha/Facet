@@ -999,14 +999,24 @@ local function rulesFor(
 		BorderSizePixel = 0,
 	})
 	if tailWash then
-		rule(".facet-tail-floating.facet-tail-edge-bottom", { BackgroundColor3 = tailWash.top })
-		rule(".facet-tail-floating.facet-tail-edge-top", { BackgroundColor3 = tailWash.fill })
+		rule(
+			".facet-tail-floating.facet-tail-edge-bottom, .facet-tail-panel.facet-tail-edge-bottom",
+			{ BackgroundColor3 = tailWash.top }
+		)
+		rule(
+			".facet-tail-floating.facet-tail-edge-top, .facet-tail-panel.facet-tail-edge-top",
+			{ BackgroundColor3 = tailWash.fill }
+		)
 	end
 	local outlineInk = color(types, source("hairline")) :: Color3
 	local outlineFill = color(types, source("surfaceStrong")) :: Color3
 	rule(".facet-outlined::UIStroke", { Transparency = 1 })
 	rule(".facet-outline", { Color3 = outlineInk:Lerp(outlineFill, 0.3), Thickness = 1 })
 	rule(".facet-outline-tooltip", { Color3 = outlineInk:Lerp(outlineFill, 0.4) })
+	rule(".facet-outline-panel", { Transparency = 1 })
+	for status, role in statusRoles do
+		rule(`.facet-status-surface.facet-status-{status} >> .facet-tail`, { BackgroundColor3 = c(role) })
+	end
 	rule(".facet-step-circle::UIStroke", { Color = c("contentSecondary"), Thickness = 1 })
 	rule(".facet-invalid::UIStroke", { Color = c("danger"), Thickness = 1 })
 	rule(".facet-date-time-picker", { BackgroundTransparency = 1 })

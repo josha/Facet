@@ -47,10 +47,23 @@ return function(
 		validate(tail)
 	end
 	local size = ctx.layoutSize(frame, ctx.layoutUnit(frame, "TailUnit"))
-	local function current(use: ComposeTypes.Use): (Layout.StackTailSide?, number)
+	local warned: unknown = nil
+	local placement = Compose.formula(function(use: ComposeTypes.Use): { side: Layout.StackTailSide?, at: number }
 		local value = read<<Layout.StackTail?>>(tail, use)
-		validate(value)
-		return side(value)
+		local valid, problem = pcall(validate, value)
+		if not valid then
+			if warned ~= value then
+				warned = value
+				warn(problem)
+			end
+			return { side = nil, at = 0.5 }
+		end
+		local named, at = side(value)
+		return { side = named, at = at }
+	end)
+	local function current(use: ComposeTypes.Use): (Layout.StackTailSide?, number)
+		local chosen = use(placement)
+		return chosen.side, chosen.at
 	end
 	local layer = Host.Frame "TailLayer" {
 		BackgroundTransparency = 1,
@@ -85,7 +98,7 @@ return function(
 			radius = function(use: ComposeTypes.Use): number
 				return radius(use, use(size))
 			end,
-			role = "floating",
+			role = "panel",
 		})),
 	}
 	runtime.mount(function()
