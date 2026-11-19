@@ -24,6 +24,17 @@ a panel with `width = 220` stayed 220 pixels on a console while its text grew.
 A readable, such as `env.scaled(220)`, is used as it is, so code that already
 scales its lengths keeps its size.
 
+A `Sheet` with `placement = "center"` keeps `space.m` clear of every screen
+edge, as `Dialog` does. Before, on a phone in portrait it ran from edge to
+edge.
+
+A HUD `Composition` reserves the columns around the resting art of the
+dynamic thumbstick, and as far as the stick travels to either side, in place
+of the whole width of its touch frame. In landscape the current PlayerModule
+draws that frame across the left 40 percent of the screen, and a region at
+the bottom center rose above the stick. In portrait the frame is the full
+width, and every bottom region did.
+
 Text at ten feet is larger: the smallest type role is at least 28 pixels and
 every other role at least 32, so the neutral `body` is 33 pixels on a console.
 Before, the floors were 24 and 28, and captions drew shorter than the 26 pixel

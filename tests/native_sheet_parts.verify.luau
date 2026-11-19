@@ -632,6 +632,14 @@ return function(verifyHarness: Verify.Harness)
 				local narrow = mount({ width = "wide" :: "wide" }, { room = Vector2.new(500, 800) })
 				Verify.expect(narrow.find("SheetPanel").Size.X.Offset):toBe(500)
 				narrow.stop()
+				local centered = mount(
+					{ width = "wide" :: "wide", placement = "center" :: "center" },
+					{ room = Vector2.new(390, 300), detent = "large", motionLevel = "none" }
+				)
+				local floating = centered.find("SheetPanel")
+				Verify.expect(floating.Size.X.Offset):toBe(390 - 2 * 16)
+				Verify.expect(floating.Size.Y.Offset <= 300 - 2 * 16):toBe(true)
+				centered.stop()
 			end,
 		})
 

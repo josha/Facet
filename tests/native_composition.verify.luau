@@ -268,6 +268,78 @@ return function(verifyHarness: Verify.Harness)
 		end)
 	end
 
+	it("reserves the columns around a dynamic stick's resting art, not its whole touch frame", function()
+		local roots: { Roblox.Instance } = {}
+		local viewport = { X = 390, Y = 844 }
+		local engine, bridge = engineLib.new({
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return viewport
+				end,
+			},
+		})
+		local T = engine.types
+		local player: PlayerGui = engine.new("PlayerGui")
+		player.Parent = engine.new("DataModel")
+		table.insert(roots, Roblox.assertInstance(player))
+		local input: UserInputService = engine.new("UserInputService")
+		local gui: GuiService = engine.new("GuiService")
+		input.Parent, gui.Parent = player.Parent, player.Parent
+		engine.environment.fakeOn(gui, "GetInsetArea", function()
+			return T.Rect.new(0, 0, viewport.X, viewport.Y)
+		end)
+		engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", true)
+		engine.environment.poke(Roblox.assertInstance(input), "MouseEnabled", false)
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local UI = Facet.controls(
+			runtime,
+			{ types = T, motionLevel = "none", services = { UserInputService = input, GuiService = gui } }
+		)
+		local native = engine.new("ScreenGui")
+		native.Name, native.IgnoreGuiInset, native.Parent = "TouchGui", true, player
+		-- The current PlayerModule: a stick frame across the lower half of a portrait phone, with a
+		-- full-size ImageButton inside it and the resting art at the lower left.
+		local thumb: Frame = engine.new("Frame")
+		thumb.Name, thumb.Size, thumb.Position, thumb.Parent =
+			"DynamicThumbstickFrame", T.UDim2.new(1, 100, 0.5, 0), T.UDim2.new(0, -100, 0.5, 0), native
+		local modifier: ImageButton = engine.new("ImageButton")
+		modifier.Name, modifier.Size, modifier.Parent = "DynamicThumbstickUIModifier", T.UDim2.fromScale(1, 1), thumb
+		local art: Frame = engine.new("Frame")
+		art.Name, art.Size, art.Position, art.Parent =
+			"ThumbstickStart", T.UDim2.fromOffset(74, 74), T.UDim2.new(0, 164, 1, -240), thumb
+		local app = Facet.app({
+			runtime = runtime,
+			types = T,
+			parent = player,
+			motionLevel = "none",
+			services = { UserInputService = input, GuiService = gui },
+		})
+		app.mount(function()
+			return UI.Composition "HUD" {
+				padding = 8,
+				topbar = false,
+				UI.Region { zone = "bottomLeft", rank = 1, UI.Text "Left" { text = "AMMO" } },
+				UI.Region { zone = "bottomRight", rank = 1, UI.Text "Right" { text = "SCORE" } },
+			}
+		end)
+		for _ = 1, 8 do
+			assert(bridge.layout).step()
+			engine.environment.step(1 / 60)
+			engine.heartbeat:Fire(1 / 60)
+		end
+		local left = player:FindFirstChild("Left", true) :: TextLabel
+		local right = player:FindFirstChild("Right", true) :: TextLabel
+		expect(left.AbsolutePosition.Y + left.AbsoluteSize.Y <= art.AbsolutePosition.Y):toBe(true)
+		expect(right.AbsolutePosition.Y + right.AbsoluteSize.Y > art.AbsolutePosition.Y + art.AbsoluteSize.Y):toBe(true)
+		app.dispose()
+		runtime:dispose()
+		player:Destroy()
+		bridge.close()
+	end)
+
 	local function make(options: { [string]: any }?): (any, any, any, any)
 		local engine: any = engineLib.new()
 		local runtime: ComposeRuntime = Facet.Roblox.createRuntime(engine)

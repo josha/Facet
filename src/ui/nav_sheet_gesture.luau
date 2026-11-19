@@ -32,6 +32,7 @@ export type Gesture = {
 	unit: ComposeTypes.Value<number>,
 	keyboard: (ComposeTypes.Use) -> number,
 	extent: ComposeTypes.Value<Vector2>,
+	across: (ComposeTypes.Use?) -> number,
 	placed: ComposeTypes.Value<string>,
 	showGrabber: (ComposeTypes.Use?) -> boolean,
 	reserve: (string, ComposeTypes.Use?) -> number,
@@ -125,6 +126,14 @@ return function(
 			end
 			return if declared == "automatic" then "bottom" else declared
 		end)
+		-- A centered sheet floats like a dialog, so it keeps space.m clear of every
+		-- screen edge. A bottom or side sheet meets its edge.
+		local function gutter(use: ComposeTypes.Use?): number
+			return if ctx.readSource(placed, use) == "center" then ctx.metric("space.m", use) else 0
+		end
+		local function across(use: ComposeTypes.Use?): number
+			return math.max(0, ctx.readSource(extent, use).X - 2 * gutter(use))
+		end
 		local function from(use: ComposeTypes.Use?): string
 			return if ctx.readSource(placed, use) == "side" then edge else "bottom"
 		end
@@ -177,7 +186,7 @@ return function(
 				or function<T>(source: ComposeTypes.ReadOnlyValue<T>): T
 					return source:peek()
 				end
-			return math.max(1, get(extent).Y - keyboard(get))
+			return math.max(1, get(extent).Y - keyboard(get) - 2 * gutter(use))
 		end
 		local function minimum(use: ComposeTypes.Use?): number
 			return ctx.metric("targetSizes.minimum", use) * 4 + ctx.metric("space.m", use) * 2
@@ -434,7 +443,7 @@ return function(
 				end
 				local near, far = (safe.Min - container.Min) / scale, (container.Max - safe.Max) / scale
 				local height = standing(use)
-				local width = math.min(parts.width(ctx, spec.width, use), size.X)
+				local width = math.min(parts.width(ctx, spec.width, use), across(use))
 				local top = if placement == "side"
 					then 0
 					elseif placement == "center" then (size.Y - height) / 2
@@ -496,7 +505,7 @@ return function(
 			end
 			local amount = pull:peek()
 			local speed = velocity(current.samples)
-			local width = math.min(parts.width(ctx, spec.width), extent:peek().X)
+			local width = math.min(parts.width(ctx, spec.width), across())
 			if canDismiss() and (amount > width / 3 or speed > 600) then
 				if close("drag") then
 					return
@@ -683,6 +692,7 @@ return function(
 			unit = unit,
 			keyboard = keyboard,
 			extent = extent,
+			across = across,
 			placed = placed,
 			showGrabber = showGrabber,
 			reserve = reserve,

@@ -1115,7 +1115,10 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				end
 				local controls: { GuiObject } = {}
 				local stickArt: { [GuiObject]: { GuiObject } } = {}
-				local resting: { [GuiObject]: { size: Vector2, tallest: number, top: number } } = {}
+				local resting: {
+					[GuiObject]: { size: Vector2, tallest: number, top: number, left: number, right: number },
+				} =
+					{}
 				for _, node in if touchGui then touchGui:GetDescendants() else {} do
 					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
 						continue
@@ -1159,8 +1162,17 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					local at, box, scale = use(position), use(size), use(unit)
 					local bottom = 0
 					local found: { TouchArea } = {}
-					local function reserve(start: Vector2, bounds: Vector2, shown: boolean, from: number?)
+					local function reserve(
+						start: Vector2,
+						bounds: Vector2,
+						shown: boolean,
+						from: number?,
+						near: number?,
+						far: number?
+					)
 						local top = from or start.Y
+						local left = math.max(start.X, near or start.X)
+						local right = math.min(start.X + bounds.X, far or start.X + bounds.X)
 						if
 							active
 							and shown
@@ -1174,8 +1186,8 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							local reach = math.min(box.Y, at.Y + box.Y - top) / scale
 							bottom = math.max(bottom, reach)
 							table.insert(found, {
-								left = (math.max(start.X, at.X) - at.X) / scale,
-								right = (math.min(start.X + bounds.X, at.X + box.X) - at.X) / scale,
+								left = (math.max(left, at.X) - at.X) / scale,
+								right = (math.min(right, at.X + box.X) - at.X) / scale,
 								reach = reach,
 							})
 						end
@@ -1191,17 +1203,20 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							node = node.Parent
 						end
-						local tallestNow, topNow = 0, math.huge
+						local tallestNow, topNow, leftNow, rightNow = 0, math.huge, start.X, start.X + bounds.X
 						for _, image in stickArt[control] or {} do
-							local drawn = use(ctx.observe.AbsoluteSize(image)).Y
-							if use(ctx.observe.Visible(image)) and drawn < bounds.Y / 2 and drawn >= tallestNow then
-								tallestNow = drawn
-								topNow = ctx.observe.AbsolutePosition(image):peek().Y
+							local drawn = use(ctx.observe.AbsoluteSize(image))
+							if use(ctx.observe.Visible(image)) and drawn.Y < bounds.Y / 2 and drawn.Y >= tallestNow then
+								local placed = ctx.observe.AbsolutePosition(image):peek()
+								tallestNow = drawn.Y
+								topNow = placed.Y
+								leftNow, rightNow = placed.X, placed.X + drawn.X
 							end
 						end
 						local sample = resting[control]
 						if sample == nil or sample.size ~= bounds or tallestNow > sample.tallest then
-							sample = { size = bounds, tallest = tallestNow, top = topNow }
+							sample =
+								{ size = bounds, tallest = tallestNow, top = topNow, left = leftNow, right = rightNow }
 							resting[control] = sample
 						end
 						local tallest = sample.tallest
@@ -1216,7 +1231,13 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							from = math.max(start.Y, math.min(sample.top, rest - tallest * STICK_REACH))
 						end
-						reserve(start, bounds, shown and nativeActive, from)
+						-- A dynamic stick appears where the thumb lands, anywhere in its wide frame, but it
+						-- rests at its art. Reserve the columns around the resting art, as far as the
+						-- stick can travel to either side, so a HUD region beside it keeps its place.
+						local travel = tallest * (STICK_REACH - 1)
+						local near = if tallest > 0 then sample.left - travel else nil
+						local far = if tallest > 0 then sample.right + travel else nil
+						reserve(start, bounds, shown and nativeActive, from, near, far)
 					end
 					for _, declaration in read(config.touchReservations, use) or {} do
 						local area = read<<(Rect | GuiObject)?>>(declaration, use)

@@ -546,6 +546,13 @@ shorter form of its region. An icon can be a Facet icon name or an emoji.
 The Roblox emoji font does not have every emoji, and some newer ones draw as
 an empty box, so look at each emoji on the device.
 
+A phone in portrait is the narrowest case. A corner region wider than about
+a third of it, such as a column of worded buttons, leaves the top center no
+room, so the top row and every region below it move down the screen. Put the
+commands in the topbar as icon-only Buttons and the compact status beside
+them. Give the commands a shorter form for a narrower phone, such as one
+`menu` Button that opens the others in a Popover.
+
 A size that you fix stays fixed in a short room; Facet does not choose a
 shorter form for you. A record that is taller than the room that scrolls it
 is never seen whole. Measure that room with `UI.environment(body)` and give
