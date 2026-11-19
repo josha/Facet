@@ -554,8 +554,21 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 	end
 	paint(game, paintJobs)
 	local hasGui, guiService = call(game, "GetService", "GuiService")
-	local hasInset, inset = call(if hasGui then guiService else nil, "GetGuiInset")
-	local dx, dy = vector(if hasInset then inset else nil)
+	local service = if hasGui then guiService else nil
+	local hasGlass, glass = call(service, "GetInsetArea", read(read(Enum, "ScreenInsets"), "None"))
+	local dx, dy = 0, 0
+	local low, high = read(glass, "Min"), read(glass, "Max")
+	if hasGlass and low ~= nil and high ~= nil then
+		local x0, y0 = vector(low)
+		local x1, y1 = vector(high)
+		if x1 > x0 and y1 > y0 then
+			dx, dy = -x0, -y0
+			width, height = x1 - x0, y1 - y0
+		end
+	else
+		local hasInset, inset = call(service, "GetGuiInset")
+		dx, dy = vector(if hasInset then inset else nil)
+	end
 	if dx ~= 0 or dy ~= 0 then
 		local moved: { [Rules.ReviewRect]: boolean } = {}
 		local function shift(rect: Rules.ReviewRect?)

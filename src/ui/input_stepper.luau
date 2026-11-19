@@ -78,7 +78,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			"stepper-track"
 		)
 		local room: ComposeTypes.Value<layoutKit.Room> = Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
-		lists.shadowRoom(controls, room)
+		lists.shadowRoom(controls, room, true)
 		local function inset(side: "top" | "right" | "bottom" | "left"): (ComposeTypes.Use) -> UDim
 			return function(use: ComposeTypes.Use): UDim
 				return D.new(0, (use(room) :: layoutKit.Room)[side])

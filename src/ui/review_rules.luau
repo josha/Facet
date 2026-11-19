@@ -74,6 +74,7 @@ local DISMISSALS: { [string]: boolean } =
 local LEAVING: { [string]: boolean } = { close = true, dismiss = true, exit = true }
 local EDGE_CUT = 4
 local PLATE_CUT = 0.15
+local SPAN = 0.9
 local FIXES = table.freeze(fixes)
 
 local function clean(content: string): string
@@ -1231,18 +1232,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 	end
 
-	local cuts = 0
-	for _, element in snapshot.elements do
-		if cuts >= 3 then
-			break
-		end
-		local text = element.text
-		local lettered = text ~= nil and text.size >= 8 and clean(text.content) ~= ""
-		local plate = not lettered and not element.interactive and isPlate(element)
-		if not element.visible or not (lettered or element.interactive or plate) then
-			continue
-		end
-		local box = if text and lettered then text.ink or element.rect else element.rect
+	local function crossing(box: ReviewRect): ReviewRect?
 		local seen = overlap(box, screen)
 		if
 			box.width < 4
@@ -1253,35 +1243,76 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			or area(seen) < 0.5 * area(box)
 			or (box.width - seen.width < EDGE_CUT and box.height - seen.height < EDGE_CUT)
 		then
-			continue
+			return nil
 		end
-		if plate then
-			local acrossX = box.width - seen.width >= math.max(EDGE_CUT, PLATE_CUT * box.width)
-				and box.width <= 0.5 * snapshot.width
-			local acrossY = box.height - seen.height >= math.max(EDGE_CUT, PLATE_CUT * box.height)
-				and box.height <= 0.5 * snapshot.height
-			if not (acrossX or acrossY) then
-				continue
-			end
-		end
-		local clipped = false
+		return seen
+	end
+	local function unclipped(element: ReviewElement): boolean
 		for _, ancestor in lineage(element) do
 			if not ancestor.visible or ancestor.clips then
-				clipped = true
-				break
+				return false
 			end
 		end
-		if clipped then
+		return true
+	end
+	local cuts = 0
+	local holding: { [number]: boolean } = {}
+	local reported: { [number]: boolean } = {}
+	local plates: { ReviewElement } = {}
+	for _, element in snapshot.elements do
+		local text = element.text
+		local lettered = text ~= nil and text.size >= 8 and clean(text.content) ~= ""
+		if not element.visible then
 			continue
 		end
-		local words = if text and lettered then quote(clean(text.content)) else leaf(element)
-		add(
-			"cut-at-edge",
-			if text and lettered then "high" else "medium",
-			element,
-			("%s crosses the edge of the screen"):format(words)
-		)
-		cuts += 1
+		if lettered or element.interactive then
+			local box = if text and lettered then text.ink or element.rect else element.rect
+			if overlap(box, screen) ~= nil then
+				for _, ancestor in lineage(element) do
+					holding[ancestor.index] = true
+				end
+			end
+			if cuts >= 3 or crossing(box) == nil or not unclipped(element) then
+				continue
+			end
+			local words = if text and lettered then quote(clean(text.content)) else leaf(element)
+			add(
+				"cut-at-edge",
+				if text and lettered then "high" else "medium",
+				element,
+				("%s crosses the edge of the screen"):format(words)
+			)
+			for _, ancestor in lineage(element) do
+				reported[ancestor.index] = true
+			end
+			cuts += 1
+		elseif isPlate(element) then
+			table.insert(plates, element)
+		end
+	end
+	local cutPlates = 0
+	for _, plate in plates do
+		if cutPlates >= 3 then
+			break
+		end
+		if not holding[plate.index] or reported[plate.index] then
+			continue
+		end
+		local box = plate.rect
+		local seen = crossing(box)
+		if seen == nil or not unclipped(plate) then
+			continue
+		end
+		local acrossX = box.width - seen.width >= math.max(EDGE_CUT, PLATE_CUT * box.width)
+			and box.width <= 0.5 * snapshot.width
+			and box.height < SPAN * snapshot.height
+		local acrossY = box.height - seen.height >= math.max(EDGE_CUT, PLATE_CUT * box.height)
+			and box.height <= 0.5 * snapshot.height
+			and box.width < SPAN * snapshot.width
+		if acrossX or acrossY then
+			add("cut-at-edge", "medium", plate, ("%s crosses the edge of the screen"):format(leaf(plate)))
+			cutPlates += 1
+		end
 	end
 
 	local joined = 0

@@ -1292,7 +1292,7 @@ return function(harness: Verify.Harness)
 			end
 			return made
 		end
-		local function collect(inset: Fake?): Rules.ReviewSnapshot
+		local function collect(inset: Fake?, glass: Fake?): Rules.ReviewSnapshot
 			local services: { [string]: Fake } = {
 				Workspace = { CurrentCamera = { ViewportSize = vector(749, 389) } },
 			}
@@ -1301,6 +1301,11 @@ return function(harness: Verify.Harness)
 					GetGuiInset = function(): (Fake, Fake)
 						return inset, vector(0, 0)
 					end,
+					GetInsetArea = if glass
+						then function(): Fake
+							return glass
+						end
+						else nil,
 				}
 			end
 			local game: Fake = {
@@ -1343,6 +1348,11 @@ return function(harness: Verify.Harness)
 		end
 		t:expect(cut):toBe(1)
 		t:expect(collect(nil).elements[1].rect.y):toBe(294)
+		local notched = collect(vector(0, 58), { Min = vector(-47, -58), Max = vector(796, 331) })
+		t:expect(notched.width):toBe(843)
+		t:expect(notched.height):toBe(389)
+		t:expect(notched.elements[1].rect.x):toBe(63)
+		t:expect(notched.elements[1].rect.y):toBe(352)
 	end)
 
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)
@@ -1413,25 +1423,55 @@ return function(harness: Verify.Harness)
 	harness:case(
 		"a plate that crosses the edge of the screen is reported while its text stays on the screen",
 		function(t)
+			local function cuts(report: Rules.ReviewReport): { Rules.ReviewFinding }
+				local found: { Rules.ReviewFinding } = {}
+				for _, finding in report.findings do
+					if finding.rule == "cut-at-edge" then
+						table.insert(found, finding)
+					end
+				end
+				return found
+			end
 			local add, snapshot = scene()
 			local bubble = add(nil, "Frame", 140, 1000, 440, 120, { opaque = true })
 			add(bubble, "TextLabel", 170, 1030, 380, 40, { text = "Play with me?" })
-			local report = Rules.analyze(snapshot())
-			t:expect(rules(report)["cut-at-edge"]):toBe(1)
-			for _, finding in report.findings do
-				if finding.rule == "cut-at-edge" then
-					t:expect(finding.severity):toBe("medium")
+			local found = cuts(Rules.analyze(snapshot()))
+			t:expect(#found):toBe(1)
+			t:expect(found[1].severity):toBe("medium")
+			local docked, sheet = scene()
+			local panel = docked(nil, "Frame", 560, 700, 800, 400, { opaque = true })
+			docked(panel, "TextLabel", 600, 740, 300, 40, { text = "Inventory" })
+			t:expect(#cuts(Rules.analyze(sheet()))):toBe(0)
+			local band, bar = scene()
+			local strip = band(nil, "Frame", 0, 1000, 1920, 100, { opaque = true })
+			band(strip, "TextLabel", 40, 1010, 300, 40, { text = "Ready" })
+			t:expect(#cuts(Rules.analyze(bar()))):toBe(0)
+			local blob, decor = scene()
+			blob(nil, "Frame", -40, -40, 200, 200, { opaque = true })
+			t:expect(#cuts(Rules.analyze(decor()))):toBe(0)
+			local clear, inside = scene()
+			local whole = clear(nil, "Frame", 140, 900, 440, 120, { opaque = true })
+			clear(whole, "TextLabel", 170, 930, 380, 40, { text = "Play with me?" })
+			t:expect(#cuts(Rules.analyze(inside()))):toBe(0)
+			local row, crowded = scene()
+			for i = 0, 2 do
+				local card = row(nil, "Frame", 1800, 100 + i * 200, 200, 120, { opaque = true })
+				row(card, "TextLabel", 1810, 110 + i * 200, 80, 30, { text = "Card " .. i })
+			end
+			row(nil, "TextLabel", 1700, 900, 400, 40, { text = "Collect your reward now" })
+			local mixed = cuts(Rules.analyze(crowded()))
+			local high = 0
+			for _, finding in mixed do
+				if finding.severity == "high" then
+					high += 1
 				end
 			end
-			local docked, sheet = scene()
-			docked(nil, "Frame", 560, 700, 800, 400, { opaque = true })
-			t:expect(rules(Rules.analyze(sheet()))["cut-at-edge"]):toBe(nil)
-			local band, bar = scene()
-			band(nil, "Frame", 0, 900, 1920, 200, { opaque = true })
-			t:expect(rules(Rules.analyze(bar()))["cut-at-edge"]):toBe(nil)
-			local clear, inside = scene()
-			clear(nil, "Frame", 140, 900, 440, 120, { opaque = true })
-			t:expect(rules(Rules.analyze(inside()))["cut-at-edge"]):toBe(nil)
+			t:expect(high):toBe(1)
+			t:expect(#mixed):toBe(4)
+			local once, single = scene()
+			local cut = once(nil, "Frame", 1800, 100, 200, 120, { opaque = true })
+			once(cut, "TextLabel", 1810, 110, 160, 30, { text = "Daily reward" })
+			t:expect(#cuts(Rules.analyze(single()))):toBe(1)
 		end
 	)
 

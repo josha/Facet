@@ -2495,6 +2495,22 @@ return function(verifyHarness: Verify.Harness)
 					expect(padding.PaddingRight):toBe(T.UDim.new(0, 4))
 					expect(padding.PaddingTop):toBe(T.UDim.new(0, 0))
 					stop()
+					local soft: Facet.ThemeDefinition = {
+						identity = { id = "soft" },
+						finish = { edge = { width = 0 }, depth = { lift = 6, glow = 0, sheen = 0, controls = true } },
+					}
+					local blurred = assert((Facet.themes.define(soft)))
+					root, engine, stop = build({ theme = blurred }, function(UI)
+						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9, label = "Jars" }
+					end)
+					T = engine.types
+					content = assert(root:FindFirstChild("Content"))
+					padding = child(content, "UIPadding")
+					expect(content.Size):toBe(T.UDim2.new(1, 0, 0, 50))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 6))
+					expect(padding.PaddingLeft):toBe(T.UDim.new(0, 0))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 0))
+					stop()
 					root, engine, stop = build(nil, function(UI)
 						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9, label = "Jars" }
 					end)

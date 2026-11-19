@@ -22,7 +22,7 @@ end
 export type Kit = {
 	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?, boolean?) -> number,
 	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?, boolean?) -> UIPadding?,
-	shadowRoom: (GuiObject, ComposeTypes.Value<Room>) -> (),
+	shadowRoom: (GuiObject, ComposeTypes.Value<Room>, boolean?) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	lengthScale: (ComposeTypes.Use?) -> number,
 	literal: (unknown) -> boolean,
@@ -162,7 +162,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			PaddingLeft = side("left"),
 		}
 	end
-	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Value<Room>)
+	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Value<Room>, hard: boolean?)
 		local function measure()
 			local top, right, bottom, left = 0, 0, 0, 0
 			for _, child in frame:GetChildren() do
@@ -170,7 +170,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					for _, item in child:GetChildren() do
 						if item:IsA("UIShadow") and item.Enabled then
 							local shadow = item
-							local blur = shadow.BlurRadius.Offset
+							local blur = if hard then 0 else shadow.BlurRadius.Offset
 							local ox, oy = shadow.Offset.X.Offset, shadow.Offset.Y.Offset
 							local sx, sy = shadow.Spread.X.Offset, shadow.Spread.Y.Offset
 							top = math.max(top, -oy + sy + blur)
