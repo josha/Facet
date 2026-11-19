@@ -2472,6 +2472,41 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
+		describe("stack gaps", function()
+			it("widens the gap by the hard shadows of the children in a theme that draws them", {
+				id = "native_layout::stack gaps::widens the gap by the hard shadows of the children in a theme that draws them",
+				run = function()
+					local definition: Facet.ThemeDefinition = {
+						identity = { id = "lifted" },
+						finish = {
+							edge = { width = 0 },
+							depth = { lift = 6, side = 4, glow = 0, sheen = 0, controls = true },
+						},
+					}
+					local lifted = assert((Facet.themes.define(definition)))
+					local root, engine, stop = build({ theme = lifted }, function(UI)
+						return UI.VStack { gap = 4, UI.Button "A" { label = "Buy" }, UI.Button "B" { label = "Sell" } }
+					end)
+					local T = engine.types
+					local list = child(root, "UIListLayout")
+					expect(list.Padding):toBe(T.UDim.new(0, 10))
+					stop()
+					root, engine, stop = build(nil, function(UI)
+						return UI.VStack { gap = 4, UI.Button "A" { label = "Buy" }, UI.Button "B" { label = "Sell" } }
+					end)
+					T = engine.types
+					expect(child(root, "UIListLayout").Padding):toBe(T.UDim.new(0, 4))
+					stop()
+					root, engine, stop = build({ theme = lifted }, function(UI)
+						return UI.HStack { gap = -6, UI.Button "A" { label = "Buy" }, UI.Button "B" { label = "Sell" } }
+					end)
+					T = engine.types
+					expect(child(root, "UIListLayout").Padding):toBe(T.UDim.new(0, -6))
+					stop()
+				end,
+			})
+		end)
+
 		describe("Stepper", function()
 			it("keeps the shadows of its keys inside its own box", {
 				id = "native_layout::Stepper::keeps the shadows of its keys inside its own box",
@@ -2549,10 +2584,38 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 				end,
 			})
+			it("aligns the glyphs of a one-line text with alignH unless the text sets its own alignment", {
+				id = "native_layout::ZStack::aligns the glyphs of a one-line text with alignH unless the text sets its own alignment",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.ZStack {
+							width = 120,
+							height = 40,
+							alignH = "end" :: "end",
+							UI.Text "Plain" { text = "Score" },
+							UI.Text "Own" { text = "Score", textAlign = "start" },
+							UI.Text "Paragraph" { text = "A longer line", wrap = true },
+						}
+					end)
+					local E = engine.types.Enum
+					local V2 = engine.types.Vector2
+					engine.environment.poke(root, "AbsoluteSize", V2.new(120, 40))
+					expect((root:FindFirstChild("Plain") :: TextLabel).TextXAlignment):toBe(E.TextXAlignment.Right)
+					expect((root:FindFirstChild("Own") :: TextLabel).TextXAlignment):toBe(E.TextXAlignment.Left)
+					expect((root:FindFirstChild("Paragraph") :: TextLabel).TextXAlignment):toBe(E.TextXAlignment.Left)
+					stop()
+				end,
+			})
 			it("shrinks a one-line text that is wider than its box toward a floor", {
 				id = "native_layout::ZStack::shrinks a one-line text that is wider than its box toward a floor",
 				run = function()
-					local root, engine, stop = build(nil, function(UI)
+					local Vector2 = engineLib.types.Vector2
+					local textService = {
+						GetTextBoundsAsync = function(): Vector2
+							return Vector2.new(64, 15)
+						end,
+					}
+					local root, engine, stop = build({ services = { TextService = textService } }, function(UI)
 						return UI.ZStack {
 							width = 55,
 							height = 77,
@@ -2560,7 +2623,11 @@ return function(verifyHarness: Verify.Harness)
 							alignV = "center" :: "center",
 							UI.Text "Caption" { text = "DEALER", textSize = 15 },
 						}
-					end)
+					end, {
+						getStyled = function(node, property)
+							return node[property]
+						end,
+					})
 					local V2 = engine.types.Vector2
 					local label = assert(root:FindFirstChild("Caption"))
 					engine.environment.poke(root, "AbsoluteSize", V2.new(55, 77))
@@ -2575,7 +2642,33 @@ return function(verifyHarness: Verify.Harness)
 					expect(fit.Scale < 0.75):toBe(true)
 					engine.environment.poke(root, "AbsoluteSize", V2.new(200, 77))
 					expect(fit.Scale):toBe(1)
-					expect((label :: TextLabel).TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Left)
+					expect((label :: TextLabel).TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
+					stop()
+				end,
+			})
+			it("shrinks a one-line text that fills a narrow stack", {
+				id = "native_layout::ZStack::shrinks a one-line text that fills a narrow stack",
+				run = function()
+					local Vector2 = engineLib.types.Vector2
+					local textService = {
+						GetTextBoundsAsync = function(): Vector2
+							return Vector2.new(100, 15)
+						end,
+					}
+					local root, engine, stop = build({ services = { TextService = textService } }, function(UI)
+						return UI.VStack { width = 80, UI.Text "Caption" { text = "Ready to race", textSize = 15 } }
+					end, {
+						getStyled = function(node, property)
+							return node[property]
+						end,
+					})
+					local label = assert(root:FindFirstChild("Caption"))
+					engine.environment.poke(root, "AbsoluteSize", Vector2.new(80, 20))
+					engine.environment.poke(label, "AbsoluteSize", Vector2.new(80, 15))
+					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
+					expect(math.abs(fit.Scale - 0.8) < 0.01):toBe(true)
+					engine.environment.poke(label, "AbsoluteSize", Vector2.new(64, 12))
+					expect(math.abs(fit.Scale - 0.8) < 0.01):toBe(true)
 					stop()
 				end,
 			})

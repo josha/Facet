@@ -17,8 +17,6 @@ local themeSupport = require("./theme_support")
 local textMeasure = require("./text_measure")
 
 local ROW_RETURN_MARGIN = 8
-local TEXT_FIT_SHARE = 0.7
-local TEXT_FIT_FLOOR = 10
 local hugWarned: { [string]: boolean } = {}
 
 export type LayoutControls = ControlTypes.Controls
@@ -768,27 +766,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				and not hugs(read<<Types.Extent?>>(spec.width))
 				and settled(spec.height)
 				and not hugs(read<<Types.Extent?>>(spec.height))
-			local outer = ctx.observe.AbsoluteSize(frame)
-			local shrinks: { [GuiObject]: UIScale } = setmetatable({}, { __mode = "k" })
-			local aligns: { [GuiObject]: Enum.TextXAlignment } = setmetatable({}, { __mode = "k" })
-			local makeShrink = Compose.bindOwner(function(): UIScale
-				return Host.UIScale { Name = "TextFit" }
-			end)
-			local function fitsText(node: GuiObject): TextLabel?
-				if not node:IsA("TextLabel") or not node:HasTag("facet-text") then
-					return nil
-				end
-				local label = node :: TextLabel
-				local mode = label.AutomaticSize
-				if
-					label.TextWrapped
-					or label.TextScaled
-					or not (mode == E.AutomaticSize.X or mode == E.AutomaticSize.XY)
-				then
-					return nil
-				end
-				return label
-			end
+			local outer = if sized then nil else ctx.observe.AbsoluteSize(frame)
 			local observe = (ctx.observe :: unknown) :: {
 				PaddingLeft: (UIPadding) -> ComposeTypes.Value<UDim>,
 				PaddingRight: (UIPadding) -> ComposeTypes.Value<UDim>,
@@ -836,48 +814,26 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 						tallest = math.max(tallest, extent.Y)
 					end
 				end
-				local scale = unitScale()
-				local box = contentBox(use, scale)
-				local wide = not sized and hugs(read<<Types.Extent?>>(spec.width, use)) and box.X <= widest + 1
-				local tall = not sized and hugs(read<<Types.Extent?>>(spec.height, use)) and box.Y <= tallest + 1
+				local wide, tall, scale = false, false, 1
+				if outer then
+					scale = unitScale()
+					local box = contentBox(use, scale)
+					wide = hugs(read<<Types.Extent?>>(spec.width, use)) and box.X <= widest + 1
+					tall = hugs(read<<Types.Extent?>>(spec.height, use)) and box.Y <= tallest + 1
+				end
 				for _, node in nodes do
-					local label = if wide then nil else fitsText(node)
-					local shrink = shrinks[node]
-					if label then
-						local styled = use(ctx.observeStyled.TextSize(label))
-						local size = if type(styled) == "number" then styled else label.TextSize
-						local own = if shrink and shrink.Parent == node then shrink.Scale else 1
-						local natural = extents[node].X / math.max(own, 1e-3)
-						local least = math.min(1, math.max(TEXT_FIT_SHARE, TEXT_FIT_FLOOR / math.max(size, 1)))
-						local target = if natural > box.X + 0.5 and natural > 0
-							then math.clamp(box.X / natural, least, 1)
-							else 1
-						if (shrink == nil or shrink.Parent ~= node) and target < 0.995 then
-							local made = shrink or makeShrink()
-							made.Scale = target
-							made.Parent = node
-							shrinks[node] = made
-						elseif shrink and math.abs(shrink.Scale - target) > 0.005 then
-							shrink.Scale = target
-						end
-						local shrunk = shrinks[node] ~= nil and (shrinks[node] :: UIScale).Scale < 1
+					if
+						node:IsA("TextLabel")
+						and node:HasTag("facet-text")
+						and not node:HasTag("facet-text-aligned")
+						and not (node :: TextLabel).TextWrapped
+					then
 						local glyphs = if x == 0.5
 							then E.TextXAlignment.Center
 							elseif x == 1 then E.TextXAlignment.Right
 							else E.TextXAlignment.Left
-						if shrunk and label.TextXAlignment ~= glyphs then
-							aligns[node] = aligns[node] or label.TextXAlignment
-							label.TextXAlignment = glyphs
-						elseif not shrunk and aligns[node] ~= nil then
-							label.TextXAlignment = aligns[node] :: Enum.TextXAlignment
-							aligns[node] = nil
-						end
-					elseif shrink and shrink.Scale ~= 1 then
-						shrink.Scale = 1
-						local was = aligns[node]
-						if was ~= nil and node:IsA("TextLabel") then
-							(node :: TextLabel).TextXAlignment = was
-							aligns[node] = nil
+						if (node :: TextLabel).TextXAlignment ~= glyphs then
+							(node :: TextLabel).TextXAlignment = glyphs
 						end
 					end
 				end

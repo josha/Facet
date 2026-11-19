@@ -59,6 +59,11 @@ it. Each side of its `UIPadding` grows by the farthest a direct child's
 themed Button's drop plate is such a shadow. Hidden children and disabled
 shadows take no room. A stack without `padding` is not changed.
 
+In a theme that draws plate or control shadows, a stack with a `gap` also
+widens the gap by the hard part (offset and spread) of its direct children's
+shadows on that axis, so the authored gap stays visible between them. A
+negative `gap` is not changed.
+
 A stack with `surface` can set `corners` to `"pill"`, `"square"`, the theme
 radius `"control"` or `"panel"`, or a number of pixels; `corners` without
 `surface` causes an error. A pill is fully round at each height, as on a
