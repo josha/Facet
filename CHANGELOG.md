@@ -24,6 +24,11 @@ a panel with `width = 220` stayed 220 pixels on a console while its text grew.
 A readable, such as `env.scaled(220)`, is used as it is, so code that already
 scales its lengths keeps its size.
 
+Text at ten feet is larger: the smallest type role is at least 28 pixels and
+every other role at least 32, so the neutral `body` is 33 pixels on a console.
+Before, the floors were 24 and 28, and captions drew shorter than the 26 pixel
+text height that the Xbox Accessibility Guidelines ask for at 1080p.
+
 **Breaking:** a theme whose `contentSecondary` is below 4.5:1 on `surface` or
 `surfaceStrong` no longer defines; `themes.define` returns nil and a report with
 the error. Before, the theme loaded with a caption that players could not read.

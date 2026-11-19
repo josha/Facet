@@ -319,7 +319,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				for role, entry in far do
 					local size = near[role].size
-					expect(entry.size >= (if size == smallest then 24 else 28)):toBe(true)
+					expect(entry.size >= (if size == smallest then 28 else 32)):toBe(true)
 					expect(entry.size >= math.floor(size * 1.5 + 0.5)):toBe(true)
 					for other, peer in far do
 						if near[other].size < size then

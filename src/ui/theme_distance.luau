@@ -141,7 +141,7 @@ local function build(
 	local previous = 0
 	for index, size in sizes do
 		if distant then
-			local floor = if index == 1 then 24 else 28
+			local floor = if index == 1 then 28 else 32
 			previous = math.max(math.floor(size * distance + 0.5), floor, previous + 1)
 		else
 			previous = math.max(14, size)
