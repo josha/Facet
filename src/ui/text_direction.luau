@@ -88,31 +88,37 @@ local function plain(text: string, rich: boolean): string
 	return (string.gsub(stripped, "&%w+;", ""))
 end
 
-local function base(text: string, rich: boolean): Base
-	local source = plain(text, rich)
-	local found: Base? = nil
-	pcall(function()
-		local isolated = 0
-		for _, point in utf8.codes(source) do
-			if point == LRI or point == RLI or point == FSI then
-				isolated += 1
-			elseif point == PDI then
-				isolated = math.max(isolated - 1, 0)
-			elseif isolated == 0 then
-				if point == LRM then
-					found = "ltr"
-				elseif point == RLM then
-					found = "rtl"
-				elseif not within(NEUTRAL, point) then
-					found = if within(RIGHT, point) then "rtl" else "ltr"
-				end
-				if found ~= nil then
-					return
-				end
+local function scan(source: string): Base?
+	local isolated = 0
+	for _, point in utf8.codes(source) do
+		if point == LRI or point == RLI or point == FSI then
+			isolated += 1
+		elseif point == PDI then
+			isolated = math.max(isolated - 1, 0)
+		elseif isolated == 0 then
+			if point == LRM then
+				return "ltr"
+			elseif point == RLM then
+				return "rtl"
+			elseif not within(NEUTRAL, point) then
+				return if within(RIGHT, point) then "rtl" else "ltr"
 			end
 		end
-	end)
-	return found or "ltr"
+	end
+	return nil
+end
+
+local function base(text: string, rich: boolean): Base
+	local source = plain(text, rich)
+	local first = string.find(source, "[%a\128-\255]")
+	if first == nil or string.byte(source, first) < 128 then
+		return "ltr"
+	end
+	local length, bad = utf8.len(source)
+	if length == nil and bad ~= nil then
+		source = string.sub(source, 1, bad - 1)
+	end
+	return scan(source) or "ltr"
 end
 
 return table.freeze({ base = base })
