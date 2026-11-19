@@ -53,34 +53,8 @@ each a bounded width and use native flex through [fill](fill.md) to share a row.
 Use [AdaptiveStack](AdaptiveStack.reference.md) for short intrinsic-width actions
 that should turn into a column when they cannot fit.
 
-A stack with `padding` has an edge, so it keeps its children's shadows inside
-it. Each side of its `UIPadding` grows by the farthest a direct child's
-`UIShadow` reaches past that child on that side (offset, spread and blur). A
-themed Button's drop plate is such a shadow. Hidden children and disabled
-shadows take no room. A stack without `padding` is not changed.
+Shadows, gaps and `corners`: see
+[VStack-and-HStack.edges](VStack-and-HStack.edges.md).
 
-A stack with `surface` can set `corners` to `"pill"`, `"square"`, the theme
-radius `"control"` or `"panel"`, or a number of pixels; `corners` without
-`surface` causes an error. A pill is fully round at each height, as on a
-Button with `corners = "pill"`, and the padding on its long sides grows to
-half of its short side. `"control"` and `"panel"` follow a theme change. When
-the theme draws the `panel` plate with art, the art keeps its shape.
-
-A stack with `surface = "panel"` can set `tail` to point from one edge, as
-on a speech bubble. `tail` is `"top"`, `"bottom"`, `"left"` or `"right"`, or
-a table such as `{ side = "bottom", at = 0.3 }`, where `at` (0 to 1, default
-0.5) is the place along that edge. The tail stays clear of the rounded
-corners; on an edge too short to hold it beside them, such as the side of a
-pill, Facet draws no tail. Facet draws one outline around the plate and the
-tail with the stroke that the theme gives a panel (the finish edge or a
-`.facet-panel::UIStroke` rule), and no outline when the panel has no stroke.
-It uses the theme's `panelTail` art when it has one, and a `status` tints the
-tail with the plate. The tail is drawn outside the box of the stack, so give
-the part beside it room. `tail` without `surface = "panel"` causes an error.
-
-```luau
-UI.VStack "Speech" {
-  surface = "panel", padding = "s", tail = { side = "bottom", at = 0.3 },
-  UI.Text { text = "Is it snack time?", textRole = "strong" },
-}
-```
+A panel stack can point at a thing with `tail`: see
+[VStack-and-HStack.tail](VStack-and-HStack.tail.md).

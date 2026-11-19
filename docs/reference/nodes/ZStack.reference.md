@@ -7,7 +7,12 @@ layout object. A later child gets a higher `ZIndex`. A child that sets its own
 `ZIndex` keeps it. `alignH` and `alignV` (`start`, `center` or `end`) set the
 `AnchorPoint` and the scale `Position` of each child. On an axis that hugs
 its content, the stack aligns each child by offset against the largest child on
-that axis, so the stack keeps its size. Options: `padding`,
+that axis, so the stack keeps its size. When the box of the stack is larger
+than its largest child on that axis, for example because of a native `Size`,
+the stack aligns each child in its box. A one-line Text in an aligned ZStack
+takes `alignH` as its text alignment unless it sets `textAlign` or
+`TextXAlignment`, and it
+shrinks to fit the box as [Text](Text.reference.md) describes. Options: `padding`,
 `alignH`, `alignV`, `width`, `height`, `maxWidth`, `maxHeight`, `corners` and `ground`
 (see [VStack and HStack](VStack-and-HStack.md)).
 `corners` rounds the stack's own frame with a native `UICorner` named

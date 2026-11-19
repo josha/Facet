@@ -255,7 +255,8 @@ Each gap cost an author time. They are not fixed by this set.
 - Roblox stops `TextSize` at 100, so a type role above it does nothing; a
   larger name needs a `UIScale`. The guidance does not say so.
 - `cut-at-edge` reports a text or a control. A plate that the edge of the
-  screen cuts, with its text still on the screen, has no finding.
+  screen cuts, with its text still on the screen, has no finding. (Addressed
+  on 19 November 2026: `cut-at-edge` now reports the plate.)
 - The reveal mark of a corner region sits on a `top` region on a narrow
   screen: the `top` zone centres on the full width. Both fishing authors
   wrote a second layout for portrait, and the review reported nothing.

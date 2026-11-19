@@ -2557,6 +2557,92 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
+		describe("stack gaps", function()
+			it("widens the gap by the hard shadows of the children in a theme that draws them", {
+				id = "native_layout::stack gaps::widens the gap by the hard shadows of the children in a theme that draws them",
+				run = function()
+					local definition: Facet.ThemeDefinition = {
+						identity = { id = "lifted" },
+						finish = {
+							edge = { width = 0 },
+							depth = { lift = 6, side = 4, glow = 0, sheen = 0, controls = true },
+						},
+					}
+					local lifted = assert((Facet.themes.define(definition)))
+					local root, engine, stop = build({ theme = lifted }, function(UI)
+						return UI.VStack { gap = 4, UI.Button "A" { label = "Buy" }, UI.Button "B" { label = "Sell" } }
+					end)
+					local T = engine.types
+					local list = child(root, "UIListLayout")
+					expect(list.Padding):toBe(T.UDim.new(0, 10))
+					stop()
+					root, engine, stop = build(nil, function(UI)
+						return UI.VStack { gap = 4, UI.Button "A" { label = "Buy" }, UI.Button "B" { label = "Sell" } }
+					end)
+					T = engine.types
+					expect(child(root, "UIListLayout").Padding):toBe(T.UDim.new(0, 4))
+					stop()
+					root, engine, stop = build({ theme = lifted }, function(UI)
+						return UI.HStack { gap = -6, UI.Button "A" { label = "Buy" }, UI.Button "B" { label = "Sell" } }
+					end)
+					T = engine.types
+					expect(child(root, "UIListLayout").Padding):toBe(T.UDim.new(0, -6))
+					stop()
+				end,
+			})
+		end)
+
+		describe("Stepper", function()
+			it("keeps the shadows of its keys inside its own box", {
+				id = "native_layout::Stepper::keeps the shadows of its keys inside its own box",
+				run = function()
+					local definition: Facet.ThemeDefinition = {
+						identity = { id = "lifted" },
+						finish = {
+							edge = { width = 0 },
+							depth = { lift = 6, side = 4, blur = 0, glow = 0, sheen = 0, controls = true },
+						},
+					}
+					local lifted = assert((Facet.themes.define(definition)))
+					local root, engine, stop = build({ theme = lifted }, function(UI)
+						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9 }
+					end)
+					local T = engine.types
+					local content = assert(root:FindFirstChild("Content"))
+					local padding = child(content, "UIPadding")
+					expect(content.Size):toBe(T.UDim2.fromOffset(0, 50))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 6))
+					expect(padding.PaddingRight):toBe(T.UDim.new(0, 4))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 0))
+					stop()
+					local soft: Facet.ThemeDefinition = {
+						identity = { id = "soft" },
+						finish = { edge = { width = 0 }, depth = { lift = 6, glow = 0, sheen = 0, controls = true } },
+					}
+					local blurred = assert((Facet.themes.define(soft)))
+					root, engine, stop = build({ theme = blurred }, function(UI)
+						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9, label = "Jars" }
+					end)
+					T = engine.types
+					content = assert(root:FindFirstChild("Content"))
+					padding = child(content, "UIPadding")
+					expect(content.Size):toBe(T.UDim2.new(1, 0, 0, 50))
+					expect(padding.PaddingBottom):toBe(T.UDim.new(0, 6))
+					expect(padding.PaddingLeft):toBe(T.UDim.new(0, 0))
+					expect(padding.PaddingTop):toBe(T.UDim.new(0, 0))
+					stop()
+					root, engine, stop = build(nil, function(UI)
+						return UI.Stepper "Quantity" { value = Compose.cell(1), max = 9, label = "Jars" }
+					end)
+					T = engine.types
+					content = assert(root:FindFirstChild("Content"))
+					expect(content.Size):toBe(T.UDim2.new(1, 0, 0, 44))
+					expect(child(content, "UIPadding").PaddingBottom):toBe(T.UDim.new(0, 0))
+					stop()
+				end,
+			})
+		end)
+
 		describe("ZStack", function()
 			it("aligns children by offset along a hugging axis", {
 				id = "native_layout::ZStack::aligns children by offset along a hugging axis",
@@ -2580,6 +2666,154 @@ return function(verifyHarness: Verify.Harness)
 					engine.environment.poke(dot, "AbsoluteSize", V2.new(16, 50))
 					expect(card.Position):toBe(D2.new(1, 0, 0, 10))
 					expect(dot.Position):toBe(D2.new(1, 0, 0, 0))
+					stop()
+				end,
+			})
+			it("aligns the glyphs of a one-line text with alignH unless the text sets its own alignment", {
+				id = "native_layout::ZStack::aligns the glyphs of a one-line text with alignH unless the text sets its own alignment",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.ZStack {
+							width = 120,
+							height = 40,
+							alignH = "end" :: "end",
+							UI.Text "Plain" { text = "Score" },
+							UI.Text "Own" { text = "Score", textAlign = "start" },
+							UI.Text "Paragraph" { text = "A longer line", wrap = true },
+						}
+					end)
+					local E = engine.types.Enum
+					local V2 = engine.types.Vector2
+					engine.environment.poke(root, "AbsoluteSize", V2.new(120, 40))
+					expect((root:FindFirstChild("Plain") :: TextLabel).TextXAlignment):toBe(E.TextXAlignment.Right)
+					expect((root:FindFirstChild("Own") :: TextLabel).TextXAlignment):toBe(E.TextXAlignment.Left)
+					expect((root:FindFirstChild("Paragraph") :: TextLabel).TextXAlignment):toBe(E.TextXAlignment.Left)
+					stop()
+				end,
+			})
+			it("shrinks a one-line text that is wider than its box toward a floor", {
+				id = "native_layout::ZStack::shrinks a one-line text that is wider than its box toward a floor",
+				run = function()
+					local Vector2 = engineLib.types.Vector2
+					local textService = {
+						GetTextBoundsAsync = function(): Vector2
+							return Vector2.new(64, 15)
+						end,
+					}
+					local root, engine, stop = build({ services = { TextService = textService } }, function(UI)
+						return UI.ZStack {
+							width = 55,
+							height = 77,
+							alignH = "center" :: "center",
+							alignV = "center" :: "center",
+							UI.Text "Caption" { text = "DEALER", textSize = 15 },
+						}
+					end, {
+						getStyled = function(node, property)
+							return node[property]
+						end,
+					})
+					local V2 = engine.types.Vector2
+					local label = assert(root:FindFirstChild("Caption"))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(55, 77))
+					engine.environment.poke(label, "AbsoluteSize", V2.new(64, 15))
+					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
+					expect(math.abs(fit.Scale - 55 / 64) < 0.01):toBe(true)
+					expect((label :: TextLabel).TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
+					engine.environment.poke(label, "AbsoluteSize", V2.new(55, 13))
+					expect(math.abs(fit.Scale - 55 / 64) < 0.01):toBe(true)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(20, 77))
+					expect(fit.Scale >= 0.7 - 1e-6):toBe(true)
+					expect(fit.Scale < 0.75):toBe(true)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(200, 77))
+					expect(fit.Scale):toBe(1)
+					expect((label :: TextLabel).TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
+					stop()
+				end,
+			})
+			it("shrinks a one-line text that fills a narrow stack", {
+				id = "native_layout::ZStack::shrinks a one-line text that fills a narrow stack",
+				run = function()
+					local Vector2 = engineLib.types.Vector2
+					local root, engine, stop = build({}, function(UI)
+						return UI.VStack { width = 80, UI.Text "Caption" { text = "Ready to race", textSize = 15 } }
+					end, {
+						getStyled = function(node, property)
+							return node[property]
+						end,
+					})
+					local label = assert(root:FindFirstChild("Caption"))
+					engine.environment.poke(root, "AbsoluteSize", Vector2.new(80, 20))
+					engine.environment.poke(label, "TextBounds", Vector2.new(100, 15))
+					engine.environment.poke(label, "TextFits", false)
+					engine.environment.poke(label, "AbsoluteSize", Vector2.new(80, 15))
+					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
+					expect(math.abs(fit.Scale - 0.8) < 0.01):toBe(true)
+					stop()
+				end,
+			})
+			it("keeps a larger text size that the player chooses", {
+				id = "native_layout::ZStack::keeps a larger text size that the player chooses",
+				run = function()
+					local Vector2 = engineLib.types.Vector2
+					local textService = {
+						GetTextBoundsAsync = function(): Vector2
+							return Vector2.new(64, 15)
+						end,
+					}
+					local other = engineLib.new()
+					local gui = other.new("GuiService")
+					other.environment.poke(gui, "PreferredTextSize", other.types.Enum.PreferredTextSize.Larger)
+					local root, engine, stop = build(
+						{ services = { TextService = textService }, guiService = gui },
+						function(UI)
+							return UI.ZStack {
+								width = 55,
+								height = 77,
+								alignH = "center" :: "center",
+								UI.Text "Caption" { text = "DEALER", textSize = 15 },
+							}
+						end,
+						{
+							getStyled = function(node, property)
+								return node[property]
+							end,
+						}
+					)
+					local V2 = engine.types.Vector2
+					local label = assert(root:FindFirstChild("Caption"))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(55, 77))
+					engine.environment.poke(label, "AbsoluteSize", V2.new(64, 15))
+					expect(label:FindFirstChild("TextFit")):toBe(nil)
+					other.environment.poke(gui, "PreferredTextSize", other.types.Enum.PreferredTextSize.Medium)
+					engine.environment.poke(label, "AbsoluteSize", V2.new(64, 16))
+					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
+					expect(fit.Scale < 1):toBe(true)
+					stop()
+				end,
+			})
+			it("centres a child inside an authored Size that is larger than the child", {
+				id = "native_layout::ZStack::centres a child inside an authored Size that is larger than the child",
+				run = function()
+					local root, engine, stop = build(nil, function(UI, Host)
+						return UI.ZStack {
+							Name = "Ring",
+							Size = engineLib.types.UDim2.fromOffset(100, 100),
+							alignH = "center" :: "center",
+							alignV = "center" :: "center",
+							Host.Frame { Name = "Chip" },
+						}
+					end)
+					local V2, D2 = engine.types.Vector2, engine.types.UDim2
+					local ring = root
+					local chip = assert(ring:FindFirstChild("Chip"))
+					engine.environment.poke(chip, "AbsoluteSize", V2.new(82, 82))
+					engine.environment.poke(ring, "AbsoluteSize", V2.new(100, 100))
+					expect(chip.AnchorPoint):toBe(V2.new(0.5, 0.5))
+					expect(chip.Position):toBe(D2.new(0.5, 0, 0.5, 0))
+					engine.environment.poke(ring, "AbsoluteSize", V2.new(82, 82))
+					expect(chip.AnchorPoint):toBe(V2.new(0, 0))
+					expect(chip.Position):toBe(D2.new(0, 0, 0, 0))
 					stop()
 				end,
 			})
