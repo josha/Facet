@@ -5,6 +5,7 @@ local extentMatch = require("./extent_match")
 local sizeFloor = require("./size_floor")
 local Theme = require("./theme_types")
 local themeDistance = require("./theme_distance")
+local adaptive = require("./adaptive")
 
 export type Place = (GuiObject, number) -> ()
 export type Room = { top: number, right: number, bottom: number, left: number }
@@ -76,8 +77,15 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		end
 		return compute(nil)
 	end
+	local distant: ((ComposeTypes.Use?) -> boolean)? = nil
 	function kit.lengthScale(use: ComposeTypes.Use?): number
-		return themeDistance.metricScale(ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
+		local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use)
+		if package == nil then
+			local far = distant or ctx.tenFoot()
+			distant = far
+			return if far(use) then adaptive.TEN_FOOT_SCALE else 1
+		end
+		return themeDistance.metricScale(package)
 	end
 	function kit.literal(value: unknown): boolean
 		return not live(value)
@@ -1107,19 +1115,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				end
 				local controls: { GuiObject } = {}
 				local stickArt: { [GuiObject]: { GuiObject } } = {}
-				local stickButtons: { [GuiObject]: { GuiButton } } = {}
-				local resting: { [GuiObject]: number } = {}
+				local resting: { [GuiObject]: { size: Vector2, tallest: number, top: number } } = {}
 				for _, node in if touchGui then touchGui:GetDescendants() else {} do
 					if excluded and (node == excluded or node:IsDescendantOf(excluded)) then
 						continue
 					end
 					local region = node:FindFirstAncestor("DynamicThumbstickFrame")
 					if region and region:IsA("GuiObject") then
-						if node:IsA("GuiButton") then
-							local buttons = stickButtons[region] or {}
-							stickButtons[region] = buttons
-							table.insert(buttons, node)
-						elseif node:IsA("GuiObject") then
+						if node:IsA("GuiObject") and not node:IsA("GuiButton") then
 							local art = stickArt[region] or {}
 							stickArt[region] = art
 							table.insert(art, node)
@@ -1188,21 +1191,20 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							end
 							node = node.Parent
 						end
-						local held = false
-						for _, button in stickButtons[control] or {} do
-							held = held or use(runtime.observe(button, "GuiState")) == Enum.GuiState.Press
-						end
-						local tallest, top = 0, math.huge
+						local tallestNow, topNow = 0, math.huge
 						for _, image in stickArt[control] or {} do
 							local drawn = use(ctx.observe.AbsoluteSize(image)).Y
-							if use(ctx.observe.Visible(image)) and drawn < bounds.Y / 2 and drawn >= tallest then
-								tallest = drawn
-								top = use(ctx.observe.AbsolutePosition(image)).Y
+							if use(ctx.observe.Visible(image)) and drawn < bounds.Y / 2 and drawn >= tallestNow then
+								tallestNow = drawn
+								topNow = ctx.observe.AbsolutePosition(image):peek().Y
 							end
 						end
-						if not held or resting[control] == nil then
-							resting[control] = top
+						local sample = resting[control]
+						if sample == nil or sample.size ~= bounds or tallestNow > sample.tallest then
+							sample = { size = bounds, tallest = tallestNow, top = topNow }
+							resting[control] = sample
 						end
+						local tallest = sample.tallest
 						local from: number? = nil
 						if tallest > 0 then
 							local rest = start.Y + bounds.Y
@@ -1212,7 +1214,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 									+ use(ctx.observe.AbsoluteSize(host)).Y
 								rest = math.min(rest, hostEnd)
 							end
-							from = math.max(start.Y, math.min(resting[control], rest - tallest * STICK_REACH))
+							from = math.max(start.Y, math.min(sample.top, rest - tallest * STICK_REACH))
 						end
 						reserve(start, bounds, shown and nativeActive, from)
 					end

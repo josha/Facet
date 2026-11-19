@@ -271,7 +271,14 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				local side = given[name]
 				if typeof(side) == "UDim" then
 					if side.Scale ~= 0 then
-						return value
+						local kept: { [string]: UDim } = {}
+						for _, other in SIDES do
+							local given2 = given[other]
+							kept[other] = if typeof(given2) == "UDim"
+								then given2
+								else ctx.types.UDim.new(0, kit.spacing(given2 :: Types.Space?, use, authored))
+						end
+						return (kept :: unknown) :: Types.Padding
 					end
 					pixels[name] = side.Offset
 				else

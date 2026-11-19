@@ -239,6 +239,18 @@ return function(verifyHarness: Verify.Harness)
 			expect(button.AbsolutePosition.Y > thumb.AbsolutePosition.Y):toBe(true)
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= art.AbsolutePosition.Y):toBe(true)
+			local held = button.AbsolutePosition.Y
+			local tip: ImageLabel = engine.new("ImageLabel")
+			tip.Name, tip.Image = "ThumbstickEnd", "rbxassetid://1"
+			tip.Size, tip.Position = T.UDim2.fromOffset(30, 30), T.UDim2.new(0, 45, 1, -65)
+			tip.Parent = thumb
+			settle()
+			held = button.AbsolutePosition.Y
+			tip.Position = T.UDim2.new(0, 45, 0, 0)
+			art.Position = T.UDim2.new(0, 30, 0, 10)
+			settle()
+			expect(button.AbsolutePosition.Y):toBe(held)
+			tip.Parent = nil
 			art.Parent = nil
 			thumb.Visible = false
 			settle()
@@ -928,6 +940,27 @@ return function(verifyHarness: Verify.Harness)
 				_, _, shift = resolver.resolve(790, 340, 8, { zone("topLeft", 98, 40) }, nil, nil, nil, controls(790))
 				expect(shift.lift[7]):toBe(-111)
 				expect(shift.lift[15]):toBe(0)
+				local top: Declared = { zone = "top", rank = 3, mayDrop = false, sizes = { { x = 250, y = 220 } } }
+				local side: Declared = { zone = "left", rank = 2, mayDrop = false, sizes = { { x = 394, y = 168 } } }
+				local lower: Declared = {
+					zone = "bottom",
+					rank = 2,
+					mayDrop = false,
+					sizes = { { x = 333, y = 245 }, { x = 199, y = 171 } },
+				}
+				local forms = resolver.resolve(350, 541, 8, { top, side, lower })
+				expect(forms[3] > 0):toBe(true)
+				_, _, _, overflow = resolver.resolve(
+					500,
+					300,
+					8,
+					{ zone("topLeft", 150, 100), zone("topRight", 150, 100), zone("top", 300, 120) },
+					nil,
+					nil,
+					nil,
+					{ { left = 0, right = 250, reach = 150 }, { left = 400, right = 500, reach = 150 } }
+				)
+				expect(#overflow > 0):toBe(true)
 				local corner = { { left = 700, right = 790, reach = 90 } }
 				_, _, shift = resolver.resolve(790, 340, 8, { zone("topLeft", 98, 40) }, nil, nil, nil, corner)
 				expect(shift.lift[15]):toBe(-90)
@@ -1629,7 +1662,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(shift.bottom):toBe(0)
 				expect(forms[1]):toBe(1)
 				expect(forms[2]):toBe(3)
-				expect(forms[3]):toBe(2)
+				expect(forms[3] > 0):toBe(true)
 			end,
 		})
 

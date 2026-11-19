@@ -281,7 +281,11 @@ local function resolve(
 						end
 					end
 				end
-				check(key, room, height - floorOf(key))
+				local reach = floorOf(key)
+				if column == 2 and row == 1 and stack.top and (zoneH[key] or 0) > 0 then
+					reach += corner.top + gap
+				end
+				check(key, room, height - reach)
 			end
 			local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
 			local f2, f3 = floorOf(middle), floorOf(bottom)
@@ -359,11 +363,19 @@ local function resolve(
 		clearSides(stack.top, 9, corner.top + gap + (zoneH[9] or 0))
 		clearSides(stack.bottom, 11, corner.bottom + gap + (zoneH[11] or 0))
 		local boxes: { { key: number, x: number, y: number, w: number, h: number } } = {}
+		local function blocked(key: number): boolean
+			for _, index in members[key] or ({} :: { number }) do
+				if failing[index] then
+					return true
+				end
+			end
+			return false
+		end
 		for column = 1, 3 do
 			for row = 1, 3 do
 				local key = column * 4 + row
 				local w, h = zoneW[key] or 0, zoneH[key] or 0
-				if w <= 0 or h <= 0 then
+				if w <= 0 or h <= 0 or blocked(key) then
 					continue
 				end
 				local x = if column == 1 then 0 elseif column == 3 then width - w else (width - w) / 2

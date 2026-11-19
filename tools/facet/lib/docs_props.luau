@@ -310,7 +310,7 @@ function Props.icons(root: string): string
 		"`NAME.fill` uses NAME when no filled art exists.",
 		"A theme package or the `icons` factory option can add a name or replace its art.",
 		"An unknown name causes an error, so take each name from this list or register it in your icons map.",
-		"The game glyphs, such as `settings`, `bag`, `coin` and `heart`, draw filled Open Use image art that any experience can load. The names that controls use for their own parts, such as `close`, the chevrons and `checkmark`, draw as native Path2D strokes. Every name also has a stroke glyph, which draws when a name has no image art.",
+		"The game glyphs, such as `settings`, `bag`, `coin` and `heart`, draw filled Open Use image art that any experience can load. The names that controls use for their own parts, such as `close`, the chevrons, `checkmark`, `vote.up`, `vote.down` and `view.grid`, draw as native Path2D strokes. Every name also has a stroke glyph, which draws when a name has no image art.",
 		"A theme package can map a name to other image art, which takes precedence. Image art is a near-white silhouette, and the theme supplies its color. `UI.Label` takes `iconRole`, such as `error` for a red heart, to color its icon with a status role.",
 		"`speaker`, `volume` and `mute` use built-in Roblox image art.",
 		"Use a name from this list before you draw a glyph with Path or Frames.",

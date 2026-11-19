@@ -132,6 +132,41 @@ return function(harness: Verify.Harness)
 			runtime:dispose()
 		end,
 	})
+	harness:case("corner-clearing padding with a scale side and a theme-less tree still scale literal lengths", {
+		id = "resolution-scale-literal-edges",
+		run = function()
+			local engine = require("./lib/native_engine").new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local plate: GuiObject?, bare: GuiObject? = nil, nil
+			local stop = runtime.mount(function()
+				local UI = Facet.controls(
+					runtime,
+					{ types = engine.types, theme = theme(), environment = { viewingDistance = "ten-foot" } }
+				)
+				plate = UI.VStack "Plate" {
+					surface = "panel",
+					padding = (
+							{ top = engine.types.UDim.new(0.05, 0), left = 8, right = 8, bottom = 8 } :: unknown
+						) :: Facet.Sides,
+				}
+				return Facet.host(runtime).Folder({ plate })
+			end, engine.new("ScreenGui"))
+			local inset = assert(assert(plate):FindFirstChildWhichIsA("UIPadding"))
+			Verify.expect(inset.PaddingLeft.Offset):toBe(12)
+			Verify.expect(inset.PaddingTop.Scale):toBeCloseTo(0.05)
+			stop()
+			local stopBare = runtime.mount(function()
+				local UI =
+					Facet.controls(runtime, { types = engine.types, environment = { viewingDistance = "ten-foot" } })
+				bare = UI.VStack "Bare" { width = 100, padding = 8 }
+				return Facet.host(runtime).Folder({ bare })
+			end, engine.new("ScreenGui"))
+			Verify.expect(assert(bare).Size.X.Offset):toBe(150)
+			Verify.expect(assert(assert(bare):FindFirstChildWhichIsA("UIPadding")).PaddingLeft.Offset):toBe(12)
+			stopBare()
+			runtime:dispose()
+		end,
+	})
 	harness:case("custom geometry follows the same reactive resolution scale as controls", {
 		id = "resolution-scale-environment",
 		run = function()

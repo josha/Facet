@@ -222,8 +222,8 @@ The report lists the covered entries and the missing entries.
 The game glyphs, such as `settings`, `bag`, `coin` and `heart`, draw filled image
 art from [`assets/icons/upload-manifest.json`](../../assets/icons/upload-manifest.json).
 Those images are Open Use, so any experience can load them. The names that
-controls use for their own parts, such as `close`, the chevrons and `checkmark`,
-draw as native Path2D strokes in the theme's icon color. Every standard name has
+controls use for their own parts, such as `close`, the chevrons, `checkmark`,
+`vote.up`, `vote.down` and `view.grid`, draw as native Path2D strokes in the theme's icon color. Every standard name has
 a stroke glyph, which draws when the name has no image art. To use other art,
 map the name to image content or a font glyph in the theme package `icons`. That
 art takes precedence. An unknown name causes an error.

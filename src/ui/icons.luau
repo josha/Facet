@@ -6,7 +6,6 @@ local standard_icons = {}
 standard_icons.ART = table.freeze({
 	["view.grid"] = table.freeze({
 		assetName = "facet_icon_view_grid",
-		contentId = "rbxassetid://81137934612324",
 		tintRole = "content",
 	}),
 	["view.list"] = table.freeze({
@@ -133,12 +132,10 @@ standard_icons.ART = table.freeze({
 	}),
 	["vote.up"] = table.freeze({
 		assetName = "facet_icon_thumb_up",
-		contentId = "rbxassetid://75207492738442",
 		tintRole = "content",
 	}),
 	["vote.down"] = table.freeze({
 		assetName = "facet_icon_thumb_down",
-		contentId = "rbxassetid://105653007466295",
 		tintRole = "content",
 	}),
 	["person"] = table.freeze({
