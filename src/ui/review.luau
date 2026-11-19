@@ -71,6 +71,22 @@ local function text(value: unknown): string?
 	return if type(value) == "string" then value else nil
 end
 
+local function outlinedOf(child: unknown): boolean?
+	local found, stroke = call(child, "FindFirstChildWhichIsA", "UIStroke")
+	local function strokeValue(key: string): unknown
+		if found and stroke ~= nil then
+			return read(stroke, key)
+		end
+		local ok, value = call(child, "GetStyled", key, "::UIStroke")
+		return if ok then value else nil
+	end
+	local shown = number(strokeValue("Thickness"), 0) > 0
+		and strokeValue("Enabled") ~= false
+		and number(strokeValue("Transparency"), 0) < 0.9
+		and text(read(strokeValue("ApplyStrokeMode"), "Name")) ~= "Contextual"
+	return if shown then true else nil
+end
+
 local function outsetOf(child: unknown): Rules.ReviewOutset?
 	local edge = 0
 	local found, stroke = call(child, "FindFirstChildWhichIsA", "UIStroke")
@@ -391,6 +407,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					visible = visible,
 					interactive = isA(child, "GuiButton") or isA(child, "TextBox"),
 					outset = if isA(child, "GuiButton") then outsetOf(child) else nil,
+					outlined = if isA(child, "Frame")
+							and math.clamp(number(styled(child, "BackgroundTransparency"), 1), 0, 1) >= 0.4
+						then outlinedOf(child)
+						else nil,
 					sink = if isA(child, "GuiButton") then nil else read(child, "Active") == true,
 					layer = (function(): string?
 						local found, gui = call(child, "FindFirstAncestorWhichIsA", "LayerCollector")
@@ -553,6 +573,37 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 		end
 	end
 	paint(game, paintJobs)
+	local hasGui, guiService = call(game, "GetService", "GuiService")
+	local service = if hasGui then guiService else nil
+	local hasGlass, glass = call(service, "GetInsetArea", read(read(Enum, "ScreenInsets"), "None"))
+	local dx, dy = 0, 0
+	local low, high = read(glass, "Min"), read(glass, "Max")
+	if hasGlass and low ~= nil and high ~= nil then
+		local x0, y0 = vector(low)
+		local x1, y1 = vector(high)
+		if x1 > x0 and y1 > y0 then
+			dx, dy = -x0, -y0
+			width, height = x1 - x0, y1 - y0
+		end
+	else
+		local hasInset, inset = call(service, "GetGuiInset")
+		dx, dy = vector(if hasInset then inset else nil)
+	end
+	if dx ~= 0 or dy ~= 0 then
+		local moved: { [Rules.ReviewRect]: boolean } = {}
+		local function shift(rect: Rules.ReviewRect?)
+			if rect ~= nil and not moved[rect] then
+				moved[rect] = true
+				rect.x += dx
+				rect.y += dy
+			end
+		end
+		for _, element in elements do
+			shift(element.rect)
+			shift(element.paint)
+			shift(if element.text then element.text.ink else nil)
+		end
+	end
 	if width <= 0 or height <= 0 then
 		for _, element in elements do
 			width = math.max(width, element.rect.x + element.rect.width)

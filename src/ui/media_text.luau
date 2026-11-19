@@ -14,6 +14,7 @@ local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
 local textChanges = require("./text_changes")
 local textMeasure = require("./text_measure")
+local textFit = require("./text_fit")
 
 local LOOSE_MEASURE = 320
 local ICON_ROLES: { [string]: boolean } =
@@ -28,6 +29,53 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local metric = ctx.metric
 	local bind = shared.bind
 	local ELLIPSIS = "\u{2026}"
+	local function fitToRoom(label: TextLabel, fills: () -> boolean, refit: () -> ())
+		label:AddTag("facet-text-fits")
+		local makeScale = Compose.bindOwner(function(): UIScale
+			return Host.UIScale { Name = "TextFit" }
+		end)
+		local settled: string? = nil
+		local function evaluate()
+			if label.Parent == nil or textFit.eligible(ctx, label) == nil or not fills() then
+				return
+			end
+			local own = textFit.current(label)
+			local chain = textFit.chainScale(label.Parent)
+			local room = label.AbsoluteSize.X / chain
+			local key = `{math.round(room)}|{label.Text}|{label.FontFace.Family}|{label.TextSize}`
+			if label.TextFits and (own >= 1 or key == settled) then
+				return
+			end
+			settled = key
+			local width = label.TextBounds.X / (chain * math.max(own, 1e-3))
+			if width <= 0 then
+				return
+			end
+			local inset = label:FindFirstChildWhichIsA("UIPadding")
+			if inset then
+				width += inset.PaddingLeft.Offset + inset.PaddingRight.Offset
+			end
+			textFit.apply(label, textFit.target(ctx, label, room, width), makeScale)
+			refit()
+		end
+		local makeSchedule = Compose.bindOwner(function(): () -> ()
+			return ctx.afterLayout(evaluate)
+		end)
+		local schedule: (() -> ())? = nil
+		textChanges(ctx, label, function(property: string)
+			if
+				property == "TextFits"
+				or property == "TextBounds"
+				or property == "AbsoluteSize"
+				or property == "AutomaticSize"
+				or property == "Parent"
+			then
+				local run = schedule or makeSchedule()
+				schedule = run
+				run()
+			end
+		end)
+	end
 	local function middle(label: TextLabel, text: string, width: number): string
 		local function fits(candidate: string): boolean
 			label.Text = candidate
@@ -244,6 +292,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if (pixels ~= nil or nativeSize ~= nil) and roleSource ~= nil then
 			ctx.textRole(label, roleSource)
 		end
+		if spec.textAlign ~= nil or spec.TextXAlignment ~= nil then
+			label:AddTag("facet-text-aligned")
+		end
+		local filling = false
+		local refit: () -> () = function() end
 		if not lines and not cut and not fit and spec.Size == nil and spec.AutomaticSize == nil then
 			local wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true)
 			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
@@ -303,9 +356,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					appliedSize = D2.fromOffset(math.min(math.ceil(line) + 1, LOOSE_MEASURE), 0)
 					appliedMode = E.AutomaticSize.Y
 				else
-					appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+					appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1 / textFit.current(label), 0)
 					appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
 				end
+				filling = not row and line == math.huge
 				label.Size = appliedSize
 				label.AutomaticSize = appliedMode
 				if not wrapped and not aligned and list ~= nil and not across then
@@ -313,6 +367,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						then E.TextXAlignment.Center
 						elseif list.HorizontalAlignment == E.HorizontalAlignment.Right then E.TextXAlignment.Right
 						else E.TextXAlignment.Left
+				end
+			end
+			refit = function()
+				if filling and label.Size == appliedSize then
+					appliedSize = D2.fromScale(1 / textFit.current(label), 0)
+					label.Size = appliedSize
 				end
 			end
 			measure = Compose.bindOwner(function()
@@ -333,6 +393,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 				end
 			end)
 			hug()
+		end
+		if
+			not lines
+			and not cut
+			and not fit
+			and truncate == nil
+			and not spec.reveal
+			and not spec.disclose
+			and spec.wrap ~= true
+			and spec.TextWrapped ~= true
+			and spec.TextScaled == nil
+			and spec.TextTruncate == nil
+			and spec.AutomaticSize == nil
+			and spec.Size == nil
+		then
+			fitToRoom(label, function(): boolean
+				return filling
+			end, function()
+				refit()
+			end)
 		end
 		if lines then
 			ctx.clampLines(label, lines)

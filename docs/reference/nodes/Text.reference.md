@@ -19,6 +19,18 @@ A change to the font, text size or layout mode resets the reserved size.
 Wrapped text, truncated text and authored size constraints keep their native
 layout behavior.
 
+A one-line Text that is wider than its room shrinks to fit with a `UIScale`
+named `TextFit`, down to 70 percent of its size and not below 10 pixels. Its
+room is its own width when it fills its parent, and the box of an aligned
+ZStack when it hugs there; a hugging Text in a row keeps the row's wrap and
+spill behavior. A text that does not fit at that size runs past its room.
+`truncate` or a native `TextTruncate`, `wrap`, `lines`, a fitted `textSize`,
+`reveal`, `disclose`, an authored `Size` and an authored `AutomaticSize`
+turn this off. A filling Text widens its `Size` by the inverse of the scale,
+so its box stays the width of its room. When the player chooses a text size
+larger than the default (`GuiService.PreferredTextSize`), the Text keeps that
+size and does not shrink: let it wrap or give it more room.
+
 Without native `Size` and `AutomaticSize`, a Text fills the width that its
 parent gives and grows only in height (`Size = UDim2.fromScale(1, 0)`,
 `AutomaticSize = Enum.AutomaticSize.Y`). A one-line Text hugs its text

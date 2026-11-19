@@ -43,11 +43,11 @@ local fixes: { [string]: string } = {
 	["overlapping-text"] = "Two texts are drawn over each other. Siblings placed by Position or AnchorPoint collide when the room shrinks. Put them in one VStack or HStack so that each keeps its own space, and use a Spacer or UI.fill() to push a group to the far edge.",
 	["covered-text"] = "A plate or an image from another part covers a text at this size. The layers of a ZStack do not make room for each other, and a child that is wider than its slot in a stack runs over its neighbor. Put the parts that must not cover each other in one VStack, HStack or AdaptiveStack, let each part fit its slot, and keep the ZStack for the parts that are meant to overlap.",
 	["collapsed-text"] = 'A text has no width, so none of it is drawn. Its holder is as wide as its content, and the content waits for a width from the holder. Give the holder a width: a width in pixels or fill, a Size with a width, or align = "stretch" on the list that holds it.',
-	["cut-at-edge"] = "A text or a control crosses the edge of the screen, so part of it is not drawn. A part with a width in pixels, or a row that hugs its content, is wider than the room at this size. Give the part a width that follows the room (fill, a share or a maxWidth), let the row reflow with an AdaptiveStack or wrap = true, or use a shorter form of the part at this size.",
+	["cut-at-edge"] = "A text, a control or a plate crosses the edge of the screen, so part of it is not drawn. A part with a width in pixels, or a row that hugs its content, is wider than the room at this size. A bounded HStack that does not fit wraps its last parts onto a new line, and that line can fall below the room. Give the part a width that follows the room (fill, a share or a maxWidth), let the row reflow with an AdaptiveStack, set wrap = false on a row whose parts must stay side by side and make them fit, or use a shorter form of the part at this size.",
 	["covered-control"] = "A plate from another part covers a part of a control at this size. The control reads as joined to the plate, and the covered part does not take a press. A Callout, a Popover, a help plate and the layers of a ZStack float over the screen and do not make room for what is under them. Give the floating part an edge and an align where it has room, give it a shorter form at this size, or put the control and the part in one stack. A control that is wholly under another part, or under a presented modal, is taken as layered on purpose.",
 	["touching-controls"] = "The edge or the shadow of a control is drawn outside its box and reaches the control beside it, so the two read as one. Set finish.edge.controls in the theme so that the edge is drawn inside the box, and give the stack that holds the two a gap that is larger than the shadow.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
-	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
+	["escaped-text"] = "A text runs past the edge of the plate, the outlined box or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 	["oversized-target"] = "A control is larger than the scroll area that holds it, so the player never sees it whole at this size. Measure the room of the list with UI.environment(body) and give the record a shorter form there, such as a thumbnail beside its facts, or move the header and the filters out of the room of the list. See the compact-compositions reference in the use-facet skill.",
@@ -73,6 +73,8 @@ local DISMISSALS: { [string]: boolean } =
 	{ close = true, done = true, dismiss = true, cancel = true, ok = true, exit = true }
 local LEAVING: { [string]: boolean } = { close = true, dismiss = true, exit = true }
 local EDGE_CUT = 4
+local PLATE_CUT = 0.15
+local SPAN = 0.9
 local FIXES = table.freeze(fixes)
 
 local function clean(content: string): string
@@ -1143,7 +1145,11 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		local held = false
 		if nearest == nil then
 			for _, backing in snapshot.elements do
-				if backing == element or not solid(backing) or not shown(backing, snapshot.width, snapshot.height) then
+				if
+					backing == element
+					or not (solid(backing) or backing.outlined)
+					or not shown(backing, snapshot.width, snapshot.height)
+				then
 					continue
 				end
 				local owned = grounds(backing, entry.chain)
@@ -1163,7 +1169,18 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				end
 			end
 		end
-		if nearest == nil or (held and nearest ~= element) or (nearest.turn or 0) > 1 then
+		local framed = false
+		if nearest ~= nil and nearest.outlined == true then
+			for depth, ancestor in entry.chain do
+				if depth > 3 then
+					break
+				end
+				if ancestor == nearest then
+					framed = true
+				end
+			end
+		end
+		if nearest == nil or (held and nearest ~= element and not framed) or (nearest.turn or 0) > 1 then
 			continue
 		end
 		local owned = grounds(nearest, entry.chain)
@@ -1171,7 +1188,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if area(nearest.rect) >= limit or not past(ink, edge, text.size) then
 			continue
 		end
-		if nearest ~= element and not isPlate(nearest) and not owned then
+		if nearest ~= element and not isPlate(nearest) and not owned and not framed then
 			local shared = overlap(nearest.rect, ink)
 			if shared == nil or area(shared) < 0.7 * area(ink) or not near(nearest, entry.chain) then
 				continue
@@ -1230,17 +1247,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		end
 	end
 
-	local cuts = 0
-	for _, element in snapshot.elements do
-		if cuts >= 3 then
-			break
-		end
-		local text = element.text
-		local lettered = text ~= nil and text.size >= 8 and clean(text.content) ~= ""
-		if not element.visible or not (lettered or element.interactive) then
-			continue
-		end
-		local box = if text and lettered then text.ink or element.rect else element.rect
+	local function crossing(box: ReviewRect): ReviewRect?
 		local seen = overlap(box, screen)
 		if
 			box.width < 4
@@ -1251,26 +1258,76 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 			or area(seen) < 0.5 * area(box)
 			or (box.width - seen.width < EDGE_CUT and box.height - seen.height < EDGE_CUT)
 		then
-			continue
+			return nil
 		end
-		local clipped = false
+		return seen
+	end
+	local function unclipped(element: ReviewElement): boolean
 		for _, ancestor in lineage(element) do
 			if not ancestor.visible or ancestor.clips then
-				clipped = true
-				break
+				return false
 			end
 		end
-		if clipped then
+		return true
+	end
+	local cuts = 0
+	local holding: { [number]: boolean } = {}
+	local reported: { [number]: boolean } = {}
+	local plates: { ReviewElement } = {}
+	for _, element in snapshot.elements do
+		local text = element.text
+		local lettered = text ~= nil and text.size >= 8 and clean(text.content) ~= ""
+		if not element.visible then
 			continue
 		end
-		local words = if text and lettered then quote(clean(text.content)) else leaf(element)
-		add(
-			"cut-at-edge",
-			if text and lettered then "high" else "medium",
-			element,
-			("%s crosses the edge of the screen"):format(words)
-		)
-		cuts += 1
+		if lettered or element.interactive then
+			local box = if text and lettered then text.ink or element.rect else element.rect
+			if overlap(box, screen) ~= nil then
+				for _, ancestor in lineage(element) do
+					holding[ancestor.index] = true
+				end
+			end
+			if cuts >= 3 or crossing(box) == nil or not unclipped(element) then
+				continue
+			end
+			local words = if text and lettered then quote(clean(text.content)) else leaf(element)
+			add(
+				"cut-at-edge",
+				if text and lettered then "high" else "medium",
+				element,
+				("%s crosses the edge of the screen"):format(words)
+			)
+			for _, ancestor in lineage(element) do
+				reported[ancestor.index] = true
+			end
+			cuts += 1
+		elseif isPlate(element) then
+			table.insert(plates, element)
+		end
+	end
+	local cutPlates = 0
+	for _, plate in plates do
+		if cutPlates >= 3 then
+			break
+		end
+		if not holding[plate.index] or reported[plate.index] then
+			continue
+		end
+		local box = plate.rect
+		local seen = crossing(box)
+		if seen == nil or not unclipped(plate) then
+			continue
+		end
+		local acrossX = box.width - seen.width >= math.max(EDGE_CUT, PLATE_CUT * box.width)
+			and box.width <= 0.5 * snapshot.width
+			and box.height < SPAN * snapshot.height
+		local acrossY = box.height - seen.height >= math.max(EDGE_CUT, PLATE_CUT * box.height)
+			and box.height <= 0.5 * snapshot.height
+			and box.width < SPAN * snapshot.width
+		if acrossX or acrossY then
+			add("cut-at-edge", "medium", plate, ("%s crosses the edge of the screen"):format(leaf(plate)))
+			cutPlates += 1
+		end
 	end
 
 	local joined = 0

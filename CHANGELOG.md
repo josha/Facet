@@ -1,5 +1,49 @@
 # Current package
 
+A ZStack with `alignH` or `alignV` places its children in its own box when
+that box is larger than its largest child. Before, a ZStack that had a native
+`Size` and no `width` or `height` placed its children as if it hugged them,
+so a centred child sat at the top-left corner of the box.
+
+A Stepper keeps the shadows of its keys inside its own box. Before, a theme
+with `finish.depth.controls = true` drew the key shadows below the Stepper,
+and the part under it in a stack touched them.
+
+`cut-at-edge` also reports a plate that the edge of the screen cuts, when its
+text is still on the screen. A row that wraps its last parts onto a line
+below the room is the usual cause, and the fix text now names it.
+
+A one-line Text that is wider than its room shrinks to fit, with a `UIScale`
+named `TextFit`, down to 70 percent of its size and never below 10 pixels.
+Its room is its own width when it fills a stack, and the box of an aligned
+ZStack when it hugs there. Before, the text ran past its box (blackjack card
+spots on a phone in landscape). A text that does not fit at the floor still
+runs past, and `escaped-text` reports it. A filling text reads the engine's
+`TextBounds` after layout and widens its `Size` by the inverse of the scale,
+so its box stays the width of its room. `truncate`, a native
+`TextTruncate`, `wrap`, `lines` and a fitted `textSize` keep their own
+behavior, and a text size above the player's default is never reduced.
+
+A one-line Text in an aligned ZStack takes `alignH` as its text alignment,
+as one in a vertical stack takes the stack's alignment, unless it sets
+`textAlign` or `TextXAlignment`.
+
+A VStack or HStack with a positive `gap` keeps the hard part (offset and
+spread) of its children's shadows inside the gap, in a theme that draws plate
+or control shadows, so a gap of 4 between two lifted Buttons leaves 4 pixels
+between their shadows. A gap of 0 or less is not changed.
+
+`escaped-text` also measures a text against an outlined box, a box with a
+visible stroke and no fill, and reports it even when a larger plate under
+the box still holds the text.
+
+`Facet.review` measures the parts from the top of the screen. Before, it read
+their positions below the engine GUI inset (58 pixels for the top bar) and
+compared them with the full height of the screen, so a part that the bottom
+edge cut by less than the inset had no finding. This applied to every rule
+that compares a part with an edge of the screen, such as `cut-at-edge`,
+`offscreen-text` and `touch-control-overlap`.
+
 `UI.Toast` and `app.presentToast` accept `reading`, a readable
 `Facet.ToastReading` record with `duration` and optional `readFloor`.
 A new record restarts reading time without requeueing the row. Waiting time

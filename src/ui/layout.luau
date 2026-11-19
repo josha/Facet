@@ -15,6 +15,7 @@ local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
 local textMeasure = require("./text_measure")
+local textFit = require("./text_fit")
 
 local ROW_RETURN_MARGIN = 8
 local hugWarned: { [string]: boolean } = {}
@@ -759,12 +760,45 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			properties
 		)
 		if aligned then
+			local outer = ctx.observe.AbsoluteSize(frame)
+			local makeFit = Compose.bindOwner(function(): UIScale
+				return Host.UIScale { Name = "TextFit" }
+			end)
+			local observe = (ctx.observe :: unknown) :: {
+				PaddingLeft: (UIPadding) -> ComposeTypes.Value<UDim>,
+				PaddingRight: (UIPadding) -> ComposeTypes.Value<UDim>,
+				PaddingTop: (UIPadding) -> ComposeTypes.Value<UDim>,
+				PaddingBottom: (UIPadding) -> ComposeTypes.Value<UDim>,
+			}
+			local function unitScale(): number
+				local scale = 1
+				local at: Instance? = frame
+				while at and at:IsA("GuiObject") do
+					local factor = at:FindFirstChildWhichIsA("UIScale")
+					if factor then
+						scale *= factor.Scale
+					end
+					at = at.Parent
+				end
+				return scale
+			end
+			local function contentBox(use: ComposeTypes.Use, scale: number): Vector2
+				local box = use(assert(outer))
+				local pad = frame:FindFirstChildWhichIsA("UIPadding")
+				if pad == nil then
+					return box
+				end
+				local left, right = use(observe.PaddingLeft(pad)), use(observe.PaddingRight(pad))
+				local top, bottom = use(observe.PaddingTop(pad)), use(observe.PaddingBottom(pad))
+				return V2.new(
+					box.X - (left.Offset + right.Offset) * scale - (left.Scale + right.Scale) * box.X,
+					box.Y - (top.Offset + bottom.Offset) * scale - (top.Scale + bottom.Scale) * box.Y
+				)
+			end
 			Compose.watch(function(use: ComposeTypes.Use)
 				use(members)
 				local x, y =
 					fraction(read<<Types.Edge?>>(spec.alignH, use)), fraction(read<<Types.Edge?>>(spec.alignV, use))
-				local wide, tall =
-					hugs(read<<Types.Extent?>>(spec.width, use)), hugs(read<<Types.Extent?>>(spec.height, use))
 				local nodes: { GuiObject } = {}
 				local extents: { [GuiObject]: Vector2 } = {}
 				local widest, tallest = 0, 0
@@ -777,14 +811,42 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 						tallest = math.max(tallest, extent.Y)
 					end
 				end
+				local wide, tall, scale = false, false, unitScale()
+				local box: Vector2? = if outer then contentBox(use, scale) else nil
+				if box then
+					wide = hugs(read<<Types.Extent?>>(spec.width, use)) and box.X <= widest + 1
+					tall = hugs(read<<Types.Extent?>>(spec.height, use)) and box.Y <= tallest + 1
+				end
+				for _, node in nodes do
+					local label = textFit.eligible(ctx, node)
+					if label == nil then
+						continue
+					end
+					if not label:HasTag("facet-text-aligned") then
+						local glyphs = if x == 0.5
+							then E.TextXAlignment.Center
+							elseif x == 1 then E.TextXAlignment.Right
+							else E.TextXAlignment.Left
+						if label.TextXAlignment ~= glyphs then
+							label.TextXAlignment = glyphs
+						end
+					end
+					local mode = label.AutomaticSize
+					if mode == E.AutomaticSize.X or mode == E.AutomaticSize.XY then
+						local room = if wide or box == nil then nil else box.X / scale
+						local own = textFit.current(label)
+						local natural = extents[node].X / (scale * math.max(own, 1e-3))
+						textFit.apply(label, textFit.target(ctx, label, room, natural), makeFit)
+					end
+				end
 				for _, node in nodes do
 					local extent = extents[node]
 					node.AnchorPoint = V2.new(if wide then 0 else x, if tall then 0 else y)
 					node.Position = D2.new(
 						if wide then 0 else x,
-						if wide then math.floor(x * (widest - extent.X) + 0.5) else 0,
+						if wide then math.floor(x * (widest - extent.X) / scale + 0.5) else 0,
 						if tall then 0 else y,
-						if tall then math.floor(y * (tallest - extent.Y) + 0.5) else 0
+						if tall then math.floor(y * (tallest - extent.Y) / scale + 0.5) else 0
 					)
 				end
 			end)

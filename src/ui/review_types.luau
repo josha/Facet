@@ -36,6 +36,7 @@ export type ReviewElement = {
 	reveal: string?,
 	region: boolean?,
 	outset: ReviewOutset?,
+	outlined: boolean?,
 	sink: boolean?,
 	layer: string?,
 }

@@ -1271,6 +1271,120 @@ return function(harness: Verify.Harness)
 		t:expect(math.abs(part.height - 75 * 62 / 91) < 0.01):toBe(true)
 	end)
 
+	harness:case("collect measures the parts from the top of the screen, past the engine GUI inset", function(t)
+		type Fake = { [string]: unknown }
+		local function vector(x: number, y: number): Fake
+			return { X = x, Y = y }
+		end
+		local function node(class: string, name: string, properties: Fake, kids: { Fake }?): Fake
+			local made: Fake = table.clone(properties)
+			made.ClassName, made.Name = class, name
+			made.IsA = function(_: Fake, asked: string): boolean
+				return asked == class
+					or (asked == "GuiObject" and class ~= "ScreenGui")
+					or (asked == "LayerCollector" and class == "ScreenGui")
+			end
+			made.GetChildren = function(): { Fake }
+				return kids or {}
+			end
+			made.GetFullName = function(): string
+				return "Gui." .. name
+			end
+			return made
+		end
+		local function collect(inset: Fake?, glass: Fake?): Rules.ReviewSnapshot
+			local services: { [string]: Fake } = {
+				Workspace = { CurrentCamera = { ViewportSize = vector(749, 389) } },
+			}
+			if inset then
+				services.GuiService = {
+					GetGuiInset = function(): (Fake, Fake)
+						return inset, vector(0, 0)
+					end,
+					GetInsetArea = if glass
+						then function(): Fake
+							return glass
+						end
+						else nil,
+				}
+			end
+			local game: Fake = {
+				GetService = function(_: Fake, name: string): Fake?
+					return services[name]
+				end,
+			}
+			local words = node("TextLabel", "Say", {
+				AbsolutePosition = vector(46, 304),
+				AbsoluteSize = vector(134, 24),
+				Text = "Play with me? Pleeease?",
+				TextSize = 18,
+				TextBounds = vector(134, 24),
+				BackgroundTransparency = 1,
+			})
+			local plate = node("Frame", "Words", {
+				AbsolutePosition = vector(16, 294),
+				AbsoluteSize = vector(194, 51),
+				BackgroundTransparency = 0,
+				BackgroundColor3 = { R = 1, G = 0.95, B = 0.88 },
+			}, { words })
+			local screen = node("ScreenGui", "Screen", {
+				FindFirstAncestorWhichIsA = function(): Fake
+					return game
+				end,
+			}, { plate })
+			local review = require("../src/ui/review")
+			return review.collect({ root = (screen :: unknown) :: Instance })
+		end
+		local raised = collect(vector(0, 58))
+		t:expect(raised.height):toBe(389)
+		t:expect(raised.elements[1].rect.y):toBe(352)
+		t:expect(raised.elements[2].rect.y):toBe(362)
+		local findings = Rules.analyze(raised).findings
+		local cut = 0
+		for _, finding in findings do
+			if finding.rule == "cut-at-edge" then
+				cut += 1
+			end
+		end
+		t:expect(cut):toBe(1)
+		t:expect(collect(nil).elements[1].rect.y):toBe(294)
+		local notched = collect(vector(0, 58), { Min = vector(-47, -58), Max = vector(796, 331) })
+		t:expect(notched.width):toBe(843)
+		t:expect(notched.height):toBe(389)
+		t:expect(notched.elements[1].rect.x):toBe(63)
+		t:expect(notched.elements[1].rect.y):toBe(352)
+	end)
+
+	harness:case("a text that runs past an outlined box is reported, also on a larger plate", function(t)
+		local function escaped(snapshot: Rules.ReviewSnapshot): number
+			local count = 0
+			for _, finding in Rules.analyze(snapshot).findings do
+				if finding.rule == "escaped-text" then
+					count += 1
+				end
+			end
+			return count
+		end
+		local add, snapshot = scene()
+		local card = add(nil, "Frame", 400, 300, 300, 300, { opaque = true })
+		local spot = add(card, "Frame", 500, 400, 40, 40)
+		add(spot, "TextLabel", 488, 414, 64, 12, {
+			text = "SPECTATOR ROW",
+			size = 12,
+			ink = { x = 488, y = 414, width = 64, height = 12 },
+		})
+		t:expect(escaped(snapshot())):toBe(0)
+		local framed = snapshot()
+		framed.elements[spot].outlined = true
+		t:expect(escaped(framed)):toBe(1)
+		local inside = snapshot()
+		inside.elements[spot].outlined = true
+		inside.elements[3].rect = { x = 502, y = 414, width = 36, height = 12 }
+		local words = assert(inside.elements[3].text)
+		words.ink = { x = 502, y = 414, width = 36, height = 12 }
+		t:expect(escaped(inside)):toBe(0)
+	end)
+
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)
 		local add, snapshot = scene()
 		add(nil, "TextButton", 1600, 880, 300, 80, { text = "Enter race", interactive = true })
@@ -1335,6 +1449,61 @@ return function(harness: Verify.Harness)
 		wide(nil, "TextButton", -40, 0, 2000, 80, { interactive = true })
 		t:expect(rules(Rules.analyze(bleed()))["cut-at-edge"]):toBe(nil)
 	end)
+
+	harness:case(
+		"a plate that crosses the edge of the screen is reported while its text stays on the screen",
+		function(t)
+			local function cuts(report: Rules.ReviewReport): { Rules.ReviewFinding }
+				local found: { Rules.ReviewFinding } = {}
+				for _, finding in report.findings do
+					if finding.rule == "cut-at-edge" then
+						table.insert(found, finding)
+					end
+				end
+				return found
+			end
+			local add, snapshot = scene()
+			local bubble = add(nil, "Frame", 140, 1000, 440, 120, { opaque = true })
+			add(bubble, "TextLabel", 170, 1030, 380, 40, { text = "Play with me?" })
+			local found = cuts(Rules.analyze(snapshot()))
+			t:expect(#found):toBe(1)
+			t:expect(found[1].severity):toBe("medium")
+			local docked, sheet = scene()
+			local panel = docked(nil, "Frame", 560, 700, 800, 400, { opaque = true })
+			docked(panel, "TextLabel", 600, 740, 300, 40, { text = "Inventory" })
+			t:expect(#cuts(Rules.analyze(sheet()))):toBe(0)
+			local band, bar = scene()
+			local strip = band(nil, "Frame", 0, 1000, 1920, 100, { opaque = true })
+			band(strip, "TextLabel", 40, 1010, 300, 40, { text = "Ready" })
+			t:expect(#cuts(Rules.analyze(bar()))):toBe(0)
+			local blob, decor = scene()
+			blob(nil, "Frame", -40, -40, 200, 200, { opaque = true })
+			t:expect(#cuts(Rules.analyze(decor()))):toBe(0)
+			local clear, inside = scene()
+			local whole = clear(nil, "Frame", 140, 900, 440, 120, { opaque = true })
+			clear(whole, "TextLabel", 170, 930, 380, 40, { text = "Play with me?" })
+			t:expect(#cuts(Rules.analyze(inside()))):toBe(0)
+			local row, crowded = scene()
+			for i = 0, 2 do
+				local card = row(nil, "Frame", 1800, 100 + i * 200, 200, 120, { opaque = true })
+				row(card, "TextLabel", 1810, 110 + i * 200, 80, 30, { text = "Card " .. i })
+			end
+			row(nil, "TextLabel", 1700, 900, 400, 40, { text = "Collect your reward now" })
+			local mixed = cuts(Rules.analyze(crowded()))
+			local high = 0
+			for _, finding in mixed do
+				if finding.severity == "high" then
+					high += 1
+				end
+			end
+			t:expect(high):toBe(1)
+			t:expect(#mixed):toBe(4)
+			local once, single = scene()
+			local cut = once(nil, "Frame", 1800, 100, 200, 120, { opaque = true })
+			once(cut, "TextLabel", 1810, 110, 160, 30, { text = "Daily reward" })
+			t:expect(#cuts(Rules.analyze(single()))):toBe(1)
+		end
+	)
 
 	harness:case("a control whose edge or shadow reaches its neighbor is reported", function(t)
 		local add, snapshot = scene()

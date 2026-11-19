@@ -7,6 +7,7 @@ local Theme = require("./theme_types")
 local themeDistance = require("./theme_distance")
 local adaptive = require("./adaptive")
 local gameplayHold = require("./gameplay_hold")
+local themeSupport = require("./theme_support")
 
 export type Place = (GuiObject, number) -> ()
 export type Room = { top: number, right: number, bottom: number, left: number }
@@ -22,11 +23,11 @@ end
 export type Kit = {
 	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?, boolean?) -> number,
 	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?, boolean?) -> UIPadding?,
-	shadowRoom: (GuiObject, ComposeTypes.Value<Room>) -> (),
+	shadowRoom: (GuiObject, ComposeTypes.Value<Room>, boolean?) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	lengthScale: (ComposeTypes.Use?) -> number,
 	literal: (unknown) -> boolean,
-	list: (Shared.Flow, Shared.Input<boolean>, boolean?) -> UIListLayout,
+	list: (Shared.Flow, Shared.Input<boolean>, boolean?, Shared.Input<UDim>?) -> UIListLayout,
 	underTopbar: (GuiObject, ComposeTypes.Value<number>) -> (),
 	touchClearance: (GuiObject, ComposeTypes.Value<number>, ComposeTypes.Value<{ TouchArea }>?) -> (),
 	ordered: (Shared.ChildList, Place?) -> { ComposeTypes.Child },
@@ -162,7 +163,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			PaddingLeft = side("left"),
 		}
 	end
-	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Value<Room>)
+	function kit.shadowRoom(frame: GuiObject, room: ComposeTypes.Value<Room>, hard: boolean?)
 		local function measure()
 			local top, right, bottom, left = 0, 0, 0, 0
 			for _, child in frame:GetChildren() do
@@ -170,7 +171,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					for _, item in child:GetChildren() do
 						if item:IsA("UIShadow") and item.Enabled then
 							local shadow = item
-							local blur = shadow.BlurRadius.Offset
+							local blur = if hard then 0 else shadow.BlurRadius.Offset
 							local ox, oy = shadow.Offset.X.Offset, shadow.Offset.Y.Offset
 							local sx, sy = shadow.Spread.X.Offset, shadow.Spread.Y.Offset
 							top = math.max(top, -oy + sy + blur)
@@ -313,7 +314,12 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 	local function edge<T>(value: Shared.Align | Shared.Distribute, start: T, center: T, finish: T): T
 		return if value == "center" then center elseif value == "end" then finish else start
 	end
-	function kit.list(flow: Shared.Flow, vertical: Shared.Input<boolean>, matched: boolean?): UIListLayout
+	function kit.list(
+		flow: Shared.Flow,
+		vertical: Shared.Input<boolean>,
+		matched: boolean?,
+		padding: Shared.Input<UDim>?
+	): UIListLayout
 		local function column(use: ComposeTypes.Use?): boolean
 			return read(vertical, use) == true
 		end
@@ -331,7 +337,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}
 		if flow.gap ~= nil then
-			native.Padding = gapValue(flow.gap)
+			native.Padding = padding or gapValue(flow.gap)
 		end
 		if flow.wrap ~= nil then
 			native.Wraps = flow.wrap
@@ -601,20 +607,65 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 		local matched = (flow.align == "stretch" or live(flow.align))
 			and (across == nil or across == "hug")
 			and not live(if column then flow.width else flow.height)
-		local list = kit.list(flow, vertical, matched)
-		local frame = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
+		local function lifted(use: ComposeTypes.Use?): boolean
+			return themeSupport.plateReach(read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)) > 0
+		end
+		local between: ComposeTypes.Value<Room>? = if flow.gap ~= nil and lifted()
+			then Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
+			else nil
+		local frame: Frame? = nil
+		local padding: Shared.Input<UDim>? = nil
+		if flow.gap ~= nil and (between ~= nil or live(config.theme)) then
+			local gap = gapValue(flow.gap)
+			local owner = Compose.currentOwner()
+			padding = function(use: ComposeTypes.Use): UDim
+				local base = read<<UDim>>(gap, use)
+				if (base.Offset <= 0 and base.Scale <= 0) or not lifted(use) then
+					return base
+				end
+				local existing = between
+				local cell: ComposeTypes.Value<Room>
+				if existing ~= nil then
+					cell = existing
+				else
+					local host = frame
+					if host == nil then
+						return base
+					end
+					local scope = owner
+					if scope == nil then
+						return base
+					end
+					local made: ComposeTypes.Value<Room> = Compose.cell({ top = 0, right = 0, bottom = 0, left = 0 })
+					Compose.withOwner(scope, function()
+						kit.shadowRoom(host, made, true)
+					end)
+					between = made
+					cell = made
+				end
+				local held: Room = use(cell)
+				local extra = if read(vertical, use) == true then held.top + held.bottom else held.left + held.right
+				return types.UDim.new(base.Scale, base.Offset + extra)
+			end
+		end
+		local list = kit.list(flow, vertical, matched, padding)
+		local built = Host.Frame(kit.assemble(native, properties, { list, kit.insets(flow.padding, room) }, children))
+		frame = built
 		if room then
-			kit.shadowRoom(frame, room)
+			kit.shadowRoom(built, room)
+		end
+		if between then
+			kit.shadowRoom(built, between, true)
 		end
 		if matched then
-			kit.match(frame, column == true, function(use: ComposeTypes.Use?): boolean
+			kit.match(built, column == true, function(use: ComposeTypes.Use?): boolean
 				return read(flow.align, use) == "stretch"
 			end)
 		end
 		if flow.wrap ~= nil and flow.wrap ~= false then
 			local content = ctx.observe.AbsoluteContentSize(list)
-			local unit = ctx.layoutUnit(frame, "WrapUnit")
-			local liftX, liftY = kit.lifter(frame, "x"), kit.lifter(frame, "y")
+			local unit = ctx.layoutUnit(built, "WrapUnit")
+			local liftX, liftY = kit.lifter(built, "x"), kit.lifter(built, "y")
 			Compose.watch(function(use: ComposeTypes.Use)
 				local size, scale = use(content), use(unit)
 				local inset = if room then use(room) else { top = 0, right = 0, bottom = 0, left = 0 }
@@ -623,7 +674,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 				liftY(if wraps and not vertical then size.Y / scale + inset.top + inset.bottom else 0)
 			end)
 		end
-		return kit.plain(frame, properties)
+		return kit.plain(built, properties)
 	end
 	local PLATES = { "facet-panel", "facet-surface", "facet-pane" }
 	local function plated(node: Instance): boolean
