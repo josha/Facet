@@ -902,7 +902,7 @@ return function(
 	end
 	function ctx.padding(horizontal: number, vertical: number): UIPadding
 		local sides: Shared.Sides = { top = vertical, right = horizontal, bottom = vertical, left = horizontal }
-		return assert(layout.insets(sides))
+		return assert(layout.insets(sides, nil, true))
 	end
 	function ctx.round(use: ComposeTypes.Use?, ...: UDim?): UDim
 		local radius = ...

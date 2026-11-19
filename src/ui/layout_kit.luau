@@ -21,7 +21,7 @@ end
 
 export type Kit = {
 	spacing: (Shared.Input<Shared.Space>?, ComposeTypes.Use?, boolean?) -> number,
-	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?) -> UIPadding?,
+	insets: (Shared.Input<Shared.Padding>?, ComposeTypes.ReadOnlyValue<Room>?, boolean?) -> UIPadding?,
 	shadowRoom: (GuiObject, ComposeTypes.Value<Room>) -> (),
 	extent: (Shared.Box, Shared.Extent, Shared.Extent) -> (Shared.Input<UDim2>, Shared.Input<Enum.AutomaticSize>),
 	lengthScale: (ComposeTypes.Use?) -> number,
@@ -125,11 +125,15 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			return types.UDim.new(0, kit.spacing(value, use))
 		end, value, if read(value) ~= nil then config.theme else nil)
 	end
-	function kit.insets(padding: Shared.Input<Shared.Padding>?, room: ComposeTypes.ReadOnlyValue<Room>?): UIPadding?
+	function kit.insets(
+		padding: Shared.Input<Shared.Padding>?,
+		room: ComposeTypes.ReadOnlyValue<Room>?,
+		pixels: boolean?
+	): UIPadding?
 		if padding == nil then
 			return nil
 		end
-		local authored = not live(padding)
+		local authored = pixels ~= true and not live(padding)
 		local function side(name: "top" | "right" | "bottom" | "left"): Shared.Input<UDim>
 			local function pick(use: ComposeTypes.Use?): Shared.Space?
 				local value = read<<Shared.Padding?>>(padding, use)
@@ -280,7 +284,10 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 			return if value == "fill" then 1 else 0
 		end
 		local function offset(value: Shared.Extent, factor: number): number
-			return if type(value) == "number" then math.floor(value * factor + 0.5) else 0
+			if type(value) ~= "number" then
+				return 0
+			end
+			return if factor == 1 then value else math.floor(value * factor + 0.5)
 		end
 		local wideAuthored, tallAuthored = not live(box.width), not live(box.height)
 		return derive(function(use)
