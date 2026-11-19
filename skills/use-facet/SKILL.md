@@ -542,9 +542,9 @@ small. A destination whose mark players know, such as a bag for the
 inventory or a trophy for the rankings, is icon-only in the same way. A
 destination or an action that is particular to the game, such as Boost or a
 named shop, shows its icon and a short word, and the icon alone in the
-shorter form of its region. Use a Facet icon
-name, not an emoji: a Roblox font does not draw every emoji, and an emoji
-does not take the theme color.
+shorter form of its region. An icon can be a Facet icon name or an emoji.
+The Roblox emoji font does not have every emoji, and some newer ones draw as
+an empty box, so look at each emoji on the device.
 
 A size that you fix stays fixed in a short room; Facet does not choose a
 shorter form for you. A record that is taller than the room that scrolls it

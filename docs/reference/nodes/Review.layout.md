@@ -5,16 +5,15 @@ Review rules for parts that collide or that leave the Facet layout.
 | Rule | Finds |
 |---|---|
 | `overlapping-text` | Two different texts whose glyphs cover each other by a fifth or more of the smaller text. High. A text hidden by a clip, or under an opaque plate or image, does not count. |
-| `offscreen-text` | A text with less than half of its glyphs on the screen, while the stack that holds it is on the screen. High. A text in a clip or a scrolling view, or whose holder is off the screen, does not count. |
+| `offscreen-text` | A text with less than half of its glyphs on the screen, while the stack that holds it is on the screen. High. A text inside a clip or a scrolling view does not count, and neither does a text whose holder is off the screen. |
 | `cut-at-edge` | A text (high) or a control (medium) that crosses the edge of the screen by 4 pixels or more, outside a clip. |
 | `touching-controls` | A control whose stroke or shadow, drawn outside its box, reaches the control beside it. Medium. |
 | `collapsed-text` | A text that is 0 pixels wide inside a holder that is on the screen. High. Its holder hugs its content, and the content waits for a width from the holder. A text in a part that is closed to no size does not count. |
 | `covered-control` | A control with a tenth to nine tenths of its box under a plate or an image of another part that is drawn above it. Medium. A control under a modal, wholly under a part, in a scrolling view or in a fan does not count, and neither does a cover smaller than half of the control. |
 | `covered-text` | A text with half or more of its glyphs under a plate or the paint of an image from another part. An overlay that hides three or more texts and a fan (a stack with a negative `gap`) do not count. |
-| `escaped-text` | A text whose glyphs run past the edge of the plate or the image paint that it sits on, or that a clip cuts. A scrolling view is not a clip. An image counts only when it is built beside the text, within three levels. A text that still sits inside a larger plate does not count. |
-| `emoji-icon` | A text with an emoji, which a font may not draw. Medium. Use an `icon` name. |
-| `native-text` | Three or more native labels, not `UI.Text`. They miss the theme's type roles, the player's text size and the ten-foot scale. |
-| `oversized-target` | Buttons taller or wider than their scroll view, so no scroll position shows one whole. One finding for each scroll view. |
+| `escaped-text` | A text whose glyphs run past the edge of the plate or the paint of the image that it sits on, or that a clip cuts. A scrolling view does not count as a clip. An image counts only when it is built beside the text, within three levels. A text that still sits inside a larger plate does not count. |
+| `native-text` | Three or more texts that are native labels and not `UI.Text`. They miss the type roles of the theme, the text size of the player and the ten-foot scale. |
+| `oversized-target` | Buttons taller or wider than the scroll view that holds them, so no scroll position shows one whole. One finding for each scroll view. |
 
 For `floating-text`, an image counts as a plate when its paint is under the
 text, or when it covers a quarter of the screen or more, such as a Screen

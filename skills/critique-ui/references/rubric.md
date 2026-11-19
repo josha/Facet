@@ -183,8 +183,8 @@ each other, is a `must` fix. A Composition with the `FacetUnfit` attribute
 has such a collision on this screen or on a reference phone; name the regions
 that `FacetUnfitDetails` lists.
 
-An emoji used as an icon is a `should` fix: a Roblox font does not draw every
-emoji, and some show as an empty box. A standard command (settings, close,
+An emoji that draws as an empty box is a `must` fix: the Roblox emoji font
+does not have every emoji. A standard command (settings, close,
 back, menu, more) that shows a word in place of its icon is a `should` fix.
 
 ## Scores

@@ -260,8 +260,9 @@ named `Glyph` inside the icon ImageLabel. The ImageLabel keeps its name and
 size, and its `Image` is empty. `themes.define` rejects a glyph without a font
 or with a codepoint that is not an integer from 0 to 0x10FFFF.
 
-Use an icon font that has real icon designs. Do not use arbitrary letters,
-symbols or emoji as interface icons. An image or font declaration does not
+Use an icon font that has real icon designs. Do not use arbitrary letters or
+symbols as interface icons. An emoji can be an icon; check that the Roblox emoji
+font draws it. An image or font declaration does not
 prove ownership or successful loading. Keep the asset provenance with the theme
 package. Verify the icons at native scale in the running application.
 

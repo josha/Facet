@@ -44,9 +44,6 @@ controls and a gray caption below 4.5:1 contrast. The contrast report now checks
 `contentSecondary` on `surface` and on `surfaceStrong`, and a pair below 4.5:1
 is an error.
 
-`Facet.review` has a rule `emoji-icon` for a text that draws an emoji as an
-icon. A Roblox font does not draw every emoji.
-
 Each standard icon name now has a built-in vector glyph. When no theme
 package or `icons` map supplies image art for a name, the icon draws as native
 Path2D strokes in the theme's icon color. Before, only the names that controls
