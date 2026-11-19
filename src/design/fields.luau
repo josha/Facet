@@ -1356,6 +1356,10 @@ local derived: Types.Derived = {
 				gap = { type = "string" },
 				icon = { type = "string" },
 				iconPosition = { type = "choice", options = { "leading", "trailing" } },
+				iconRole = {
+					type = "choice",
+					options = { "info", "success", "warning", "error", "accent", "neutral", "contrast" },
+				},
 				iconSize = { type = "string" },
 				presentation = { type = "choice", options = { "titleAndIcon", "titleOnly", "iconOnly" } },
 				textSize = {

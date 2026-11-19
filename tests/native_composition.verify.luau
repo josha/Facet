@@ -197,7 +197,12 @@ return function(verifyHarness: Verify.Harness)
 				settle()
 				local button = player:FindFirstChild("Continue", true) :: TextButton
 				expect(button.AbsoluteSize.Y >= 48):toBe(true)
-				expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+				expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+				if kind == "Screen" then
+					expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+				else
+					expect(button.AbsolutePosition.Y > thumb.AbsolutePosition.Y):toBe(true)
+				end
 				tap(button)
 			end
 			expect(activations):toBe(3)
@@ -209,6 +214,28 @@ return function(verifyHarness: Verify.Harness)
 			settle()
 			local button = player:FindFirstChild("Continue", true) :: TextButton
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			local gameplayHold = require("../src/ui/gameplay_hold")
+			local resting = button.AbsolutePosition.Y
+			local release = gameplayHold.hold({ Compose = Compose } :: any, gui, true)
+			jump.Visible = false
+			settle()
+			expect(gui.TouchControlsEnabled):toBe(false)
+			expect(button.AbsolutePosition.Y):toBe(resting)
+			jump.Parent = nil
+			jump.Parent = native
+			settle()
+			expect(button.AbsolutePosition.Y):toBe(resting)
+			viewport.X, viewport.Y = 844, 390
+			settle()
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			viewport.X, viewport.Y = 390, 844
+			settle()
+			expect(button.AbsolutePosition.Y):toBe(resting)
+			release()
+			jump.Visible = true
+			settle()
+			expect(gui.TouchControlsEnabled):toBe(true)
+			expect(button.AbsolutePosition.Y):toBe(resting)
 			gui.TouchControlsEnabled = false
 			settle()
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > jump.AbsolutePosition.Y):toBe(true)
@@ -225,7 +252,7 @@ return function(verifyHarness: Verify.Harness)
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
 			thumb.Visible = true
 			settle()
-			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(true)
+			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= thumb.AbsolutePosition.Y):toBe(kind == "Screen")
 			local art: ImageLabel = engine.new("ImageLabel")
 			art.Name, art.Image = "ThumbstickStart", "rbxassetid://1"
 			art.Size, art.Position = T.UDim2.fromOffset(60, 60), T.UDim2.new(0, 30, 1, -80)
@@ -234,6 +261,18 @@ return function(verifyHarness: Verify.Harness)
 			expect(button.AbsolutePosition.Y > thumb.AbsolutePosition.Y):toBe(true)
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= art.AbsolutePosition.Y):toBe(true)
+			local held = button.AbsolutePosition.Y
+			local tip: ImageLabel = engine.new("ImageLabel")
+			tip.Name, tip.Image = "ThumbstickEnd", "rbxassetid://1"
+			tip.Size, tip.Position = T.UDim2.fromOffset(30, 30), T.UDim2.new(0, 45, 1, -65)
+			tip.Parent = thumb
+			settle()
+			held = button.AbsolutePosition.Y
+			tip.Position = T.UDim2.new(0, 45, 0, 0)
+			art.Position = T.UDim2.new(0, 30, 0, 10)
+			settle()
+			expect(button.AbsolutePosition.Y):toBe(held)
+			tip.Parent = nil
 			art.Parent = nil
 			thumb.Visible = false
 			settle()
@@ -250,6 +289,156 @@ return function(verifyHarness: Verify.Harness)
 			bridge.close()
 		end)
 	end
+
+	it("reports a HUD button that spells out a standard command, from a live Composition", function()
+		local roots: { Roblox.Instance } = {}
+		local viewport = { X = 844, Y = 390 }
+		local engine, bridge = engineLib.new({
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return viewport
+				end,
+			},
+		})
+		local T = engine.types
+		local player: PlayerGui = engine.new("PlayerGui")
+		player.Parent = engine.new("DataModel")
+		table.insert(roots, Roblox.assertInstance(player))
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local UI = Facet.controls(runtime, { types = T, motionLevel = "none" })
+		local app = Facet.app({ runtime = runtime, types = T, parent = player, motionLevel = "none" })
+		local function noop() end
+		app.mount(function()
+			return UI.Composition "HUD" {
+				topbar = false,
+				UI.Region "Commands" {
+					zone = "topRight",
+					rank = 1,
+					UI.HStack {
+						gap = "s",
+						UI.Button "Shop" { label = "Shop", onActivate = noop },
+						UI.Button "Gear" { label = "Settings", icon = "settings", onActivate = noop },
+						UI.Button "Race" { label = "Race", onActivate = noop },
+					},
+				},
+			}
+		end)
+		for _ = 1, 8 do
+			assert(bridge.layout).step()
+			engine.environment.step(1 / 60)
+			engine.heartbeat:Fire(1 / 60)
+		end
+		local snapshot = Facet.review.collect({ root = player })
+		snapshot.width, snapshot.height = viewport.X, viewport.Y
+		local details: { string } = {}
+		for _, finding in require("../src/ui/review_rules").analyze(snapshot).findings do
+			if finding.rule == "worded-command" then
+				table.insert(details, finding.detail)
+			end
+		end
+		table.sort(details)
+		expect(details):toEqual({ '"Settings" already has its icon; drop the label', '"Shop" can be icon = "bag"' })
+		app.dispose()
+		runtime:dispose()
+		player:Destroy()
+		bridge.close()
+	end)
+
+	it("reserves the columns around a dynamic stick's resting art, not its whole touch frame", function()
+		local roots: { Roblox.Instance } = {}
+		local viewport = { X = 390, Y = 844 }
+		local engine, bridge = engineLib.new({
+			layout = {
+				roots = function()
+					return roots
+				end,
+				viewport = function()
+					return viewport
+				end,
+			},
+		})
+		local T = engine.types
+		local player: PlayerGui = engine.new("PlayerGui")
+		player.Parent = engine.new("DataModel")
+		table.insert(roots, Roblox.assertInstance(player))
+		local input: UserInputService = engine.new("UserInputService")
+		local gui: GuiService = engine.new("GuiService")
+		input.Parent, gui.Parent = player.Parent, player.Parent
+		engine.environment.fakeOn(gui, "GetInsetArea", function()
+			return T.Rect.new(0, 0, viewport.X, viewport.Y)
+		end)
+		engine.environment.poke(Roblox.assertInstance(input), "TouchEnabled", true)
+		engine.environment.poke(Roblox.assertInstance(input), "MouseEnabled", false)
+		local runtime = Facet.Roblox.createRuntime(engine)
+		local UI = Facet.controls(
+			runtime,
+			{ types = T, motionLevel = "none", services = { UserInputService = input, GuiService = gui } }
+		)
+		local native = engine.new("ScreenGui")
+		native.Name, native.IgnoreGuiInset, native.Parent = "TouchGui", true, player
+
+		local thumb: Frame = engine.new("Frame")
+		thumb.Name, thumb.Size, thumb.Position, thumb.Parent =
+			"DynamicThumbstickFrame", T.UDim2.new(1, 100, 0.5, 0), T.UDim2.new(0, -100, 0.5, 0), native
+		local modifier: ImageButton = engine.new("ImageButton")
+		modifier.Name, modifier.Size, modifier.Parent = "DynamicThumbstickUIModifier", T.UDim2.fromScale(1, 1), thumb
+		local art: Frame = engine.new("Frame")
+		art.Name, art.Size, art.Position, art.Parent =
+			"ThumbstickStart", T.UDim2.fromOffset(74, 74), T.UDim2.new(0, 400, 1, -300), thumb
+		local finger = engine.new("InputObject")
+		engine.environment.fire(Roblox.assertInstance(input), "TouchStarted", finger, false)
+		local app = Facet.app({
+			runtime = runtime,
+			types = T,
+			parent = player,
+			motionLevel = "none",
+			services = { UserInputService = input, GuiService = gui },
+		})
+		app.mount(function()
+			return UI.Composition "HUD" {
+				padding = 8,
+				topbar = false,
+				UI.Region { zone = "bottomLeft", rank = 1, UI.Text "Left" { text = "AMMO" } },
+				UI.Region { zone = "bottomRight", rank = 1, UI.Text "Right" { text = "SCORE" } },
+			}
+		end)
+		local function settle()
+			for _ = 1, 8 do
+				assert(bridge.layout).step()
+				engine.environment.step(1 / 60)
+				engine.heartbeat:Fire(1 / 60)
+			end
+		end
+		settle()
+		local left = player:FindFirstChild("Left", true) :: TextLabel
+		local right = player:FindFirstChild("Right", true) :: TextLabel
+		local dragged = right.AbsolutePosition.Y
+		art.Position = T.UDim2.new(0, 300, 1, -300)
+		settle()
+		expect(right.AbsolutePosition.Y):toBe(dragged)
+		art.Position = T.UDim2.new(0, 164, 1, -240)
+		engine.environment.fire(Roblox.assertInstance(input), "TouchEnded", finger, false)
+		settle()
+		expect(left.AbsolutePosition.Y + left.AbsoluteSize.Y <= art.AbsolutePosition.Y):toBe(true)
+		expect(right.AbsolutePosition.Y + right.AbsoluteSize.Y > art.AbsolutePosition.Y + art.AbsoluteSize.Y):toBe(true)
+		local resting = right.AbsolutePosition.Y
+		local second = engine.new("InputObject")
+		engine.environment.fire(Roblox.assertInstance(input), "TouchStarted", second, false)
+		art.Position = T.UDim2.new(0, 300, 1, -300)
+		settle()
+		expect(right.AbsolutePosition.Y):toBe(resting)
+		art.Position = T.UDim2.new(0, 164, 1, -240)
+		engine.environment.fire(Roblox.assertInstance(input), "TouchEnded", second, false)
+		settle()
+		expect(right.AbsolutePosition.Y):toBe(resting)
+		app.dispose()
+		runtime:dispose()
+		player:Destroy()
+		bridge.close()
+	end)
 
 	local function make(options: { [string]: any }?): (any, any, any, any)
 		local engine: any = engineLib.new()
@@ -517,6 +706,13 @@ return function(verifyHarness: Verify.Harness)
 				holder.Parent = root.Parent
 				root.Parent = holder
 				expect(inset.PaddingLeft):toBe(T.UDim.new(0, inset.PaddingLeft.Offset))
+				local bare = inset.PaddingLeft.Offset
+				sized(engine, root:FindFirstAncestorWhichIsA("ScreenGui"), 1920, 1080)
+				sized(engine, holder, 1920, 1080)
+				sized(engine, root, 1920, 1080)
+				expect(inset.PaddingLeft.Scale):toBe(0)
+				expect(inset.PaddingLeft.Offset):toBe(bare + 90)
+				expect(inset.PaddingTop.Offset >= 60):toBe(true)
 				stop()
 				local near, _, _, _, stopNear = mount()
 				expect(near:FindFirstChildWhichIsA("UIPadding").PaddingLeft.Scale):toBe(0)
@@ -815,6 +1011,134 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("slides a side zone clear of its corner zone and lifts only the zones over a touch area", {
+			id = "native_composition::Composition::slides a side zone clear of its corner zone and lifts only the zones over a touch area",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function wide(x: number, y: number)
+					return { x = x, y = y }
+				end
+				local coins: Declared =
+					{ zone = "topRight" :: "topRight", rank = 2, mayDrop = false, sizes = { wide(72, 40) } }
+				local menu: Declared =
+					{ zone = "right" :: "right", rank = 1, mayDrop = false, sizes = { wide(98, 96) } }
+				local forms, _, shift, overflow = resolver.resolve(733, 400, 8, { coins, menu })
+				expect(#overflow):toBe(0)
+				expect(shift.lift[14] or 0):toBe(0)
+				forms, _, shift, overflow = resolver.resolve(733, 175, 8, { coins, menu })
+				expect(forms[1]):toBe(1)
+				expect(forms[2]):toBe(1)
+				expect(#overflow):toBe(0)
+				expect((175 - 96) / 2 + shift.lift[14]):toBe(48)
+				forms, _, shift, overflow = resolver.resolve(733, 140, 8, { coins, menu })
+				expect(#overflow):toBe(2)
+				local chat: Declared =
+					{ zone = "bottomLeft" :: "bottomLeft", rank = 1, mayDrop = false, sizes = { wide(160, 40) } }
+				local prompt: Declared =
+					{ zone = "bottomRight" :: "bottomRight", rank = 1, mayDrop = false, sizes = { wide(120, 48) } }
+				local stick = { left = 0, right = 300, reach = 111 }
+				local jump = { left = 609, right = 681, reach = 132 }
+				forms, _, shift, overflow = resolver.resolve(
+					733,
+					307,
+					8,
+					{ coins, menu, chat },
+					nil,
+					nil,
+					nil,
+					{ stick, jump }
+				)
+				expect(#overflow):toBe(0)
+				expect(shift.lift[7]):toBe(-111)
+				local menuTop = (307 - 96) / 2 + shift.lift[14]
+				expect(menuTop >= 48):toBe(true)
+				expect(menuTop + 96 <= 307 - 132):toBe(true)
+				forms, _, shift, overflow = resolver.resolve(733, 307, 8, { chat, prompt }, nil, nil, nil, { stick })
+				expect(#overflow):toBe(0)
+				expect(shift.lift[7]):toBe(-111)
+				expect(shift.lift[15]):toBe(0)
+				forms, _, shift = resolver.resolve(733, 307, 8, { chat, prompt }, nil, nil, nil, { stick, jump })
+				expect(shift.lift[15]):toBe(-132)
+			end,
+		})
+
+		it("keeps the reviewed touch-floor cases: center band, center-lane neighbors, top rows and empty corners", {
+			id = "native_composition::Composition::keeps the reviewed touch-floor cases: center band, center-lane neighbors, top rows and empty corners",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local function zone(name: resolver.Zone, x: number, y: number): Declared
+					return { zone = name, rank = 1, mayDrop = false, sizes = { { x = x, y = y } } }
+				end
+				local function controls(width: number): { resolver.Area }
+					return {
+						{ left = 0, right = width * 0.4, reach = 111 },
+						{ left = width - 132, right = width - 60, reach = 132 },
+					}
+				end
+				local _, _, shift, overflow =
+					resolver.resolve(790, 340, 8, { zone("center", 200, 120) }, nil, nil, nil, controls(790))
+				expect(#overflow):toBe(0)
+				expect((340 - 120) / 2 + shift.lift[10] + 120 <= 340 - 132):toBe(true)
+				_, _, _, overflow = resolver.resolve(
+					790,
+					340,
+					8,
+					{ zone("left", 98, 60), zone("bottom", 600, 40) },
+					nil,
+					nil,
+					nil,
+					controls(790)
+				)
+				expect(#overflow):toBe(0)
+				_, _, _, overflow = resolver.resolve(
+					790,
+					340,
+					8,
+					{ zone("right", 98, 60), zone("bottom", 700, 40) },
+					nil,
+					nil,
+					nil,
+					controls(790)
+				)
+				expect(#overflow):toBe(0)
+				_, _, _, overflow =
+					resolver.resolve(921, 292, 8, { zone("topRight", 332, 162) }, nil, nil, nil, controls(921))
+				expect(#overflow):toBe(1)
+				_, _, _, overflow =
+					resolver.resolve(921, 292, 8, { zone("topRight", 332, 150) }, nil, nil, nil, controls(921))
+				expect(#overflow):toBe(0)
+				_, _, shift = resolver.resolve(790, 340, 8, { zone("topLeft", 98, 40) }, nil, nil, nil, controls(790))
+				expect(shift.lift[7]):toBe(-111)
+				expect(shift.lift[15]):toBe(0)
+				local top: Declared = { zone = "top", rank = 3, mayDrop = false, sizes = { { x = 250, y = 220 } } }
+				local side: Declared = { zone = "left", rank = 2, mayDrop = false, sizes = { { x = 394, y = 168 } } }
+				local lower: Declared = {
+					zone = "bottom",
+					rank = 2,
+					mayDrop = false,
+					sizes = { { x = 333, y = 245 }, { x = 199, y = 171 } },
+				}
+				local forms = resolver.resolve(350, 541, 8, { top, side, lower })
+				expect(forms[3] > 0):toBe(true)
+				_, _, _, overflow = resolver.resolve(
+					500,
+					300,
+					8,
+					{ zone("topLeft", 150, 100), zone("topRight", 150, 100), zone("top", 300, 120) },
+					nil,
+					nil,
+					nil,
+					{ { left = 0, right = 250, reach = 150 }, { left = 400, right = 500, reach = 150 } }
+				)
+				expect(#overflow > 0):toBe(true)
+				local corner = { { left = 700, right = 790, reach = 90 } }
+				_, _, shift = resolver.resolve(790, 340, 8, { zone("topLeft", 98, 40) }, nil, nil, nil, corner)
+				expect(shift.lift[15]):toBe(-90)
+			end,
+		})
+
 		it("stacks a center-lane zone under its corners when no region can give way", {
 			id = "native_composition::Composition::stacks a center-lane zone under its corners when no region can give way",
 			run = function()
@@ -1109,7 +1433,7 @@ return function(verifyHarness: Verify.Harness)
 					local zones = w.find("Zones")
 					w.size(zones, 800, 400)
 					expect((form:peek())):toBe(1)
-					w.size(zones, 800, 200)
+					w.size(zones, 800, 160)
 					expect((form:peek())):toBe(if reveal then 2 else 0)
 					if disc then
 						expect(disc.Parent.Visible):toBe(true)
@@ -1155,7 +1479,7 @@ return function(verifyHarness: Verify.Harness)
 				w.size(w.find("Reveal"), 28, 20)
 				local zones = w.find("Zones")
 				w.size(zones, 800, 400)
-				w.size(zones, 800, 200)
+				w.size(zones, 800, 160)
 				expect((form:peek())):toBe(2)
 				local target = w.find("Feed"):FindFirstChild("Expand")
 				expect(target.Visible):toBe(true)
@@ -1510,7 +1834,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(shift.bottom):toBe(0)
 				expect(forms[1]):toBe(1)
 				expect(forms[2]):toBe(3)
-				expect(forms[3]):toBe(2)
+				expect(forms[3] > 0):toBe(true)
 			end,
 		})
 

@@ -219,11 +219,14 @@ override any one of them; the rest come from Facet Neutral. The Neutral values:
 
 The report lists the covered entries and the missing entries.
 
-Facet ships the standard icon names without image content. Map each name that
-the game uses to image content or a font glyph in the theme package `icons`. A
-standard name without art shows an empty image. The names that controls use for
-their own parts, such as close, the chevrons, checkmark and search, draw as thin
-native Path2D strokes in the icon tint instead. An unknown name causes an error.
+The game glyphs, such as `settings`, `bag`, `coin` and `heart`, draw filled image
+art from [`assets/icons/upload-manifest.json`](../../assets/icons/upload-manifest.json).
+Those images are Open Use, so any experience can load them. The names that
+controls use for their own parts, such as `close`, the chevrons, `checkmark`,
+`vote.up`, `vote.down` and `view.grid`, draw as native Path2D strokes in the theme's icon color. Every standard name has
+a stroke glyph, which draws when the name has no image art. To use other art,
+map the name to image content or a font glyph in the theme package `icons`. That
+art takes precedence. An unknown name causes an error.
 
 Icons resolve through `themes.resolveIcon`. An icon entry is image content,
 the name of a declared asset or a font glyph. A font glyph is
@@ -257,8 +260,9 @@ named `Glyph` inside the icon ImageLabel. The ImageLabel keeps its name and
 size, and its `Image` is empty. `themes.define` rejects a glyph without a font
 or with a codepoint that is not an integer from 0 to 0x10FFFF.
 
-Use an icon font that has real icon designs. Do not use arbitrary letters,
-symbols or emoji as interface icons. An image or font declaration does not
+Use an icon font that has real icon designs. Do not use arbitrary letters or
+symbols as interface icons. An emoji can be an icon; check that the Roblox emoji
+font draws it. An image or font declaration does not
 prove ownership or successful loading. Keep the asset provenance with the theme
 package. Verify the icons at native scale in the running application.
 

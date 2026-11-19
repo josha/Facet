@@ -16,9 +16,15 @@ smallest near text is at least 28 pixels. Chrome insets, plaques, tiles and imag
 scales grow with the controls. Colors, ratios, counts and motion timing keep their values.
 Literal native properties in authored theme rules keep their authored values.
 
+A number for `width`, `height`, `padding` or `gap` on a Facet stack, and for `width` and
+`height` on `UI.Image`, is a length in layout units. Facet multiplies it by the same factor as
+the theme metrics: the resolution factor, times 1.5 at ten feet. A readable or a function is a
+length that the game computed, and Facet uses it as it is.
+
 `UI.environment().scaled(number)` and `metricScale` follow the resolution of the supplied
-theme. Use them for game-specific pixel geometry. Native layout still places the controls;
-no extra UIScale or application tree is added.
+theme. Use them for game-specific pixel geometry on native objects and for a threshold that
+you compare with a measured size. Native layout still places the controls; no extra UIScale
+or application tree is added.
 
 The call is idempotent, cached for frozen themes, and reversible. Applying the same dimensions
 twice does not compound the scale. Returning to 1080p returns the original near package.

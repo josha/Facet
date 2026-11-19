@@ -32,6 +32,19 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	verifyHarness:suite("adaptive layout", function()
+		verifyHarness:case("a console interface is ten-foot with a mouse; a large display needs no pointer", {
+			id = "native_adaptive_layout::adaptive layout::a console interface is ten-foot with a mouse; a large display needs no pointer",
+			run = function()
+				local isTenFoot = Facet.adaptive.isTenFoot
+				Verify.expect(isTenFoot({ tenFootInterface = true, mouse = true, displaySize = "Large" })):toBe(true)
+				Verify.expect(isTenFoot({ tenFootInterface = true })):toBe(true)
+				Verify.expect(isTenFoot({ displaySize = "Large", mouse = true })):toBe(false)
+				Verify.expect(isTenFoot({ displaySize = "Large", touch = true })):toBe(false)
+				Verify.expect(isTenFoot({ displaySize = "Large" })):toBe(true)
+				Verify.expect(isTenFoot({ displaySize = "Medium", mouse = true })):toBe(false)
+				Verify.expect(isTenFoot({ tenFootInterface = true, viewingDistance = "near" })):toBe(false)
+			end,
+		})
 		verifyHarness:suite("AdaptiveStack that fits", function()
 			local function toolbar(align: ("center" | "end" | "start" | "stretch")?): (any, any, () -> ())
 				local root, engine, stop = build(function(UI, Host)

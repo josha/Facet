@@ -32,6 +32,7 @@ export type ReviewElement = {
 	ground: boolean?,
 	text: ReviewText?,
 	unfit: string?,
+	stacked: boolean?,
 	reveal: string?,
 	region: boolean?,
 	outset: ReviewOutset?,

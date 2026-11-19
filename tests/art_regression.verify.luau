@@ -54,10 +54,13 @@ return function(verifyHarness: Verify.Harness)
 					if not fs.exists(`assets/icons/{art.assetName}.png`) then
 						table.insert(problems, `{iconName}: assets/icons/{art.assetName}.png is not committed`)
 					end
-					if art.contentId ~= nil then
-						table.insert(problems, `{iconName}: src/ui/icons.luau ships content {art.contentId}`)
-					end
 					local uploaded = Json.stringField(manifest[art.assetName], "contentId") or ""
+					if art.contentId ~= nil and art.contentId ~= uploaded then
+						table.insert(
+							problems,
+							`{iconName}: src/ui/icons.luau ships {art.contentId}, manifest {uploaded}`
+						)
+					end
 					local content = StandardIcons.CONTENT[iconName] or ""
 					if content ~= uploaded then
 						table.insert(

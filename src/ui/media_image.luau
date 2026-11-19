@@ -6,6 +6,8 @@ local prepareMedia = require("./media_readiness")
 local ControlTypes = require("./control_types")
 local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
+local themeDistance = require("./theme_distance")
+local Theme = require("./theme_types")
 
 type Extent = "fill" | number
 
@@ -138,7 +140,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			Image = bindString(spec.image, ""),
 			Size = function(use: ComposeTypes.Use): UDim2
 				local side = controlSize(nil, "height", use)
+				local factor = themeDistance.metricScale(ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme, use))
 				local width, height = readExtent(spec.width, use), readExtent(spec.height, use)
+				if type(width) == "number" and type(spec.width) == "number" then
+					width = math.floor(width * factor + 0.5)
+				end
+				if type(height) == "number" and type(spec.height) == "number" then
+					height = math.floor(height * factor + 0.5)
+				end
 				if ratio ~= nil then
 					if width == nil and height == nil then
 						width, height = side * ratio, side

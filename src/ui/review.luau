@@ -478,6 +478,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					local message = if found then text(read(details, "Value")) else nil
 					element.unfit = message or "composition does not fit"
 				end
+				local hasStacked, stacked = call(child, "GetAttribute", "FacetTopStacked")
+				if hasStacked and stacked == true then
+					element.stacked = true
+				end
 				local hasForm, form = call(child, "GetAttribute", "FacetForm")
 				if hasForm and type(form) == "number" then
 					element.region = true

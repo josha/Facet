@@ -97,6 +97,7 @@ export type Gradient = {
 	stops: { { t: number, r: number, g: number, b: number } },
 	alpha: { { t: number, v: number } }?,
 	rotation: number?,
+	wash: string?,
 }
 export type ExtraValue = RGB | number | string | boolean | { [string]: Gradient }
 export type PaletteExtra = {

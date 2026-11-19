@@ -162,6 +162,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			table.clear(watched)
 		end)
 		local size = ctx.observe.AbsoluteSize(root)
+		local literalMargin = kit.literal(spec.margin)
 		Compose.watch(function(use: ComposeTypes.Use)
 			local point = ctx.readSource(spec.anchor, use) :: Env.WorldAnchorPoint
 			local edgeSource = spec.edge
@@ -178,9 +179,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local function side(key: "top" | "right" | "bottom" | "left"): number
 				if type(requested) == "table" then
 					local value = (requested :: Types.Sides)[key]
-					return kit.spacing(if value == nil then "m" else value, use)
+					return kit.spacing(if value == nil then "m" else value, use, literalMargin)
 				end
-				return kit.spacing(if requested == nil then "m" else requested :: Types.Space, use)
+				return kit.spacing(if requested == nil then "m" else requested :: Types.Space, use, literalMargin)
 			end
 			local parent = root.Parent
 			if not point.visible or point.x == nil or point.y == nil or not (parent and parent:IsA("GuiObject")) then

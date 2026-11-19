@@ -177,6 +177,16 @@ minimum captures, input routes or rotation-and-return evidence separately
 from the scores for supplied images. Do not call device fit complete until
 those gaps are closed on the final source.
 
+On a touch phone, check the HUD with the Roblox touch controls shown. A HUD
+part under the thumbstick or the jump button, or two HUD parts drawn over
+each other, is a `must` fix. A Composition with the `FacetUnfit` attribute
+has such a collision on this screen or on a reference phone; name the regions
+that `FacetUnfitDetails` lists.
+
+An emoji that draws as an empty box is a `must` fix: the Roblox emoji font
+does not have every emoji. A standard command (settings, close,
+back, menu, more) that shows a word in place of its icon is a `should` fix.
+
 ## Scores
 
 Score each dimension 1 to 5 against the task and requested experience.

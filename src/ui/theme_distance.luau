@@ -141,7 +141,7 @@ local function build(
 	local previous = 0
 	for index, size in sizes do
 		if distant then
-			local floor = if index == 1 then 24 else 28
+			local floor = if index == 1 then 28 else 32
 			previous = math.max(math.floor(size * distance + 0.5), floor, previous + 1)
 		else
 			previous = math.max(14, size)
@@ -243,4 +243,12 @@ local function resolutionScale(package: ThemeTypes.ReadOnlyThemePackage?): numbe
 	return if origin then origin.scale else 1
 end
 
-return { create = create, resolutionScale = resolutionScale }
+local function metricScale(package: ThemeTypes.ReadOnlyThemePackage?): number
+	local origin = if package then origins[package] else nil
+	if origin == nil then
+		return 1
+	end
+	return origin.scale * (if origin.distant then adaptive.TEN_FOOT_SCALE else 1)
+end
+
+return { create = create, resolutionScale = resolutionScale, metricScale = metricScale }

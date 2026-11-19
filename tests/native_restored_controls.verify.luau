@@ -187,7 +187,7 @@ return function(verifyHarness: Verify.Harness)
 						return UI.Label { title = name, icon = name }
 					end)
 					Verify.expect(root:FindFirstChild("Icon", true).Image):toBe(StandardIcons.CONTENT[name])
-					Verify.expect(art.contentId):toBe(nil)
+					Verify.expect(art.contentId == nil or art.contentId == StandardIcons.CONTENT[name]):toBe(true)
 					stop()
 				end
 			end,
@@ -257,6 +257,47 @@ return function(verifyHarness: Verify.Harness)
 					return UI.Label { title = "Kart", icon = "kart" }
 				end)
 				Verify.expect((mentions(unknown, "unknown icon 'kart'"))):toBe(true)
+			end,
+		})
+
+		verifyHarness:case("shows the filled art of a game glyph and draws strokes for a name without art", {
+			id = "native_restored_controls::native restored controls: Label::shows the filled art of a game glyph and draws strokes for a name without art",
+			run = function()
+				local icons = require("../src/ui/icons")
+				local iconStrokes = require("../src/ui/icon_strokes")
+				for name in icons.ART do
+					Verify.expect(`{name} strokes: {iconStrokes[name] ~= nil}`):toBe(`{name} strokes: true`)
+				end
+				local filled, _, stopFilled = build(nil, function(UI)
+					return UI.Label { title = "Health", icon = "heart", iconRole = "error" }
+				end)
+				local heart = filled:FindFirstChild("Icon", true) :: ImageLabel
+				Verify.expect(heart.Image):toBe(icons.ART.heart.contentId)
+				Verify.expect(heart:HasTag("facet-icon-error")):toBe(true)
+				Verify.expect(heart:FindFirstChildWhichIsA("Path2D")):toBeNil()
+				stopFilled()
+				local root, _, stop = build(nil, function(UI)
+					return UI.Button { icon = "menu", name = "Menu" }
+				end)
+				local icon: ImageLabel? = nil
+				local paths: { Path2D } = {}
+				for _, node in root:GetDescendants() do
+					if node:IsA("Path2D") and node.Name == "Stroke" then
+						local parent = node.Parent
+						if parent and parent:IsA("ImageLabel") then
+							icon = parent
+							table.insert(paths, node)
+						end
+					end
+				end
+				local expected = iconStrokes.menu
+				Verify.expect(#paths):toBe(#expected)
+				Verify.expect(assert(icon).Image):toBe("")
+				for index, path in paths do
+					Verify.expect(#path:GetControlPoints()):toBe(#expected[index].points)
+					Verify.expect(path.Closed):toBe(expected[index].closed)
+				end
+				stop()
 			end,
 		})
 	end)

@@ -85,6 +85,88 @@ return function(harness: Verify.Harness)
 			Verify.expect(scaled.metrics.motion.normal):toBe(base.metrics.motion.normal)
 		end,
 	})
+	harness:case("authored pixel lengths follow the theme scale and computed lengths stay as given", {
+		id = "resolution-scale-authored-lengths",
+		run = function()
+			local engine = require("./lib/native_engine").new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local distance = Facet.Compose.cell<<("automatic" | "near" | "ten-foot")?>>("ten-foot")
+			local literal: GuiObject?, computed: GuiObject?, picture: GuiObject?, spaced: GuiObject? =
+				nil, nil, nil, nil
+			local plate: GuiObject?, given: GuiObject? = nil, nil
+			local stop = runtime.mount(function()
+				local UI = Facet.controls(
+					runtime,
+					{ types = engine.types, theme = theme(), environment = { viewingDistance = distance } }
+				)
+				literal = UI.VStack "Literal" { width = 220, height = 40 }
+				computed = UI.VStack "Computed" { width = UI.environment().scaled(220) }
+				picture = UI.Image { image = "rbxassetid://1", width = 200, height = 112 }
+				spaced = UI.VStack "Spaced" { padding = 8, gap = 8 }
+				plate = UI.VStack "Plate" { surface = "panel", padding = "m" }
+				given = UI.VStack "Given" { padding = UI.environment().scaled(8) }
+				return Facet.host(runtime).Folder({ literal, computed, picture, spaced, plate, given })
+			end, engine.new("ScreenGui"))
+			Verify.expect(assert(literal).Size.X.Offset):toBe(330)
+			Verify.expect(assert(literal).Size.Y.Offset):toBe(60)
+			Verify.expect(assert(computed).Size.X.Offset):toBe(330)
+			Verify.expect(assert(picture).Size.X.Offset):toBe(300)
+			Verify.expect(assert(picture).Size.Y.Offset):toBe(168)
+			local list = assert(assert(spaced):FindFirstChildWhichIsA("UIListLayout"))
+			Verify.expect(list.Padding.Offset):toBe(12)
+			local function inset(node: GuiObject?): number
+				return assert(assert(node):FindFirstChildWhichIsA("UIPadding")).PaddingLeft.Offset
+			end
+			Verify.expect(inset(spaced)):toBe(12)
+			Verify.expect(inset(plate)):toBe(24)
+			Verify.expect(inset(given)):toBe(12)
+			distance:set("near")
+			Verify.expect(list.Padding.Offset):toBe(8)
+			Verify.expect(inset(spaced)):toBe(8)
+			Verify.expect(inset(plate)):toBe(16)
+			Verify.expect(inset(given)):toBe(8)
+			Verify.expect(assert(literal).Size.X.Offset):toBe(220)
+			Verify.expect(assert(computed).Size.X.Offset):toBe(220)
+			Verify.expect(assert(picture).Size.X.Offset):toBe(200)
+			stop()
+			runtime:dispose()
+		end,
+	})
+	harness:case("corner-clearing padding with a scale side and a theme-less tree still scale literal lengths", {
+		id = "resolution-scale-literal-edges",
+		run = function()
+			local engine = require("./lib/native_engine").new()
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local plate: GuiObject?, bare: GuiObject? = nil, nil
+			local stop = runtime.mount(function()
+				local UI = Facet.controls(
+					runtime,
+					{ types = engine.types, theme = theme(), environment = { viewingDistance = "ten-foot" } }
+				)
+				plate = UI.VStack "Plate" {
+					surface = "panel",
+					padding = (
+							{ top = engine.types.UDim.new(0.05, 0), left = 8, right = 8, bottom = 8 } :: unknown
+						) :: Facet.Sides,
+				}
+				return Facet.host(runtime).Folder({ plate })
+			end, engine.new("ScreenGui"))
+			local inset = assert(assert(plate):FindFirstChildWhichIsA("UIPadding"))
+			Verify.expect(inset.PaddingLeft.Offset):toBe(12)
+			Verify.expect(inset.PaddingTop.Scale):toBeCloseTo(0.05)
+			stop()
+			local stopBare = runtime.mount(function()
+				local UI =
+					Facet.controls(runtime, { types = engine.types, environment = { viewingDistance = "ten-foot" } })
+				bare = UI.VStack "Bare" { width = 100, padding = 8 }
+				return Facet.host(runtime).Folder({ bare })
+			end, engine.new("ScreenGui"))
+			Verify.expect(assert(bare).Size.X.Offset):toBe(150)
+			Verify.expect(assert(assert(bare):FindFirstChildWhichIsA("UIPadding")).PaddingLeft.Offset):toBe(12)
+			stopBare()
+			runtime:dispose()
+		end,
+	})
 	harness:case("custom geometry follows the same reactive resolution scale as controls", {
 		id = "resolution-scale-environment",
 		run = function()

@@ -63,6 +63,70 @@ local function contrastStep(from: ThemeTypes.RGB, to: ThemeTypes.RGB): number
 	return (luminance(to) + 0.05) / (luminance(from) + 0.05)
 end
 
+local function ratioOf(first: ThemeTypes.RGB, second: ThemeTypes.RGB): number
+	local a, b = luminance(first), luminance(second)
+	return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
+end
+
+local function mix(from: ThemeTypes.RGB, to: ThemeTypes.RGB, amount: number): ThemeTypes.RGB
+	return {
+		r = from.r + (to.r - from.r) * amount,
+		g = from.g + (to.g - from.g) * amount,
+		b = from.b + (to.b - from.b) * amount,
+	}
+end
+
+local function readable(ink: ThemeTypes.RGB, grounds: { ThemeTypes.RGB }, amount: number, floor: number): ThemeTypes.RGB
+	local step = amount
+	while step > 0 do
+		local candidate = mix(ink, grounds[1], step)
+		local passes = true
+		for _, ground in grounds do
+			passes = passes and ratioOf(candidate, ground) >= floor
+		end
+		if passes then
+			return candidate
+		end
+		step -= 0.05
+	end
+	return ink
+end
+
+local function derivePalette(
+	authored: { [string]: ThemeTypes.RGB },
+	declared: ThemeTypes.PaletteExtra,
+	colors: { [string]: ThemeTypes.RGB }
+)
+	if not isColor(authored.surface) then
+		return
+	end
+	local surface, strong, content = colors.surface, colors.surfaceStrong, colors.content
+	if authored.contentStrong == nil and isColor(authored.content) then
+		colors.contentStrong = content
+		authored.contentStrong = content
+	end
+	if declared.contentSecondary == nil then
+		local grounds = { strong, surface }
+		local clear = readable(content, grounds, 0.25, 7)
+		declared.contentSecondary = if ratioOf(clear, strong) >= 7 and ratioOf(clear, surface) >= 7
+			then clear
+			else readable(content, grounds, 0.35, 4.5)
+	end
+	if declared.control == nil then
+		declared.control = mix(strong, content, 0.1)
+	end
+	if declared.controlSelected == nil then
+		local label = declared.onSelected or content
+		local selected = mix(strong, colors.accent, 0.35)
+		local step = 0.35
+		while step > 0 and ratioOf(label, selected) < 4.5 do
+			step -= 0.05
+			selected = mix(strong, colors.accent, step)
+		end
+		declared.controlSelected = selected
+	end
+end
+
 local function shade(value: ThemeTypes.RGB, step: number): ThemeTypes.RGB
 	local current = luminance(value)
 	local target = math.clamp((current + 0.05) * step - 0.05, 0, 1)
@@ -560,6 +624,11 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				end
 			end
 			if valid then
+				if palette.colors ~= nil then
+					local authoredExtra: ThemeTypes.PaletteExtra = palette.extra or {}
+					palette.extra = authoredExtra
+					derivePalette(palette.colors, authoredExtra, colors)
+				end
 				local declared, step = palette.extra, steps[polarity(colors)]
 				if type(declared) == "table" and step ~= nil and isColor(declared.control) then
 					local control = declared.control :: ThemeTypes.RGB
@@ -591,6 +660,22 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 					end
 				end
 				local extra = merge(base.extra or {}, palette.extra or {}) :: { [string]: ThemeTypes.RGB? }
+				local secondary = extra.contentSecondary
+				if type(secondary) == "table" then
+					for _, ground in { "surface", "surfaceStrong" } do
+						local ratio = ratioOf(secondary, colors[ground])
+						table.insert(
+							contrast,
+							{ pair = "contentSecondary/" .. ground, ratio = ratio, ok = ratio >= 4.5 }
+						)
+						if ratio < 4.5 then
+							table.insert(errors, {
+								field = "style." .. palette.name,
+								message = "contentSecondary contrast on " .. ground .. " is below 4.5:1",
+							})
+						end
+					end
+				end
 				local selectedFill = extra.controlSelected
 				local selectedLabel = extra.onSelected or colors.content
 				if type(selectedFill) == "table" and type(selectedLabel) == "table" then

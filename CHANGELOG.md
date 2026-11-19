@@ -8,6 +8,93 @@ does not count, and the existing pause setting applies to each period.
 `app.presentToast` exposes the same controlled presentation options.
 The Toast page in Facet Lab exercises host resizing and controlled continuation.
 
+A HUD `Composition` reserves room for the Roblox touch controls only under the
+zones that they cover. Before, the space above the highest control was taken
+from the whole width of the screen: on a phone in landscape the thumbstick's
+touch area left the HUD a band about 90 pixels tall, and regions on the other
+side overlapped. Facet now finds the thumbstick art that the current
+PlayerModule draws with Frames, and a side region (`left` or `right`) moves
+down below the corner region above it when the center does not fit, in place
+of overlapping it. The reference phone check behind `FacetUnfit` and
+`composition-unfit` now includes the default stick and jump controls.
+
+A number for `width`, `height`, `padding` or `gap` on a stack, and for the
+size of `UI.Image`, follows the theme scale: it grows by 1.5 at ten feet and
+with the resolution factor on large displays, as text and controls do. Before,
+a panel with `width = 220` stayed 220 pixels on a console while its text grew.
+A readable, such as `env.scaled(220)`, is used as it is, so code that already
+scales its lengths keeps its size.
+
+A `Sheet` with `placement = "center"` keeps `space.m` clear of every screen
+edge, as `Dialog` does. Before, on a phone in portrait it ran from edge to
+edge.
+
+A HUD `Composition` reserves the columns around the resting art of the
+dynamic thumbstick, and as far as the stick travels to either side, in place
+of the whole width of its touch frame. In landscape the current PlayerModule
+draws that frame across the left 40 percent of the screen, and a region at
+the bottom center rose above the stick. In portrait the frame is the full
+width, and every bottom region did. Facet reads the resting art when the HUD mounts
+and follows it only while no finger is down, after it has seen a finger lift,
+so a HUD that mounts during a drag does not follow the drag.
+
+A finish `sheen` is a wash over an opaque plate. Before, the sheen was
+the plate's own transparency, so the top of each plate showed the world
+through it and the hidden half of a Popover tail showed inside the plate.
+
+`Facet.review` reports two HUD findings, both `medium`. `worded-command`: a
+Button in a Composition region spells out a standard command or a known
+destination, such as Settings, Shop or Lifetime Stats, in place of its icon.
+A Button that already shows its icon is told to drop the label.
+`top-row-stacked`: the top-center regions sit below a corner region,
+because the top row has no room. Both fixes name `zone = "topbar"`.
+
+A HUD `Composition` keeps the room of the Roblox touch controls while a Facet
+overlay holds them off. Before, opening a Popover, Sheet or Dialog turned the
+controls off, the HUD moved into their room, and a region could change form
+under the overlay. A region's reveal Popover then closed as it opened, since
+the region now fit at its richest form. While the hold lasts, Facet keeps
+measuring the controls as the game last showed them, so a rotation, a rebuilt
+Jump button or a HUD that mounts under the overlay still clears them.
+
+A theme with a `finish` edge draws the edge of a Popover or Menu with a tail
+as one line around the plate and the tail. Before, the plate kept its own
+stroke in the edge color and the tail had a thin outline of its own, so the
+tail looked separate. The Popover that shows a HUD region's richest form has
+no Close button; a tap outside, `B` or Escape closes it.
+
+Text at ten feet is larger: the smallest type role is at least 28 pixels and
+every other role at least 32, so the neutral `body` is 33 pixels on a console.
+Before, the floors were 24 and 28, and captions drew shorter than the 26 pixel
+text height that the Xbox Accessibility Guidelines ask for at 1080p.
+
+**Breaking:** a theme whose `contentSecondary` is below 4.5:1 on `surface` or
+`surfaceStrong` no longer defines; `themes.define` returns nil and a report with
+the error. Before, the theme loaded with a caption that players could not read.
+Raise the contrast of that color, or remove it so that Facet derives one.
+
+A `Composition` inside a full-screen frame now gets the TV overscan margins at
+ten feet, the part of each margin that its position does not already clear.
+Before, only a Composition placed directly in a ScreenGui had them. The phone
+reference check of `FacetUnfit` is skipped at ten feet, where its sizes do not
+apply.
+
+`themes.define` derives the palette roles that a theme does not state from the
+theme's own colors when it states a `surface`: secondary text from `content`,
+the control plate and the selected plate from the surfaces and `accent`.
+Secondary text aims at 7:1 on both surfaces and keeps the hue of `content`.
+Before, these roles came from the neutral palette, so a navy theme had slate
+controls and a gray caption below 4.5:1 contrast. The contrast report now checks
+`contentSecondary` on `surface` and on `surfaceStrong`, and a pair below 4.5:1
+is an error.
+
+Each standard icon name now has a built-in vector glyph. When no theme
+package or `icons` map supplies image art for a name, the icon draws as native
+Path2D strokes in the theme's icon color. Before, only the names that controls
+use for their own parts drew strokes, and a name such as `settings`, `coin` or
+`car` showed an empty image. The glyphs need no uploaded asset. Image art in a
+theme package still takes precedence.
+
 `Facet.Rule` and `Facet.AuthoredRuleProperties` are removed. They were second
 names for `Facet.ThemeRule` and `Facet.ThemeRuleProperties`. Use those names;
 the types do not change.

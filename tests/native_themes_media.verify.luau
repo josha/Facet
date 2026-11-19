@@ -58,8 +58,8 @@ return function(verifyHarness: Verify.Harness)
 					local art = assert(icons.ART[name], name)
 					expect(art.assetName):toBe("facet_icon_" .. name)
 					expect(art.tintRole):toBe("content")
-					expect(art.contentId):toBe(nil)
-					expect(themes.resolveIcon({}, name)):toBe(nil)
+					expect(art.contentId):toBe(StandardIcons.CONTENT[name])
+					expect(themes.resolveIcon({}, name)):toBe(StandardIcons.CONTENT[name])
 					local standard = StandardIcons.apply(themes.neutralPackage())
 					expect(themes.resolveIcon(standard, name)):toBe(StandardIcons.CONTENT[name])
 					expect(themes.resolveIcon(standard, name .. ".fill")):toBe(StandardIcons.CONTENT[name])
@@ -319,7 +319,7 @@ return function(verifyHarness: Verify.Harness)
 				end
 				for role, entry in far do
 					local size = near[role].size
-					expect(entry.size >= (if size == smallest then 24 else 28)):toBe(true)
+					expect(entry.size >= (if size == smallest then 28 else 32)):toBe(true)
 					expect(entry.size >= math.floor(size * 1.5 + 0.5)):toBe(true)
 					for other, peer in far do
 						if near[other].size < size then
@@ -690,6 +690,63 @@ return function(verifyHarness: Verify.Harness)
 						> order(".facet-button.facet-disabled::UIStroke")
 				):toBe(true)
 				expect(order(".facet-button.facet-disabled::UIStroke") > order(".facet-button::UIStroke")):toBe(true)
+				expect(authored(".facet-outline-floating").Thickness):toBe(4)
+				local styleRules = require("./lib/style_rules")
+				local tip: Frame = engine.new("Frame")
+				tip:AddTag("facet-outline")
+				tip:AddTag("facet-outline-tooltip")
+				expect(styleRules.resolve(sheet, tip, "Thickness")):toBe(1)
+				expect(authored(".facet-outlined::UIStroke").Transparency):toBe(1)
+				expect(order(".facet-outlined::UIStroke") > order(".facet-panel::UIStroke")):toBe(true)
+				stop()
+				runtime:dispose()
+			end,
+		})
+
+		it("washes a finish sheen over a plate that stays opaque", {
+			id = "native_themes_media::native themes and media::washes a finish sheen over a plate that stays opaque",
+			run = function()
+				local engine, runtime = setup()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "washed" },
+					finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0.2, role = "accent" } },
+				}
+				local package = assert((themes.define(definition)))
+				local stop, mounted = runtime.mount(function()
+					return themes.createStyleSheet(runtime, themeState(package), { types = engine.types })
+				end, engine.new("ScreenGui"))
+				local sheet = mounted :: StyleSheet
+				local function last(selector: string)
+					local found: StyleRule? = nil
+					for _, node in sheet:GetChildren() do
+						local rule = node :: StyleRule
+						if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+							found = rule
+						end
+					end
+					return styleProperties(assert(found, "No rule: " .. selector))
+				end
+				local gradient = last(".facet-panel::UIGradient")
+				for _, point in (gradient.Transparency :: NumberSequence).Keypoints do
+					expect(point.Value):toBe(0)
+				end
+				local plate = last(".facet-panel").BackgroundColor3 :: Color3
+				expect(typeof(plate)):toBe("Color3")
+				local styleRules = require("./lib/style_rules")
+				local function node(tags: { string }): Frame
+					local frame: Frame = engine.new("Frame")
+					for _, tag in tags do
+						frame:AddTag(tag)
+					end
+					return frame
+				end
+				local status = styleRules.resolve(sheet, node({ "facet-status-error" }), "BackgroundColor3")
+				local panel = node({ "facet-panel", "facet-status-surface", "facet-status-error" })
+				expect(styleRules.resolve(sheet, panel, "BackgroundColor3")):toBe(status)
+				local selected = styleRules.resolve(sheet, node({ "facet-selected" }), "BackgroundColor3")
+				expect(styleRules.resolve(sheet, node({ "facet-panel", "facet-selected" }), "BackgroundColor3")):toBe(
+					selected
+				)
 				stop()
 				runtime:dispose()
 			end,
@@ -1407,8 +1464,11 @@ return function(verifyHarness: Verify.Harness)
 				light.colors = table.clone(light.colors)
 				light.colors.surface = { r = 0.9, g = 0.9, b = 0.9 }
 				light.colors.content = { r = 0.1, g = 0.1, b = 0.1 }
+				light.colors.surfaceStrong = { r = 1, g = 1, b = 1 }
+				light.colors.contentStrong = { r = 0, g = 0, b = 0 }
 				light.extra = if light.extra then table.clone(light.extra) else {}
 				assert(light.extra).onSelected = { r = 1, g = 1, b = 1 }
+				assert(light.extra).contentSecondary = nil
 				package.style.themes = { package.style.themes[1], light }
 				package = assert((themes.define(package)))
 				local selection, reduced, explicit: FixtureComposeTypes.Value<(TweenInfo | false)?> =
@@ -3810,6 +3870,73 @@ return function(verifyHarness: Verify.Harness)
 				end,
 			})
 
+			it("derives the unstated roles of a palette from its own surface, content and accent", {
+				id = "native_themes_media::native parity paint::derives the unstated roles of a palette from its own surface, content and accent",
+				run = function()
+					local function hex(value: string): ThemeTypes.RGB
+						return {
+							r = assert(tonumber(string.sub(value, 1, 2), 16)) / 255,
+							g = assert(tonumber(string.sub(value, 3, 4), 16)) / 255,
+							b = assert(tonumber(string.sub(value, 5, 6), 16)) / 255,
+						}
+					end
+					local function ratio(first: ThemeTypes.RGB, second: ThemeTypes.RGB): number
+						local a, b = luminance(first), luminance(second)
+						return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05)
+					end
+					local surface, strong = hex("23305a"), hex("2f4075")
+					local definition: ThemeTypes.ThemeDefinition = {
+						base = themes.neutralPackage(),
+						identity = { id = "derived-palette-roles" },
+						style = {
+							defaultTheme = "Dusk",
+							themes = {
+								{
+									name = "Dusk",
+									colors = {
+										surface = surface,
+										surfaceStrong = strong,
+										content = hex("fff6dc"),
+										accent = hex("ffc83d"),
+										onAccent = hex("2a1a00"),
+									},
+								},
+							},
+						},
+					}
+					local package, report = themes.define(definition)
+					expect(report.ok):toBe(true)
+					local extra = assert(assert(package).style.themes[1].extra)
+					local secondary = assert(extra.contentSecondary)
+					expect(ratio(secondary, strong) >= 4.5):toBe(true)
+					expect(ratio(secondary, surface) >= 4.5):toBe(true)
+					local neutral = assert(themes.neutralPackage().style.themes[1].extra)
+					local control = assert(extra.control)
+					expect(control.b > control.r):toBe(true)
+					expect(ratio(control, assert(neutral.control)) > 1.1):toBe(true)
+					expect(extra.controlHover ~= nil and extra.controlPressed ~= nil):toBe(true)
+					local pairs: { [string]: boolean } = {}
+					for _, entry in report.contrast do
+						pairs[entry.pair] = entry.ok
+					end
+					expect(pairs["contentSecondary/surface"]):toBe(true)
+					expect(pairs["contentSecondary/surfaceStrong"]):toBe(true)
+					local faint = table.clone(definition)
+					faint.style = {
+						defaultTheme = "Dusk",
+						themes = {
+							{
+								name = "Dusk",
+								colors = { surface = surface, surfaceStrong = strong, content = hex("fff6dc") },
+								extra = { contentSecondary = hex("5a6480") },
+							},
+						},
+					}
+					local refused, refusal = themes.define(faint)
+					expect(refused):toBeNil()
+					expect(refusal.ok):toBe(false)
+				end,
+			})
 			it("keeps the contrast step on a saturated control plate", {
 				id = "native_themes_media::native parity paint::keeps the contrast step on a saturated control plate",
 				run = function()

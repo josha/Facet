@@ -347,6 +347,16 @@ local function rulesFor(
 	rule(".facet-flash", { BackgroundColor3 = c("accent") })
 	rule(".facet-accent-text", { TextColor3 = c("accent") })
 	rule(".facet-strong", { TextColor3 = c("contentStrong") })
+	local washes: { [string]: { top: Color3, fill: Color3 } } = {}
+	for role, gradient in (extra.chromeGradient or {}) :: { [string]: ThemeTypes.Gradient } do
+		local fill = if gradient.wash then color(types, source(gradient.wash)) else nil
+		local first = gradient.stops[1]
+		if fill and first then
+			local alphaStops: { { t: number, v: number } } = gradient.alpha or {}
+			local strength = math.clamp(if alphaStops[1] then alphaStops[1].v else 0, 0, 1)
+			washes[role] = { top = fill:Lerp(types.Color3.new(first.r, first.g, first.b), strength), fill = fill }
+		end
+	end
 	for _, role in
 		{
 			"surface",
@@ -367,7 +377,12 @@ local function rulesFor(
 			then "surface"
 			elseif role == "panel" or role == "menu" or role == "sheet" then "surfaceStrong"
 			else "control"
-		rule(".facet-" .. role, { BackgroundColor3 = c(paletteRole), BackgroundTransparency = 0, BorderSizePixel = 0 })
+		local washed = washes[role]
+		rule(".facet-" .. role, {
+			BackgroundColor3 = if washed then washed.top else c(paletteRole),
+			BackgroundTransparency = 0,
+			BorderSizePixel = 0,
+		})
 		local radius = if role == "panel"
 				or role == "sheet"
 				or role == "menu"
@@ -730,14 +745,29 @@ local function rulesFor(
 		for _, stop in alphaStops do
 			table.insert(alpha, types.NumberSequenceKeypoint.new(stop.t, stop.v))
 		end
-		if #stops >= 2 then
+		local washed = washes[role]
+		if washed then
+			local top, fill = washed.top, washed.fill
+			local function ratio(base: number, over: number): number
+				return if over > 0 then math.min(1, base / over) else 1
+			end
+			rule(".facet-" .. role .. "::UIGradient", {
+				Color = types.ColorSequence.new(
+					types.Color3.new(1, 1, 1),
+					types.Color3.new(ratio(fill.R, top.R), ratio(fill.G, top.G), ratio(fill.B, top.B))
+				),
+				Transparency = types.NumberSequence.new(0),
+				Rotation = gradient.rotation or 90,
+			})
+		elseif #stops >= 2 then
 			local properties: ThemeTypes.RuleProperties =
 				{ Color = types.ColorSequence.new(stops), Rotation = gradient.rotation or 90 }
 			if #alpha >= 2 then
 				properties.Transparency = types.NumberSequence.new(alpha)
 			end
 			rule(".facet-" .. role .. "::UIGradient", properties)
-
+		end
+		if washed or #stops >= 2 then
 			rule(".facet-status-surface.facet-" .. role .. "::UIGradient", {
 				Color = types.ColorSequence.new(types.Color3.new(1, 1, 1)),
 				Transparency = types.NumberSequence.new(0),
@@ -957,7 +987,12 @@ local function rulesFor(
 		BackgroundTransparency = 0,
 	})
 	rule(".facet-floating::UIStroke", { Color = c("hairline"), Transparency = 0.3, Thickness = 1 })
-	rule(".facet-tail", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	local tailWash = washes.panel
+	rule(".facet-tail", {
+		BackgroundColor3 = if tailWash then tailWash.top:Lerp(tailWash.fill, 0.5) else c("surfaceStrong"),
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+	})
 	local outlineInk = color(types, source("hairline")) :: Color3
 	local outlineFill = color(types, source("surfaceStrong")) :: Color3
 	rule(".facet-outlined::UIStroke", { Transparency = 1 })

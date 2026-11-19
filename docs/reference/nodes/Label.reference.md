@@ -19,6 +19,9 @@ attribute, which follows a bound title.
   icon size of the regular control size. `textSize` is a number of pixels or a
   type role, default `body`. `gap` is a number of pixels or a spacing step.
 - `iconPosition` is `leading` (the default) or `trailing`.
+- `iconRole` colors the icon with a status role: `info`, `success`, `warning`,
+  `error`, `accent`, `neutral` or `contrast`. For example, `iconRole = "error"`
+  draws a red heart beside a health value. Another value causes an error.
 - `text` and `label` cause an error. Use `UI.Text` for plain text.
 
 The semantic names `speaker`, `volume` and `mute` resolve to bundled Roblox
