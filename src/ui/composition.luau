@@ -5,6 +5,7 @@ local Layout = require("./layout_types")
 local Overlay = require("./overlay_types")
 local layoutKit = require("./layout_kit")
 local reducedMotion = require("./motion").reduced
+local gameplayHold = require("./gameplay_hold")
 local resolver = require("./composition_resolve")
 local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
@@ -1005,6 +1006,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local touchControls = if ctx.config.guiService
 			then runtime.observe(ctx.config.guiService, "TouchControlsEnabled")
 			else nil
+		local holding = gameplayHold.held(ctx)
 		local actionZone = Compose.formula(function(use: ComposeTypes.Use): resolver.Zone
 			local size = use(safeSize) / use(safeUnit)
 			return if size.Y > size.X then "bottom" else "bottomRight"
@@ -1356,7 +1358,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			for _, phone in if distant(use) then {} else PHONES do
 				if extent.X > phone.X or extent.Y > phone.Y then
 					local observed = touchControls
-					local shown = if observed then use(observed) ~= false else true
+					local shown = if observed then use(observed) ~= false or use(holding) else true
 					local controls = if shown then phoneControls(phone) else nil
 					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls).overflow
 					local names = misfits(phone.X, missed)

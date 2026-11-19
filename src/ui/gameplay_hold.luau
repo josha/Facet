@@ -8,6 +8,7 @@ type Lease = {
 	before: boolean,
 	watch: RBXScriptConnection?,
 	suspended: ComposeTypes.Value<boolean>,
+	holding: ComposeTypes.Value<boolean>,
 }
 
 local leases: { [GuiService]: Lease } = setmetatable({}, { __mode = "k" })
@@ -20,6 +21,7 @@ local function leaseFor(ctx: Types.Context, gui: GuiService): Lease
 			suspensions = 0,
 			before = true,
 			suspended = ctx.Compose.cell<<boolean>>(false),
+			holding = ctx.Compose.cell<<boolean>>(false),
 		}
 		leases[gui] = created
 		return created
@@ -42,6 +44,7 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 		end)
 	end
 	lease.touches += 1
+	lease.holding:set(true)
 	if gui.TouchControlsEnabled ~= false then
 		gui.TouchControlsEnabled = false
 	end
@@ -63,6 +66,7 @@ local function hold(ctx: Types.Context, gui: GuiService?, suspends: boolean): ()
 		end
 		lease.touches -= 1
 		if lease.touches == 0 then
+			lease.holding:set(false)
 			if lease.watch then
 				lease.watch:Disconnect()
 				lease.watch = nil
@@ -82,4 +86,14 @@ local function suspended(ctx: Types.Context): ComposeTypes.ReadOnlyValue<boolean
 	end)
 end
 
-return { hold = hold, suspended = suspended }
+-- True while a Facet overlay holds the Roblox touch controls off. They come back when it
+-- closes, so a HUD keeps their room meanwhile instead of moving under the overlay.
+local function held(ctx: Types.Context): ComposeTypes.ReadOnlyValue<boolean>
+	local gui = ctx.config.guiService
+	local source = if gui then leaseFor(ctx, gui).holding else nil
+	return ctx.Compose.formula(function(use: ComposeTypes.Use): boolean
+		return if source then use(source) else false
+	end)
+end
+
+return { hold = hold, suspended = suspended, held = held }

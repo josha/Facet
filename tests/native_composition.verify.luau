@@ -214,6 +214,16 @@ return function(verifyHarness: Verify.Harness)
 			settle()
 			local button = player:FindFirstChild("Continue", true) :: TextButton
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y <= jump.AbsolutePosition.Y):toBe(true)
+			local gameplayHold = require("../src/ui/gameplay_hold")
+			local resting = button.AbsolutePosition.Y
+			local release = gameplayHold.hold({ Compose = Compose } :: any, gui, true)
+			settle()
+			expect(gui.TouchControlsEnabled):toBe(false)
+			expect(button.AbsolutePosition.Y):toBe(resting)
+			release()
+			settle()
+			expect(gui.TouchControlsEnabled):toBe(true)
+			expect(button.AbsolutePosition.Y):toBe(resting)
 			gui.TouchControlsEnabled = false
 			settle()
 			expect(button.AbsolutePosition.Y + button.AbsoluteSize.Y > jump.AbsolutePosition.Y):toBe(true)

@@ -35,6 +35,12 @@ draws that frame across the left 40 percent of the screen, and a region at
 the bottom center rose above the stick. In portrait the frame is the full
 width, and every bottom region did.
 
+A HUD `Composition` keeps the room of the Roblox touch controls while a Facet
+overlay holds them off. Before, opening a Popover, Sheet or Dialog turned the
+controls off, the HUD moved into their room, and a region could change form
+under the overlay. A region's reveal Popover then closed as it opened, since
+the region now fit at its richest form.
+
 A theme with a `finish` edge draws the edge of a Popover or Menu with a tail
 as one line around the plate and the tail. Before, the plate kept its own
 stroke in the edge color and the tail had a thin outline of its own, so the

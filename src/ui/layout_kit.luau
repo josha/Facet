@@ -6,6 +6,7 @@ local sizeFloor = require("./size_floor")
 local Theme = require("./theme_types")
 local themeDistance = require("./theme_distance")
 local adaptive = require("./adaptive")
+local gameplayHold = require("./gameplay_hold")
 
 export type Place = (GuiObject, number) -> ()
 export type Room = { top: number, right: number, bottom: number, left: number }
@@ -1153,7 +1154,14 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 					else nil
 				local position, size = ctx.observe.AbsolutePosition(frame), ctx.observe.AbsoluteSize(frame)
 				local unit = ctx.layoutUnit(frame)
+				local holding = gameplayHold.held(ctx)
+				local measured = false
 				Compose.watch(function(use: ComposeTypes.Use)
+					-- A Facet overlay turns the touch controls off while it is open and back on when it
+					-- closes. Keep their room meanwhile, so the HUD does not move under the overlay.
+					if use(holding) and measured then
+						return
+					end
 					local active = use(touch)
 					local nativeActive = active
 						and enabled ~= nil
@@ -1260,6 +1268,7 @@ function layoutKit.attach(ctx: Shared.Context): Kit
 							reserve(start, bounds, shown and screen and node == player)
 						end
 					end
+					measured = true
 					clearance:set(bottom)
 					if areas then
 						areas:set(found)
