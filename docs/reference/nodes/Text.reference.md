@@ -25,7 +25,9 @@ room is its own width when it fills its parent, and the box of an aligned
 ZStack when it hugs there; a hugging Text in a row keeps the row's wrap and
 spill behavior. A text that does not fit at that size runs past its room.
 `truncate`, `wrap`, `lines`, a fitted `textSize`, `reveal`, `disclose` and an
-authored `AutomaticSize` turn this off.
+authored `AutomaticSize` turn this off. When the player chooses a text size
+larger than the default (`GuiService.PreferredTextSize`), the Text keeps that
+size and does not shrink: let it wrap or give it more room.
 
 Without native `Size` and `AutomaticSize`, a Text fills the width that its
 parent gives and grows only in height (`Size = UDim2.fromScale(1, 0)`,

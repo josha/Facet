@@ -2672,6 +2672,46 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 				end,
 			})
+			it("keeps a larger text size that the player chooses", {
+				id = "native_layout::ZStack::keeps a larger text size that the player chooses",
+				run = function()
+					local Vector2 = engineLib.types.Vector2
+					local textService = {
+						GetTextBoundsAsync = function(): Vector2
+							return Vector2.new(64, 15)
+						end,
+					}
+					local other = engineLib.new()
+					local gui = other.new("GuiService")
+					other.environment.poke(gui, "PreferredTextSize", other.types.Enum.PreferredTextSize.Larger)
+					local root, engine, stop = build(
+						{ services = { TextService = textService }, guiService = gui },
+						function(UI)
+							return UI.ZStack {
+								width = 55,
+								height = 77,
+								alignH = "center" :: "center",
+								UI.Text "Caption" { text = "DEALER", textSize = 15 },
+							}
+						end,
+						{
+							getStyled = function(node, property)
+								return node[property]
+							end,
+						}
+					)
+					local V2 = engine.types.Vector2
+					local label = assert(root:FindFirstChild("Caption"))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(55, 77))
+					engine.environment.poke(label, "AbsoluteSize", V2.new(64, 15))
+					expect(label:FindFirstChild("TextFit")):toBe(nil)
+					other.environment.poke(gui, "PreferredTextSize", other.types.Enum.PreferredTextSize.Medium)
+					engine.environment.poke(label, "AbsoluteSize", V2.new(64, 16))
+					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
+					expect(fit.Scale < 1):toBe(true)
+					stop()
+				end,
+			})
 			it("centres a child inside an authored Size that is larger than the child", {
 				id = "native_layout::ZStack::centres a child inside an authored Size that is larger than the child",
 				run = function()

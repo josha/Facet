@@ -56,9 +56,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		local makeScale = Compose.bindOwner(function(): UIScale
 			return Host.UIScale { Name = "TextFit" }
 		end)
+		local gui = ctx.config.guiService
+		local preference = if gui then ctx.observe.PreferredTextSize(gui) else nil
 		Compose.watch(function(use: ComposeTypes.Use)
 			local parent = use(parentOf) :: Instance?
 			if parent == nil then
+				return
+			end
+			local chosen = if preference then use(preference) else nil
+			if typeof(chosen) == "EnumItem" and chosen.Name ~= "Medium" then
+				if made and made.Scale ~= 1 then
+					made.Scale = 1
+				end
 				return
 			end
 			local automatic = use(mode)
