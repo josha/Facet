@@ -29,34 +29,34 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local metric = ctx.metric
 	local bind = shared.bind
 	local ELLIPSIS = "\u{2026}"
-	local function fitToRoom(label: TextLabel)
+	local function fitToRoom(label: TextLabel, fills: () -> boolean, refit: () -> ())
 		label:AddTag("facet-text-fits")
 		local makeScale = Compose.bindOwner(function(): UIScale
 			return Host.UIScale { Name = "TextFit" }
 		end)
+		local settled: string? = nil
 		local function evaluate()
-			if label.Parent == nil or textFit.eligible(ctx, label) == nil then
-				return
-			end
-			local mode = label.AutomaticSize
-			if mode == E.AutomaticSize.X or mode == E.AutomaticSize.XY then
+			if label.Parent == nil or textFit.eligible(ctx, label) == nil or not fills() then
 				return
 			end
 			local own = textFit.current(label)
-			if label.TextFits and own >= 1 then
+			local chain = textFit.chainScale(label.Parent)
+			local room = label.AbsoluteSize.X / chain
+			local key = `{math.round(room)}|{label.Text}|{label.FontFace.Family}|{label.TextSize}`
+			if label.TextFits and (own >= 1 or key == settled) then
 				return
 			end
-			local unit = textFit.chainScale(label.Parent) * math.max(own, 1e-3)
-			local width = label.TextBounds.X / unit
+			settled = key
+			local width = label.TextBounds.X / (chain * math.max(own, 1e-3))
 			if width <= 0 then
 				return
 			end
-			local room = label.AbsoluteSize.X / unit
 			local inset = label:FindFirstChildWhichIsA("UIPadding")
 			if inset then
-				room -= inset.PaddingLeft.Offset + inset.PaddingRight.Offset
+				width += inset.PaddingLeft.Offset + inset.PaddingRight.Offset
 			end
 			textFit.apply(label, textFit.target(ctx, label, room, width), makeScale)
+			refit()
 		end
 		local makeSchedule = Compose.bindOwner(function(): () -> ()
 			return ctx.afterLayout(evaluate)
@@ -295,6 +295,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if spec.textAlign ~= nil or spec.TextXAlignment ~= nil then
 			label:AddTag("facet-text-aligned")
 		end
+		local filling = false
+		local refit: () -> () = function() end
 		if not lines and not cut and not fit and spec.Size == nil and spec.AutomaticSize == nil then
 			local wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true)
 			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
@@ -354,9 +356,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 					appliedSize = D2.fromOffset(math.min(math.ceil(line) + 1, LOOSE_MEASURE), 0)
 					appliedMode = E.AutomaticSize.Y
 				else
-					appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1, 0)
+					appliedSize = if row then D2.fromOffset(0, 0) else D2.fromScale(1 / textFit.current(label), 0)
 					appliedMode = if row then E.AutomaticSize.XY else E.AutomaticSize.Y
 				end
+				filling = not row and line == math.huge
 				label.Size = appliedSize
 				label.AutomaticSize = appliedMode
 				if not wrapped and not aligned and list ~= nil and not across then
@@ -364,6 +367,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 						then E.TextXAlignment.Center
 						elseif list.HorizontalAlignment == E.HorizontalAlignment.Right then E.TextXAlignment.Right
 						else E.TextXAlignment.Left
+				end
+			end
+			refit = function()
+				if filling and label.Size == appliedSize then
+					appliedSize = D2.fromScale(1 / textFit.current(label), 0)
+					label.Size = appliedSize
 				end
 			end
 			measure = Compose.bindOwner(function()
@@ -397,8 +406,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			and spec.TextScaled == nil
 			and spec.TextTruncate == nil
 			and spec.AutomaticSize == nil
+			and spec.Size == nil
 		then
-			fitToRoom(label)
+			fitToRoom(label, function(): boolean
+				return filling
+			end, function()
+				refit()
+			end)
 		end
 		if lines then
 			ctx.clampLines(label, lines)
