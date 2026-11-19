@@ -13,7 +13,7 @@ clock that reads server time. Remaining time rounds up; elapsed time rounds
 down. A future start shows zero until a full elapsed second has passed.
 `hours = true` forces the hours field. `textRole` selects a theme type role.
 `textAlign` and `direction` align the readout as they do for
-[Text](Text.textRole.md). The digits of a timer have no direction of their
+[Text](Text.direction.md). The digits of a timer have no direction of their
 own, so set `direction = "rtl"` to put `start` at the right edge. Native
 TextLabel properties, events, children and `ref` also apply, except
 `TextXAlignment` and `TextDirection`, which Text refuses. Timer uses Text and

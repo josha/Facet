@@ -49,4 +49,5 @@ Open:
 
 - [Text-fit](Text-fit.md)
 - [Text.Facet.richText.escape](Text.Facet.richText.escape.md)
+- [Text.direction](Text.direction.md)
 - [Text.textRole](Text.textRole.md)

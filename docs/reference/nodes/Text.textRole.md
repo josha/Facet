@@ -17,19 +17,9 @@ Text.textRole option values and behavior.
   exact pixel size.
 - `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
   removes it. `role` can be bound.
-- `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
-  be bound. `start` and `end` follow the text direction: with `direction =
-  "rtl"`, `start` is the right edge. With `direction = "auto"` or no
-  `direction`, the first strong character of the text sets the direction, as
-  the engine does for `TextDirection.Auto`. Hebrew or Arabic text that starts
-  the string is right to left. The engine does not mirror `TextXAlignment`, so
-  Facet resolves `start` and `end` itself. Set `direction` when the engine
-  translates the text into a script with another direction, because Facet
-  reads the text that you give and not the translation. Without `textAlign`,
-  the alignment comes from the layout, as [Text](Text.reference.md)
-  describes, or is the left edge; stack alignment does not follow the text
-  direction. UI.Text refuses the native `TextXAlignment`: use `textAlign`. `wrap` sets `TextWrapped`.
-  `rich = true` sets `RichText`.
+- `textAlign` is `start`, `center` or `end`, and `direction` is `auto`,
+  `ltr` or `rtl`. See [Text.direction](Text.direction.md). `wrap` sets
+  `TextWrapped`. `rich = true` sets `RichText`.
 - `wrap = true` or native `TextWrapped = true` defaults to full parent width
   and automatic height. Give the parent a bounded width. In an HStack with a
   bounded width, a wrapped text takes the size of its words and shrinks into
@@ -45,8 +35,6 @@ Text.textRole option values and behavior.
   and its `TextBoundsFloor` constraint keeps at least that height. The engine
   sizes automatic text with the native `FontFace` and `TextSize`, not the
   styled ones, so a styled two-line string could show one clipped line.
-- `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`. UI.Text
-  refuses the native `TextDirection`: use `direction`.
 - `tint` sets `TextColor3` for a colour that no role gives.
 - `disclose = true` keeps a truncated value readable. Unwrapped text uses an
   end ellipsis by default. An explicit `truncate` or native `TextTruncate`
