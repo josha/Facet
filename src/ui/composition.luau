@@ -447,6 +447,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					open:set(value and form:peek() > 1)
 				end,
 				compact = "popover",
+				closeButton = false,
 				edge = edge,
 				content = content,
 				trigger = Host.TextButton "Expand" {
@@ -1170,6 +1171,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						open:set(value and #dropped:peek() > 0)
 					end,
 					compact = "popover",
+					closeButton = false,
 					edge = if column == 2 and row == 3 then "top" else EXPAND_EDGE[column],
 					content = function(): Instance
 						release()

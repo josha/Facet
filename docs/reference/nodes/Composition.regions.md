@@ -27,10 +27,9 @@ a stable stack or frame form, not around the Region.
   The other strip regions stay centred in the remaining space.
 - `reveal`: a boolean, default `true`. While the region shows a reduced form,
   a tap, click or `A` on that form opens the richest form in a Popover
-  anchored at the region (`compact = "popover"`, so a phone keeps it in
-  context too). The target is a transparent button under the forms, at least
-  the hit floor in size, so a control inside a reduced form keeps its own
-  press. A region with `mayDrop` steps to one more form before it hides: a
+  at the region, also on a phone, with no Close: a tap outside closes it.
+  The target is a transparent button under the forms, at least the hit
+  floor in size, so a control inside a reduced form keeps its own press. A region with `mayDrop` steps to one more form before it hides: a
   small `Reveal` badge with a "…" icon in the same place, which opens the same
   Popover. The Popover hosts the region's own form 1 node, so its state and
   selection carry over, and puts it back when it closes or the region returns

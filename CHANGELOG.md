@@ -35,6 +35,12 @@ draws that frame across the left 40 percent of the screen, and a region at
 the bottom center rose above the stick. In portrait the frame is the full
 width, and every bottom region did.
 
+A theme with a `finish` edge draws the edge of a Popover or Menu with a tail
+as one line around the plate and the tail. Before, the plate kept its own
+stroke in the edge color and the tail had a thin outline of its own, so the
+tail looked separate. The Popover that shows a HUD region's richest form has
+no Close button; a tap outside, `B` or Escape closes it.
+
 Text at ten feet is larger: the smallest type role is at least 28 pixels and
 every other role at least 32, so the neutral `body` is 33 pixels on a console.
 Before, the floors were 24 and 28, and captions drew shorter than the 26 pixel

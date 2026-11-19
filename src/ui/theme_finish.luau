@@ -157,6 +157,13 @@ local function apply(
 				LineJoinMode = if package.metrics.radii.panel == 0 then "Miter" else nil,
 			},
 		})
+		-- A Popover or Menu with a tail draws its edge as one path around the plate and the
+		-- tail. The plate's own stroke stays off there, so the tail joins the edge.
+		table.insert(rules, {
+			selector = ".facet-outline",
+			properties = { Color3 = { role = line }, Thickness = width, Transparency = faint },
+		})
+		table.insert(rules, { selector = ".facet-outlined::UIStroke", properties = { Transparency = 1 } })
 	end
 	if (onControls == true or own ~= nil) and controlWidth > 0 then
 		table.insert(rules, {
