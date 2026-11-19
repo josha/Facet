@@ -25,8 +25,10 @@ Text.textRole option values and behavior.
   the string is right to left. The engine does not mirror `TextXAlignment`, so
   Facet resolves `start` and `end` itself. Set `direction` when the engine
   translates the text into a script with another direction, because Facet
-  reads the text that you give and not the translation. UI.Text refuses the
-  native `TextXAlignment`: use `textAlign`. `wrap` sets `TextWrapped`.
+  reads the text that you give and not the translation. Without `textAlign`,
+  the alignment comes from the layout, as [Text](Text.reference.md)
+  describes, or is the left edge; stack alignment does not follow the text
+  direction. UI.Text refuses the native `TextXAlignment`: use `textAlign`. `wrap` sets `TextWrapped`.
   `rich = true` sets `RichText`.
 - `wrap = true` or native `TextWrapped = true` defaults to full parent width
   and automatic height. Give the parent a bounded width. In an HStack with a

@@ -172,15 +172,18 @@ return function(harness: Verify.Harness)
 		local native = engineLib.new()
 		local runtime = Facet.Roblox.createRuntime((native :: unknown) :: Roblox.Engine)
 		local label: TextLabel
+		local flipped: TextLabel
 		local stop = runtime.mount(function()
 			local UI = Facet.controls(runtime, { types = native.types })
 			label = UI.Timer "Aligned" { deadline = 10, textAlign = "end" }
-			return label
+			flipped = UI.Timer "Flipped" { deadline = 10, textAlign = "start", direction = "rtl" }
+			return runtime.constructors.Frame { label, flipped }
 		end, native.new("Folder"))
 		t:defer(function()
 			stop()
 			runtime:dispose()
 		end)
 		t:expect(label.TextXAlignment):toBe(native.types.Enum.TextXAlignment.Right)
+		t:expect(flipped.TextXAlignment):toBe(native.types.Enum.TextXAlignment.Right)
 	end)
 end

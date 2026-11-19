@@ -366,6 +366,15 @@ return function(verifyHarness: Verify.Harness)
 					rightMark = base("\u{200F}Rally", false),
 					leftMark = base(`\u{200E}{hebrew}`, false),
 					broken = base("\xFF\xFE", false),
+					brokenLate = base(`{hebrew}\xFF`, false),
+					ordinal = base(`\u{00AA}{hebrew}`, false),
+					combining = base("\u{05B0}Rally", false),
+					arabicComma = base("\u{060C}Rally", false),
+					roman = base(`\u{2163} {hebrew}`, false),
+					braille = base(`\u{2801} {hebrew}`, false),
+					iteration = base(`\u{3005}{hebrew}`, false),
+					fullwidthBracket = base(`\u{FF3B}{hebrew}`, false),
+					numericEntity = base("&#1513;&#x05DC; Rally", true),
 				}):toEqual({
 					hebrew = "rtl",
 					arabic = "rtl",
@@ -384,6 +393,15 @@ return function(verifyHarness: Verify.Harness)
 					rightMark = "rtl",
 					leftMark = "ltr",
 					broken = "ltr",
+					brokenLate = "rtl",
+					ordinal = "ltr",
+					combining = "ltr",
+					arabicComma = "ltr",
+					roman = "ltr",
+					braille = "ltr",
+					iteration = "ltr",
+					fullwidthBracket = "rtl",
+					numericEntity = "rtl",
 				})
 			end,
 		})
@@ -402,6 +420,30 @@ return function(verifyHarness: Verify.Harness)
 				expect(label.TextXAlignment):toBe(E.TextXAlignment.Right)
 				align:set("end")
 				expect(label.TextXAlignment):toBe(E.TextXAlignment.Left)
+				w.stop()
+			end,
+		})
+
+		it("reads text given as a function once for each change", {
+			id = "native_text_roles::text alignment and direction::reads text given as a function once for each change",
+			run = function()
+				local copy = Facet.Compose.cell("Ready")
+				local reads = 0
+				local w = world(function(UI: Facet.Controls): { Facet.Child }
+					return {
+						UI.Text "Counted" {
+							text = function(use: Facet.Use): string
+								reads += 1
+								return use(copy)
+							end,
+							textAlign = "start",
+						},
+					}
+				end)
+				local label = w.find("Counted") :: TextLabel
+				local before = reads
+				copy:set("\u{05E9}\u{05DC}\u{05D5}\u{05DD}")
+				expect(`{reads - before} {label.TextXAlignment.Name}`):toBe("1 Right")
 				w.stop()
 			end,
 		})

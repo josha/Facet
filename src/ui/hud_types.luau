@@ -12,6 +12,7 @@ export type TimerOptions = {
 	hours: boolean?,
 	textRole: Shared.Input<Media.TextRole>?,
 	textAlign: Shared.Input<Media.TextAlign>?,
+	direction: ("auto" | "ltr" | "rtl")?,
 	onComplete: (() -> ())?,
 	controls: TimerControls?,
 }

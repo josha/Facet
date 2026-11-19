@@ -144,7 +144,7 @@ function browser.mount(opts: MountOpts)
 		props.wrap = if props.wrap == nil then true else props.wrap
 		props.Size = props.Size or UDim2.fromScale(1, 0)
 		props.AutomaticSize = props.AutomaticSize or Enum.AutomaticSize.Y
-		props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
+		props.textAlign = props.textAlign or "start"
 		return UI.Text(props)
 	end
 	local function caption(text: TextValue): GuiObject

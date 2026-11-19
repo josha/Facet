@@ -7,7 +7,9 @@ the text direction. With `direction = "rtl"`, `start` is the right edge. With
 text sets the direction, as the engine does for `TextDirection.Auto`. Before,
 `start` was always the left edge, and right-to-left text with `start` sat at
 the wrong edge. The engine does not mirror `TextXAlignment` for right-to-left
-text. A Timer takes `textAlign`. To update, replace `TextXAlignment =
+text. A Timer takes `textAlign` and `direction`. Timer and Typewriter pass
+their native properties to Text, so they refuse `TextXAlignment` and
+`TextDirection` too. To update, replace `TextXAlignment =
 Enum.TextXAlignment.Left`, `Center` and `Right` on UI.Text with `textAlign =
 "start"`, `"center"` and `"end"`.
 

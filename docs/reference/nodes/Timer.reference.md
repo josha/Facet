@@ -12,8 +12,12 @@ clock and time unit as the deadline or start. For a server deadline, pass a
 clock that reads server time. Remaining time rounds up; elapsed time rounds
 down. A future start shows zero until a full elapsed second has passed.
 `hours = true` forces the hours field. `textRole` selects a theme type role.
-Native TextLabel properties, events, children and `ref` also apply. Timer uses
-Text and leaves the font to the theme.
+`textAlign` and `direction` align the readout as they do for
+[Text](Text.textRole.md). The digits of a timer have no direction of their
+own, so set `direction = "rtl"` to put `start` at the right edge. Native
+TextLabel properties, events, children and `ref` also apply, except
+`TextXAlignment` and `TextDirection`, which Text refuses. Timer uses Text and
+leaves the font to the theme.
 
 The unwrapped readout keeps its largest measured box while its text keeps the same length, as Text does.
 

@@ -180,6 +180,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if not Compose.isValue(source) and type(source) ~= "function" then
 			assert(type(source) == "string", "Facet UI.Text requires text")
 		end
+		local body = source
+		if
+			type(body) == "function"
+			and spec.textAlign ~= nil
+			and spec.direction ~= "ltr"
+			and spec.direction ~= "rtl"
+		then
+			source = Compose.formula(body)
+		end
 		local truncate = spec.truncate
 		assert(
 			truncate == nil or truncate == "end" or truncate == "middle",

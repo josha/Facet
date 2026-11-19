@@ -2851,6 +2851,7 @@ local derived: Types.Derived = {
 				ZIndex = { type = "number" },
 				controls = { type = "value" },
 				deadline = { type = "number" },
+				direction = { type = "choice", options = { "auto", "ltr", "rtl" } },
 				hours = { type = "boolean" },
 				onComplete = { type = "event" },
 				start = { type = "number" },
