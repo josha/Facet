@@ -47,7 +47,7 @@ local fixes: { [string]: string } = {
 	["covered-control"] = "A plate from another part covers a part of a control at this size. The control reads as joined to the plate, and the covered part does not take a press. A Callout, a Popover, a help plate and the layers of a ZStack float over the screen and do not make room for what is under them. Give the floating part an edge and an align where it has room, give it a shorter form at this size, or put the control and the part in one stack. A control that is wholly under another part, or under a presented modal, is taken as layered on purpose.",
 	["touching-controls"] = "The edge or the shadow of a control is drawn outside its box and reaches the control beside it, so the two read as one. Set finish.edge.controls in the theme so that the edge is drawn inside the box, and give the stack that holds the two a gap that is larger than the shadow.",
 	["offscreen-text"] = "A text is outside the screen while the row or the stack that holds it is on the screen. The parts are wider than the room, so a neighbor pushed the text past the edge. Let the long text wrap or truncate, give the fixed parts smaller sizes, or let the row reflow with an AdaptiveStack or wrap = true on the HStack.",
-	["escaped-text"] = "A text runs past the edge of the plate or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
+	["escaped-text"] = "A text runs past the edge of the plate, the outlined box or the image that it sits on, or a clip cuts it. Let the text wrap or give it a maxWidth, let the backing grow with its content, or use a smaller type role at this size. For a label on art, keep it inside the painted area of the art.",
 	["native-text"] = "Some texts are native labels, so they miss the theme's type roles, the player's text size and the ten-foot scale. Build each label with UI.Text and a textRole, and arrange it with a stack, a ZStack or a Grid.",
 	["stranded-content"] = "The content fills a small part of a large surface and sits to one side. Bound the surface to its content or use the space for the subject.",
 	["oversized-target"] = "A control is larger than the scroll area that holds it, so the player never sees it whole at this size. Measure the room of the list with UI.environment(body) and give the record a shorter form there, such as a thumbnail beside its facts, or move the header and the filters out of the room of the list. See the compact-compositions reference in the use-facet skill.",
@@ -1145,7 +1145,11 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		local held = false
 		if nearest == nil then
 			for _, backing in snapshot.elements do
-				if backing == element or not solid(backing) or not shown(backing, snapshot.width, snapshot.height) then
+				if
+					backing == element
+					or not (solid(backing) or backing.outlined)
+					or not shown(backing, snapshot.width, snapshot.height)
+				then
 					continue
 				end
 				local owned = grounds(backing, entry.chain)
@@ -1165,7 +1169,8 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				end
 			end
 		end
-		if nearest == nil or (held and nearest ~= element) or (nearest.turn or 0) > 1 then
+		local framed = nearest ~= nil and nearest.outlined == true and near(nearest, entry.chain)
+		if nearest == nil or (held and nearest ~= element and not framed) or (nearest.turn or 0) > 1 then
 			continue
 		end
 		local owned = grounds(nearest, entry.chain)
@@ -1173,7 +1178,7 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 		if area(nearest.rect) >= limit or not past(ink, edge, text.size) then
 			continue
 		end
-		if nearest ~= element and not isPlate(nearest) and not owned then
+		if nearest ~= element and not isPlate(nearest) and not owned and not framed then
 			local shared = overlap(nearest.rect, ink)
 			if shared == nil or area(shared) < 0.7 * area(ink) or not near(nearest, entry.chain) then
 				continue

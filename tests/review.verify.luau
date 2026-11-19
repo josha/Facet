@@ -1355,6 +1355,36 @@ return function(harness: Verify.Harness)
 		t:expect(notched.elements[1].rect.y):toBe(352)
 	end)
 
+	harness:case("a text that runs past an outlined box is reported, also on a larger plate", function(t)
+		local function escaped(snapshot: Rules.ReviewSnapshot): number
+			local count = 0
+			for _, finding in Rules.analyze(snapshot).findings do
+				if finding.rule == "escaped-text" then
+					count += 1
+				end
+			end
+			return count
+		end
+		local add, snapshot = scene()
+		local card = add(nil, "Frame", 400, 300, 300, 300, { opaque = true })
+		local spot = add(card, "Frame", 500, 400, 40, 40)
+		add(spot, "TextLabel", 488, 414, 64, 12, {
+			text = "SPECTATOR ROW",
+			size = 12,
+			ink = { x = 488, y = 414, width = 64, height = 12 },
+		})
+		t:expect(escaped(snapshot())):toBe(0)
+		local framed = snapshot()
+		framed.elements[spot].outlined = true
+		t:expect(escaped(framed)):toBe(1)
+		local inside = snapshot()
+		inside.elements[spot].outlined = true
+		inside.elements[3].rect = { x = 502, y = 414, width = 36, height = 12 }
+		local words = assert(inside.elements[3].text)
+		words.ink = { x = 502, y = 414, width = 36, height = 12 }
+		t:expect(escaped(inside)):toBe(0)
+	end)
+
 	harness:case("a HUD control over the Jump button on touch is reported", function(t)
 		local add, snapshot = scene()
 		add(nil, "TextButton", 1600, 880, 300, 80, { text = "Enter race", interactive = true })

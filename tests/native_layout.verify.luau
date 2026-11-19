@@ -2549,6 +2549,36 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 				end,
 			})
+			it("shrinks a one-line text that is wider than its box toward a floor", {
+				id = "native_layout::ZStack::shrinks a one-line text that is wider than its box toward a floor",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.ZStack {
+							width = 55,
+							height = 77,
+							alignH = "center" :: "center",
+							alignV = "center" :: "center",
+							UI.Text "Caption" { text = "DEALER", textSize = 15 },
+						}
+					end)
+					local V2 = engine.types.Vector2
+					local label = assert(root:FindFirstChild("Caption"))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(55, 77))
+					engine.environment.poke(label, "AbsoluteSize", V2.new(64, 15))
+					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
+					expect(math.abs(fit.Scale - 55 / 64) < 0.01):toBe(true)
+					expect((label :: TextLabel).TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Center)
+					engine.environment.poke(label, "AbsoluteSize", V2.new(55, 13))
+					expect(math.abs(fit.Scale - 55 / 64) < 0.01):toBe(true)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(20, 77))
+					expect(fit.Scale >= 0.7 - 1e-6):toBe(true)
+					expect(fit.Scale < 0.75):toBe(true)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(200, 77))
+					expect(fit.Scale):toBe(1)
+					expect((label :: TextLabel).TextXAlignment):toBe(engine.types.Enum.TextXAlignment.Left)
+					stop()
+				end,
+			})
 			it("centres a child inside an authored Size that is larger than the child", {
 				id = "native_layout::ZStack::centres a child inside an authored Size that is larger than the child",
 				run = function()

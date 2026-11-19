@@ -9,7 +9,10 @@ layout object. A later child gets a higher `ZIndex`. A child that sets its own
 its content, the stack aligns each child by offset against the largest child on
 that axis, so the stack keeps its size. When the box of the stack is larger
 than its largest child on that axis, for example because of a native `Size`,
-the stack aligns each child in its box. Options: `padding`,
+the stack aligns each child in its box. A one-line Text that is wider than
+the box shrinks to fit with a `UIScale` named `TextFit`, down to 70 percent of
+its size and not below 10 pixels, and its glyphs follow `alignH`. A text that
+does not fit at that size runs past the box. Options: `padding`,
 `alignH`, `alignV`, `width`, `height`, `maxWidth`, `maxHeight`, `corners` and `ground`
 (see [VStack and HStack](VStack-and-HStack.md)).
 `corners` rounds the stack's own frame with a native `UICorner` named

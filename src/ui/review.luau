@@ -71,6 +71,22 @@ local function text(value: unknown): string?
 	return if type(value) == "string" then value else nil
 end
 
+local function outlinedOf(child: unknown): boolean?
+	local found, stroke = call(child, "FindFirstChildWhichIsA", "UIStroke")
+	local function strokeValue(key: string): unknown
+		if found and stroke ~= nil then
+			return read(stroke, key)
+		end
+		local ok, value = call(child, "GetStyled", key, "::UIStroke")
+		return if ok then value else nil
+	end
+	local shown = number(strokeValue("Thickness"), 0) > 0
+		and strokeValue("Enabled") ~= false
+		and number(strokeValue("Transparency"), 0) < 0.9
+		and text(read(strokeValue("ApplyStrokeMode"), "Name")) ~= "Contextual"
+	return if shown then true else nil
+end
+
 local function outsetOf(child: unknown): Rules.ReviewOutset?
 	local edge = 0
 	local found, stroke = call(child, "FindFirstChildWhichIsA", "UIStroke")
@@ -391,6 +407,7 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					visible = visible,
 					interactive = isA(child, "GuiButton") or isA(child, "TextBox"),
 					outset = if isA(child, "GuiButton") then outsetOf(child) else nil,
+					outlined = if isA(child, "Frame") then outlinedOf(child) else nil,
 					sink = if isA(child, "GuiButton") then nil else read(child, "Active") == true,
 					layer = (function(): string?
 						local found, gui = call(child, "FindFirstAncestorWhichIsA", "LayerCollector")

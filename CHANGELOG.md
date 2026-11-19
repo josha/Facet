@@ -13,6 +13,17 @@ and the part under it in a stack touched them.
 text is still on the screen. A row that wraps its last parts onto a line
 below the room is the usual cause, and the fix text now names it.
 
+A one-line Text in an aligned ZStack that is wider than the box of the
+ZStack shrinks to fit, with a `UIScale` named `TextFit`, down to 70 percent of
+its size and never below 10 pixels. Its glyphs then follow `alignH`. Before,
+the text ran out of both sides of the box (blackjack card spots on a phone in
+landscape). A text that does not fit at the floor still runs out, and
+`escaped-text` reports it.
+
+`escaped-text` also measures a text against an outlined box, a box with a
+visible stroke and no fill, and reports it even when a larger plate under
+the box still holds the text.
+
 `Facet.review` measures the parts from the top of the screen. Before, it read
 their positions below the engine GUI inset (58 pixels for the top bar) and
 compared them with the full height of the screen, so a part that the bottom
