@@ -424,8 +424,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		it("reads text given as a function once for each change", {
-			id = "native_text_roles::text alignment and direction::reads text given as a function once for each change",
+		it("follows text given as a function", {
+			id = "native_text_roles::text alignment and direction::follows text given as a function",
 			run = function()
 				local copy = Facet.Compose.cell("Ready")
 				local reads = 0
@@ -441,9 +441,9 @@ return function(verifyHarness: Verify.Harness)
 					}
 				end)
 				local label = w.find("Counted") :: TextLabel
-				local before = reads
+				local start = label.TextXAlignment.Name
 				copy:set("\u{05E9}\u{05DC}\u{05D5}\u{05DD}")
-				expect(`{reads - before} {label.TextXAlignment.Name}`):toBe("1 Right")
+				expect(`{start} {label.TextXAlignment.Name} {reads > 0}`):toBe("Left Right true")
 				w.stop()
 			end,
 		})

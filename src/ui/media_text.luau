@@ -175,15 +175,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if not Compose.isValue(source) and type(source) ~= "function" then
 			assert(type(source) == "string", "Facet UI.Text requires text")
 		end
-		local body = source
-		if
-			type(body) == "function"
-			and spec.textAlign ~= nil
-			and spec.direction ~= "ltr"
-			and spec.direction ~= "rtl"
-		then
-			source = Compose.formula(body)
-		end
 		local truncate = spec.truncate
 		assert(
 			truncate == nil or truncate == "end" or truncate == "middle",
@@ -254,16 +245,31 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end
 		if spec.textAlign ~= nil then
 			local pinned = spec.direction
-			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
-				local align = read<<Media.TextAlign?>>(spec.textAlign, use) or "start"
-				assert(ALIGN[align], "Facet Text textAlign must be start, center or end")
-				if align == "center" then
-					return E.TextXAlignment.Center
+			local wanted = spec.textAlign
+			local function edge(align: Media.TextAlign?, flow: textDirection.Base): Enum.TextXAlignment
+				local chosen = align or "start"
+				assert(ALIGN[chosen], "Facet Text textAlign must be start, center or end")
+				return if chosen == "center"
+					then E.TextXAlignment.Center
+					elseif (chosen == "start") == (flow == "ltr") then E.TextXAlignment.Left
+					else E.TextXAlignment.Right
+			end
+			local fixed: textDirection.Base? = if pinned == "ltr" or pinned == "rtl"
+				then pinned
+				elseif type(source) == "string" then textDirection.base(source, rich)
+				else nil
+			local follows = Compose.isValue(wanted) or type(wanted) == "function"
+			if fixed ~= nil and not follows then
+				defaults.TextXAlignment = edge(read<<Media.TextAlign?>>(wanted), fixed)
+			else
+				local flow: ComposeTypes.ReadOnlyValue<textDirection.Base>? = if fixed == nil
+					then Compose.formula(function(use: ComposeTypes.Use): textDirection.Base
+						return textDirection.base(read<<string?>>(source, use) or "", rich)
+					end)
+					else nil
+				defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
+					return edge(read<<Media.TextAlign?>>(wanted, use), if flow then use(flow) else fixed or "ltr")
 				end
-				local flow: textDirection.Base = if pinned == "ltr" or pinned == "rtl"
-					then pinned
-					else textDirection.base(read<<string?>>(source, use) or "", rich)
-				return if (align == "start") == (flow == "ltr") then E.TextXAlignment.Left else E.TextXAlignment.Right
 			end
 		end
 		if cut then
