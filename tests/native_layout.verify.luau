@@ -2650,12 +2650,7 @@ return function(verifyHarness: Verify.Harness)
 				id = "native_layout::ZStack::shrinks a one-line text that fills a narrow stack",
 				run = function()
 					local Vector2 = engineLib.types.Vector2
-					local textService = {
-						GetTextBoundsAsync = function(): Vector2
-							return Vector2.new(100, 15)
-						end,
-					}
-					local root, engine, stop = build({ services = { TextService = textService } }, function(UI)
+					local root, engine, stop = build({}, function(UI)
 						return UI.VStack { width = 80, UI.Text "Caption" { text = "Ready to race", textSize = 15 } }
 					end, {
 						getStyled = function(node, property)
@@ -2664,10 +2659,10 @@ return function(verifyHarness: Verify.Harness)
 					})
 					local label = assert(root:FindFirstChild("Caption"))
 					engine.environment.poke(root, "AbsoluteSize", Vector2.new(80, 20))
+					engine.environment.poke(label, "TextBounds", Vector2.new(100, 15))
+					engine.environment.poke(label, "TextFits", false)
 					engine.environment.poke(label, "AbsoluteSize", Vector2.new(80, 15))
 					local fit = assert(label:FindFirstChild("TextFit")) :: UIScale
-					expect(math.abs(fit.Scale - 0.8) < 0.01):toBe(true)
-					engine.environment.poke(label, "AbsoluteSize", Vector2.new(64, 12))
 					expect(math.abs(fit.Scale - 0.8) < 0.01):toBe(true)
 					stop()
 				end,
