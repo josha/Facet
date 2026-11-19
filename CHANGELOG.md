@@ -19,17 +19,18 @@ Its room is its own width when it fills a stack, and the box of an aligned
 ZStack when it hugs there. Before, the text ran past its box (blackjack card
 spots on a phone in landscape). A text that does not fit at the floor still
 runs past, and `escaped-text` reports it. A filling text measures its font
-only after the engine reports that it does not fit. `truncate`, `wrap`,
-`lines` and a fitted `textSize` keep their own behavior.
+only after the engine reports that it does not fit. `truncate`, a native
+`TextTruncate`, `wrap`, `lines` and a fitted `textSize` keep their own
+behavior, and a text size above the player's default is never reduced.
 
 A one-line Text in an aligned ZStack takes `alignH` as its text alignment,
 as one in a vertical stack takes the stack's alignment, unless it sets
 `textAlign` or `TextXAlignment`.
 
-A stack with a `gap` keeps the hard part (offset and spread) of its
-children's shadows inside the gap, in a theme that draws plate or control
-shadows, so a gap of 4 between two lifted Buttons leaves 4 pixels between
-their shadows. A negative gap is not changed.
+A VStack or HStack with a positive `gap` keeps the hard part (offset and
+spread) of its children's shadows inside the gap, in a theme that draws plate
+or control shadows, so a gap of 4 between two lifted Buttons leaves 4 pixels
+between their shadows. A gap of 0 or less is not changed.
 
 `escaped-text` also measures a text against an outlined box, a box with a
 visible stroke and no fill, and reports it even when a larger plate under

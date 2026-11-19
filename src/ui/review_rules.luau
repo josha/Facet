@@ -1169,7 +1169,17 @@ local function analyze(snapshot: ReviewSnapshot): ReviewReport
 				end
 			end
 		end
-		local framed = nearest ~= nil and nearest.outlined == true and near(nearest, entry.chain)
+		local framed = false
+		if nearest ~= nil and nearest.outlined == true then
+			for depth, ancestor in entry.chain do
+				if depth > 3 then
+					break
+				end
+				if ancestor == nearest then
+					framed = true
+				end
+			end
+		end
 		if nearest == nil or (held and nearest ~= element and not framed) or (nearest.turn or 0) > 1 then
 			continue
 		end

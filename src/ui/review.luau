@@ -407,7 +407,10 @@ local function collect(options: ReviewOptions?): ReviewSnapshot
 					visible = visible,
 					interactive = isA(child, "GuiButton") or isA(child, "TextBox"),
 					outset = if isA(child, "GuiButton") then outsetOf(child) else nil,
-					outlined = if isA(child, "Frame") then outlinedOf(child) else nil,
+					outlined = if isA(child, "Frame")
+							and math.clamp(number(styled(child, "BackgroundTransparency"), 1), 0, 1) >= 0.4
+						then outlinedOf(child)
+						else nil,
 					sink = if isA(child, "GuiButton") then nil else read(child, "Active") == true,
 					layer = (function(): string?
 						local found, gui = call(child, "FindFirstAncestorWhichIsA", "LayerCollector")

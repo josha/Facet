@@ -24,8 +24,8 @@ named `TextFit`, down to 70 percent of its size and not below 10 pixels. Its
 room is its own width when it fills its parent, and the box of an aligned
 ZStack when it hugs there; a hugging Text in a row keeps the row's wrap and
 spill behavior. A text that does not fit at that size runs past its room.
-`truncate`, `wrap`, `lines`, a fitted `textSize`, `reveal`, `disclose` and an
-authored `AutomaticSize` turn this off. When the player chooses a text size
+`truncate` or a native `TextTruncate`, `wrap`, `lines`, a fitted `textSize`,
+`reveal`, `disclose` and an authored `AutomaticSize` turn this off. When the player chooses a text size
 larger than the default (`GuiService.PreferredTextSize`), the Text keeps that
 size and does not shrink: let it wrap or give it more room.
 

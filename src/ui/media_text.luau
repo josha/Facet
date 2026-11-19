@@ -14,10 +14,9 @@ local MediaProps = require("./media_props")
 local MediaShared = require("./media_shared")
 local textChanges = require("./text_changes")
 local textMeasure = require("./text_measure")
+local textFit = require("./text_fit")
 
 local LOOSE_MEASURE = 320
-local TEXT_FIT_SHARE = 0.7
-local TEXT_FIT_FLOOR = 10
 local ICON_ROLES: { [string]: boolean } =
 	{ info = true, success = true, warning = true, error = true, accent = true, neutral = true, contrast = true }
 
@@ -30,97 +29,55 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	local metric = ctx.metric
 	local bind = shared.bind
 	local ELLIPSIS = "\u{2026}"
-	local function unitScale(node: Instance?): number
-		local scale = 1
-		local at = node
-		while at and at:IsA("GuiObject") do
-			local factor = at:FindFirstChildWhichIsA("UIScale")
-			if factor and factor.Name ~= "TextFit" then
-				scale *= factor.Scale
-			end
-			at = at.Parent
-		end
-		return scale
-	end
 	local function fitToRoom(label: TextLabel)
-		local own = ctx.observe.AbsoluteSize(label)
-		local parentOf = ctx.observe.Parent(label)
-		local mode = ctx.observe.AutomaticSize(label)
-		local fits = ctx.observe.TextFits(label)
-		local styled = ctx.observeStyled.TextSize(label)
+		label:AddTag("facet-text-fits")
 		local measured: ComposeTypes.ReadOnlyValue<Vector2>? = nil
+		local evaluate: () -> () = function() end
 		local measure = Compose.bindOwner(function(): ComposeTypes.ReadOnlyValue<Vector2>
-			return textMeasure.natural(ctx, label)
+			local natural = textMeasure.natural(ctx, label)
+			local primed = false
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(natural)
+				if primed then
+					evaluate()
+				end
+				primed = true
+			end)
+			return natural
 		end)
-		local made: UIScale? = nil
 		local makeScale = Compose.bindOwner(function(): UIScale
 			return Host.UIScale { Name = "TextFit" }
 		end)
-		local gui = ctx.config.guiService
-		local preference = if gui then ctx.observe.PreferredTextSize(gui) else nil
-		Compose.watch(function(use: ComposeTypes.Use)
-			local parent = use(parentOf) :: Instance?
-			if parent == nil then
+		evaluate = function()
+			if label.Parent == nil or textFit.eligible(ctx, label) == nil then
 				return
 			end
-			local chosen = if preference then use(preference) else nil
-			if typeof(chosen) == "EnumItem" and chosen.Name ~= "Medium" then
-				if made and made.Scale ~= 1 then
-					made.Scale = 1
-				end
+			local mode = label.AutomaticSize
+			if mode == E.AutomaticSize.X or mode == E.AutomaticSize.XY then
 				return
 			end
-			local automatic = use(mode)
-			local points = use(styled)
-			local size = if type(points) == "number" then points else label.TextSize
-			local current = if made and made.Parent == label then made.Scale else 1
-			local chain = unitScale(parent)
-			local box = use(own) :: Vector2
-			local hugs = automatic == E.AutomaticSize.X or automatic == E.AutomaticSize.XY
-			local room: number?, wide: number? = nil, nil
-			if not hugs then
-				if use(fits) == false or current < 1 or measured ~= nil then
-					local natural = measured or measure()
-					measured = natural
-					local width = (use(natural) :: Vector2).X
-					room = box.X / (chain * current)
-					wide = if width < math.huge then width else nil
-				end
-			elseif
-				parent:IsA("GuiObject")
-				and label:GetAttribute("FacetPlaced") == true
-				and parent:FindFirstChildWhichIsA("UIGridStyleLayout") == nil
-			then
-				local holder = (use(ctx.observe.AbsoluteSize(parent)) :: Vector2).X
-				local pad = parent:FindFirstChildWhichIsA("UIPadding")
-				if pad then
-					holder -= (pad.PaddingLeft.Offset + pad.PaddingRight.Offset) * chain + (pad.PaddingLeft.Scale + pad.PaddingRight.Scale) * holder
-				end
-				room = holder / chain
-				wide = box.X / (chain * math.max(current, 1e-3))
+			local own = textFit.current(label)
+			if label.TextFits and own >= 1 and measured == nil then
+				return
 			end
+			local natural = measured or measure()
+			measured = natural
+			local width = natural:peek().X
+			local room = label.AbsoluteSize.X / (textFit.chainScale(label.Parent) * math.max(own, 1e-3))
 			local inset = label:FindFirstChildWhichIsA("UIPadding")
-			if room and inset and not hugs then
+			if inset then
 				room -= inset.PaddingLeft.Offset + inset.PaddingRight.Offset
 			end
-			local least = math.min(1, math.max(TEXT_FIT_SHARE, TEXT_FIT_FLOOR / math.max(size, 1)))
-			local target = if room ~= nil
-					and wide ~= nil
-					and wide > room + 0.5
-					and room > 0
-				then math.clamp(room / wide, least, 1)
-				else 1
-			if target < 0.995 then
-				local scale = made or makeScale()
-				made = scale
-				if math.abs(scale.Scale - target) > 0.005 then
-					scale.Scale = target
-				end
-				if scale.Parent ~= label then
-					scale.Parent = label
-				end
-			elseif made and made.Scale ~= 1 then
-				made.Scale = 1
+			textFit.apply(label, textFit.target(ctx, label, room, width), makeScale)
+		end
+		textChanges(ctx, label, function(property: string)
+			if
+				property == "TextFits"
+				or property == "AbsoluteSize"
+				or property == "AutomaticSize"
+				or property == "Parent"
+			then
+				evaluate()
 			end
 		end)
 	end
@@ -443,6 +400,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			and spec.wrap ~= true
 			and spec.TextWrapped ~= true
 			and spec.TextScaled == nil
+			and spec.TextTruncate == nil
 			and spec.AutomaticSize == nil
 		then
 			fitToRoom(label)

@@ -15,6 +15,7 @@ local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
 local textMeasure = require("./text_measure")
+local textFit = require("./text_fit")
 
 local ROW_RETURN_MARGIN = 8
 local hugWarned: { [string]: boolean } = {}
@@ -759,14 +760,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			properties
 		)
 		if aligned then
-			local function settled(value: unknown): boolean
-				return not Compose.isValue(value) and type(value) ~= "function"
-			end
-			local sized = settled(spec.width)
-				and not hugs(read<<Types.Extent?>>(spec.width))
-				and settled(spec.height)
-				and not hugs(read<<Types.Extent?>>(spec.height))
-			local outer = if sized then nil else ctx.observe.AbsoluteSize(frame)
+			local outer = ctx.observe.AbsoluteSize(frame)
+			local makeFit = Compose.bindOwner(function(): UIScale
+				return Host.UIScale { Name = "TextFit" }
+			end)
 			local observe = (ctx.observe :: unknown) :: {
 				PaddingLeft: (UIPadding) -> ComposeTypes.Value<UDim>,
 				PaddingRight: (UIPadding) -> ComposeTypes.Value<UDim>,
@@ -814,27 +811,32 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 						tallest = math.max(tallest, extent.Y)
 					end
 				end
-				local wide, tall, scale = false, false, 1
-				if outer then
-					scale = unitScale()
-					local box = contentBox(use, scale)
+				local wide, tall, scale = false, false, unitScale()
+				local box: Vector2? = if outer then contentBox(use, scale) else nil
+				if box then
 					wide = hugs(read<<Types.Extent?>>(spec.width, use)) and box.X <= widest + 1
 					tall = hugs(read<<Types.Extent?>>(spec.height, use)) and box.Y <= tallest + 1
 				end
 				for _, node in nodes do
-					if
-						node:IsA("TextLabel")
-						and node:HasTag("facet-text")
-						and not node:HasTag("facet-text-aligned")
-						and not (node :: TextLabel).TextWrapped
-					then
+					local label = textFit.eligible(ctx, node)
+					if label == nil then
+						continue
+					end
+					if not label:HasTag("facet-text-aligned") then
 						local glyphs = if x == 0.5
 							then E.TextXAlignment.Center
 							elseif x == 1 then E.TextXAlignment.Right
 							else E.TextXAlignment.Left
-						if (node :: TextLabel).TextXAlignment ~= glyphs then
-							(node :: TextLabel).TextXAlignment = glyphs
+						if label.TextXAlignment ~= glyphs then
+							label.TextXAlignment = glyphs
 						end
+					end
+					local mode = label.AutomaticSize
+					if mode == E.AutomaticSize.X or mode == E.AutomaticSize.XY then
+						local room = if wide or box == nil then nil else box.X / scale
+						local own = textFit.current(label)
+						local natural = extents[node].X / (scale * math.max(own, 1e-3))
+						textFit.apply(label, textFit.target(ctx, label, room, natural), makeFit)
 					end
 				end
 				for _, node in nodes do
