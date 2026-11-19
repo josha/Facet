@@ -18,8 +18,9 @@ named `TextFit`, down to 70 percent of its size and never below 10 pixels.
 Its room is its own width when it fills a stack, and the box of an aligned
 ZStack when it hugs there. Before, the text ran past its box (blackjack card
 spots on a phone in landscape). A text that does not fit at the floor still
-runs past, and `escaped-text` reports it. A filling text measures its font
-only after the engine reports that it does not fit. `truncate`, a native
+runs past, and `escaped-text` reports it. A filling text reads the engine's
+`TextBounds` after layout and widens its `Size` by the inverse of the scale,
+so its box stays the width of its room. `truncate`, a native
 `TextTruncate`, `wrap`, `lines` and a fitted `textSize` keep their own
 behavior, and a text size above the player's default is never reduced.
 
