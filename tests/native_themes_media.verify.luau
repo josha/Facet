@@ -752,6 +752,68 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("ends a sheen wash at the washed top and the plain fill, on dark and light palettes", {
+			id = "native_themes_media::native themes and media::ends a sheen wash at the washed top and the plain fill, on dark and light palettes",
+			run = function()
+				local engine, runtime = setup()
+				local function washed(light: boolean)
+					local package = themes.neutralPackage()
+					if light then
+						local palette = table.clone(package.style.themes[1])
+						palette.colors = table.clone(palette.colors)
+						palette.colors.surface = { r = 0.92, g = 0.93, b = 0.95 }
+						palette.colors.surfaceStrong = { r = 1, g = 1, b = 1 }
+						palette.colors.content = { r = 0.1, g = 0.1, b = 0.12 }
+						palette.colors.contentStrong = { r = 0, g = 0, b = 0 }
+						palette.colors.accent = { r = 0.1, g = 0.4, b = 0.9 }
+						palette.extra = if palette.extra then table.clone(palette.extra) else {}
+						assert(palette.extra).contentSecondary = nil
+						assert(palette.extra).onSelected = { r = 1, g = 1, b = 1 }
+						package.style.themes = { palette }
+					end
+					local definition = (table.clone(package) :: any) :: Facet.ThemeDefinition
+					local raw = definition :: any
+					raw.identity = { id = if light then "washed-light" else "washed-dark" }
+					raw.finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0.3, role = "accent" } }
+					return assert((themes.define(definition)))
+				end
+				for _, light in { false, true } do
+					local stop, mounted = runtime.mount(function()
+						return themes.createStyleSheet(runtime, themeState(washed(light)), { types = engine.types })
+					end, engine.new("ScreenGui"))
+					local sheet = mounted :: StyleSheet
+					local function last(selector: string)
+						local found: StyleRule? = nil
+						for _, node in sheet:GetChildren() do
+							local rule = node :: StyleRule
+							if table.find(string.split(rule.Selector, ", "), selector) ~= nil then
+								found = rule
+							end
+						end
+						return styleProperties(assert(found, "No rule: " .. selector))
+					end
+					local base = last(".facet-panel").BackgroundColor3 :: Color3
+					local keys = (last(".facet-panel::UIGradient").Color :: ColorSequence).Keypoints
+					local top = last(".facet-tail-floating.facet-tail-edge-bottom").BackgroundColor3 :: Color3
+					local fill = last(".facet-tail-floating.facet-tail-edge-top").BackgroundColor3 :: Color3
+					local function painted(share: Color3): Color3
+						return engine.types.Color3.new(base.R * share.R, base.G * share.G, base.B * share.B)
+					end
+					local function near(a: Color3, b: Color3): boolean
+						return math.abs(a.R - b.R) < 1e-4 and math.abs(a.G - b.G) < 1e-4 and math.abs(a.B - b.B) < 1e-4
+					end
+					expect(near(painted(keys[1].Value), top)):toBe(true)
+					expect(near(painted(keys[#keys].Value), fill)):toBe(true)
+					expect(near(top, fill)):toBe(false)
+					if light then
+						expect(near(fill, engine.types.Color3.new(1, 1, 1))):toBe(true)
+					end
+					stop()
+				end
+				runtime:dispose()
+			end,
+		})
+
 		it("resolves authored metric rules through distance and theme changes", {
 			id = "native_themes_media::native themes and media::resolves authored metric rules through distance and theme changes",
 			run = function()

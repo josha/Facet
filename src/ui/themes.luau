@@ -347,14 +347,19 @@ local function rulesFor(
 	rule(".facet-flash", { BackgroundColor3 = c("accent") })
 	rule(".facet-accent-text", { TextColor3 = c("accent") })
 	rule(".facet-strong", { TextColor3 = c("contentStrong") })
-	local washes: { [string]: { top: Color3, fill: Color3 } } = {}
+	local washes: { [string]: { top: Color3, fill: Color3, base: Color3 } } = {}
 	for role, gradient in (extra.chromeGradient or {}) :: { [string]: ThemeTypes.Gradient } do
 		local fill = if gradient.wash then color(types, source(gradient.wash)) else nil
 		local first = gradient.stops[1]
 		if fill and first then
 			local alphaStops: { { t: number, v: number } } = gradient.alpha or {}
 			local strength = math.clamp(if alphaStops[1] then alphaStops[1].v else 0, 0, 1)
-			washes[role] = { top = fill:Lerp(types.Color3.new(first.r, first.g, first.b), strength), fill = fill }
+			local top = fill:Lerp(types.Color3.new(first.r, first.g, first.b), strength)
+			washes[role] = {
+				top = top,
+				fill = fill,
+				base = types.Color3.new(math.max(top.R, fill.R), math.max(top.G, fill.G), math.max(top.B, fill.B)),
+			}
 		end
 	end
 	for _, role in
@@ -379,7 +384,7 @@ local function rulesFor(
 			else "control"
 		local washed = washes[role]
 		rule(".facet-" .. role, {
-			BackgroundColor3 = if washed then washed.top else c(paletteRole),
+			BackgroundColor3 = if washed then washed.base else c(paletteRole),
 			BackgroundTransparency = 0,
 			BorderSizePixel = 0,
 		})
@@ -747,15 +752,15 @@ local function rulesFor(
 		end
 		local washed = washes[role]
 		if washed then
-			local top, fill = washed.top, washed.fill
-			local function ratio(base: number, over: number): number
-				return if over > 0 then math.min(1, base / over) else 1
+			local base = washed.base
+			local function share(value: Color3): Color3
+				local function part(channel: number, whole: number): number
+					return if whole > 0 then math.min(1, channel / whole) else 1
+				end
+				return types.Color3.new(part(value.R, base.R), part(value.G, base.G), part(value.B, base.B))
 			end
 			rule(".facet-" .. role .. "::UIGradient", {
-				Color = types.ColorSequence.new(
-					types.Color3.new(1, 1, 1),
-					types.Color3.new(ratio(fill.R, top.R), ratio(fill.G, top.G), ratio(fill.B, top.B))
-				),
+				Color = types.ColorSequence.new(share(washed.top), share(washed.fill)),
 				Transparency = types.NumberSequence.new(0),
 				Rotation = gradient.rotation or 90,
 			})
@@ -993,6 +998,10 @@ local function rulesFor(
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 	})
+	if tailWash then
+		rule(".facet-tail-floating.facet-tail-edge-bottom", { BackgroundColor3 = tailWash.top })
+		rule(".facet-tail-floating.facet-tail-edge-top", { BackgroundColor3 = tailWash.fill })
+	end
 	local outlineInk = color(types, source("hairline")) :: Color3
 	local outlineFill = color(types, source("surfaceStrong")) :: Color3
 	rule(".facet-outlined::UIStroke", { Transparency = 1 })

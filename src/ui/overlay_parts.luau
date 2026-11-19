@@ -846,6 +846,18 @@ function parts.tail(
 		"tail"
 	)
 	ctx.styled(wedge, "tail-" .. panel.role)
+	local edgeTag: string? = nil
+	Compose.watch(function(use: ComposeTypes.Use)
+		local _, edge = geometry(use)
+		local next = "facet-tail-edge-" .. edge
+		if edgeTag ~= next then
+			if edgeTag then
+				wedge:RemoveTag(edgeTag)
+			end
+			wedge:AddTag(next)
+			edgeTag = next
+		end
+	end)
 	if panel.role == "floating" then
 		local shown = ctx.observe.Visible(wedge)
 		ctx.runtime.mountFragment(function()
