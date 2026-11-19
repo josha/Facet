@@ -47,6 +47,10 @@ darkens toward the other. A Popover tail matches the plate where it joins it:
 the washed top on the top edge, the fill on the bottom edge and the middle
 tone on a side.
 
+`Facet.review` reports `duplicate-close` (medium): a Close, Done or Cancel
+button in the content of a Sheet, Dialog or Popover that already shows its own
+Close in the header. The use-facet skill says not to add one.
+
 `Facet.review` reports two HUD findings, both `medium`. `worded-command`: a
 Button in a Composition region spells out a standard command or a known
 destination, such as Settings, Shop or Lifetime Stats, in place of its icon.

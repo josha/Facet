@@ -6,7 +6,8 @@ the cell unchanged. Set the cell to accept. Leave it unchanged to keep the
 same mounted content, including its draft and focus, while asking the player.
 
 Close, the dismissible grabber, drag dismissal, outside press, and keyboard
-or gamepad Back use this request. `interactiveDismissDisabled` still blocks
+or gamepad Back use this request. Do not add a second Close button to the
+content; `Facet.review` reports it as `duplicate-close`. `interactiveDismissDisabled` still blocks
 interactive dismissal; an explicit Close remains a request. A cancel action
 in `actions` owns its callback, so route that callback through the same guard.
 Programmatic `isPresented:set(false)` is an accepted model change and does

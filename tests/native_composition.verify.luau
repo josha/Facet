@@ -347,6 +347,70 @@ return function(verifyHarness: Verify.Harness)
 		bridge.close()
 	end)
 
+	it("reports a Close button that repeats the Close in a Sheet's header", function()
+		local function findings(closeButton: boolean?, label: string?): { string }
+			local roots: { Roblox.Instance } = {}
+			local viewport = { X = 390, Y = 844 }
+			local engine, bridge = engineLib.new({
+				layout = {
+					roots = function()
+						return roots
+					end,
+					viewport = function()
+						return viewport
+					end,
+				},
+			})
+			local T = engine.types
+			local player: PlayerGui = engine.new("PlayerGui")
+			player.Parent = engine.new("DataModel")
+			table.insert(roots, Roblox.assertInstance(player))
+			local runtime = Facet.Roblox.createRuntime(engine)
+			local UI = Facet.controls(runtime, { types = T, motionLevel = "none" })
+			local app = Facet.app({ runtime = runtime, types = T, parent = player, motionLevel = "none" })
+			local function noop() end
+			app.mount(function()
+				return UI.Sheet "ShopSheet" {
+					title = "Shop",
+					isPresented = Compose.cell(true),
+					placement = "center",
+					detents = { "hug" },
+					closeButton = closeButton,
+					content = function(): Instance
+						return UI.VStack {
+							width = "fill",
+							gap = "s",
+							UI.Button "Buy" { label = "Buy", onActivate = noop },
+							UI.Button "Close" { label = label or "Close", appearance = "emphasis", onActivate = noop },
+							UI.Button "Order" { label = "Cancel order", onActivate = noop },
+						}
+					end,
+				}
+			end)
+			for _ = 1, 12 do
+				assert(bridge.layout).step()
+				engine.environment.step(1 / 60)
+				engine.heartbeat:Fire(1 / 60)
+			end
+			local snapshot = Facet.review.collect({ root = player })
+			snapshot.width, snapshot.height = viewport.X, viewport.Y
+			local details: { string } = {}
+			for _, finding in require("../src/ui/review_rules").analyze(snapshot).findings do
+				if finding.rule == "duplicate-close" then
+					table.insert(details, finding.detail)
+				end
+			end
+			app.dispose()
+			runtime:dispose()
+			player:Destroy()
+			bridge.close()
+			return details
+		end
+		expect(findings(nil)):toEqual({ '"Close" repeats the Close in the header' })
+		expect(findings(false)):toEqual({})
+		expect(findings(nil, "Close Shop")):toEqual({ '"Close Shop" repeats the Close in the header' })
+	end)
+
 	it("reserves the columns around a dynamic stick's resting art, not its whole touch frame", function()
 		local roots: { Roblox.Instance } = {}
 		local viewport = { X = 390, Y = 844 }
