@@ -1,5 +1,10 @@
 # Current package
 
+A panel stack takes `tail`, so a speech bubble or a label that points at a
+thing on the screen needs no art of its own. `tail = "bottom"` or
+`tail = { side = "bottom", at = 0.3 }` draws the tail that Callout and
+Popover use, with one outline around the plate and the tail.
+
 `UI.Toast` and `app.presentToast` accept `reading`, a readable
 `Facet.ToastReading` record with `duration` and optional `readFloor`.
 A new record restarts reading time without requeueing the row. Waiting time

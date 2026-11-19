@@ -13,6 +13,8 @@ export type Distribute = Types.Distribute
 export type Edge = Types.Edge
 export type Axis = "x" | "y" | "xy"
 export type StackCorners = number | "pill" | "square" | "control" | "panel"
+export type StackTailSide = "top" | "bottom" | "left" | "right"
+export type StackTail = StackTailSide | { side: StackTailSide, at: number? }
 export type GroupOptions = {
 	groupTransparency: Types.ValueNumber?,
 	width: Types.Input<Extent>?,
@@ -27,6 +29,7 @@ export type StackOptions = {
 	surface: ("surface" | "panel" | "pane")?,
 	ground: GuiObject?,
 	corners: Types.Input<StackCorners>?,
+	tail: Types.Input<StackTail?>?,
 	status: Types.Input<Media.Status?>?,
 	width: Types.Input<Extent>?,
 	maxWidth: Types.ValueNumber?,

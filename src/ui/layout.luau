@@ -15,6 +15,7 @@ local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
 local textMeasure = require("./text_measure")
+local stackTail = require("./stack_tail")
 
 local ROW_RETURN_MARGIN = 8
 local hugWarned: { [string]: boolean } = {}
@@ -26,8 +27,20 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys =
-		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners", "ground" }
+	local flowKeys = {
+		"gap",
+		"padding",
+		"align",
+		"distribute",
+		"wrap",
+		"width",
+		"height",
+		"surface",
+		"status",
+		"corners",
+		"ground",
+		"tail",
+	}
 	table.freeze(flowKeys)
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	type FillAxis = "x" | "y" | "none"
@@ -341,6 +354,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
 		local corners = spec.corners
 		assert(corners == nil or plate ~= nil, "Facet stack: corners need a surface")
+		assert(spec.tail == nil or spec.surface == "panel", 'Facet stack: tail needs surface = "panel"')
 		local properties, children = split(spec, flowKeys)
 		local metric = CORNERS[spec.surface or ""]
 		local function shape(use: ComposeTypes.Use?): UDim
@@ -528,6 +542,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		end
 		if spec.surface == "panel" then
 			ctx.skin(frame, "panel")
+		end
+		if spec.tail ~= nil then
+			stackTail(ctx, frame, spec.tail, function(use: ComposeTypes.Use, extent: Vector2): number
+				if corners == nil then
+					return ctx.metric(assert(metric), use)
+				end
+				local radius = shape(use)
+				return if radius.Scale == 0 then radius.Offset else math.min(extent.X, extent.Y) / 2
+			end)
 		end
 		if spec.status ~= nil then
 			local worn: string? = nil

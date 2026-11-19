@@ -65,3 +65,19 @@ radius `"control"` or `"panel"`, or a number of pixels; `corners` without
 Button with `corners = "pill"`, and the padding on its long sides grows to
 half of its short side. `"control"` and `"panel"` follow a theme change. When
 the theme draws the `panel` plate with art, the art keeps its shape.
+
+A stack with `surface = "panel"` can set `tail` to point from one edge, as
+on a speech bubble. `tail` is `"top"`, `"bottom"`, `"left"` or `"right"`, or
+a table such as `{ side = "bottom", at = 0.3 }`, where `at` (0 to 1, default
+0.5) is the place along that edge. The tail stays clear of the rounded
+corners. Facet draws one outline around the plate and the tail, with the
+theme's finish edge, and uses the theme's `panelTail` art when it has one.
+The tail is drawn outside the box of the stack, so give the part beside it
+room. `tail` without `surface = "panel"` causes an error.
+
+```luau
+UI.VStack "Speech" {
+  surface = "panel", padding = "s", tail = { side = "bottom", at = 0.3 },
+  UI.Text { text = "Is it snack time?", textRole = "strong" },
+}
+```
