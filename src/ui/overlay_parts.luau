@@ -761,13 +761,14 @@ function parts.tail(
 ): { Frame }
 	local Compose, Host, D2, V2 = ctx.Compose, ctx.Host, ctx.types.UDim2, ctx.types.Vector2
 	local anchor = ctx.observe.AnchorPoint(panel.node)
+	local plated = panel.role == "floating" or panel.role == "panel"
 	local function art(use: ComposeTypes.Use): ThemeTypes.SkinLayer?
-		return if panel.role == "floating" then tailArt(ctx, use) else nil
+		return if plated then tailArt(ctx, use) else nil
 	end
 	local function skinned(use: ComposeTypes.Use): boolean
 		local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
 		local recipe = package and package.chrome and package.chrome.panel
-		return panel.role == "floating" and recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
+		return plated and recipe ~= nil and recipe.kind ~= "native" and recipe.kind ~= "none"
 	end
 	local function geometry(use: ComposeTypes.Use): (Vector2?, string, number, number, number)
 		local box = use(panel.size) :: Vector2
@@ -858,7 +859,8 @@ function parts.tail(
 			edgeTag = next
 		end
 	end)
-	if panel.role == "floating" then
+	if plated then
+		local listed = panel.node:FindFirstChildWhichIsA("UIGridStyleLayout") ~= nil
 		local shown = ctx.observe.Visible(wedge)
 		ctx.runtime.mountFragment(function()
 			return {
@@ -910,7 +912,7 @@ function parts.tail(
 					})
 					local boundary = decoration(Compose, ctx.runtime, ctx.types, panel.node, chrome)
 					boundary:AddTag("facet-independent-fade")
-					return boundary
+					return if listed then Host.Folder(name .. "ChromeBounds") { boundary } else boundary
 				end),
 			}
 		end, panel.node)

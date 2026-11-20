@@ -530,6 +530,8 @@ type SpatialPlacement
 type SplitButtonSpec
 type SplitColumn
 type StackProps
+type StackTail
+type StackTailSide
 type StageProps
 type Status
 type StatusIndicatorProps

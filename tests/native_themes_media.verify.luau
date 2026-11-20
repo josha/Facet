@@ -638,6 +638,64 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("styles the outline and the tint of a panel tail from the panel of the theme", {
+			id = "native_themes_media::native themes and media::styles the outline and the tint of a panel tail from the panel of the theme",
+			run = function()
+				local styleRules = require("./lib/style_rules")
+				local ThemeTypes = require("../src/ui/theme_types")
+				local function resolved(
+					definition: Facet.ThemeDefinition,
+					tags: { string },
+					property: string,
+					holder: { string }?
+				): unknown
+					local engine, runtime = setup()
+					local package = assert((themes.define(definition)))
+					local stop, mounted = runtime.mount(function()
+						return themes.createStyleSheet(runtime, themeState(package), { types = engine.types })
+					end, engine.new("ScreenGui"))
+					local node: Frame = engine.new("Frame")
+					for _, tag in tags do
+						node:AddTag(tag)
+					end
+					if holder then
+						local plate: Frame = engine.new("Frame")
+						for _, tag in holder do
+							plate:AddTag(tag)
+						end
+						local folder = engine.new("Folder")
+						folder.Parent = plate
+						node.Parent = folder
+					end
+					local value = styleRules.resolve(mounted :: StyleSheet, node, property)
+					stop()
+					runtime:dispose()
+					return value
+				end
+				local outline = { "facet-outline", "facet-outline-panel" }
+				expect(resolved({ identity = { id = "plain" } }, outline, "Transparency")):toBe(1)
+				local inked: Facet.ThemeDefinition = {
+					identity = { id = "inked" },
+					finish = { edge = { width = 3, role = "content" }, depth = { lift = 0, glow = 0, sheen = 0 } },
+				}
+				expect(resolved(inked, outline, "Thickness")):toBe(3)
+				expect(resolved(inked, outline, "Transparency")):toBe(0)
+				local edge: ThemeTypes.AuthoredRuleProperties = { Thickness = 5, Transparency = 0.2 }
+				local ruled: Facet.ThemeDefinition = {
+					identity = { id = "ruled" },
+					rules = { { selector = ".facet-panel::UIStroke", properties = edge } },
+				}
+				expect(resolved(ruled, outline, "Thickness")):toBe(5)
+				expect(resolved(ruled, outline, "Transparency")):toBe(0.2)
+				local plain: Facet.ThemeDefinition = { identity = { id = "plain" } }
+				local tail = { "facet-tail", "facet-tail-panel" }
+				local warned =
+					resolved(plain, tail, "BackgroundColor3", { "facet-status-surface", "facet-status-error" })
+				expect(warned ~= resolved(plain, tail, "BackgroundColor3")):toBe(true)
+				expect(warned):toBe(resolved(plain, { "facet-status-error" }, "BackgroundColor3"))
+			end,
+		})
+
 		it("draws the finish edge inside the box, on plates and on controls", {
 			id = "native_themes_media::native themes and media::draws the finish edge inside the box, on plates and on controls",
 			run = function()

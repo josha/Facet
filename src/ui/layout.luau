@@ -15,6 +15,7 @@ local ControlTypes = require("./control_types")
 local LayoutProps = require("./layout_props")
 local themeSupport = require("./theme_support")
 local textMeasure = require("./text_measure")
+local stackTail = require("./stack_tail")
 local textFit = require("./text_fit")
 
 local ROW_RETURN_MARGIN = 8
@@ -27,8 +28,20 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	local kit = layoutKit.of(ctx)
 	local E, D, D2, V2 = ctx.types.Enum, ctx.types.UDim, ctx.types.UDim2, ctx.types.Vector2
 	local UI: ControlTypes.Controls = controls or ({} :: ControlTypes.Controls)
-	local flowKeys =
-		{ "gap", "padding", "align", "distribute", "wrap", "width", "height", "surface", "status", "corners", "ground" }
+	local flowKeys = {
+		"gap",
+		"padding",
+		"align",
+		"distribute",
+		"wrap",
+		"width",
+		"height",
+		"surface",
+		"status",
+		"corners",
+		"ground",
+		"tail",
+	}
 	table.freeze(flowKeys)
 	local PLATES: { [string]: string } = { surface = "facet-surface", panel = "facet-panel", pane = "facet-pane" }
 	type FillAxis = "x" | "y" | "none"
@@ -342,6 +355,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		assert(spec.surface == nil or plate ~= nil, "Facet stack: surface must be surface, panel or pane")
 		local corners = spec.corners
 		assert(corners == nil or plate ~= nil, "Facet stack: corners need a surface")
+		assert(spec.tail == nil or spec.surface == "panel", 'Facet stack: tail needs surface = "panel"')
 		local properties, children = split(spec, flowKeys)
 		local metric = CORNERS[spec.surface or ""]
 		local function shape(use: ComposeTypes.Use?): UDim
@@ -378,7 +392,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local carve = if art ~= nil then artGround.margins(ctx) else nil
 		if carve then
 			flow = table.clone(flow)
-			flow.padding = artGround.padding(ctx, kit.spacing, flow.padding, carve)
+			local authored: Types.Input<Types.Padding>? = (flow :: Types.Flow).padding
+			flow.padding = artGround.padding(ctx, kit.spacing, authored, carve)
 		end
 		local room: ComposeTypes.Value<FillAxis>? = nil
 		if properties.AutomaticSize == nil and fills(children) then
@@ -530,10 +545,20 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if spec.surface == "panel" then
 			ctx.skin(frame, "panel")
 		end
-		if spec.status ~= nil then
+		if spec.tail ~= nil then
+			stackTail(ctx, frame, spec.tail, function(use: ComposeTypes.Use, extent: Vector2): number
+				if corners == nil then
+					return ctx.metric(assert(metric), use)
+				end
+				local radius = shape(use)
+				return if radius.Scale == 0 then radius.Offset else math.min(extent.X, extent.Y) / 2
+			end)
+		end
+		local declared: Types.Input<Media.Status?>? = spec.status
+		if declared ~= nil then
 			local worn: string? = nil
 			Compose.watch(function(use: ComposeTypes.Use)
-				local status = read<<Media.Status?>>(spec.status, use)
+				local status = read<<Media.Status?>>(declared, use)
 				local tag = if status then "facet-status-" .. status else nil
 				if tag == worn then
 					return

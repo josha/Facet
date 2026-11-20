@@ -13,6 +13,11 @@ their native properties to Text, so they refuse `TextXAlignment` and
 Enum.TextXAlignment.Left`, `Center` and `Right` on UI.Text with `textAlign =
 "start"`, `"center"` and `"end"`.
 
+A panel stack takes `tail`, so a speech bubble or a label that points at a
+thing on the screen needs no art of its own. `tail = "bottom"` or
+`tail = { side = "bottom", at = 0.3 }` draws the tail that Callout and
+Popover use, with one outline around the plate and the tail.
+
 A ZStack with `alignH` or `alignV` places its children in its own box when
 that box is larger than its largest child. Before, a ZStack that had a native
 `Size` and no `width` or `height` placed its children as if it hugged them,

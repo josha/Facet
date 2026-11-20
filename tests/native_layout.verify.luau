@@ -2472,6 +2472,91 @@ return function(verifyHarness: Verify.Harness)
 			})
 		end)
 
+		describe("stack tail", function()
+			it("draws a tail on a panel stack and one outline around the plate and the tail", {
+				id = "native_layout::stack tail::draws a tail on a panel stack and one outline around the plate and the tail",
+				run = function()
+					local where = Compose.cell("bottom" :: Facet.StackTail)
+					local root, engine, stop = build(nil, function(UI)
+						return UI.VStack "Bubble" { surface = "panel", width = 200, height = 200, tail = where }
+					end)
+					local V2 = engine.types.Vector2
+					engine.environment.poke(root, "AbsoluteSize", V2.new(200, 200))
+					local tail = assert(root:FindFirstChild("Tail", true))
+					expect(root:HasTag("facet-outlined")):toBe(true)
+					expect(tail:HasTag("facet-tail")):toBe(true)
+					expect(tail:HasTag("facet-tail-edge-top")):toBe(true)
+					expect(tail.Position.X.Offset):toBe(100)
+					expect(tail.Position.Y.Offset):toBe(200)
+					expect(root:FindFirstChild("Outline", true) ~= nil):toBe(true)
+					expect(root:FindFirstChildWhichIsA("Folder") ~= nil):toBe(true)
+					where:set({ side = "left", at = 0.75 })
+					expect(tail:HasTag("facet-tail-edge-right")):toBe(true)
+					expect(tail.Position.X.Offset):toBe(0)
+					expect(tail.Position.Y.Offset):toBe(150)
+					stop()
+				end,
+			})
+			it("keeps the tail art of a theme out of the list of the stack", {
+				id = "native_layout::stack tail::keeps the tail art of a theme out of the list of the stack",
+				run = function()
+					local ornate = assert(require("../examples/themes/fantasy_ornate").build(Facet.themes))
+					local root, _, stop = build({ theme = ornate }, function(UI)
+						return UI.VStack "Bubble" {
+							surface = "panel",
+							gap = 8,
+							tail = "bottom",
+							UI.Text "Say" { text = "Hello" },
+						}
+					end)
+					local listed = {}
+					for _, item in root:GetChildren() do
+						if item:IsA("GuiObject") and item.Visible and item.Name ~= "Say" then
+							table.insert(listed, item.Name)
+						end
+					end
+					expect(table.concat(listed, ",")):toBe("")
+					stop()
+				end,
+			})
+			it("draws no tail and keeps running when a bound tail becomes invalid", {
+				id = "native_layout::stack tail::draws no tail and keeps running when a bound tail becomes invalid",
+				run = function()
+					local where = Compose.cell("bottom" :: Facet.StackTail)
+					local root, engine, stop = build(nil, function(UI)
+						return UI.VStack { surface = "panel", width = 200, height = 200, tail = where }
+					end)
+					engine.environment.poke(root, "AbsoluteSize", engine.types.Vector2.new(200, 200))
+					local tail = assert(root:FindFirstChild("Tail", true))
+					expect(tail.Size.X.Offset > 0):toBe(true)
+					local unknown: unknown = "under"
+					local ok = pcall(function()
+						where:set(unknown :: Facet.StackTail)
+					end)
+					expect(ok):toBe(true)
+					expect(tail.Size.X.Offset):toBe(0)
+					where:set("top")
+					expect(tail.Size.X.Offset > 0):toBe(true)
+					stop()
+				end,
+			})
+			it("refuses a tail without a panel surface and an unknown side", {
+				id = "native_layout::stack tail::refuses a tail without a panel surface and an unknown side",
+				run = function()
+					expect(refusal(function(UI)
+						return UI.VStack { tail = "bottom" }
+					end) ~= nil):toBe(true)
+					expect(refusal(function(UI)
+						local unknown: unknown = "under"
+						return UI.VStack { surface = "panel", tail = unknown :: Facet.StackTail }
+					end) ~= nil):toBe(true)
+					expect(refusal(function(UI)
+						return UI.VStack { surface = "panel", tail = { side = "top", at = 2 } }
+					end) ~= nil):toBe(true)
+				end,
+			})
+		end)
+
 		describe("stack gaps", function()
 			it("widens the gap by the hard shadows of the children in a theme that draws them", {
 				id = "native_layout::stack gaps::widens the gap by the hard shadows of the children in a theme that draws them",

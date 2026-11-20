@@ -55,3 +55,6 @@ that should turn into a column when they cannot fit.
 
 Shadows, gaps and `corners`: see
 [VStack-and-HStack.edges](VStack-and-HStack.edges.md).
+
+A panel stack can point at a thing with `tail`: see
+[VStack-and-HStack.tail](VStack-and-HStack.tail.md).
