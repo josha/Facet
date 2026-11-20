@@ -100,7 +100,7 @@ return {
 				textRole = "title",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 		local function note(id: string, text: string): GuiObject
@@ -114,7 +114,7 @@ return {
 				textRole = "caption",
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 		local function emptyState(
@@ -149,7 +149,7 @@ return {
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = opts.title,
 					textRole = "heading",
-					TextXAlignment = Enum.TextXAlignment.Center,
+					textAlign = "center",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 				}
@@ -162,7 +162,7 @@ return {
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
 					text = opts.message,
-					TextXAlignment = Enum.TextXAlignment.Center,
+					textAlign = "center",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
 				}
@@ -413,7 +413,7 @@ return {
 							text = body,
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						}
 					end,
 				}

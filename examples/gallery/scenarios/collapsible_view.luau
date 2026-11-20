@@ -52,7 +52,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Toggle "Club" {
 					LayoutOrder = 2,
@@ -68,7 +68,7 @@ return {
 					text = "The button summary and image follow the choice in this view.",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 			}
 		end
@@ -100,7 +100,7 @@ return {
 							textRole = "title",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text {
 							LayoutOrder = 2,
@@ -111,7 +111,7 @@ return {
 							text = "Expand the navigation button to choose a different destination. Back returns focus to the button.",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Button "Practice" {
 							LayoutOrder = 3,
@@ -144,7 +144,7 @@ return {
 						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text {
 						LayoutOrder = 2,
@@ -155,7 +155,7 @@ return {
 						text = copy.intro,
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.CollapsibleView "Settings" {
 						LayoutOrder = 3,

@@ -153,7 +153,7 @@ return {
 						BackgroundColor3 = function(use: Use)
 							return color(use, "accent")
 						end,
-						UI.Text { text = "GO", Size = D2.fromScale(1, 1), TextXAlignment = E.TextXAlignment.Center },
+						UI.Text { text = "GO", Size = D2.fromScale(1, 1), textAlign = "center" },
 					},
 				},
 				Host.CanvasGroup "WrappedFade" {

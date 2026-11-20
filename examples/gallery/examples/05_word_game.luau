@@ -384,7 +384,7 @@ function example.build(ctx: ExampleContext)
 						Size = function(use: Use)
 							return UDim2.new(1, 0, 1, -use(markHeight))
 						end,
-						TextXAlignment = Enum.TextXAlignment.Center,
+						textAlign = "center",
 					},
 					UI.Text "mark" {
 						text = function(use: Use)
@@ -398,7 +398,7 @@ function example.build(ctx: ExampleContext)
 						Size = function(use: Use)
 							return UDim2.new(1, 0, 0, use(markHeight))
 						end,
-						TextXAlignment = Enum.TextXAlignment.Center,
+						textAlign = "center",
 					},
 				}
 				fill:AddTag("facet-control")
@@ -494,7 +494,7 @@ function example.build(ctx: ExampleContext)
 				Size = UDim2.fromScale(1, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Center,
+				textAlign = "center",
 			},
 			UI.Grid "board" {
 				columns = COLS,

@@ -159,7 +159,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					Host.Frame "SizeLadder" {
 						BackgroundTransparency = 1,
@@ -437,7 +437,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				}
 			end
 
@@ -516,7 +516,7 @@ return {
 									else "Natural pixels · crop as the view shrinks",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 						})),
 					})
@@ -569,7 +569,7 @@ return {
 						text = "Your next race starts here",
 						textRole = "title",
 						TextWrapped = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "HeroBody" {
 						LayoutOrder = 2,
@@ -578,7 +578,7 @@ return {
 						AutomaticSize = Enum.AutomaticSize.Y,
 						text = "Choose your driver. Tune your ride. Find your next challenge.",
 						TextWrapped = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Button "ChooseDriver" {
 						LayoutOrder = 3,
@@ -665,7 +665,7 @@ return {
 							AutomaticSize = Enum.AutomaticSize.Y,
 							text = "Race tags",
 							textRole = "heading",
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 							Host.UIFlexItem { FlexMode = Enum.UIFlexMode.Fill },
 						},
 						UI.Button "EditTags" {
@@ -742,7 +742,7 @@ return {
 						text = status,
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					heading("Set the lap count"),
 					repeatButton,
@@ -756,7 +756,7 @@ return {
 						end),
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					shortcut,
 					heading("Filter the grid"),
@@ -774,7 +774,7 @@ return {
 						end),
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					heading("Start or choose a mode"),
 					UI.Text "CapSplit" {
@@ -786,7 +786,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					split,
 					UI.Button "Confirm" {
@@ -832,7 +832,7 @@ return {
 						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					Host.Frame "Toolbar" {
 						BackgroundTransparency = 1,
@@ -864,7 +864,7 @@ return {
 						textRole = "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					VocabularySection(),
 				})),

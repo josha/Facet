@@ -2852,9 +2852,11 @@ local derived: Types.Derived = {
 				ZIndex = { type = "number" },
 				controls = { type = "value" },
 				deadline = { type = "number" },
+				direction = { type = "choice", options = { "auto", "ltr", "rtl" } },
 				hours = { type = "boolean" },
 				onComplete = { type = "event" },
 				start = { type = "number" },
+				textAlign = { type = "choice", options = { "start", "center", "end" } },
 				textRole = {
 					type = "choice",
 					options = { "caption", "label", "body", "heading", "title", "control", "strong", "numeral" },

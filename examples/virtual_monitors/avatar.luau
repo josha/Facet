@@ -125,7 +125,7 @@ return function(ctx: Context): (GuiObject, GuiObject)
 				quiet("Label", fact.label, "label", { Size = D2.new(0.5, -4, 0, 0) }),
 				words("Value", fact.value, "label", {
 					Size = D2.new(0.5, -4, 0, 0),
-					TextXAlignment = E.TextXAlignment.Right,
+					textAlign = "end",
 				}),
 			}
 		end

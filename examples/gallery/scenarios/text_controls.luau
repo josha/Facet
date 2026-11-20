@@ -89,7 +89,7 @@ return {
 				textRole = role,
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			})
 		end
 		local function body()
@@ -110,7 +110,7 @@ return {
 					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Toolbar" {
 					BackgroundTransparency = 1,
@@ -147,7 +147,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text {
 
@@ -158,7 +158,7 @@ return {
 					text = "Enter starts a new line. Save notes commits your text.",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.TextInput "Editor" {
 					value = text,
@@ -183,7 +183,7 @@ return {
 					text = saved,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text {
 
@@ -195,7 +195,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.TextInput "Search" {
 					value = query,
@@ -220,7 +220,7 @@ return {
 							end,
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						}
 					end,
 				},
@@ -234,7 +234,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.NumberInput "Laps" {
 					value = draft,
@@ -255,7 +255,7 @@ return {
 					end,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.NumberInput "Fee" {
 					value = feeDraft,
@@ -283,7 +283,7 @@ return {
 						return "Committed fee: " .. use(feeReason)
 					end,
 					TextWrapped = true,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.NumberInput "Speed" {
 					value = speedDraft,
@@ -326,7 +326,7 @@ return {
 						return "Paste pressed " .. tostring(use(pasted)) .. " times"
 					end,
 					TextWrapped = true,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.TextInput "JoinCode" {
 					value = joinCode,

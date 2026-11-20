@@ -54,7 +54,7 @@ return {
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 		local function section()

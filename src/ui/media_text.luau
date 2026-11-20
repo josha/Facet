@@ -15,6 +15,7 @@ local MediaShared = require("./media_shared")
 local textChanges = require("./text_changes")
 local textMeasure = require("./text_measure")
 local textFit = require("./text_fit")
+local textDirection = require("./text_direction")
 
 local LOOSE_MEASURE = 320
 local ICON_ROLES: { [string]: boolean } =
@@ -154,11 +155,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		"disclose",
 		"reveal",
 	})
-	local ALIGN: { [string]: Enum.TextXAlignment } = {
-		start = E.TextXAlignment.Left,
-		center = E.TextXAlignment.Center,
-		["end"] = E.TextXAlignment.Right,
-	}
+	local ALIGN: { [string]: boolean } = { start = true, center = true, ["end"] = true }
 	local DIRECTION: { [string]: Enum.TextDirection } = {
 		auto = E.TextDirection.Auto,
 		ltr = E.TextDirection.LeftToRight,
@@ -167,6 +164,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 	UI.Text = ctx.construct("Text", function(spec: MediaProps.TextProps): TextLabel
 		if spec.Text ~= nil then
 			error("Facet UI.Text: set the text with text. Remove label and Text.", 0)
+		end
+		if spec.TextXAlignment ~= nil then
+			error("Facet UI.Text: set the alignment with textAlign. Remove TextXAlignment.", 0)
+		end
+		if spec.TextDirection ~= nil then
+			error("Facet UI.Text: set the direction with direction. Remove TextDirection.", 0)
 		end
 		local source: Types.Input<string>? = spec.text
 		if not Compose.isValue(source) and type(source) ~= "function" then
@@ -241,9 +244,32 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 			defaults.TextColor3 = spec.tint
 		end
 		if spec.textAlign ~= nil then
-			defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
-				local align = read<<Media.TextAlign?>>(spec.textAlign, use) or "start"
-				return (assert(ALIGN[align], "Facet Text textAlign must be start, center or end"))
+			local pinned = spec.direction
+			local wanted = spec.textAlign
+			local function edge(align: Media.TextAlign?, flow: textDirection.Base): Enum.TextXAlignment
+				local chosen = align or "start"
+				assert(ALIGN[chosen], "Facet Text textAlign must be start, center or end")
+				return if chosen == "center"
+					then E.TextXAlignment.Center
+					elseif (chosen == "start") == (flow == "ltr") then E.TextXAlignment.Left
+					else E.TextXAlignment.Right
+			end
+			local fixed: textDirection.Base? = if pinned == "ltr" or pinned == "rtl"
+				then pinned
+				elseif type(source) == "string" then textDirection.base(source, rich)
+				else nil
+			local follows = Compose.isValue(wanted) or type(wanted) == "function"
+			if fixed ~= nil and not follows then
+				defaults.TextXAlignment = edge(read<<Media.TextAlign?>>(wanted), fixed)
+			else
+				local flow: ComposeTypes.ReadOnlyValue<textDirection.Base>? = if fixed == nil
+					then Compose.formula(function(use: ComposeTypes.Use): textDirection.Base
+						return textDirection.base(read<<string?>>(source, use) or "", rich)
+					end)
+					else nil
+				defaults.TextXAlignment = function(use: ComposeTypes.Use): Enum.TextXAlignment
+					return edge(read<<Media.TextAlign?>>(wanted, use), if flow then use(flow) else fixed or "ltr")
+				end
 			end
 		end
 		if cut then
@@ -292,7 +318,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if (pixels ~= nil or nativeSize ~= nil) and roleSource ~= nil then
 			ctx.textRole(label, roleSource)
 		end
-		if spec.textAlign ~= nil or spec.TextXAlignment ~= nil then
+		if spec.textAlign ~= nil then
 			label:AddTag("facet-text-aligned")
 		end
 		local filling = false
@@ -300,7 +326,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		if not lines and not cut and not fit and spec.Size == nil and spec.AutomaticSize == nil then
 			local wrapped = spec.TextWrapped == true or (spec.TextWrapped == nil and spec.wrap == true)
 			local placed = spec.Position ~= nil or spec.AnchorPoint ~= nil
-			local aligned = spec.textAlign ~= nil or spec.TextXAlignment ~= nil
+			local aligned = spec.textAlign ~= nil
 			local appliedSize, appliedMode = label.Size, label.AutomaticSize
 			local connection: (() -> ())? = nil
 			local bend: UIFlexItem? = nil

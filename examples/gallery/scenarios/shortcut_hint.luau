@@ -71,7 +71,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Note" {
 					LayoutOrder = 2,
@@ -82,7 +82,7 @@ return {
 					text = "Hints describe a shortcut. They do not take focus or claim its key.",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Size" {
 					LayoutOrder = 3,
@@ -127,7 +127,7 @@ return {
 					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.ShortcutHint "Live" {
 					LayoutOrder = 5,
@@ -144,7 +144,7 @@ return {
 					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.ShortcutHint "Explicit" {
 					LayoutOrder = 7,
@@ -169,7 +169,7 @@ return {
 					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.ShortcutHint "Custom" {
 					LayoutOrder = 10,
@@ -232,7 +232,7 @@ return {
 							text = "The guide is open. Your screen decides what a link opens.",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						}
 					end),
 				},

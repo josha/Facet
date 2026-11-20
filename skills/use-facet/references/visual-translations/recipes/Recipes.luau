@@ -49,14 +49,14 @@ return function(example: string, weak: boolean, actionEnabled: Facet.ValueBoolea
 			}
 			return UI.Screen {
 				surface = "surface", align = "center", distribute = "center", gap = 12,
-				UI.Text { text = "Quarterly summary", textRole = "heading", TextXAlignment = Enum.TextXAlignment.Center },
+				UI.Text { text = "Quarterly summary", textRole = "heading", textAlign = "center" },
 				UI.Button "ExportOptions" {
 					label = "Export document", enabled = actionEnabled,
 					onActivate = function() open:set(true) end,
 				},
 				UI.Text "Feedback" {
 					text = result, Size = UDim2.fromOffset(220, 24), AutomaticSize = Enum.AutomaticSize.None,
-					TextXAlignment = Enum.TextXAlignment.Center,
+					textAlign = "center",
 				},
 				UI.Dialog "ExportDialog" {
 					title = "Export document", width = "narrow", isPresented = open,

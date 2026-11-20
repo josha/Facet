@@ -371,8 +371,15 @@ add("text-degrade-cascade", {}, function(t)
 			UI.Text {
 				Name = "Rtl",
 				text = "مرحبا بالعالم",
-				TextDirection = Enum.TextDirection.RightToLeft,
+				direction = "rtl",
+				textAlign = "start",
 				LayoutOrder = 4,
+			},
+			UI.Text {
+				Name = "AutoRtl",
+				text = "مرحبا بالعالم",
+				textAlign = "start",
+				LayoutOrder = 5,
 			},
 		}
 	end, { size = Vector2.new(600, 500), frames = 16 })
@@ -398,6 +405,12 @@ add("text-degrade-cascade", {}, function(t)
 		"right-to-left text keeps its direction",
 		rtl.TextDirection == Enum.TextDirection.RightToLeft and rtl.TextFits,
 		rtl.TextBounds
+	)
+	local autoRtl = t.find(stage, "AutoRtl")
+	t.check(
+		"right-to-left text starts at the right edge",
+		rtl.TextXAlignment == Enum.TextXAlignment.Right and autoRtl.TextXAlignment == Enum.TextXAlignment.Right,
+		{ pinned = rtl.TextXAlignment, auto = autoRtl.TextXAlignment }
 	)
 	t.near("measured bounds match the painted size", wrap.TextBounds.Y, wrap.AbsoluteSize.Y, 1)
 	width:set(200)

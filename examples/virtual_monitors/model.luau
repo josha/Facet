@@ -109,7 +109,7 @@ export type TextExtras = {
 	AutomaticSize: Enum.AutomaticSize?,
 	TextWrapped: boolean?,
 	TextTruncate: Enum.TextTruncate?,
-	TextXAlignment: Enum.TextXAlignment?,
+	textAlign: ("start" | "center" | "end")?,
 	Visible: ((Use) -> boolean)?,
 	role: "secondary"?,
 	[number]: Child,

@@ -13,10 +13,14 @@ return function(ctx: Shared.Context, UI: Controls.Controls)
 		local frames = assert(runtime.host.frames, "Facet Timer requires a runtime clock")
 		local now = spec.now or frames.now
 		local completed, text = C.cell(false), C.cell("")
-		local textProps: MediaProps.TextProps = { text = text, textRole = spec.textRole }
-		local fields =
-			ctx.props(spec, { "deadline", "start", "now", "hours", "textRole", "onComplete", "controls" }, textProps)
-		local label = UI.Text(ctx.props(textProps, { "text", "textRole" }, fields))
+		local textProps: MediaProps.TextProps =
+			{ text = text, textRole = spec.textRole, textAlign = spec.textAlign, direction = spec.direction }
+		local fields = ctx.props(
+			spec,
+			{ "deadline", "start", "now", "hours", "textRole", "textAlign", "direction", "onComplete", "controls" },
+			textProps
+		)
+		local label = UI.Text(ctx.props(textProps, { "text", "textRole", "textAlign", "direction" }, fields))
 		assert(label:IsA("TextLabel"))
 		if spec.controls then
 			spec.controls.completed = completed

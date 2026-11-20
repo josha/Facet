@@ -144,7 +144,7 @@ function browser.mount(opts: MountOpts)
 		props.wrap = if props.wrap == nil then true else props.wrap
 		props.Size = props.Size or UDim2.fromScale(1, 0)
 		props.AutomaticSize = props.AutomaticSize or Enum.AutomaticSize.Y
-		props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
+		props.textAlign = props.textAlign or "start"
 		return UI.Text(props)
 	end
 	local function caption(text: TextValue): GuiObject
@@ -424,7 +424,7 @@ function browser.mount(opts: MountOpts)
 					wrap = true,
 					Size = UDim2.fromOffset(240, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 					ref = function(label)
 						label:AddTag("facet-validation")
 					end,

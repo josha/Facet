@@ -150,9 +150,19 @@ local FIELD_DEFAULTS: { [string]: { [string]: Literal } } = {
 
 local ON_BY_DEFAULT: { [string]: true } = { Visible = true, Interactable = true, AutoLocalize = true, enabled = true }
 
+local TEXT_REFUSES: { [string]: boolean } = { TextXAlignment = true, TextDirection = true }
+local REFUSED: { [string]: { [string]: boolean } } = {
+	Text = TEXT_REFUSES,
+	Timer = TEXT_REFUSES,
+	Typewriter = TEXT_REFUSES,
+}
+
 local function refine(name: string, fields: { [string]: Design.Field }): { [string]: Design.Field }
 	local own = KIND_REQUIRES[name] or {}
 	local defaults = FIELD_DEFAULTS[name] or {}
+	for key in REFUSED[name] or {} do
+		fields[key] = nil
+	end
 	for key, field in fields do
 		local requires = own[key] or REQUIRES[key]
 		if requires ~= nil then
