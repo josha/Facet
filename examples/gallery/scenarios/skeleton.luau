@@ -58,7 +58,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Note" {
 					LayoutOrder = 2,
@@ -69,7 +69,7 @@ return {
 					text = "Reserve a place for content while it loads. Reduced motion keeps the shapes still.",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Commands" {
 					LayoutOrder = 3,
@@ -165,7 +165,7 @@ return {
 							text = "Your next race is ready.",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						}
 					end),
 				},

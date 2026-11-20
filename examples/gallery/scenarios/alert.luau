@@ -60,7 +60,7 @@ return {
 						textRole = "title",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text {
 						LayoutOrder = 2,
@@ -71,7 +71,7 @@ return {
 						text = "A brief decision stays compact. Cancel leads a desktop row; phones and televisions stack the actions with cancel last.",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "Status" {
 						LayoutOrder = 3,
@@ -82,7 +82,7 @@ return {
 						text = status,
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Button "Open" {
 						LayoutOrder = 4,

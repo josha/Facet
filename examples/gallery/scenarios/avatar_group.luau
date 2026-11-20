@@ -113,7 +113,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Note" {
 					BackgroundTransparency = 1,
@@ -123,7 +123,7 @@ return {
 					text = "Faces keep their identity when reordered. Select the count to open the whole group.",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Compose.OrderedCollection {
 					from = function(use: Use)
@@ -208,7 +208,7 @@ return {
 					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 			}
 			return root

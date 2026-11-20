@@ -10,6 +10,7 @@ return function(verifyHarness: Verify.Harness)
 	local FixtureCollectionProps = require("../src/ui/collection_props")
 	local FixtureComposeTypes = require("../src/vendor/compose/core")
 	local Facet = require("../src")
+	local textDirection = require("../src/ui/text_direction")
 	local engines = require("./lib/native_engine")
 	local types = engines.types
 	local E, D2 = types.Enum, types.UDim2
@@ -273,6 +274,197 @@ return function(verifyHarness: Verify.Harness)
 				expect(long.TextWrapped):toBe(true)
 				expect(long.TextTruncate):toBe(E.TextTruncate.AtEnd)
 				w.stop()
+			end,
+		})
+	end)
+
+	describe("text alignment and direction", function()
+		local function alignments(build: (Facet.Controls) -> { Facet.Child }): { [string]: string }
+			local w = world(function(UI: Facet.Controls): { Facet.Child }
+				return build(UI)
+			end)
+			local found: { [string]: string } = {}
+			for _, node in w.screen:GetDescendants() do
+				if node:IsA("TextLabel") then
+					found[node.Name] = node.TextXAlignment.Name
+				end
+			end
+			w.stop()
+			return found
+		end
+
+		it("maps start, center and end to the edges of left-to-right text", {
+			id = "native_text_roles::text alignment and direction::maps start, center and end to the edges of left-to-right text",
+			run = function()
+				local found = alignments(function(UI: Facet.Controls): { Facet.Child }
+					return {
+						UI.Text "Start" { text = "Ready", textAlign = "start" },
+						UI.Text "Center" { text = "Ready", textAlign = "center" },
+						UI.Text "End" { text = "Ready", textAlign = "end" },
+					}
+				end)
+				expect(found):toEqual({ Start = "Left", Center = "Center", End = "Right" })
+			end,
+		})
+
+		it("puts start at the right edge when direction is rtl", {
+			id = "native_text_roles::text alignment and direction::puts start at the right edge when direction is rtl",
+			run = function()
+				local found = alignments(function(UI: Facet.Controls): { Facet.Child }
+					return {
+						UI.Text "RtlStart" { text = "Ready", textAlign = "start", direction = "rtl" },
+						UI.Text "RtlEnd" { text = "Ready", textAlign = "end", direction = "rtl" },
+						UI.Text "RtlCenter" { text = "Ready", textAlign = "center", direction = "rtl" },
+					}
+				end)
+				expect(found):toEqual({ RtlStart = "Right", RtlEnd = "Left", RtlCenter = "Center" })
+			end,
+		})
+
+		it("aligns a right-to-left string to its start when direction is auto", {
+			id = "native_text_roles::text alignment and direction::aligns a right-to-left string to its start when direction is auto",
+			run = function()
+				local copy = Facet.Compose.cell("Ready")
+				local w = world(function(UI: Facet.Controls): { Facet.Child }
+					return {
+						UI.Text "Auto" { text = copy, textAlign = "start", direction = "auto" },
+						UI.Text "Unset" { text = copy, textAlign = "start" },
+						UI.Text "Pinned" { text = copy, textAlign = "start", direction = "ltr" },
+					}
+				end)
+				copy:set("\u{05E9}\u{05DC}\u{05D5}\u{05DD}")
+				local found: { [string]: string } = {}
+				for _, name in { "Auto", "Unset", "Pinned" } do
+					found[name] = (w.find(name) :: TextLabel).TextXAlignment.Name
+				end
+				w.stop()
+				expect(found):toEqual({ Auto = "Right", Unset = "Right", Pinned = "Left" })
+			end,
+		})
+
+		it("resolves the base direction from the first strong character", {
+			id = "native_text_roles::text alignment and direction::resolves the base direction from the first strong character",
+			run = function()
+				local base = textDirection.base
+				local hebrew = "\u{05E9}\u{05DC}\u{05D5}\u{05DD}"
+				local arabic = "\u{0645}\u{0631}\u{062D}\u{0628}\u{0627}"
+				expect({
+					hebrew = base(`{hebrew} Rally`, false),
+					arabic = base(arabic, false),
+					latin = base(`Rally {hebrew}`, false),
+					accented = base(`\u{00C9}t\u{00E9} {hebrew}`, false),
+					digits = base(`12 - {hebrew}`, false),
+					arabicDigits = base(`\u{0661}\u{0662} Rally`, false),
+					neutral = base("12 - 34", false),
+					empty = base("", false),
+					emoji = base(`\u{1F3C1} {hebrew}`, false),
+					markup = base(`<b>{hebrew}</b>`, true),
+					literal = base(`<b>{hebrew}</b>`, false),
+					entity = base(`&amp; {hebrew}`, true),
+					isolated = base(`\u{2066}Rally\u{2069} {hebrew}`, false),
+					unclosed = base(`\u{2067}{hebrew}`, false),
+					rightMark = base("\u{200F}Rally", false),
+					leftMark = base(`\u{200E}{hebrew}`, false),
+					broken = base("\xFF\xFE", false),
+					brokenLate = base(`{hebrew}\xFF`, false),
+					ordinal = base(`\u{00AA}{hebrew}`, false),
+					combining = base("\u{05B0}Rally", false),
+					arabicComma = base("\u{060C}Rally", false),
+					roman = base(`\u{2163} {hebrew}`, false),
+					braille = base(`\u{2801} {hebrew}`, false),
+					iteration = base(`\u{3005}{hebrew}`, false),
+					fullwidthBracket = base(`\u{FF3B}{hebrew}`, false),
+					numericEntity = base("&#1513;&#x05DC; Rally", true),
+				}):toEqual({
+					hebrew = "rtl",
+					arabic = "rtl",
+					latin = "ltr",
+					accented = "ltr",
+					digits = "rtl",
+					arabicDigits = "ltr",
+					neutral = "ltr",
+					empty = "ltr",
+					emoji = "rtl",
+					markup = "rtl",
+					literal = "ltr",
+					entity = "rtl",
+					isolated = "rtl",
+					unclosed = "ltr",
+					rightMark = "rtl",
+					leftMark = "ltr",
+					broken = "ltr",
+					brokenLate = "rtl",
+					ordinal = "ltr",
+					combining = "ltr",
+					arabicComma = "ltr",
+					roman = "ltr",
+					braille = "ltr",
+					iteration = "ltr",
+					fullwidthBracket = "rtl",
+					numericEntity = "rtl",
+				})
+			end,
+		})
+
+		it("follows bound text and a bound alignment", {
+			id = "native_text_roles::text alignment and direction::follows bound text and a bound alignment",
+			run = function()
+				local copy = Facet.Compose.cell("Ready")
+				local align = Facet.Compose.cell("start" :: "start" | "center" | "end")
+				local w = world(function(UI: Facet.Controls): { Facet.Child }
+					return { UI.Text "Bound" { text = copy, textAlign = align } }
+				end)
+				local label = w.find("Bound") :: TextLabel
+				expect(label.TextXAlignment):toBe(E.TextXAlignment.Left)
+				copy:set("\u{05E9}\u{05DC}\u{05D5}\u{05DD}")
+				expect(label.TextXAlignment):toBe(E.TextXAlignment.Right)
+				align:set("end")
+				expect(label.TextXAlignment):toBe(E.TextXAlignment.Left)
+				w.stop()
+			end,
+		})
+
+		it("follows text given as a function", {
+			id = "native_text_roles::text alignment and direction::follows text given as a function",
+			run = function()
+				local copy = Facet.Compose.cell("Ready")
+				local reads = 0
+				local w = world(function(UI: Facet.Controls): { Facet.Child }
+					return {
+						UI.Text "Counted" {
+							text = function(use: Facet.Use): string
+								reads += 1
+								return use(copy)
+							end,
+							textAlign = "start",
+						},
+					}
+				end)
+				local label = w.find("Counted") :: TextLabel
+				local start = label.TextXAlignment.Name
+				copy:set("\u{05E9}\u{05DC}\u{05D5}\u{05DD}")
+				expect(`{start} {label.TextXAlignment.Name} {reads > 0}`):toBe("Left Right true")
+				w.stop()
+			end,
+		})
+
+		it("refuses the native alignment and direction and names the Facet options", {
+			id = "native_text_roles::text alignment and direction::refuses the native alignment and direction and names the Facet options",
+			run = function()
+				local alignOk, alignProblem = pcall(world, function(UI: Facet.Controls): { Facet.Child }
+					return { UI.Text "Native" { text = "Ready", TextXAlignment = E.TextXAlignment.Center } }
+				end)
+				local flowOk, flowProblem = pcall(world, function(UI: Facet.Controls): { Facet.Child }
+					return { UI.Text "Native" { text = "Ready", TextDirection = E.TextDirection.RightToLeft } }
+				end)
+				expect(alignOk):toBe(false)
+				expect(string.find(tostring(alignProblem), "set the alignment with textAlign", 1, true) ~= nil):toBe(
+					true
+				)
+				expect(flowOk):toBe(false)
+				expect(string.find(tostring(flowProblem), "set the direction with direction", 1, true) ~= nil):toBe(
+					true
+				)
 			end,
 		})
 	end)

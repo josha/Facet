@@ -17,8 +17,9 @@ Text.textRole option values and behavior.
   exact pixel size.
 - `role = "secondary"` adds the `facet-secondary` tag. `role = "content"`
   removes it. `role` can be bound.
-- `textAlign` is `start`, `center` or `end` and sets `TextXAlignment`. It can
-  be bound. `wrap` sets `TextWrapped`. `rich = true` sets `RichText`.
+- `textAlign` is `start`, `center` or `end`, and `direction` is `auto`,
+  `ltr` or `rtl`. See [Text.direction](Text.direction.md). `wrap` sets
+  `TextWrapped`. `rich = true` sets `RichText`.
 - `wrap = true` or native `TextWrapped = true` defaults to full parent width
   and automatic height. Give the parent a bounded width. In an HStack with a
   bounded width, a wrapped text takes the size of its words and shrinks into
@@ -34,7 +35,6 @@ Text.textRole option values and behavior.
   and its `TextBoundsFloor` constraint keeps at least that height. The engine
   sizes automatic text with the native `FontFace` and `TextSize`, not the
   styled ones, so a styled two-line string could show one clipped line.
-- `direction` is `auto`, `ltr` or `rtl` and sets `TextDirection`.
 - `tint` sets `TextColor3` for a colour that no role gives.
 - `disclose = true` keeps a truncated value readable. Unwrapped text uses an
   end ellipsis by default. An explicit `truncate` or native `TextTruncate`

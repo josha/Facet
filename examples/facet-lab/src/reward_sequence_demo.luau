@@ -22,7 +22,7 @@ return function(UI: Controls, Host: Host, C: Compose, showPulse: boolean?): Fram
 			Position = UDim2.fromOffset((index - 1) * 80, 0),
 			Size = UDim2.fromOffset(60, 60),
 			BackgroundTransparency = 0,
-			TextXAlignment = Enum.TextXAlignment.Center,
+			textAlign = "center",
 		}
 		tiles[index].Parent = row
 	end

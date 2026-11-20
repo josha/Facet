@@ -51,7 +51,7 @@ return {
 					text = "Touch-drag or scroll in both directions",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 			}
 			for row = 1, 3 do
@@ -74,7 +74,7 @@ return {
 								textRole = "body",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 								Host.UIPadding {
 									PaddingTop = UDim.new(0, 4),
 									PaddingBottom = UDim.new(0, 4),
@@ -120,7 +120,7 @@ return {
 					textRole = "title",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Actions" {
 					BackgroundTransparency = 1,
@@ -160,7 +160,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Plain" {
 					BackgroundTransparency = 1,
@@ -170,7 +170,7 @@ return {
 					text = "Lap record",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
@@ -187,7 +187,7 @@ return {
 					RichText = true,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
@@ -204,7 +204,7 @@ return {
 					RichText = true,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
@@ -221,7 +221,7 @@ return {
 					RichText = true,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 					Host.UIPadding {
 						PaddingTop = UDim.new(0, 4),
 						PaddingBottom = UDim.new(0, 4),
@@ -238,7 +238,7 @@ return {
 					RichText = true,
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Rtl" {
 					BackgroundTransparency = 1,
@@ -258,7 +258,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "CutEnd" {
 					ref = function(node)
@@ -295,7 +295,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Pictures" {
 					BackgroundTransparency = 1,
@@ -336,7 +336,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				(function()
 					local boardProps: ScrollingFrameProps = {

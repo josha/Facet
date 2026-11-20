@@ -74,7 +74,7 @@ return {
 					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Sub" {
 					LayoutOrder = 2,
@@ -86,7 +86,7 @@ return {
 					textRole = "caption",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 			}
 		end
@@ -330,7 +330,7 @@ return {
 						textRole = "heading",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "Intro" {
 						LayoutOrder = 2,
@@ -342,7 +342,7 @@ return {
 						role = "secondary",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					Host.Frame "Picks" {
 						LayoutOrder = 3,
@@ -376,7 +376,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					UI.Text "ResetNote" {
 						LayoutOrder = 5,
@@ -388,7 +388,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 					Host.Frame "Queue" {
 						LayoutOrder = 6,
@@ -416,7 +416,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text "QueueBody" {
 							LayoutOrder = 2,
@@ -428,7 +428,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 					},
 					Host.Frame "State" {
@@ -457,7 +457,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text "StateBody" {
 							LayoutOrder = 2,
@@ -469,7 +469,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text "Reported" {
 							LayoutOrder = 3,
@@ -481,7 +481,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 					},
 					Host.Frame "Save" {
@@ -510,7 +510,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text "SaveBody" {
 							LayoutOrder = 2,
@@ -522,7 +522,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 					},
 					Host.Frame "Help" {
@@ -551,7 +551,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						UI.Text "HelpBody" {
 							LayoutOrder = 2,
@@ -563,7 +563,7 @@ return {
 							textRole = "caption",
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 					},
 					UI.Text "Note" {
@@ -576,7 +576,7 @@ return {
 						textRole = "caption",
 						TextWrapped = true,
 						TextYAlignment = Enum.TextYAlignment.Top,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						textAlign = "start",
 					},
 				},
 			}

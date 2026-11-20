@@ -38,7 +38,7 @@ parent gives and grows only in height (`Size = UDim2.fromScale(1, 0)`,
 that hugs its width, outside a GuiObject, in an aligned ZStack, and at an
 explicit `Position` or `AnchorPoint` in a parent without a layout. A filled
 one-line Text in a vertical stack takes the stack's horizontal alignment
-unless `textAlign` or `TextXAlignment` is set. Set
+unless `textAlign` is set. Set
 `AutomaticSize = Enum.AutomaticSize.XY` to hug in any parent.
 
 Bound text, given as a readable or a function, sets `AutoLocalize` to false
@@ -51,4 +51,5 @@ Open:
 
 - [Text-fit](Text-fit.md)
 - [Text.Facet.richText.escape](Text.Facet.richText.escape.md)
+- [Text.direction](Text.direction.md)
 - [Text.textRole](Text.textRole.md)

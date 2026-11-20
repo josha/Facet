@@ -31,7 +31,7 @@ function demo.zoom(
 				text = `{row + 1},{col + 1}`,
 				Size = UDim2.fromOffset(60, 60),
 				Position = UDim2.fromOffset(col * 60, row * 60),
-				TextXAlignment = Enum.TextXAlignment.Center,
+				textAlign = "center",
 				TextYAlignment = Enum.TextYAlignment.Center,
 				BackgroundTransparency = 0,
 				BackgroundColor3 = Color3.fromRGB(40 + row * 3, 65 + col * 3, 90),
@@ -193,7 +193,7 @@ function demo.many(UI: Controls, Host: Host, Compose: ComposeModule): Frame
 			content = function(): GuiObject
 				return UI.Text {
 					text = tostring(index),
-					TextXAlignment = Enum.TextXAlignment.Center,
+					textAlign = "center",
 					TextYAlignment = Enum.TextYAlignment.Center,
 					BackgroundTransparency = 0,
 				}

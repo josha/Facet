@@ -499,6 +499,23 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("offers textAlign and direction and not the native fields that UI.Text refuses", {
+			id = "facet_compose_library::offers textAlign and direction and not the native fields that UI.Text refuses",
+			run = function(test: Verify.Context)
+				test:defer(mount(function(ctx: Context): unknown
+					local library = live(ctx)
+					for _, kind in { "Text", "Timer", "Typewriter" } do
+						local fields = library.kinds[kind].fields
+						Verify.expect(`{kind} {fields.TextXAlignment == nil} {fields.TextDirection == nil}`)
+							:toBe(`{kind} true true`)
+					end
+					Verify.expect(library.kinds.Text.fields.textAlign.type):toBe("choice")
+					Verify.expect(library.kinds.Text.fields.direction.type):toBe("choice")
+					return ctx.runtime.constructors.Frame {}
+				end).dispose)
+			end,
+		})
+
 		verifyHarness:case("binds tag lists until the Compose owner is disposed", {
 			id = "facet_compose_library::binds tag lists until the Compose owner is disposed",
 			run = function(test: Verify.Context)

@@ -66,7 +66,7 @@ return {
 					textRole = "heading",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Text "Guide" {
 					LayoutOrder = 2,
@@ -77,7 +77,7 @@ return {
 					text = "Badges identify something. They do not take focus or run actions.",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Forms" {
 					LayoutOrder = 3,

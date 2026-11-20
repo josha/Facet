@@ -68,7 +68,7 @@ return {
 					textRole = "body",
 					TextWrapped = true,
 					TextYAlignment = Enum.TextYAlignment.Top,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "Rows" {
 					Size = UDim2.new(1, 0, 0, 0),
@@ -202,7 +202,7 @@ return {
 							end,
 							TextWrapped = true,
 							TextYAlignment = Enum.TextYAlignment.Top,
-							TextXAlignment = Enum.TextXAlignment.Left,
+							textAlign = "start",
 						},
 						children = {
 							UI.VirtualList "Items" {
@@ -255,7 +255,7 @@ return {
 									end,
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
-									TextXAlignment = Enum.TextXAlignment.Left,
+									textAlign = "start",
 								},
 							}
 						end),

@@ -100,7 +100,7 @@ return {
 				text = text,
 				textRole = role,
 				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				textAlign = "start",
 			}
 		end
 

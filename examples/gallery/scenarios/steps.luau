@@ -62,7 +62,7 @@ return {
 					textRole = "heading",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				UI.Toggle "Refuse" { LayoutOrder = 2, label = copy.refuse, value = refuse },
 				UI.StepIndicator "Checkout" {
@@ -77,7 +77,7 @@ return {
 					textRole = "label",
 					Size = UDim2.new(1, 0, 0, 0),
 					AutomaticSize = Enum.AutomaticSize.Y,
-					TextXAlignment = Enum.TextXAlignment.Left,
+					textAlign = "start",
 				},
 				Host.Frame "NarrowBox" {
 					LayoutOrder = 5,

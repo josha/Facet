@@ -151,7 +151,7 @@ return {
 									textRole = "heading",
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
-									TextXAlignment = Enum.TextXAlignment.Left,
+									textAlign = "start",
 								},
 								UI.TextInput "Search" {
 									LayoutOrder = 2,
@@ -181,7 +181,7 @@ return {
 									textRole = "heading",
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
-									TextXAlignment = Enum.TextXAlignment.Left,
+									textAlign = "start",
 								},
 								Compose.OrderedCollection {
 									from = function(use: Use): { { id: string, label: string } }
@@ -221,7 +221,7 @@ return {
 											text = "No journeys found. Try another name or clear search.",
 											TextWrapped = true,
 											TextYAlignment = Enum.TextYAlignment.Top,
-											TextXAlignment = Enum.TextXAlignment.Left,
+											textAlign = "start",
 										}
 									end),
 								},
@@ -237,7 +237,7 @@ return {
 								textRole = "caption",
 								TextWrapped = true,
 								TextYAlignment = Enum.TextYAlignment.Top,
-								TextXAlignment = Enum.TextXAlignment.Left,
+								textAlign = "start",
 							},
 							searchLayout,
 							UI.Button "Continue" {
@@ -333,7 +333,7 @@ return {
 											text = "Your notes",
 											TextWrapped = true,
 											TextYAlignment = Enum.TextYAlignment.Top,
-											TextXAlignment = Enum.TextXAlignment.Left,
+											textAlign = "start",
 										},
 										UI.TextInput "Notes" {
 											LayoutOrder = 2,
@@ -364,7 +364,7 @@ return {
 									textRole = "heading",
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
-									TextXAlignment = Enum.TextXAlignment.Left,
+									textAlign = "start",
 								},
 								UI.Text {
 									BackgroundTransparency = 1,
@@ -374,7 +374,7 @@ return {
 									text = notes,
 									TextWrapped = true,
 									TextYAlignment = Enum.TextYAlignment.Top,
-									TextXAlignment = Enum.TextXAlignment.Left,
+									textAlign = "start",
 								},
 								UI.Button "StartAgain" {
 									label = "Back to the beginning",

@@ -1,5 +1,18 @@
 # Current package
 
+Breaking: UI.Text refuses the native `TextXAlignment` and `TextDirection`.
+Use `textAlign` and `direction`. `textAlign = "start"` and `"end"` now follow
+the text direction. With `direction = "rtl"`, `start` is the right edge. With
+`direction = "auto"` or no `direction`, the first strong character of the
+text sets the direction, as the engine does for `TextDirection.Auto`. Before,
+`start` was always the left edge, and right-to-left text with `start` sat at
+the wrong edge. The engine does not mirror `TextXAlignment` for right-to-left
+text. A Timer takes `textAlign` and `direction`. Timer and Typewriter pass
+their native properties to Text, so they refuse `TextXAlignment` and
+`TextDirection` too. To update, replace `TextXAlignment =
+Enum.TextXAlignment.Left`, `Center` and `Right` on UI.Text with `textAlign =
+"start"`, `"center"` and `"end"`.
+
 A ZStack with `alignH` or `alignV` places its children in its own box when
 that box is larger than its largest child. Before, a ZStack that had a native
 `Size` and no `width` or `height` placed its children as if it hugged them,
@@ -26,7 +39,7 @@ behavior, and a text size above the player's default is never reduced.
 
 A one-line Text in an aligned ZStack takes `alignH` as its text alignment,
 as one in a vertical stack takes the stack's alignment, unless it sets
-`textAlign` or `TextXAlignment`.
+`textAlign`.
 
 A VStack or HStack with a positive `gap` keeps the hard part (offset and
 spread) of its children's shadows inside the gap, in a theme that draws plate
