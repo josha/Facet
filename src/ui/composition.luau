@@ -85,6 +85,21 @@ local function phoneControls(phone: { X: number, Y: number }): { resolver.Area }
 	}
 end
 local OUTSIDE = "facet-button-outside"
+local OVER_WORLD = "facet-over-world"
+local BACKED_TAGS = {
+	"facet-badge",
+	"facet-button",
+	"facet-card",
+	"facet-chip",
+	"facet-field",
+	"facet-menu",
+	"facet-notice",
+	"facet-pane",
+	"facet-panel",
+	"facet-sheet",
+	"facet-surface",
+	"facet-tab",
+}
 
 local function lowered(moved: resolver.Shift, column: number, row: number): number
 	local lift = moved.lift[column * 4 + row] or 0
@@ -252,6 +267,50 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local function mark(name: string, label: string?, icon: string?, region: string): Instance
 		return UI.Badge(name)({ label = label, icon = icon, name = label or region })
 	end
+	local function backed(node: Instance, form: Instance): boolean
+		local at: Instance? = node
+		while at do
+			if at:IsA("GuiButton") or at:FindFirstChild("Backdrop") or at:FindFirstChild("Ground") then
+				return true
+			end
+			for _, tag in BACKED_TAGS do
+				if at:HasTag(tag) then
+					return true
+				end
+			end
+			if at == form then
+				return false
+			end
+			at = at.Parent
+		end
+		return false
+	end
+	local function bareText(form: GuiObject): boolean
+		local found = false
+		for _, node in form:GetDescendants() do
+			if node:IsA("GuiButton") then
+				return false
+			elseif node:IsA("TextLabel") and not backed(node, form) then
+				found = true
+			end
+		end
+		return found
+	end
+	local function outlineOverWorld(form: GuiObject)
+		local function outline(node: Instance)
+			if node:IsA("TextLabel") and not node:HasTag(OVER_WORLD) and not backed(node, form) then
+				node:AddTag(OVER_WORLD)
+				runtime.mount(function()
+					return Host.UIStroke "WorldOutline" {}
+				end, node)
+			end
+		end
+		for _, node in form:GetDescendants() do
+			outline(node)
+		end
+		outline(form)
+		runtime.connect(form, "DescendantAdded", outline)
+	end
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
@@ -363,6 +422,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
+			if zone == "topbar" and bareText(child) then
+				child = UI.HStack "Readout" {
+					surface = "panel",
+					align = "center",
+					padding = { top = "s", bottom = "s", left = "m", right = "m" },
+					child,
+				}
+			else
+				outlineOverWorld(child)
+			end
 			contents[index] = child
 			if index == 1 then
 				richest = child
@@ -970,7 +1039,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				ScreenInsets = E.ScreenInsets.TopbarSafeInsets,
 				DisplayOrder = function(use: ComposeTypes.Use): number
 					local host = use(screen)
-					return if host then host.DisplayOrder else 0
+					return if host then host.DisplayOrder - 1 else 0
 				end,
 				Enabled = enabled,
 				Host.StyleLink {

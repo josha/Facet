@@ -7,7 +7,9 @@ required. It must be a whole number, 1 or more. The grid divides its width into
 that number of cells. Each cell gets its share of the gaps, rounded up to a
 whole pixel, so a full row always fits the width. `gap` spaces the cells on both axes, and `rowGap`
 replaces the vertical space. `cellHeight` is the cell height in pixels. The
-default is the regular control height of the theme package. `aspectRatio` adds
+default is the regular control height of the theme package. A grid that holds
+Cards and sets no `cellHeight` and no `aspectRatio` gives each cell the height
+of its tallest Card, so the cards do not overlap. `aspectRatio` adds
 a `UIAspectRatioConstraint` to the grid layout, which sets the cell height
 from the cell width. `align` (`start`, `center` or `end`) aligns the cells
 horizontally. The grid fills the width and hugs the height by default.

@@ -12,10 +12,11 @@ Placement, content regions, scrolling and dismissal.
   also applies to `adaptive`. Its detents stay vertical. It slides in from its edge and leaves
   toward it. Under reduced motion it arrives and leaves at once.
   `center` presents a floating task panel with Close and no grabber or drag
-  resizing. Use it for a bounded task such as comparing upgrades. Detents
+  resizing. Detents
   still set its height; use one `hug` detent for short intrinsic content.
 - `width`: `automatic`, `narrow` or `wide`. Uses the Dialog tokens:
   `controls.alert.maxWidth`, `controls.popup.panelWidth` and `controls.dialog.wideWidth`. The safe room bounds each one.
+  A `center` sheet with `automatic` width narrows to content that does not fill it, down to `narrow`.
 - `header`: absent shows `title`. An Instance or a factory replaces the title. `false` removes the title row.
 - `headerVisible`: boolean or readable boolean, default `true`. Hiding the header
   and its Close returns space to the body without remounting content. Provide another visible exit.
@@ -46,7 +47,6 @@ when placement changes. Use `false` only when task actions provide a clear exit
 in every placement. With disabled interactive dismissal, supply an explicit
 Close or task action. A multi-detent grabber expands on Return/A before it
 closes at the tallest detent; Back/Escape still provides direct dismissal.
-Test the visible exit, Back and return focus on each input.
 
 When the pinned regions and a short body do not fit the panel, every region
 moves into one scrolling column named `Room`, so each action stays

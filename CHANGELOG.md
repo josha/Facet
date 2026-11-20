@@ -1,5 +1,32 @@
 # Current package
 
+A `topbar` region form that shows text with no surface and no Button gets a
+panel plate. Before, a currency or a timer in the strip was bare text over the
+world, and it was small and hard to read on a bright scene. A form with its
+own `surface` keeps it. In the other zones, a Text with no plate under it
+gets an outline in the surface color.
+
+The strip of a HUD `Composition` sits under a modal's scrim. Before, the
+strip's ScreenGui had the display order of its host, the engine drew it above
+the scrim, and its buttons stayed bright while a Sheet was open.
+
+A `center` Sheet with `automatic` width narrows to content that does not fill
+it, down to the `narrow` width. Before, a body with a fixed width sat at the
+start edge of a wider panel and left the rest empty. A body with
+`width = "fill"` keeps the full width.
+
+Breaking: a passive Toast hugs its content by default. `width = "fill"` gives
+the former full-width row. Before, a short message such as "+10 coins" spanned
+the screen.
+
+A `Grid` that holds Cards and sets no `cellHeight` and no `aspectRatio` gives
+each cell the height of its tallest Card. Before, the cells had the height of a control and the
+cards overlapped each other and the parts around the grid.
+
+The new recipe `Tasks.inventory` shows a bag and a small shop in a Sheet:
+a segmented Picker, a Grid of Cards with a picture for each item, and the
+action on the Card.
+
 Breaking: UI.Text refuses the native `TextXAlignment` and `TextDirection`.
 Use `textAlign` and `direction`. `textAlign = "start"` and `"end"` now follow
 the text direction. With `direction = "rtl"`, `start` is the right edge. With

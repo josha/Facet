@@ -1121,6 +1121,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
+		local cardHeight = if spec.cellHeight == nil and spec.aspectRatio == nil then Compose.cell(0) else nil
 		local cellWidth = if spec.aspectRatio ~= nil then Compose.cell(0) else nil
 		local function columns(use: ComposeTypes.Use?): number
 			local count = read(spec.columns, use)
@@ -1147,8 +1148,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
+				local tallest = if cardHeight then use(cardHeight) else 0
 				local height = if cellWidth
 					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
+					elseif tallest > 0 then tallest
 					else read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
@@ -1189,6 +1192,72 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				local measured, offset = use(cell), grid.CellSize.Y.Offset
 				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
 				cellWidth:set(measured.X / unit)
+			end)
+		end
+		if cardHeight then
+			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
+			local watched: { [Instance]: RBXScriptConnection } = {}
+			local adopted: { [Instance]: RBXScriptConnection } = {}
+			local across = 0
+			local function measure()
+				local cell, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
+				local unit = if cell.Y > 0 and offset > 0 then cell.Y / offset else 1
+				local best, cards = 0, false
+				for _, child in node:GetChildren() do
+					if child:IsA("GuiObject") then
+						for _, part in child:GetChildren() do
+							if part:IsA("GuiObject") then
+								cards = cards or part:HasTag("facet-card-part")
+								if part.Visible and part.Name ~= "FeedbackPaint" then
+									local reach = part.AbsolutePosition.Y
+										+ part.AbsoluteSize.Y
+										- child.AbsolutePosition.Y
+									best = math.max(best, reach / unit)
+								end
+							end
+						end
+					end
+				end
+				if not cards then
+					cardHeight:set(0)
+					return
+				end
+				local width = math.floor(cell.X + 0.5)
+				local prior = if width == across then cardHeight:peek() else 0
+				across = width
+				cardHeight:set(math.max(prior, math.ceil(best)))
+			end
+			local function watch(part: Instance)
+				if part:IsA("GuiObject") and watched[part] == nil then
+					watched[part] = part:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+				end
+			end
+			local function adopt(child: Instance)
+				if child:IsA("GuiObject") then
+					for _, part in child:GetChildren() do
+						watch(part)
+					end
+					if adopted[child] == nil then
+						adopted[child] = child.ChildAdded:Connect(function(part: Instance)
+							watch(part)
+							measure()
+						end)
+					end
+				end
+				measure()
+			end
+			for _, child in node:GetChildren() do
+				adopt(child)
+			end
+			runtime.connect(node, "ChildAdded", adopt)
+			watched[grid] = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
+			Compose.cleanup(function()
+				for _, connection in watched do
+					connection:Disconnect()
+				end
+				for _, connection in adopted do
+					connection:Disconnect()
+				end
 			end)
 		end
 		if cells then

@@ -57,3 +57,9 @@ Composition options:
   the composition can take the free height of a stack.
 
 See [Composition.regions](Composition.regions.md) for region options.
+
+A `topbar` region form that shows text with no surface and no Button gets a
+panel plate, so a readout reads over any world. Give the form its own
+`surface` to choose the plate. In the other zones, a Text with no plate
+under it gets an outline in the surface color. A modal dims the strip with
+the rest of the screen.
