@@ -38,10 +38,11 @@ local function bag(app: Facet.App, open: Facet.Value<boolean>, owned: { Item }, 
 end
 ```
 
-Each item has a picture: `image` for game art, or `glyph`, a Facet icon name
-or an emoji, as `art` here. `note` holds only the quantity or the price.
+Each item has a picture: `image` for game art, or `glyph` (an icon name or
+an emoji), as `art` here. `note` holds only the quantity or the price.
 `ready` is false for an item the player cannot buy: `enabled` dims the Card
-and its action, so add no words such as "cannot afford". `layout = "row"`
-puts the picture beside the text, so the bag fits a phone in landscape. With
-`minCellWidth`, the Grid shows as many columns as fit the panel.
+and its action, so add no "cannot afford" text. `layout = "row"` fits a
+phone in landscape. `minCellWidth` gives as many columns as fit. When the
+player picks an item and then acts, put that action in the Sheet's
+`actions`, below the list.
 [Confirm](Tasks.confirm.md) a purchase.

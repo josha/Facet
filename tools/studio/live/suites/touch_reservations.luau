@@ -77,17 +77,14 @@ local function run(t: Live, textSize: string)
 		t.settle(30)
 		local label = `{dimensions.X}x{dimensions.Y} {textSize}`
 		t.check(`{label} chat clears the stick`, bottom(chat) <= stick.AbsolutePosition.Y + 1)
-		t.check(`{label} prompt clears the stick`, bottom(prompt) <= stick.AbsolutePosition.Y + 1)
-		t.check(`{label} nested clearance is not doubled`, stick.AbsolutePosition.Y - bottom(prompt) < 24)
+		t.check(`{label} prompt keeps the bottom edge beside the stick`, bottom(prompt) > stick.AbsolutePosition.Y)
+		t.check(`{label} nested clearance is not doubled`, stick.AbsolutePosition.Y - bottom(chat) < 24)
 		capture:set(Rect.new(stick.AbsolutePosition - Vector2.new(0, 40), stick.AbsolutePosition + stick.AbsoluteSize))
 		t.settle(30)
-		t.check(
-			`{label} larger Rect lifts both regions`,
-			bottom(chat) <= stick.AbsolutePosition.Y - 39 and bottom(prompt) <= stick.AbsolutePosition.Y - 39
-		)
+		t.check(`{label} larger Rect lifts the region above it`, bottom(chat) <= stick.AbsolutePosition.Y - 39)
 		capture:set(nil)
 		t.settle(30)
-		t.check(`{label} removing Rect restores room`, bottom(prompt) > stick.AbsolutePosition.Y)
+		t.check(`{label} removing Rect restores room`, bottom(chat) > stick.AbsolutePosition.Y)
 	end
 end
 

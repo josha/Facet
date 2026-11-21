@@ -33,6 +33,12 @@ local function inspect(entry: any)
 	assert(type(module) == "table" and type(module.build) == "function", name .. ": artifact exposes no build(themes)")
 	local package, report = module.build(themes)
 	assert(package and report.ok, name .. ": build() refused the theme package")
+	for _, note in report.advice do
+		check(
+			not string.find(note.message, "contrast below 4.5:1", 1, true),
+			name .. ": a shipped theme needs a contrast repair: " .. note.message
+		)
+	end
 	check(package.schema == themes.SCHEMA, name .. ": theme schema mismatch")
 	check(package.identity.id == entry.packageId, name .. ": artifact identity differs from manifest")
 	check(package.identity.version == entry.version, name .. ": artifact version differs from manifest")
