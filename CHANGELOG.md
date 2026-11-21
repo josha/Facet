@@ -61,6 +61,11 @@ the center of the play area. When the corners are still too wide, the
 over each other on a portrait phone, and a tall corner form drew over the
 touch controls.
 
+With the `top` or `bottom` zone below or above its corners, a corner region
+at its last form now uses the room that the other corner leaves in the row.
+Before, it was held to one third of the width and the composition reported
+that it did not fit, although it was drawn with room to spare.
+
 A `Composition` that is a direct child of a `Screen` now reaches past the
 bottom padding that the Screen adds for the touch controls. The Composition
 clears each touch control in its own column. Before, the Screen held the

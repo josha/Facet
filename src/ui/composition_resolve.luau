@@ -276,6 +276,15 @@ local function resolve(
 			local tall = zoneH[key] or 0
 			return if tall > 0 then tall + floorOf(key) else 0
 		end
+		local function settled(key: number): boolean
+			for _, index in members[key] or ({} :: { number }) do
+				local region, form = regions[index], forms[index]
+				if form > 0 and (form < #region.sizes or region.mayDrop) then
+					return false
+				end
+			end
+			return true
+		end
 		local sink = if stack.sink and (zoneH[5] or 0) > 0 and (zoneH[13] or 0) > 0 then zoneH[5] + gap else 0
 		local corner = {
 			top = if sink > 0 then sink + zoneH[13] else math.max(zoneH[5] or 0, zoneH[13] or 0),
@@ -286,7 +295,10 @@ local function resolve(
 			local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
 			for row, key in { top, middle, bottom } do
 				local room = lane
-				local alone = (zoneW[8 + row] or 0) == 0 or (stack.wide == true and row == 1 and stack.top)
+				local below = if row == 1 then stack.top elseif row == 3 then stack.bottom else false
+				local alone = (zoneW[8 + row] or 0) == 0
+					or (stack.wide == true and row == 1 and stack.top)
+					or (below and settled(key))
 				if column ~= 2 and row ~= 2 and alone then
 					local opposite = if sink > 0 and row == 1
 						then 0

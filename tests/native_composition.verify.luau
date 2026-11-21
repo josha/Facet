@@ -1883,6 +1883,23 @@ return function(verifyHarness: Verify.Harness)
 				expect(moved.top):toBe(52)
 				expect(moved.leanTop):toBe((160 - 749) / 2)
 				expect(#missed):toBe(0)
+				local panel: Declared = {
+					zone = "topLeft" :: "topLeft",
+					rank = 1,
+					mayDrop = false,
+					sizes = { { x = 221, y = 44 }, { x = 114, y = 84 } },
+				}
+				local stack: Declared = {
+					zone = "topRight" :: "topRight",
+					rank = 2,
+					mayDrop = false,
+					sizes = { { x = 313, y = 52 }, { x = 133, y = 148 } },
+				}
+				local narrow, _, under, unfit = resolver.resolve(358, 812, 8, { panel, status, stack })
+				expect(narrow[1]):toBe(2)
+				expect(narrow[3]):toBe(2)
+				expect(under.top):toBe(156)
+				expect(#unfit):toBe(0)
 				local bar: Declared =
 					{ zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { { x = 300, y = 40 } } }
 				local _, _, centered = resolver.resolve(749, 323, 8, { weapon, bar, column }, nil, nil, nil, ring)

@@ -537,7 +537,8 @@ score, a timer or the currency, in `zone = "topbar"` with `leading = true` or
 Roblox controls, and it leaves the play area clear. Facet puts a plate under
 a readout there that has none, so it reads over the world. Give the value
 the `numeral` or `strong` role; a `label` is small for a value that the
-player watches. Composition moves it
+player watches. When the value already names itself, such as `ROUND 01`,
+show it with no label before it. Composition moves it
 below the strip when the strip has no room.
 
 A standard command, such as settings, close, back, menu or more, is an
