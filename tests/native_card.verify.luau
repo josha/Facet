@@ -467,6 +467,37 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("puts the always-shown action of a row card at the trailing end while the title has room", {
+			id = "native_card::native Card::puts the always-shown action of a row card at the trailing end while the title has room",
+			run = function()
+				local world, card = mount({
+					title = "Potion",
+					caption = "x2",
+					glyph = "\u{1F9EA}",
+					layout = "row",
+					reveal = "always",
+					primaryAction = { label = "Buy", onActivate = function() end },
+				})
+				local action = world.find("Reveal")
+				expect(action.Parent.Name):toBe("ActionBeside")
+				expect(action.AnchorPoint.X):toBe(1)
+				expect(world.find("Primary"):FindFirstChildWhichIsA("UIFlexItem")):toBe(nil)
+				world.resize(action, 96, 44)
+				world.resize(card, 420, 72)
+				local padding = world.find("Title"):FindFirstChildWhichIsA("UIPadding")
+				expect(padding.PaddingRight.Offset > 96):toBe(true)
+				expect(world.find("Reveal").Parent.Name):toBe("ActionBeside")
+				world.resize(card, 260, 72)
+				local below = world.find("Reveal")
+				expect(below.Parent):toBe(card)
+				expect(world.find("Primary"):FindFirstChildWhichIsA("UIFlexItem") ~= nil):toBe(true)
+				expect(padding.PaddingRight.Offset < 96):toBe(true)
+				world.resize(card, 420, 72)
+				expect(world.find("Reveal").Parent.Name):toBe("ActionBeside")
+				world.stop()
+			end,
+		})
+
 		it("omits absent caption and action-cancel resources", {
 			id = "native_card::native Card::omits absent caption and action-cancel resources",
 			run = function()

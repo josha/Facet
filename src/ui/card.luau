@@ -17,6 +17,7 @@ local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
 local BADGE_KEYS: { [string]: boolean } = { label = true, status = true, icon = true, name = true }
 local CORNER_KEYS: { [string]: boolean } = { leading = true, trailing = true }
 local CARD_TEXT_LINES = 2
+local TITLE_ROOM = 120
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 	local Host, Compose, read, runtime = ctx.Host, ctx.Compose, ctx.read, ctx.runtime
@@ -208,6 +209,14 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		local inFlow = function(use: ComposeTypes.Use): boolean
 			return reveal == "always" or touch(use)
+		end
+		local trailing, span, natural = Compose.cell(0), Compose.cell(0), Compose.cell(0)
+		local inline = function(use: ComposeTypes.Use): boolean
+			if not (row and reveal == "always") then
+				return false
+			end
+			local taken = use(natural) + thumb(use) + 4 * ctx.metric("space.s", use)
+			return use(span) <= 0 or use(span) - taken >= TITLE_ROOM
 		end
 		local revealed = if reveal == "always" or not hasStop
 			then active
@@ -485,7 +494,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 						return D.new(0, 2 * ctx.metric("space.s", use) + thumb(use))
 					end
 					else side,
-				PaddingRight = side,
+				PaddingRight = if row
+					then function(use: ComposeTypes.Use): UDim
+						return D.new(0, ctx.metric("space.s", use) + use(trailing))
+					end
+					else side,
 				PaddingTop = if above or bottom then nil else side,
 				PaddingBottom = if bottom then side else closing,
 			}
@@ -611,7 +624,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local function tuck(use: ComposeTypes.Use): number
 			return 2 * ctx.metric("radii.panel", use)
 		end
-		local function actionRow(flowing: boolean): Frame
+		local function actionRow(place: "flow" | "overlay" | "inline"): Frame
+			local flowing, beside = place == "flow", place == "inline"
 			local rowChildren: { Types.Child } = {}
 			local states: { ComposeTypes.ReadOnlyValue<boolean> } = {}
 			if primary then
@@ -631,7 +645,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 							action.onActivate()
 						end
 					end,
-					Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
+					if beside then nil else Host.UIFlexItem { FlexMode = E.UIFlexMode.Fill },
 				}
 				local button = UI.Button(buttonProps)
 				primaryButton = button
@@ -662,8 +676,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			local rowProps: Types.FrameProps = {
 				Name = "Row",
 				BackgroundTransparency = 1,
-				Size = D2.fromScale(1, 0),
-				AutomaticSize = E.AutomaticSize.Y,
+				Size = if beside then D2.new() else D2.fromScale(1, 0),
+				AutomaticSize = if beside then E.AutomaticSize.XY else E.AutomaticSize.Y,
 				SelectionGroup = true,
 				SelectionBehaviorUp = selectionBehavior,
 				SelectionBehaviorDown = selectionBehavior,
@@ -673,7 +687,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					FillDirection = E.FillDirection.Horizontal,
 					SortOrder = E.SortOrder.LayoutOrder,
 					VerticalAlignment = E.VerticalAlignment.Center,
-					Wraps = true,
+					Wraps = not beside,
 					Padding = function(use: ComposeTypes.Use)
 						return D.new(0, ctx.metric("space.s", use))
 					end,
@@ -697,6 +711,33 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				}
 			end
 			local row = Host.Frame(rowProps)
+			if beside then
+				local held = Host.Frame {
+					Name = "Reveal",
+					AnchorPoint = ctx.types.Vector2.new(1, 0.5),
+					Position = function(use: ComposeTypes.Use): UDim2
+						return D2.new(1, -ctx.metric("space.s", use), 0.5, 0)
+					end,
+					ZIndex = 2,
+					BackgroundTransparency = 1,
+					Size = D2.new(),
+					AutomaticSize = E.AutomaticSize.XY,
+					Interactable = revealed,
+					row,
+				}
+				local size = ctx.layoutSize(held)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local wide = use(size).X
+					if wide > 0 then
+						natural:set(wide)
+						trailing:set(wide + ctx.metric("space.s", use))
+					end
+				end)
+				Compose.cleanup(function()
+					trailing:set(0)
+				end)
+				return held
+			end
 			local plateLayer = ctx.styled(
 				Host.Frame {
 					Name = "Plate",
@@ -748,11 +789,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end,
 		}
 		local actions = if revealing
-			then Compose.show(inFlow, function()
-				return actionRow(true)
-			end, function()
-				return Host.Folder "ActionOverlay" { actionRow(false) }
-			end)
+			then Compose.switch(function(use: ComposeTypes.Use): string
+				return if inline(use) then "inline" elseif inFlow(use) then "flow" else "overlay"
+			end, {
+				inline = function()
+					return Host.Folder "ActionBeside" { actionRow("inline") }
+				end,
+				flow = function()
+					return actionRow("flow")
+				end,
+				overlay = function()
+					return Host.Folder "ActionOverlay" { actionRow("overlay") }
+				end,
+			})
 			else nil
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
@@ -821,6 +870,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			Host.UIPadding { Parent = Compose.static(card) }
 		end
 		root = card
+		if row and reveal == "always" and revealing then
+			local size = ctx.layoutSize(card)
+			Compose.watch(function(use: ComposeTypes.Use)
+				span:set(use(size).X)
+			end)
+		end
 		local extent: ComposeTypes.ReadOnlyValue<Vector2>? = if spec.onActivate or spec.controls
 			then ctx.observe.AbsoluteSize(card)
 			else nil

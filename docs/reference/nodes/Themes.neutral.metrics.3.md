@@ -45,12 +45,12 @@ Resolved metrics tokens.
 | `metrics.typography.body.font.style` | `Normal` |
 | `metrics.typography.body.font.weight` | `Regular` |
 | `metrics.typography.body.lineHeight` | `1.2` |
-| `metrics.typography.body.size` | `16` |
+| `metrics.typography.body.size` | `18` |
 | `metrics.typography.caption.font.family` | `BuilderSans` |
 | `metrics.typography.caption.font.style` | `Normal` |
 | `metrics.typography.caption.font.weight` | `Regular` |
 | `metrics.typography.caption.lineHeight` | `1.2` |
-| `metrics.typography.caption.size` | `12` |
+| `metrics.typography.caption.size` | `16` |
 | `metrics.typography.control.font.family` | `BuilderSans` |
 | `metrics.typography.control.font.style` | `Normal` |
 | `metrics.typography.control.font.weight` | `Regular` |
@@ -60,5 +60,5 @@ Resolved metrics tokens.
 | `metrics.typography.heading.font.style` | `Normal` |
 | `metrics.typography.heading.font.weight` | `Bold` |
 | `metrics.typography.heading.lineHeight` | `1.2` |
-| `metrics.typography.heading.size` | `20` |
+| `metrics.typography.heading.size` | `22` |
 | `metrics.typography.label.font.family` | `BuilderSans` |

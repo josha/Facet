@@ -18,9 +18,8 @@ Form selection, zone fallback, fit warnings and resize motion.
   corner zones after no region can give way. When only one corner zone of
   that row has content, the zone first moves beside that corner. It is
   centred in the width that the corner and one `gap` leave, and the
-  composition resolves again from the richest forms. Thus on a portrait
-  phone a readout beside the wallet column stays in the top row, and does
-  not go down into the view.
+  composition resolves again from the richest forms. Thus a readout beside
+  the wallet column stays in the top row on a portrait phone.
 - When both corner zones of the row have content, or the zone is still too
   wide beside its corner, it moves below the top corners, or above the bottom
   corners, and uses the full width.
@@ -31,9 +30,11 @@ Form selection, zone fallback, fit warnings and resize motion.
   the corners share the row. A narrow `top` then sits at the left.
   When the corners are still too wide, `topRight` moves below `topLeft`.
   Each time, it resolves again.
-- A region can still fail to fit at its last form when nothing else can give
-  way. The composition then warns once in the output and names the region.
-  Give that region a smaller form, `mayDrop = true` or a higher rank number.
+- When a zone still covers another zone, a region of those zones hides
+  behind the "…" control of its zone, highest rank number first.
+  `reveal = false` keeps a region in view. A region that is only too large
+  for its lane or the screen stays in view, with one warning that names it.
+  Give that region a smaller form or `mayDrop = true`.
 - On a screen larger than a phone, the composition also resolves its
   measured forms for a 358 by 812 and an 812 by 358 phone area. The
   `FacetUnfit` boolean attribute marks a fit failure at the size it has now
@@ -56,8 +57,7 @@ Form selection, zone fallback, fit warnings and resize motion.
 - The composition measures each form with its scale. To animate part of a
   region with `UIScale`, put it on an inner frame inside a holder of fixed
   size. This keeps the animation from changing the region's size or form.
-- When the size of the composition changes, for example on a rotation, a
-  region that changes form scales from 0.94 to 1 in 0.15 seconds, Cubic
-  Out, from the edge of its zone. The first layout after a mount does not
-  move. Its measurement holds until the motion ends,
-  so the motion cannot change the decision. Reduced motion removes the motion.
+- When the size of the composition changes, a region that changes form
+  scales from 0.94 to 1 in 0.15 seconds, Cubic Out, from the edge of its
+  zone. The first layout after a mount does not move. Its measurement holds
+  until the motion ends. Reduced motion removes the motion.
