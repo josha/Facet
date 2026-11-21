@@ -681,7 +681,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
 		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		properties.BorderSizePixel = 0
-		properties.Size = if properties.Size == nil then D2.fromScale(1, 1) else properties.Size
+		local hostClearance = Compose.cell(0)
+		properties.Size = if properties.Size == nil
+			then function(use: ComposeTypes.Use): UDim2
+				return D2.new(1, 0, 1, use(hostClearance))
+			end
+			else properties.Size
 		properties[#properties + 1] = kit.insets(function(use: ComposeTypes.Use): Types.Padding
 			local value = readPadding(base, use)
 			local sides: Types.Sides = if type(value) == "table"
@@ -845,6 +850,25 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		kit.underTopbar(root, under)
 		kit.touchClearance(root, touch, touchAreas)
+		do
+			local host = ctx.observe.Parent(root)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local parent = use(host)
+				if parent == nil then
+					hostClearance:set(0)
+					return
+				end
+				local function read()
+					local value = parent:GetAttribute("FacetTouchClearance")
+					hostClearance:set(if type(value) == "number" then value else 0)
+				end
+				local changed = parent:GetAttributeChangedSignal("FacetTouchClearance"):Connect(read)
+				Compose.cleanup(function()
+					changed:Disconnect()
+				end)
+				read()
+			end)
+		end
 		do
 			local owner = assert(Compose.currentOwner())
 			local measuring: ComposeTypes.Owner? = nil

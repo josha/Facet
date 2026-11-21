@@ -22,7 +22,8 @@ Options: `gap`, `padding`, `align`,
 
 `chrome` is the platform-chrome policy. `"device"` (the default) clears the
 top bar, overscan and visible TouchGui movement controls on touch; see
-[safe layout](Tasks.safe-layout.md). The app's `CoreUISafeInsets` clears the device safe
+[safe layout](Tasks.safe-layout.md). A `Composition` child reaches past the
+touch padding and clears each control itself. The app's `CoreUISafeInsets` clears the device safe
 area. `"band"` lets the content ride
 the free strip of the top bar beside the engine's buttons (a game's own top
 row): no top bar padding, overscan kept. `"edge"` adds neither. A page

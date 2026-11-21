@@ -1952,6 +1952,36 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("reaches past the touch padding of the Screen that holds it", {
+			id = "native_composition::Composition::reaches past the touch padding of the Screen that holds it",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local hud: Frame
+				local screen: Frame
+				runtime.mount(function()
+					hud = UI.Composition "HUD" {
+						UI.Region {
+							Name = "Status",
+							zone = "topLeft",
+							rank = 1,
+							UI.HStack "Full" { UI.Text { text = "100" } },
+						},
+					}
+					screen = UI.Screen "Root" { hud }
+					return screen
+				end, layer)
+				expect(screen:GetAttribute("FacetTouchClearance")):toBe(0)
+				expect(hud.Size.Y.Scale):toBe(1)
+				expect(hud.Size.Y.Offset):toBe(0)
+				screen:SetAttribute("FacetTouchClearance", 120)
+				expect(hud.Size.Y.Offset):toBe(120)
+				screen:SetAttribute("FacetTouchClearance", 0)
+				expect(hud.Size.Y.Offset):toBe(0)
+			end,
+		})
+
 		it("steps a lower-rank side region down before a center region that its row squeezes", {
 			id = "native_composition::Composition::steps a lower-rank side region down before a center region that its row squeezes",
 			run = function()

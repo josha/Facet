@@ -648,6 +648,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		kit.underTopbar(frame, under)
 		if chrome == "device" then
 			kit.touchClearance(frame, touch)
+			Compose.watch(function(use: ComposeTypes.Use)
+				frame:SetAttribute("FacetTouchClearance", use(touch))
+			end)
 		end
 		if plate then
 			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")

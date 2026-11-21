@@ -61,6 +61,13 @@ the center of the play area. When the corners are still too wide, the
 over each other on a portrait phone, and a tall corner form drew over the
 touch controls.
 
+A `Composition` that is a direct child of a `Screen` now reaches past the
+bottom padding that the Screen adds for the touch controls. The Composition
+clears each touch control in its own column. Before, the Screen held the
+whole HUD above the highest touch control, so a game with action buttons
+around Jump had a HUD area less than 100 pixels high on a phone in
+landscape, and the regions that did not fit drew over the play area.
+
 A `center` row region does not go over a wider side zone that cannot step
 down, drop or land. Before, the row kept its lane width and three wide
 Buttons at `topRight` covered a short region at `top` on a phone.
