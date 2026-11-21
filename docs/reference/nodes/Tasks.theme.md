@@ -37,6 +37,5 @@ pressed state after changing the type and surfaces.
 
 For other options, see [Theme-identity](Theme-identity.md),
 [Themes.definition](Themes.definition.md), [Themes.tokens](Themes.tokens.md)
-and [Themes.art](Themes.art.md). For example, set
-`metrics.motion.distances.parallax = 0` to keep covered pages still in the
-theme's default stacks.
+and [Themes.art](Themes.art.md). For a game HUD, keep `caption` at 16 or
+more and `label` and `body` at 18 or more: smaller text is hard to read.

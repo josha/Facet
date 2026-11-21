@@ -31,7 +31,7 @@ export type Shift = {
 export type Area = { left: number, right: number, reach: number }
 export type Rows = { top: number, bottom: number }
 type Edge = "top" | "bottom"
-type Stacked = { top: boolean, bottom: boolean }
+type Stacked = { top: boolean, bottom: boolean, sink: boolean? }
 
 local EDGE_ROWS: { [number]: Edge } = { [1] = "top", [3] = "bottom" }
 
@@ -264,8 +264,9 @@ local function resolve(
 			local tall = zoneH[key] or 0
 			return if tall > 0 then tall + floorOf(key) else 0
 		end
+		local sink = if stack.sink and (zoneH[5] or 0) > 0 and (zoneH[13] or 0) > 0 then zoneH[5] + gap else 0
 		local corner = {
-			top = math.max(zoneH[5] or 0, zoneH[13] or 0),
+			top = if sink > 0 then sink + zoneH[13] else math.max(zoneH[5] or 0, zoneH[13] or 0),
 			bottom = math.max(raised(7), raised(15)),
 		}
 		local squeezed: { [Edge]: boolean } = { top = false, bottom = false }
@@ -274,7 +275,9 @@ local function resolve(
 			for row, key in { top, middle, bottom } do
 				local room = lane
 				if column ~= 2 and row ~= 2 and (zoneW[8 + row] or 0) == 0 then
-					local opposite = zoneW[(if column == 1 then 12 else 4) + row] or 0
+					local opposite = if sink > 0 and row == 1
+						then 0
+						else zoneW[(if column == 1 then 12 else 4) + row] or 0
 					room = math.max(lane, if opposite > 0 then width - opposite - gap else width)
 				end
 				if column == 2 then
@@ -298,7 +301,7 @@ local function resolve(
 				if column == 2 and row == 1 and stack.top and (zoneH[key] or 0) > 0 then
 					reach += corner.top + gap
 				end
-				check(key, room, height - reach)
+				check(key, room, height - reach - (if key == 13 then sink else 0))
 			end
 			local h1, h2, h3 = zoneH[top] or 0, zoneH[middle] or 0, zoneH[bottom] or 0
 			local f2, f3 = floorOf(middle), floorOf(bottom)
@@ -306,6 +309,9 @@ local function resolve(
 			if column == 2 then
 				h1 = if stack.top and h1 > 0 then corner.top + gap + h1 else h1
 				h3 = if stackedBottom then corner.bottom + gap + h3 else h3
+			elseif column == 3 and sink > 0 then
+				h1 += sink
+				lift[top] = sink
 			end
 			local base = if h3 <= 0 then 0 elseif stackedBottom then math.max(0, f3 - corner.bottom - gap) else f3
 			lift[bottom] = if h3 > 0 then -base else -anchorFloor(column)
@@ -428,6 +434,19 @@ local function resolve(
 			end
 		end
 		if chosen == nil then
+			local leftCorner, rightCorner = zoneW[5] or 0, zoneW[13] or 0
+			if not stack.sink and leftCorner > 0 and rightCorner > 0 and leftCorner + gap + rightCorner > width then
+				return resolve(
+					width,
+					height,
+					gap,
+					regions,
+					strip,
+					{ top = stack.top, bottom = stack.bottom, sink = true },
+					lean,
+					areas
+				)
+			end
 			for edge in squeezed do
 				local _, _, _, lone = between(if edge == "top" then 1 else 3, edge)
 				if
@@ -443,7 +462,7 @@ local function resolve(
 			end
 			for edge in squeezed do
 				if squeezed[edge] and not (if edge == "top" then stack.top else stack.bottom) and corner[edge] > 0 then
-					local next: Stacked = { top = stack.top, bottom = stack.bottom }
+					local next: Stacked = { top = stack.top, bottom = stack.bottom, sink = stack.sink }
 					if edge == "top" then
 						next.top = true
 					else

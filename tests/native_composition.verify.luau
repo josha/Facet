@@ -1838,6 +1838,35 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("puts the right top corner under the left one when the two cannot share the row", {
+			id = "native_composition::Composition::puts the right top corner under the left one when the two cannot share the row",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local weapon: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { { x = 250, y = 32 } } }
+				local menus: Declared =
+					{ zone = "topRight" :: "topRight", rank = 3, mayDrop = false, sizes = { { x = 207, y = 150 } } }
+				local forms, _, shift, overflow = resolver.resolve(353, 700, 8, { weapon, menus })
+				expect(forms[1]):toBe(1)
+				expect(forms[2]):toBe(1)
+				expect(shift.lift[13]):toBe(40)
+				expect(#overflow):toBe(0)
+				local wide, _, loose = resolver.resolve(700, 400, 8, { weapon, menus })
+				expect(wide[2]):toBe(1)
+				expect(loose.lift[13] or 0):toBe(0)
+				local short: Declared = {
+					zone = "topRight" :: "topRight",
+					rank = 3,
+					mayDrop = false,
+					sizes = { { x = 207, y = 150 }, { x = 90, y = 44 } },
+				}
+				local stepped, _, level = resolver.resolve(353, 700, 8, { weapon, short })
+				expect(stepped[2]):toBe(2)
+				expect(level.lift[13] or 0):toBe(0)
+			end,
+		})
+
 		it("backs a bare topbar readout, outlines bare text in other zones and honors plate = false", {
 			id = "native_composition::Composition::backs a bare topbar readout, outlines bare text in other zones and honors plate = false",
 			run = function()
