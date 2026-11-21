@@ -101,6 +101,8 @@ local BACKED_TAGS = {
 	"facet-tab",
 }
 
+local MIDDLE = { "top", "center", "bottom" }
+
 local function lowered(moved: resolver.Shift, column: number, row: number): number
 	local lift = moved.lift[column * 4 + row] or 0
 	return if row == 3
@@ -1228,12 +1230,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					open:set(false)
 				end
 			end)
+			local across = if column ~= 2 then zones[MIDDLE[row]] else nil
+			local acrossSize = if across then ctx.observe.AbsoluteSize(across) else nil
+			local markSize = Compose.cell(V2.zero)
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
 				local moved = use(shift)
-				local at = (use(safeSize) / unit - size) * anchor
-					+ V2.new(leaned(moved, column, row), lowered(moved, column, row))
+				local screen = use(safeSize) / unit
+				local at = (screen - size) * anchor + V2.new(leaned(moved, column, row), lowered(moved, column, row))
 				if column == 2 then
 					return if row == 3
 						then D2.fromOffset(at.X + size.X / 2, at.Y - space)
@@ -1241,8 +1246,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						V2.new(0.5, if row == 3 then 1 else 0)
 				end
 				local x = if column == 1 then at.X + size.X + space else at.X - space
-				return D2.fromOffset(x, at.Y + size.Y * (row - 1) / 2),
-					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
+				local y, hold = at.Y + size.Y * (row - 1) / 2, (row - 1) / 2
+				local mid = if acrossSize then use(acrossSize) / unit else V2.zero
+				if mid.X > 0 and mid.Y > 0 then
+					local side = floor(use)
+					local wide = math.max(side, use(markSize).X / unit)
+					local left = (screen.X - mid.X) / 2 + leaned(moved, 2, row)
+					local top = (screen.Y - mid.Y) * (row - 1) / 2 + lowered(moved, 2, row)
+					local reaches = if column == 1 then x + wide + space > left else x - wide - space < left + mid.X
+					local head = y - hold * side
+					if reaches and head < top + mid.Y + space and head + side + space > top then
+						if row == 1 then
+							y, hold = top + mid.Y + space, 0
+						else
+							y, hold = top - space, 1
+						end
+					end
+				end
+				return D2.fromOffset(x, y), V2.new(if column == 1 then 0 else 1, hold)
 			end
 			runtime.mount(function()
 				local marks: { { region: Frame, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
@@ -1308,6 +1329,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					return D2.fromOffset(wide, side)
 				end
 				local trigger = Host.TextButton("ZoneReveal" .. frame.Name)(parts)
+				local reach = ctx.observe.AbsoluteSize(trigger)
+				Compose.watch(function(use: ComposeTypes.Use)
+					markSize:set(use(reach))
+				end)
 				Compose.watch(function(use: ComposeTypes.Use)
 					local names: { string } = {}
 					if use(lone) == nil then
