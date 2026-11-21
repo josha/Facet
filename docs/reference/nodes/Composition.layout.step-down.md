@@ -34,7 +34,7 @@ Form selection, zone fallback, fit warnings and resize motion.
   behind the "…" control of its zone, highest rank number first.
   `reveal = false` keeps a region in view. A region that is only too large
   for its lane or the screen stays in view, with one warning that names it.
-  Give that region a smaller form.
+  Give that region a smaller form or `mayDrop = true`.
 - On a screen larger than a phone, the composition also resolves its
   measured forms for a 358 by 812 and an 812 by 358 phone area. The
   `FacetUnfit` boolean attribute marks a fit failure at the size it has now

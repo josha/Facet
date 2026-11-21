@@ -4,7 +4,7 @@ Facet Neutral has larger type: caption 16, label 17, body 18, heading 22,
 title 26, strong 18 and numeral 20, with a minimum text size of 16. A theme
 that keeps the Neutral minimum gets its smaller sizes raised to 16. Before,
 text on a desktop screen was small beside a hand-built UI. A theme can set
-`controls.typography.minimumSize` to 14 to keep the old sizes.
+`controls.typography.minimumSize` as low as 14 to keep smaller sizes.
 
 When one zone of a Composition still covers another zone after every Region
 is at its last form, a Region of those zones now hides behind the "…"

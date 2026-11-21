@@ -587,7 +587,9 @@ local function resolve(
 			local colliding: { number } = {}
 			for key in hit do
 				for _, index in members[key] or ({} :: { number }) do
-					if forms[index] > 0 then
+					local form = forms[index]
+					local size = if form > 0 then regions[index].sizes[form] else nil
+					if size and size.x > 0 and size.y > 0 then
 						table.insert(colliding, index)
 					end
 				end

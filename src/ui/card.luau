@@ -711,18 +711,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				}
 			end
 			local row = Host.Frame(rowProps)
-			local plateLayer = ctx.styled(
-				Host.Frame {
-					Name = "Plate",
-					Size = D2.fromScale(1, 1),
-					Visible = reveal == "automatic",
-				},
-				"panel"
-			)
-			plateLayer:AddTag("facet-card-part")
-			if flowing then
-				plateLayer:AddTag("facet-card-inflow")
-			end
 			if beside then
 				local held = Host.Frame {
 					Name = "Reveal",
@@ -749,6 +737,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					trailing:set(0)
 				end)
 				return held
+			end
+			local plateLayer = ctx.styled(
+				Host.Frame {
+					Name = "Plate",
+					Size = D2.fromScale(1, 1),
+					Visible = reveal == "automatic",
+				},
+				"panel"
+			)
+			plateLayer:AddTag("facet-card-part")
+			if flowing then
+				plateLayer:AddTag("facet-card-inflow")
 			end
 			return ctx.fade {
 				Name = "Reveal",

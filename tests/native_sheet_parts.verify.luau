@@ -645,7 +645,7 @@ return function(verifyHarness: Verify.Harness)
 					{ width = "wide" :: "wide", placement = "center" :: "center" },
 					{ room = Vector2.new(390, 700), detent = "large", motionLevel = "none" }
 				)
-				Verify.expect(roomy.find("SheetPanel").Size.Y.Offset <= 700 - 2 * 16):toBe(true)
+				Verify.expect(roomy.find("SheetPanel").Size.Y.Offset <= (700 - 2 * 16) * 0.95 + 1):toBe(true)
 				roomy.stop()
 			end,
 		})

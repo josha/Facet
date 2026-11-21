@@ -132,7 +132,7 @@ return {
 					},
 					UI.Table({
 						Position = UDim2.fromOffset(0, 100),
-						Size = UDim2.new(1, 0, 1, -164),
+						Size = UDim2.new(1, 0, 1, -192),
 						from = rows,
 						key = function(item)
 							return item.id
@@ -168,8 +168,8 @@ return {
 						end,
 					}, "RunSheet"),
 					UI.Text "Status" {
-						Position = UDim2.new(0, 0, 1, -56),
-						Size = UDim2.new(1, 0, 0, 56),
+						Position = UDim2.new(0, 0, 1, -84),
+						Size = UDim2.new(1, 0, 0, 84),
 						text = message,
 						TextWrapped = true,
 						BackgroundTransparency = 1,

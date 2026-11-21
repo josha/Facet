@@ -301,7 +301,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local hugs = at:IsA("GuiObject")
 				and not at:IsA("ScrollingFrame")
 				and (at.AutomaticSize == E.AutomaticSize.XY or at.AutomaticSize == along)
-			if not hugs then
+			local limit = at:FindFirstChildWhichIsA("UISizeConstraint")
+			local most = if limit == nil
+				then math.huge
+				elseif along == E.AutomaticSize.X then limit.MaxSize.X
+				else limit.MaxSize.Y
+			if not hugs or most < math.huge then
 				return
 			end
 			at = at.Parent
@@ -1385,7 +1390,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				`{width},{height},{spacing},{if band then `{band.x},{band.y},{band.lanes}` else "-"}|{table.concat(
 					reserved,
 					";"
-				)}|{listKey}`
+				)}|{listKey}|{holds ~= nil}`
 			local known = resolutions[key]
 			if known then
 				return known
@@ -1393,30 +1398,53 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local chosen, down, moved, overflow, packed, colliding =
 				resolver.resolve(width, height, spacing, list, band, nil, nil, areas)
 			local trial = list
-			local gone: { [number]: boolean } = {}
-			for _ = 1, #list do
+			local order: { number } = {}
+			local function hide(index: number)
+				trial = table.clone(trial)
+				local hidden = table.clone(trial[index])
+				hidden.sizes = {}
+				trial[index] = hidden
+			end
+			for _ = 1, if holds then #list else 0 do
 				local pick: number? = nil
 				local worst = -math.huge
 				for _, index in colliding do
 					local rank = trial[index].rank
-					if holds and holds[index] and not gone[index] and rank >= worst then
+					if holds and holds[index] and not table.find(order, index) and rank >= worst then
 						pick, worst = index, rank
 					end
 				end
 				if pick == nil then
 					break
 				end
-				gone[pick] = true
-				trial = table.clone(trial)
-				local hidden = table.clone(trial[pick])
-				hidden.sizes = {}
-				trial[pick] = hidden
-				local _
-				chosen, down, moved, _, packed, colliding =
+				table.insert(order, pick)
+				hide(pick)
+				chosen, down, moved, overflow, packed, colliding =
 					resolver.resolve(width, height, spacing, trial, band, nil, nil, areas)
-				for index in gone do
-					chosen[index] = 0
+			end
+			for at = #order - 1, 1, -1 do
+				local index = order[at]
+				local before = trial
+				trial = table.clone(trial)
+				trial[index] = list[index]
+				local again, low, shift, missed, rows, hits =
+					resolver.resolve(width, height, spacing, trial, band, nil, nil, areas)
+				if #hits <= #colliding and not table.find(hits, index) then
+					chosen, down, moved, overflow, packed, colliding = again, low, shift, missed, rows, hits
+					table.remove(order, at)
+				else
+					trial = before
 				end
+			end
+			if #order > 0 then
+				overflow = table.clone(overflow)
+				for _, index in order do
+					chosen[index] = 0
+					if not table.find(overflow, index) then
+						table.insert(overflow, index)
+					end
+				end
+				table.sort(overflow)
 			end
 			local made: Resolution =
 				{ chosen = chosen, down = down, moved = moved, overflow = overflow, packed = packed }
@@ -1496,7 +1524,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local listKey = regionsKey(list)
 			local holds: { boolean } = {}
 			for index, region in regions do
-				holds[index] = declared[region].reveal ~= nil
+				holds[index] = declared[region].reveal ~= nil and declared[region].zone ~= "topbar"
 			end
 			local offset = use(zoneOffset)
 			local areas: { resolver.Area } = {}
@@ -1540,7 +1568,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					local observed = touchControls
 					local shown = if observed then use(observed) ~= false or use(holding) else true
 					local controls = if shown then phoneControls(phone) else nil
-					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls, holds).overflow
+					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls).overflow
 					local names = misfits(phone.X, missed)
 					if #names > 0 then
 						table.insert(

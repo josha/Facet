@@ -3755,6 +3755,15 @@ return function(verifyHarness: Verify.Harness)
 				expect(resolved.metrics.typography.caption.size):toBe(16)
 				expect(resolved.metrics.typography.body.size):toBe(17)
 				expect(definition.metrics.typography.caption.size):toBe(12)
+				local compact = themes.neutralPackage()
+				compact.metrics.typography.caption.size = 12
+				compact.metrics.controls.typography.minimumSize = 14
+				local kept = assert((themes.define(compact)))
+				expect(kept.metrics.typography.caption.size):toBe(14)
+				local tiny = themes.neutralPackage()
+				tiny.metrics.typography.caption.size = 10
+				tiny.metrics.controls.typography.minimumSize = 8
+				expect(assert((themes.define(tiny))).metrics.typography.caption.size):toBe(14)
 			end,
 		})
 
