@@ -76,19 +76,17 @@ local function apply(
 		issue(".look", "look is flat, raised, glow or hard")
 		return issues, advice
 	end
-	local edge, depth = stated.edge :: Table, stated.depth :: Table
-	if look then
-		edge, depth = over(look.edge, stated.edge), over(look.depth, stated.depth)
-	end
-	if type(edge) ~= "table" then
+	if look == nil and type(stated.edge) ~= "table" then
 		issue(".edge", "State the edge. For no edge, use edge = { width = 0 }")
 	end
-	if type(depth) ~= "table" then
+	if look == nil and type(stated.depth) ~= "table" then
 		issue(".depth", "State the depth. For a flat plate, use depth = { lift = 0, glow = 0, sheen = 0 }")
 	end
 	if #issues > 0 then
 		return issues, advice
 	end
+	local edge: Table = if look then over(look.edge, stated.edge) else stated.edge :: Table
+	local depth: Table = if look then over(look.depth, stated.depth) else stated.depth :: Table
 	local style = package.style
 	local palette = style.themes[1]
 	for _, candidate in style.themes do
