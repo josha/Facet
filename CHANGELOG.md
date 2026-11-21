@@ -47,6 +47,15 @@ A Card in a box taller than its content keeps its plate and its place on
 hover. Before, in a Grid cell or a stretched row, the plate became as small
 as the content and the content moved to the middle of the box.
 
+`Facet.themes.define` repairs a text color whose contrast on its ground is
+below 4.5:1: it moves the color toward white or black until the pair passes,
+and `report.advice` names the color. Before, one such pair rejected the whole
+theme, and a game that did not read the report showed the neutral theme.
+
+When the `topLeft` and `topRight` zones are too wide for one row and no
+region can give way, the `topRight` zone moves below the `topLeft` zone.
+Before, the two zones drew over each other on a portrait phone.
+
 A `center` row region does not go over a wider side zone that cannot step
 down, drop or land. Before, the row kept its lane width and three wide
 Buttons at `topRight` covered a short region at `top` on a phone.

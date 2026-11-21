@@ -76,6 +76,29 @@ local function mix(from: ThemeTypes.RGB, to: ThemeTypes.RGB, amount: number): Th
 	}
 end
 
+local function legible(ink: ThemeTypes.RGB, grounds: { ThemeTypes.RGB }): ThemeTypes.RGB
+	local worst = grounds[1]
+	for _, ground in grounds do
+		if ratioOf(ink, ground) < ratioOf(ink, worst) then
+			worst = ground
+		end
+	end
+	local toward: ThemeTypes.RGB = if luminance(worst) < 0.1791
+		then { r = 1, g = 1, b = 1 }
+		else { r = 0, g = 0, b = 0 }
+	for step = 1, 20 do
+		local candidate = mix(ink, toward, step / 20)
+		local passes = true
+		for _, ground in grounds do
+			passes = passes and ratioOf(candidate, ground) >= 4.5
+		end
+		if passes then
+			return candidate
+		end
+	end
+	return toward
+end
+
 local function readable(ink: ThemeTypes.RGB, grounds: { ThemeTypes.RGB }, amount: number, floor: number): ThemeTypes.RGB
 	local step = amount
 	while step > 0 do
@@ -599,6 +622,16 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		package.schema = schema
 		local contrast: { ThemeTypes.ContrastResult } = {}
+		local repairs: { ThemeTypes.ThemeIssue } = {}
+		local function repaired(name: string, role: string, ground: string)
+			table.insert(repairs, {
+				field = "style." .. name,
+				message = ("%s had a contrast below 4.5:1 on %s. Facet moved it toward white or black until it passed; set a color that passes to keep your own."):format(
+					role,
+					ground
+				),
+			})
+		end
 		for _, palette in package.style.themes do
 			if
 				type(palette) ~= "table"
@@ -649,8 +682,15 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 						{ "onWarning", "warning" },
 					}
 				do
-					local first, second = luminance(colors[pair[1]]), luminance(colors[pair[2]])
-					local ratio = (math.max(first, second) + 0.05) / (math.min(first, second) + 0.05)
+					local ratio = ratioOf(colors[pair[1]], colors[pair[2]])
+					local authored = palette.colors
+					if ratio < 4.5 and authored ~= nil then
+						local fixed = legible(colors[pair[1]], { colors[pair[2]] })
+						colors[pair[1]] = fixed
+						authored[pair[1]] = fixed
+						ratio = ratioOf(fixed, colors[pair[2]])
+						repaired(palette.name, pair[1], pair[2])
+					end
 					table.insert(contrast, { pair = pair[1] .. "/" .. pair[2], ratio = ratio, ok = ratio >= 4.5 })
 					if ratio < 4.5 then
 						table.insert(
@@ -661,6 +701,17 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				end
 				local extra = merge(base.extra or {}, palette.extra or {}) :: { [string]: ThemeTypes.RGB? }
 				local secondary = extra.contentSecondary
+				local owned = palette.extra
+				if
+					type(secondary) == "table"
+					and owned ~= nil
+					and (ratioOf(secondary, colors.surface) < 4.5 or ratioOf(secondary, colors.surfaceStrong) < 4.5)
+				then
+					secondary = legible(secondary, { colors.surface, colors.surfaceStrong })
+					owned.contentSecondary = secondary
+					extra.contentSecondary = secondary
+					repaired(palette.name, "contentSecondary", "surface and surfaceStrong")
+				end
 				if type(secondary) == "table" then
 					for _, ground in { "surface", "surfaceStrong" } do
 						local ratio = ratioOf(secondary, colors[ground])
@@ -679,8 +730,13 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				local selectedFill = extra.controlSelected
 				local selectedLabel = extra.onSelected or colors.content
 				if type(selectedFill) == "table" and type(selectedLabel) == "table" then
-					local first, second = luminance(selectedLabel), luminance(selectedFill)
-					local ratio = (math.max(first, second) + 0.05) / (math.min(first, second) + 0.05)
+					local ratio = ratioOf(selectedLabel, selectedFill)
+					if ratio < 4.5 and owned ~= nil then
+						local fixed = legible(selectedLabel, { selectedFill })
+						owned.onSelected = fixed
+						ratio = ratioOf(fixed, selectedFill)
+						repaired(palette.name, "onSelected", "controlSelected")
+					end
 					table.insert(contrast, { pair = "onSelected/controlSelected", ratio = ratio, ok = ratio >= 4.5 })
 					if ratio < 4.5 then
 						table.insert(
@@ -695,6 +751,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			return nil, { ok = false, errors = errors, missing = {}, contrast = contrast, advice = {} }
 		end
 		local advice: { ThemeTypes.ThemeIssue } = finishAdvice
+		table.move(repairs, 1, #repairs, #advice + 1, advice)
 		if finish == nil then
 			table.insert(advice, {
 				field = "finish",
