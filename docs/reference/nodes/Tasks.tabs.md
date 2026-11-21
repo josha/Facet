@@ -30,6 +30,11 @@ script.Destroying:Connect(app.dispose)
 
 TabView owns page retention, selection restoration and shoulder navigation. Use Picker for a value choice within one page.
 
+In a Sheet or a Dialog, switch sections with a segmented Picker and
+`Compose.switch`, as in [Tasks.inventory](Tasks.inventory.md), and keep the
+`hug` detent. A TabView page fills its room, so a Sheet around a TabView is as
+tall as its detent and a short page leaves most of it empty.
+
 Open:
 
 - [Picker.reference](Picker.reference.md)

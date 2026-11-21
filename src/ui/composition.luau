@@ -416,13 +416,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local forms: { Frame } = {}
 		local below = zone == "action" or resolver.CELLS[zone][2] == 3
 		for index = 1, #properties do
-			local child = properties[index] :: GuiObject
-			assert(
-				(type(child) == "table" or typeof(child) == "Instance")
-					and type(child.IsA) == "function"
-					and child:IsA("GuiObject"),
-				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
-			)
+			local given: unknown = properties[index]
+			local child = given :: GuiObject
+			if not (typeof(given) == "Instance" and given:IsA("GuiObject")) then
+				local message =
+					"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
+				if not ctx.recover(message .. " This Region wraps the child in a form.") then
+					error(message, 0)
+				end
+				child = Host.Frame {
+					BackgroundTransparency = 1,
+					Size = D2.new(),
+					AutomaticSize = E.AutomaticSize.XY,
+					given :: ComposeTypes.Child,
+				}
+			end
+			local list = child:FindFirstChildWhichIsA("UIListLayout")
+			local hugs = child.AutomaticSize == E.AutomaticSize.X or child.AutomaticSize == E.AutomaticSize.XY
+			if list and hugs and list.FillDirection == E.FillDirection.Horizontal and list.Wraps then
+				list.Wraps = false
+			end
 			if spec.plate ~= false then
 				if zone == "topbar" and bareText(child) then
 					child = UI.HStack "Readout" {

@@ -2,15 +2,14 @@
 
 <!-- aliases: themePackage | ThemeDefinition | custom theme | theme definition | visual identity | art direction | native theme -->
 
-Use [use-facet](Design.guide.md) to choose the visual direction first. The
+Choose the visual direction before any screen; [use-facet](Design.guide.md)
+has the full method. When you cannot make or see a concept image, write the
+card in words first, as a comment: the lead idea from the game's world, the
+palette by role, the display and reading type, the corner and edge, and the
+finish. Then make each theme value follow the card. Facet Neutral is a base,
+not a look: a game that ships it reads as unfinished. The
 [Proof Press example](../../../skills/use-facet/assets/native-direction.luau)
-shows a complete theme and mounted task. This small letterpress game uses
-native type as its subject, with warm paper, a serif specimen and a square
-proof. Its draft selection and printed ink change independently.
-
-Copy the example into a LocalScript in `StarterPlayerScripts` with Facet
-installed. In Studio, read the source in Edit under
-`ServerStorage.FacetDocs.skills["use-facet"].assets["native-direction.luau"]`.
+shows a complete theme and mounted task.
 
 `define` starts from Facet Neutral when you omit `base`. State the edge and
 the depth of the plates in [the finish block](Themes.finish.md). Check the returned

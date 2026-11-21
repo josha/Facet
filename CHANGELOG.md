@@ -1,5 +1,23 @@
 # Current package
 
+A live build recovers from three option mistakes that replaced the control
+with an error label before. It ignores an unknown option. It gives a stack
+whose `surface` is not one of `surface`, `panel` or `pane` the `panel`
+surface. It puts a `Compose.show`, `switch` or `keyed` child of a Region in a
+form of its own. Each recovery is reported through `onError`, or as an error
+in the output. A strict build, which tests and Studio Edit use, still rejects
+all three. An author who cannot run the game often makes these mistakes, and
+one of them removed a whole HUD or every row of a list.
+
+On a short screen in landscape, the art of a stacked Card is a band no taller
+than a quarter of its width. Before, the art of a wide Card filled a phone
+panel and its title and action were below the fold.
+
+A Region form that is a hugging row does not wrap. Before, `wrap = true` on an
+HStack with no width put each child on a line of its own, because a row that
+hugs has no width to wrap at, and a hotbar became a column over the play area.
+A row form with a width still wraps.
+
 A Slider row shows `row.icon` on the title line, before the title, and the
 track on its own line at the full width of the row. Before, the icon was in a
 column of its own, centred between the title and the track.
