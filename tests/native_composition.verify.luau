@@ -1870,14 +1870,24 @@ return function(verifyHarness: Verify.Harness)
 					zone = "topRight" :: "topRight",
 					rank = 3,
 					mayDrop = false,
-					sizes = { { x = 330, y = 44 }, { x = 121, y = 400 } },
+					sizes = { { x = 330, y = 44 }, { x = 121, y = 150 } },
 				}
-				local kept, _, moved, missed = resolver.resolve(749, 323, 8, { weapon, status, column })
+				local open = resolver.resolve(749, 323, 8, { weapon, status, column })
+				expect(open[3]):toBe(2)
+				local ring = { { left = 551, right = 749, reach = 197 } }
+				local kept, _, moved, missed =
+					resolver.resolve(749, 323, 8, { weapon, status, column }, nil, nil, nil, ring)
 				expect(kept[1]):toBe(1)
 				expect(kept[2]):toBe(1)
 				expect(kept[3]):toBe(1)
 				expect(moved.top):toBe(52)
+				expect(moved.leanTop):toBe((160 - 749) / 2)
 				expect(#missed):toBe(0)
+				local bar: Declared =
+					{ zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { { x = 300, y = 40 } } }
+				local _, _, centered = resolver.resolve(749, 323, 8, { weapon, bar, column }, nil, nil, nil, ring)
+				expect(centered.top):toBe(52)
+				expect(centered.leanTop):toBe(0)
 			end,
 		})
 

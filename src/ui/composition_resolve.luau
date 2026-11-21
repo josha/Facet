@@ -174,6 +174,16 @@ local function resolve(
 				zoneH[key] += hang
 			end
 		end
+		local function aside(): number
+			local wide, left = zoneW[9] or 0, zoneW[5] or 0
+			return if stack.wide
+					and stack.top
+					and wide > 0
+					and left > 0
+					and wide <= math.max(left, lane)
+				then (wide - width) / 2
+				else 0
+		end
 		local function span(key: number): (number, number)
 			local column, row = key // 4, key % 4
 			local w = zoneW[key] or 0
@@ -183,6 +193,8 @@ local function resolve(
 				if not (if edge == "top" then stack.top else stack.bottom) then
 					local _, direction, side = between(row, edge)
 					x += direction * (side + gap) / 2
+				elseif row == 1 then
+					x += aside()
 				end
 			end
 			return x, x + w
@@ -404,6 +416,7 @@ local function resolve(
 					local edge: Edge = if row == 1 then "top" else "bottom"
 					if if edge == "top" then stack.top else stack.bottom then
 						y += (if row == 1 then 1 else -1) * (corner[edge] + gap)
+						x += if row == 1 then aside() else 0
 					else
 						local _, direction, side = between(row, edge)
 						x += direction * (side + gap) / 2
@@ -464,7 +477,9 @@ local function resolve(
 			local crowded = leftCorner > 0 and rightCorner > 0 and leftCorner + gap + rightCorner > width
 			local tall = false
 			for _, key in { 5, 13 } do
-				tall = tall or (zoneH[key] or 0) > height - floorOf(key) - (if key == 13 then sink else 0)
+				local reserved = floorOf(key)
+				tall = tall
+					or (reserved > 0 and (zoneH[key] or 0) > height - reserved - (if key == 13 then sink else 0))
 			end
 			if (crowded or tall) and not stack.wide and (zoneW[9] or 0) > 0 then
 				return resolve(
@@ -496,8 +511,10 @@ local function resolve(
 			shift.lift = lift
 			for row, edge in EDGE_ROWS do
 				local _, direction, side = between(row, edge)
-				local offset = if (if edge == "top" then stack.top else stack.bottom) or direction == 0
-					then 0
+				local stacked = if edge == "top" then stack.top else stack.bottom
+				local offset = if stacked
+					then (if edge == "top" then aside() else 0)
+					elseif direction == 0 then 0
 					else direction * (side + gap) / 2
 				if edge == "top" then
 					shift.leanTop = offset

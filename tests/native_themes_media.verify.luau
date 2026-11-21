@@ -2064,7 +2064,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(mending.ok):toBe(true)
 				local mendedExtra = assert(assert(mended).style.themes[1].extra)
 				local label, fill = assert(mendedExtra.onSelected), assert(mendedExtra.controlSelected)
-				local function light(value: ThemeTypes.RGB): number
+				local function light(value: { r: number, g: number, b: number }): number
 					local function linear(channel: number): number
 						return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
 					end
