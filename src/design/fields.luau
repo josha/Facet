@@ -547,6 +547,7 @@ local derived: Types.Derived = {
 				layout = { type = "choice", options = { "stack", "row" } },
 				menu = { type = "value" },
 				onActivate = { type = "event" },
+				plate = { type = "string" },
 				primaryAction = { type = "value" },
 				reveal = { type = "choice", options = { "automatic", "always" } },
 				ringTarget = { type = "choice", options = { "card", "media" } },

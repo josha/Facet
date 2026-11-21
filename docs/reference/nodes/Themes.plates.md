@@ -50,7 +50,10 @@ State only the values that differ; a value left out is that of the theme.
 A VStack or an HStack with `surface = "panel"` takes the plate with
 `plate = "row"`. The stack keeps the corner and the sheen of a panel. Give
 it its own fill with `BackgroundColor3`: a row with the fill of the panel
-around it reads as part of that panel. A name that the theme does not
+around it reads as part of that panel. A [Card](Card.title.md) takes a
+plate in the same way, and keeps its own fill. A Card with `onActivate`
+is a control: it takes the line of the plate and keeps the shadow of the
+controls. A name that the theme does not
 have, `plate` without `surface = "panel"`, or `plate` with `tail`, causes
 an error. A game that changes its theme names the same plates in each
 theme; under a theme without the name, the stack has the panel finish.

@@ -298,6 +298,7 @@ return function(
 					Thickness = properties.Thickness,
 					Transparency = properties.Transparency or 0,
 				}, true)
+				rule(".facet-card-text >> .facet-card-body::UIStroke", { Transparency = 1 }, true)
 			end
 		end
 		local present: { [string]: boolean } = {}

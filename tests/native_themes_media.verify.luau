@@ -1033,6 +1033,9 @@ return function(verifyHarness: Verify.Harness)
 				expect(styleRules.resolve(sheet, tip, "Thickness")):toBe(1)
 				expect(authored(".facet-outlined::UIStroke").Transparency):toBe(1)
 				expect(order(".facet-outlined::UIStroke") > order(".facet-panel::UIStroke")):toBe(true)
+				local inner = ".facet-card-text >> .facet-card-body::UIStroke"
+				expect(authored(inner).Transparency):toBe(1)
+				expect(order(inner) > order(".facet-panel::UIStroke")):toBe(true)
 				stop()
 				runtime:dispose()
 			end,

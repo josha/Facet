@@ -153,6 +153,7 @@ local ON_BY_DEFAULT: { [string]: true } = { Visible = true, Interactable = true,
 local TEXT_REFUSES: { [string]: boolean } = { TextXAlignment = true, TextDirection = true }
 local THEME_NAMES: { [string]: boolean } = { plate = true }
 local REFUSED: { [string]: { [string]: boolean } } = {
+	Card = THEME_NAMES,
 	HStack = THEME_NAMES,
 	VStack = THEME_NAMES,
 	Text = TEXT_REFUSES,

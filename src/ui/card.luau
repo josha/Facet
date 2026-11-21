@@ -11,6 +11,8 @@ local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
 local feedbackPaint = require("./feedback_paint")
 local standardIcons = require("./icons")
+local themeSupport = require("./theme_support")
+local ThemeTypes = require("./theme_types")
 
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
@@ -63,6 +65,24 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		)
 		local row = spec.layout == "row" and media
 		local above = media and not row
+		local plate: string? = nil
+		if spec.plate ~= nil then
+			local problem =
+				themeSupport.plateProblem(ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme), spec.plate)
+			if problem == nil then
+				plate = spec.plate
+			elseif not ctx.recover(`Facet UI.Card: {problem}; this Card uses the panel finish`) then
+				error(`Facet UI.Card: {problem}`, 0)
+			end
+		end
+		local function plated(node: GuiObject, shadow: boolean)
+			if plate then
+				node:AddTag("facet-plate-" .. plate)
+				if shadow then
+					ctx.skin(node, themeSupport.PLATE .. plate)
+				end
+			end
+		end
 		local function thumb(use: ComposeTypes.Use): number
 			return ctx.controlSize(ctx.config.controlSize, "height", use)
 		end
@@ -619,6 +639,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		ctx.styled<<GuiObject>>(body, "card-body")
 		body:AddTag("facet-card-part")
+		if media then
+			plated(body, spec.onActivate == nil)
+		end
 		local actionEnabled = function(use: ComposeTypes.Use?): boolean
 			return enabled(use) and ctx.readSource(revealed, use)
 		end
@@ -748,6 +771,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				"panel"
 			)
 			plateLayer:AddTag("facet-card-part")
+			plated(plateLayer, false)
 			if flowing then
 				plateLayer:AddTag("facet-card-inflow")
 			end
@@ -822,6 +846,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			"controls",
 			"ringTarget",
 			"badges",
+			"plate",
 		}, {
 			Name = "Card",
 			BackgroundTransparency = if media then 1 else nil,
@@ -868,6 +893,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		if not media then
 			ctx.styled(card, "panel")
 			card:AddTag("facet-card-text")
+			plated(card, true)
 			Host.UIPadding { Parent = Compose.static(card) }
 		end
 		root = card

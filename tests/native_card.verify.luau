@@ -253,6 +253,65 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native Card", function()
+		it("takes the line and the shadow of a plate that the theme names", {
+			id = "native_card::native Card::takes the line and the shadow of a plate that the theme names",
+			run = function()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "plated-cards" },
+					finish = { look = "hard", plates = { row = { edge = { width = 2 }, depth = { lift = 3 } } } },
+				}
+				local options = { motionLevel = "none", theme = assert((Facet.themes.define(definition))) }
+				local function tagged(node: any): boolean
+					return node:HasTag("facet-panel") and node:HasTag("facet-plate-row")
+				end
+
+				local still, stillCard =
+					mount({ glyph = "star", title = "Taro Milk", layout = "row", plate = "row" }, options)
+				local stillBody = stillCard:FindFirstChild("Body") :: any
+				expect(tagged(stillBody)):toBe(true)
+				expect(stillBody:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+				still.stop()
+
+				local words, wordsCard = mount({ title = "Notes", plate = "row" }, options)
+				expect(tagged(wordsCard)):toBe(true)
+				expect((wordsCard:FindFirstChild("Body") :: any):HasTag("facet-plate-row")):toBe(false)
+				local wordsShadow = wordsCard:FindFirstChild("ChromeShadow") :: any
+				expect(wordsShadow.Offset.Y.Offset):toBe(3)
+				words.stop()
+
+				local pressed, pressedCard = mount({
+					glyph = "star",
+					title = "Mango Pop",
+					layout = "row",
+					plate = "row",
+					onActivate = function() end,
+				}, options)
+				local pressedBody = pressedCard:FindFirstChild("Body") :: any
+				expect(tagged(pressedBody)):toBe(true)
+				expect(pressedBody:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(4)
+				pressed.stop()
+
+				local plain, plainCard = mount({ glyph = "star", title = "Plain", layout = "row" }, options)
+				local plainBody = plainCard:FindFirstChild("Body") :: any
+				expect(plainBody:HasTag("facet-plate-row")):toBe(false)
+				expect(plainBody:FindFirstChild("ChromeShadow")):toBeNil()
+				plain.stop()
+
+				local ok, problem = pcall(function()
+					mount({ title = "Wrong", plate = "card" }, options)
+				end)
+				expect(ok):toBe(false)
+				expect(
+					string.find(
+						tostring(problem),
+						"Facet UI.Card: the theme has no plate named card. It has: row",
+						1,
+						true
+					) ~= nil
+				):toBe(true)
+			end,
+		})
+
 		it("clears a reactive badge icon while its label stays visible", {
 			id = "native_card::native Card::clears a reactive badge icon while its label stays visible",
 			run = function()

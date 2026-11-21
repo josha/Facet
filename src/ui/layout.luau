@@ -555,27 +555,12 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		if surface == "panel" then
 			local slot = "panel"
 			if wanted ~= nil then
-				local problem: string? = nil
-				if type(wanted) ~= "string" or string.match(wanted, "^%a%w*$") == nil then
-					problem = "plate is the name of a plate in finish.plates of the theme"
-				elseif spec.tail ~= nil then
-					problem = "a stack with a tail has the panel finish. Remove plate or tail"
-				else
-					local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme)
-					local chrome: { [string]: Theme.SkinLayer }? = if package then package.chrome or {} else nil
-					if chrome and chrome[themeSupport.PLATE .. wanted] == nil then
-						local names: { string } = {}
-						for key in chrome do
-							if string.sub(key, 1, #themeSupport.PLATE) == themeSupport.PLATE then
-								table.insert(names, string.sub(key, #themeSupport.PLATE + 1))
-							end
-						end
-						table.sort(names)
-						problem = if #names > 0
-							then `the theme has no plate named {wanted}. It has: {table.concat(names, ", ")}`
-							else `the theme has no plate named {wanted}. Name it in finish.plates of the theme`
-					end
-				end
+				local problem = if spec.tail ~= nil
+					then "a stack with a tail has the panel finish. Remove plate or tail"
+					else themeSupport.plateProblem(
+						ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme),
+						wanted
+					)
 				if problem == nil then
 					slot = themeSupport.PLATE .. (wanted :: string)
 					frame:AddTag("facet-plate-" .. (wanted :: string))

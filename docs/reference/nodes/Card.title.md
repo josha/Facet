@@ -16,6 +16,8 @@ shows the art as a small square at the start of the text, for a short row.
 A row card shows one line of title and one line of caption. A row card
 with `reveal = "always"` puts its actions at the trailing end of the row
 while the title keeps 120 pixels of room. A narrower card puts them below.
+`plate` is the name of a plate in the theme: the body takes its line and
+shadow. See [Themes.plates](Themes.plates.md).
 
 With `reveal = "automatic"`, the action row overlays the bottom of the card
 on a pointer device. It uses a plate above the content and adds no layout

@@ -363,6 +363,26 @@ local function chromeLayer(chrome: { [string]: ThemeTypes.SkinLayer }?, slot: st
 	return layer
 end
 
+local function plateProblem(package: ThemeTypes.ReadOnlyThemePackage?, wanted: unknown): string?
+	if type(wanted) ~= "string" or string.match(wanted, "^%a%w*$") == nil then
+		return "plate is the name of a plate in finish.plates of the theme"
+	end
+	local chrome: { [string]: ThemeTypes.SkinLayer }? = if package then package.chrome or {} else nil
+	if chrome == nil or chrome[PLATE .. wanted] ~= nil then
+		return nil
+	end
+	local names: { string } = {}
+	for key in chrome do
+		if string.sub(key, 1, #PLATE) == PLATE then
+			table.insert(names, string.sub(key, #PLATE + 1))
+		end
+	end
+	table.sort(names)
+	return if #names > 0
+		then `the theme has no plate named {wanted}. It has: {table.concat(names, ", ")}`
+		else `the theme has no plate named {wanted}. Name it in finish.plates of the theme`
+end
+
 local function plateReach(package: ThemeTypes.ReadOnlyThemePackage?): number
 	if package == nil then
 		return 0
@@ -418,6 +438,7 @@ return {
 	shadowPresets = shadowPresets,
 	plateReach = plateReach,
 	chromeLayer = chromeLayer,
+	plateProblem = plateProblem,
 	PLATE = PLATE,
 	numericMetric = numericMetric,
 	paletteFor = paletteFor,
