@@ -213,37 +213,20 @@ local function resolve(
 			return reach
 		end
 		local failing: { [number]: boolean } = {}
-		local soft: { [number]: boolean } = {}
 		local function fail(key: number, wider: number?)
 			for _, index in members[key] or ({} :: { number }) do
 				local form = forms[index]
 				local size = if form > 0 then regions[index].sizes[form] else nil
 				if wider == nil or (size and size.x > wider) then
 					failing[index] = true
-					soft[index] = nil
 				end
 			end
 		end
 		local function check(key: number, room: number, tall: number)
-			local wide = zoneW[key] or 0
 			if (zoneH[key] or 0) > tall then
 				fail(key)
-			elseif wide > room then
-				local row = key % 4
-				local lone = wide <= width
-				for column = 1, 3 do
-					local other = column * 4 + row
-					lone = lone and (other == key or (zoneW[other] or 0) <= 0)
-				end
-				for _, index in members[key] or ({} :: { number }) do
-					local form = forms[index]
-					local size = if form > 0 then regions[index].sizes[form] else nil
-					if size and size.x > room then
-						local fresh = not failing[index]
-						failing[index] = true
-						soft[index] = if lone and fresh then true else nil
-					end
-				end
+			elseif (zoneW[key] or 0) > room then
+				fail(key, room)
 			end
 		end
 		if strip then
@@ -438,6 +421,22 @@ local function resolve(
 		clearSides(stack.top, 9, corner.top + gap + (zoneH[9] or 0))
 		clearSides(stack.bottom, 11, corner.bottom + gap + (zoneH[11] or 0))
 		local boxes: { { key: number, x: number, y: number, w: number, h: number } } = {}
+		local function placed(column: number, row: number, w: number, h: number): (number, number)
+			local key = column * 4 + row
+			local x = if column == 1 then 0 elseif column == 3 then width - w else (width - w) / 2
+			local y = (if row == 1 then 0 elseif row == 3 then height - h else (height - h) / 2) + (lift[key] or 0)
+			if column == 2 and row ~= 2 then
+				local edge: Edge = if row == 1 then "top" else "bottom"
+				if if edge == "top" then stack.top else stack.bottom then
+					y += (if row == 1 then 1 else -1) * (corner[edge] + gap)
+					x += if row == 1 then aside() else 0
+				else
+					local _, direction, side = between(row, edge)
+					x += direction * (side + gap) / 2
+				end
+			end
+			return x, y
+		end
 		local function blocked(key: number): boolean
 			for _, index in members[key] or ({} :: { number }) do
 				if failing[index] then
@@ -453,18 +452,7 @@ local function resolve(
 				if w <= 0 or h <= 0 or blocked(key) then
 					continue
 				end
-				local x = if column == 1 then 0 elseif column == 3 then width - w else (width - w) / 2
-				local y = (if row == 1 then 0 elseif row == 3 then height - h else (height - h) / 2) + (lift[key] or 0)
-				if column == 2 and row ~= 2 then
-					local edge: Edge = if row == 1 then "top" else "bottom"
-					if if edge == "top" then stack.top else stack.bottom then
-						y += (if row == 1 then 1 else -1) * (corner[edge] + gap)
-						x += if row == 1 then aside() else 0
-					else
-						local _, direction, side = between(row, edge)
-						x += direction * (side + gap) / 2
-					end
-				end
+				local x, y = placed(column, row, w, h)
 				for _, box in boxes do
 					if
 						box.key % 4 ~= row
@@ -571,44 +559,41 @@ local function resolve(
 					shift.leanBottom = offset
 				end
 			end
-			for key, list in members do
-				local eased = false
-				for _, index in list do
-					eased = eased or soft[index] == true
+			local shown: { { key: number, x: number, y: number, w: number, h: number } } = {}
+			for column = 1, 3 do
+				for row = 1, 3 do
+					local key = column * 4 + row
+					local w, h = zoneW[key] or 0, zoneH[key] or 0
+					if w > 0 and h > 0 then
+						local x, y = placed(column, row, w, h)
+						table.insert(shown, { key = key, x = x, y = y, w = w, h = h })
+					end
 				end
-				local column, row = math.floor(key / 4), key % 4
-				local w, h = zoneW[key] or 0, zoneH[key] or 0
-				if not eased or column < 1 then
-					continue
-				end
-				local x = if column == 1 then 0 elseif column == 3 then width - w else (width - w) / 2
-				local y = (if row == 1 then 0 elseif row == 3 then height - h else (height - h) / 2) + (lift[key] or 0)
-				for _, box in boxes do
-					if
-						math.floor(box.key / 4) ~= column
-						and x < box.x + box.w + gap
-						and x + w + gap > box.x
-						and y < box.y + box.h + gap
-						and y + h + gap > box.y
-					then
-						for _, index in list do
-							soft[index] = nil
-						end
-						break
+			end
+			local hit: { [number]: boolean } = {}
+			for first, a in shown do
+				for second = first + 1, #shown do
+					local b = shown[second]
+					if a.x < b.x + b.w and a.x + a.w > b.x and a.y < b.y + b.h and a.y + a.h > b.y then
+						hit[a.key], hit[b.key] = true, true
 					end
 				end
 			end
 			local overflow: { number } = {}
-			local hard: { number } = {}
 			for index in failing do
 				table.insert(overflow, index)
-				if not soft[index] then
-					table.insert(hard, index)
-				end
 			end
 			table.sort(overflow)
-			table.sort(hard)
-			return forms, landed, shift, overflow, { top = zoneW[9] or 0, bottom = zoneW[11] or 0 }, hard
+			local colliding: { number } = {}
+			for key in hit do
+				for _, index in members[key] or ({} :: { number }) do
+					if forms[index] > 0 then
+						table.insert(colliding, index)
+					end
+				end
+			end
+			table.sort(colliding)
+			return forms, landed, shift, overflow, { top = zoneW[9] or 0, bottom = zoneW[11] or 0 }, colliding
 		end
 		local region = regions[chosen]
 		if forms[chosen] < #region.sizes then

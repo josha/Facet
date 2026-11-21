@@ -1390,19 +1390,20 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if known then
 				return known
 			end
-			local chosen, down, moved, overflow, packed, missed =
+			local chosen, down, moved, overflow, packed, colliding =
 				resolver.resolve(width, height, spacing, list, band, nil, nil, areas)
 			local trial = list
+			local gone: { [number]: boolean } = {}
 			for _ = 1, #list do
 				local pick: number? = nil
-				for _, index in missed do
-					local region = trial[index]
+				for _, index in colliding do
 					local best = if pick then trial[pick] else nil
+					local rank = trial[index].rank
 					if
 						holds
 						and holds[index]
-						and not region.mayDrop
-						and (best == nil or region.rank > best.rank or (region.rank == best.rank and index > pick))
+						and not gone[index]
+						and (best == nil or rank > best.rank or (rank == best.rank and index > pick))
 					then
 						pick = index
 					end
@@ -1410,13 +1411,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				if pick == nil then
 					break
 				end
+				gone[pick] = true
 				trial = table.clone(trial)
-				local forced = table.clone(trial[pick])
-				forced.mayDrop = true
-				trial[pick] = forced
+				local hidden = table.clone(trial[pick])
+				hidden.sizes = {}
+				trial[pick] = hidden
 				local _
-				chosen, down, moved, _, packed, missed =
+				chosen, down, moved, _, packed, colliding =
 					resolver.resolve(width, height, spacing, trial, band, nil, nil, areas)
+				for index in gone do
+					chosen[index] = 0
+				end
 			end
 			local made: Resolution =
 				{ chosen = chosen, down = down, moved = moved, overflow = overflow, packed = packed }

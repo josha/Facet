@@ -30,11 +30,11 @@ Form selection, zone fallback, fit warnings and resize motion.
   the corners share the row. A narrow `top` then sits at the left.
   When the corners are still too wide, `topRight` moves below `topLeft`.
   Each time, it resolves again.
-- A region can still collide with another region at its last form. It then
-  hides behind the "…" control of its zone, highest rank number first, and
-  the composition warns once and names it. `reveal = false` keeps it in
-  view. A lone region that is only wider than its lane also stays in view.
-  Give the region a smaller form.
+- When a zone still covers another zone, a region of those zones hides
+  behind the "…" control of its zone, highest rank number first.
+  `reveal = false` keeps a region in view. A region that is only too large
+  for its lane or the screen stays in view, with one warning that names it.
+  Give that region a smaller form.
 - On a screen larger than a phone, the composition also resolves its
   measured forms for a 358 by 812 and an 812 by 358 phone area. The
   `FacetUnfit` boolean attribute marks a fit failure at the size it has now

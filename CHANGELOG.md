@@ -6,12 +6,13 @@ that keeps the Neutral minimum gets its smaller sizes raised to 16. Before,
 text on a desktop screen was small beside a hand-built UI. A theme can set
 `controls.typography.minimumSize` to 14 to keep the old sizes.
 
-A Region that collides with another Region at its last form now hides behind
-the "…" control of its zone, where the player can open it. The Region with
-the highest rank number goes first. Before, the two regions stayed over each
-other. A Region with `reveal = false` stays in view, and so does a lone
-Region that is only wider than its lane. The fit warning and `FacetUnfit`
-still name the Region. Every zone that has a Region with `reveal` now has a
+When one zone of a Composition still covers another zone after every Region
+is at its last form, a Region of those zones now hides behind the "…"
+control of its zone, where the player can open it. The Region with the
+highest rank number goes first. Before, the regions stayed over each other.
+A Region with `reveal = false` stays in view, and so does a Region that is
+only too large for its lane or the screen. The fit warning and `FacetUnfit`
+still name each Region that does not fit. Every zone that has a Region with `reveal` now has a
 hidden "…" control ready.
 
 A hugging Region form keeps a child with `UI.fill()` at its natural size.
