@@ -1396,16 +1396,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local gone: { [number]: boolean } = {}
 			for _ = 1, #list do
 				local pick: number? = nil
+				local worst = -math.huge
 				for _, index in colliding do
-					local best = if pick then trial[pick] else nil
 					local rank = trial[index].rank
-					if
-						holds
-						and holds[index]
-						and not gone[index]
-						and (best == nil or rank > best.rank or (rank == best.rank and index > pick))
-					then
-						pick = index
+					if holds and holds[index] and not gone[index] and rank >= worst then
+						pick, worst = index, rank
 					end
 				end
 				if pick == nil then
