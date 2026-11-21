@@ -3,6 +3,7 @@ local ComposeTypes = require("../vendor/compose/core")
 local ThemeTypes = require("./theme_types")
 local support = require("./theme_support")
 local themeFinish = require("./theme_finish")
+local themeMotion = require("./theme_motion")
 local DATA_FORMS = table.freeze({ "udim", "udim2", "vector2", "colorSequence", "numberSequence" })
 local SIZE_FLOOR = 14
 
@@ -291,7 +292,18 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			base.style = table.clone(base.style)
 			base.style.themes = { base.style.themes[1] }
 		end
-		local package = merge(base, definition)
+		local motion = (definition :: { motion: unknown? }).motion
+		if motion ~= nil then
+			local feel = if type(motion) == "table" then (motion :: { feel: unknown? }).feel else nil
+			local patch = if type(feel) == "string" then themeMotion.feels[feel] else nil
+			if patch then
+				base = merge(base, { metrics = { motion = patch } })
+			else
+				table.insert(errors, { field = "motion.feel", message = "feel is calm, crisp or lively" })
+			end
+		end
+		local package = merge(base, definition);
+		(package :: { motion: unknown? }).motion = nil
 		if type(package.identity) ~= "table" or type(package.identity.id) ~= "string" then
 			table.insert(errors, { field = "identity.id", message = "A theme package needs an identity" })
 		end
@@ -305,7 +317,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		(package :: { finish: unknown? }).finish = nil
 		local finishAdvice: { ThemeTypes.ThemeIssue } = {}
 		if finish ~= nil then
-			local issues, notes = themeFinish.apply(package, finish)
+			local issues, notes = themeFinish.apply(package, finish, base.style.themes[1])
 			for _, issue in issues do
 				table.insert(errors, issue)
 			end

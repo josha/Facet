@@ -1,0 +1,56 @@
+--!strict
+type Patch = { [string]: unknown }
+
+local feels: { [string]: Patch } = {
+	calm = {
+		fast = 0.16,
+		normal = 0.26,
+		press = 0.1,
+		hover = 0.2,
+		popover = { enter = 0.2, exit = 0.14 },
+		dialog = { enter = 0.28, exit = 0.2 },
+		reveal = { enter = 0.32, exit = 0.24 },
+		sheet = { enter = 0.4, exit = 0.28 },
+		toast = { enter = 0.28, exit = 0.24 },
+		springs = {
+			snappy = { period = 0.26, damping = 1 },
+			control = { period = 0.32, damping = 1 },
+			move = { period = 0.38, damping = 1 },
+			sheet = { period = 0.5, damping = 1 },
+		},
+		materialize = { popOvershoot = 0.12 },
+	},
+	crisp = {
+		fast = 0.08,
+		normal = 0.14,
+		press = 0.05,
+		hover = 0.1,
+		popover = { enter = 0.1, exit = 0.06 },
+		dialog = { enter = 0.14, exit = 0.1 },
+		reveal = { enter = 0.16, exit = 0.12 },
+		sheet = { enter = 0.2, exit = 0.14 },
+		toast = { enter = 0.14, exit = 0.12 },
+		springs = {
+			snappy = { period = 0.15, damping = 1 },
+			control = { period = 0.18, damping = 1 },
+			move = { period = 0.22, damping = 1 },
+			sheet = { period = 0.28, damping = 1 },
+		},
+		materialize = { anchored = 0.96, modal = 0.98, popOvershoot = 0.08 },
+	},
+	lively = {
+		springs = {
+			snappy = { period = 0.22, damping = 0.65 },
+			control = { period = 0.28, damping = 0.6 },
+			move = { period = 0.32, damping = 0.7 },
+			sheet = { period = 0.42, damping = 0.75 },
+			flick = { period = 0.3, damping = 0.6 },
+		},
+		materialize = { anchored = 0.8, menu = 0.9, modal = 0.88, lift = 1.07, popOvershoot = 0.45 },
+		scales = { travelLift = 1.14 },
+		durations = { buttonPop = 0.5 },
+		easing = { present = "outBack" },
+	},
+}
+
+return { feels = feels }

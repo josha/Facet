@@ -333,10 +333,31 @@ export type FinishDepth = {
 	strength: number?,
 	controls: boolean?,
 }
-export type Finish = { edge: FinishEdge, depth: FinishDepth }
+export type FinishLook = "flat" | "raised" | "glow" | "hard"
+export type FinishEdgePatch = {
+	width: number?,
+	role: string?,
+	transparency: number?,
+	controls: (boolean | FinishControlEdge)?,
+}
+export type FinishDepthPatch = {
+	lift: number?,
+	glow: number?,
+	sheen: number?,
+	blur: number?,
+	side: number?,
+	role: string?,
+	strength: number?,
+	controls: boolean?,
+}
+export type Finish =
+	{ edge: FinishEdge, depth: FinishDepth }
+	| { look: FinishLook, edge: FinishEdgePatch?, depth: FinishDepthPatch? }
+export type MotionFeel = "calm" | "crisp" | "lively"
 export type ThemeDefinition = {
 	base: ThemePackage?,
 	finish: Finish?,
+	motion: { feel: MotionFeel }?,
 	schema: string?,
 	identity: IdentityPatch?,
 	style: { defaultTheme: string?, themes: { PalettePatch }?, shadows: { [string]: Shadow }? }?,

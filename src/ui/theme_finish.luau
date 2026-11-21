@@ -14,6 +14,32 @@ local FAINT_STRENGTH = 0.4
 
 type Table = { [string]: unknown }
 
+local LOOKS: { [string]: { edge: Table, depth: Table } } = {
+	flat = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
+	raised = {
+		edge = { width = 1, transparency = 0.5 },
+		depth = { lift = 8, blur = 24, glow = 0, sheen = 0.2, strength = 0.55, controls = true },
+	},
+	glow = {
+		edge = { width = 2, role = "accent", transparency = 0.1, controls = { width = 1, transparency = 0.4 } },
+		depth = { lift = 0, glow = 28, sheen = 0.14, strength = 0.85 },
+	},
+	hard = {
+		edge = { width = 3, role = "content", controls = { width = 2, role = "content" } },
+		depth = { lift = 6, blur = 0, glow = 0, sheen = 0, strength = 1, controls = true },
+	},
+}
+
+local function over(base: Table, stated: unknown): Table
+	local out = table.clone(base)
+	if type(stated) == "table" then
+		for key, value in stated :: Table do
+			out[key] = value
+		end
+	end
+	return out
+end
+
 local function amount(value: unknown): number?
 	return if type(value) == "number" and value == value and value >= 0 and value < math.huge then value else nil
 end
@@ -32,7 +58,8 @@ end
 
 local function apply(
 	package: ThemeTypes.ThemePackage,
-	finish: unknown
+	finish: unknown,
+	inherited: ThemeTypes.Palette?
 ): ({ ThemeTypes.ThemeIssue }, { ThemeTypes.ThemeIssue })
 	local issues: { ThemeTypes.ThemeIssue } = {}
 	local advice: { ThemeTypes.ThemeIssue } = {}
@@ -44,7 +71,15 @@ local function apply(
 		return issues, advice
 	end
 	local stated = finish :: Table
+	local look = if stated.look == nil then nil else LOOKS[stated.look :: string]
+	if stated.look ~= nil and look == nil then
+		issue(".look", "look is flat, raised, glow or hard")
+		return issues, advice
+	end
 	local edge, depth = stated.edge :: Table, stated.depth :: Table
+	if look then
+		edge, depth = over(look.edge, stated.edge), over(look.depth, stated.depth)
+	end
 	if type(edge) ~= "table" then
 		issue(".edge", "State the edge. For no edge, use edge = { width = 0 }")
 	end
@@ -67,7 +102,7 @@ local function apply(
 			issue(field, "A role is the name of a palette color")
 			return nil, fallback
 		end
-		local found = color(palette, name)
+		local found = color(palette, name) or (if inherited then color(inherited, name) else nil)
 		if found == nil then
 			issue(field, `The palette {palette.name} has no color {name}`)
 		end
