@@ -451,6 +451,49 @@ return function(verifyHarness: Verify.Harness)
 				expect(string.find(tostring(problem), "surface must be", 1, true) ~= nil):toBe(true)
 			end,
 		})
+		it("gives a stack the line and the shadow of a plate that the theme names", {
+			id = "native_layout::stack surfaces::gives a stack the line and the shadow of a plate that the theme names",
+			run = function()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "plated" },
+					finish = {
+						look = "hard",
+						plates = { row = { edge = { width = 2 }, depth = { lift = 3 } } },
+					},
+				}
+				local package = assert((Facet.themes.define(definition)))
+				local root, _, stop = build({ theme = package }, function(UI)
+					return UI.VStack "Drink" { surface = "panel", plate = "row", padding = "s" }
+				end)
+				expect(table.find(root:GetTags(), "facet-panel") ~= nil):toBe(true)
+				expect(table.find(root:GetTags(), "facet-plate-row") ~= nil):toBe(true)
+				expect(root:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+				stop()
+				local plain, _, stopPlain = build({ theme = package }, function(UI)
+					return UI.VStack "Menu" { surface = "panel", padding = "s" }
+				end)
+				expect(table.find(plain:GetTags(), "facet-plate-row")):toBe(nil)
+				expect(plain:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(6)
+				stopPlain()
+				for _, case in
+					{
+						{ options = { surface = "panel", plate = "card" }, text = "no plate named card" },
+						{ options = { plate = "row" }, text = 'plate needs surface = "panel"' },
+					}
+				do
+					local ok, problem = true, ""
+					local _, _, stopBad = build({ theme = package }, function(UI)
+						ok, problem = pcall(function()
+							UI.VStack(case.options :: any)
+						end)
+						return UI.VStack {}
+					end)
+					stopBad()
+					expect(ok):toBe(false)
+					expect(string.find(tostring(problem), case.text, 1, true) ~= nil):toBe(true)
+				end
+			end,
+		})
 	end)
 
 	describe("stack stretch matching", function()

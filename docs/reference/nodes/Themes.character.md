@@ -40,6 +40,9 @@ motion, state the token in `metrics.motion`;
 [Motion.metrics.motion](Motion.metrics.motion.md) lists each token. Reduced
 motion still removes the motion.
 
+[Themes.plates](Themes.plates.md) gives the rows in a panel their own line
+and shadow, and a Button a shadow in a dark shade of its fill.
+
 A look gives only the edge and the depth. State the palette, the type and
 the corner of the direction also. Do not take a look or a feel from another
 game: a night racing garage and a farm stall do not share one.

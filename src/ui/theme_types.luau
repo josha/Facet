@@ -139,6 +139,7 @@ export type Shadow = {
 	blurRadius: ShadowAxis?,
 	offset: ShadowPair?,
 	spread: ShadowPair?,
+	shade: number?,
 }
 export type Asset = {
 	content: string?,
@@ -331,10 +332,16 @@ export type FinishDepth = {
 	side: number?,
 	role: string?,
 	strength: number?,
-	controls: (boolean | { lift: number })?,
+	controls: (boolean | { lift: number?, side: number?, shade: number? })?,
 }
+export type FinishPlate = { edge: FinishEdge?, depth: FinishDepth? }
 export type FinishLook = "flat" | "raised" | "glow" | "hard"
-export type Finish = { look: FinishLook?, edge: FinishEdge?, depth: FinishDepth? }
+export type Finish = {
+	look: FinishLook?,
+	edge: FinishEdge?,
+	depth: FinishDepth?,
+	plates: { [string]: FinishPlate }?,
+}
 export type MotionFeel = "calm" | "crisp" | "lively"
 export type ThemeDefinition = {
 	base: ThemePackage?,
@@ -381,6 +388,7 @@ export type SkinOptions = {
 	artTransparency: Engine.ValueNumber?,
 	emphasisTheme: Engine.Input<ReadOnlyThemePackage>?,
 	shadowTransparency: Engine.ValueNumber?,
+	fill: Engine.Input<Color3>?,
 	target: GuiObject?,
 	label: Engine.ValueString?,
 	onCaption: ((boolean) -> ())?,

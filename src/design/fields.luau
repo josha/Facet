@@ -1260,6 +1260,7 @@ local derived: Types.Derived = {
 				maxHeight = { type = "number" },
 				maxWidth = { type = "number" },
 				padding = { type = "string" },
+				plate = { type = "string" },
 				status = {
 					type = "choice",
 					options = { "neutral", "info", "success", "warning", "error", "accent", "voice", "contrast" },
@@ -3076,6 +3077,7 @@ local derived: Types.Derived = {
 				maxHeight = { type = "number" },
 				maxWidth = { type = "number" },
 				padding = { type = "string" },
+				plate = { type = "string" },
 				status = {
 					type = "choice",
 					options = { "neutral", "info", "success", "warning", "error", "accent", "voice", "contrast" },

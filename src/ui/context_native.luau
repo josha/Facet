@@ -350,6 +350,7 @@ return function(
 			return independent(themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
+				fill = (observeStyled(node, "BackgroundColor3") :: unknown) :: ComposeTypes.ReadOnlyValue<Color3>,
 				artTransparency = artTransparency,
 				emphasisTheme = if stateOptions.emphasis then authoredTheme else nil,
 				shadowTransparency = function(use: ComposeTypes.Use)

@@ -98,6 +98,9 @@ return function(
 		return if fade == 0 then base else 1 - (1 - base) * (1 - fade)
 	end
 	local types, Host = typesFor(settings), (runtime.constructors :: unknown) :: Engine.Host
+	local function shaded(fill: Color3, share: number): Color3
+		return fill:Lerp(color(types, { r = 0, g = 0, b = 0 }) :: Color3, math.clamp(share, 0, 1))
+	end
 	local D2, V2 = types.UDim2, types.Vector2
 	local function axis(value: ThemeTypes.ShadowAxis?): (number, number)
 		local resolved: ThemeTypes.ShadowAxis = value or {}
@@ -130,9 +133,16 @@ return function(
 				assert(shadow ~= nil, "Facet theme unknown shadow preset")
 			end
 			if shadow then
+				local plain = color(types, shadow.color or { r = 0, g = 0, b = 0 }) :: Color3
+				local tone: Engine.Input<Color3> = plain
+				if shadow.shade ~= nil and settings.fill ~= nil then
+					tone = function(use: ComposeTypes.Use): Color3
+						return shaded(read<<Color3>>(settings.fill, use), shadow.shade or 0)
+					end
+				end
 				runtime.mount(function()
 					return Host.UIShadow "ChromeShadow" {
-						Color = color(types, shadow.color or { r = 0, g = 0, b = 0 }),
+						Color = tone,
 						Transparency = if settings.shadowTransparency == nil
 							then shadow.transparency or 0.5
 							else function(use: ComposeTypes.Use)
@@ -605,10 +615,11 @@ return function(
 				local properties: Engine.UIShadowNativeProps = {
 					Name = "ChromeShadow",
 					Color = function(use: ComposeTypes.Use)
-						return color(
-								types,
-								(use(retainedShadow) :: ThemeTypes.Shadow).color or { r = 0, g = 0, b = 0 }
-							) :: Color3
+						local current = use(retainedShadow) :: ThemeTypes.Shadow
+						if current.shade ~= nil and settings.fill ~= nil then
+							return shaded(read<<Color3>>(settings.fill, use), current.shade)
+						end
+						return color(types, current.color or { r = 0, g = 0, b = 0 }) :: Color3
 					end,
 					Transparency = function(use: ComposeTypes.Use)
 						return shadowTransparency((use(retainedShadow) :: ThemeTypes.Shadow).transparency or 0.5, use)

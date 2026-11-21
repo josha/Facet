@@ -37,6 +37,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		"width",
 		"height",
 		"surface",
+		"plate",
 		"status",
 		"corners",
 		"ground",
@@ -551,7 +552,24 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			end)
 		end
 		if spec.surface == "panel" then
-			ctx.skin(frame, "panel")
+			local slot = "panel"
+			if spec.plate ~= nil then
+				local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme)
+				local named = "plate." .. tostring(spec.plate)
+				if package and package.chrome and package.chrome[named] then
+					slot = named
+					frame:AddTag("facet-plate-" .. tostring(spec.plate))
+				elseif
+					not ctx.recover(
+						`Facet stack: the theme has no plate named {spec.plate}; this stack uses the panel finish`
+					)
+				then
+					error(`Facet stack: the theme has no plate named {spec.plate}. Name it in finish.plates`, 0)
+				end
+			end
+			ctx.skin(frame, slot)
+		elseif spec.plate ~= nil and not ctx.recover('Facet stack: plate needs surface = "panel"') then
+			error('Facet stack: plate needs surface = "panel"', 0)
 		end
 		if spec.tail ~= nil then
 			stackTail(ctx, frame, spec.tail, function(use: ComposeTypes.Use, extent: Vector2): number

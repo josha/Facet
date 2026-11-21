@@ -27,6 +27,7 @@ export type GroupOptions = {
 export type StackOptions = {
 	padding: Types.Input<Padding>?,
 	surface: ("surface" | "panel" | "pane")?,
+	plate: string?,
 	ground: GuiObject?,
 	corners: Types.Input<StackCorners>?,
 	tail: Types.Input<StackTail?>?,
