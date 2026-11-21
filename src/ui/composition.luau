@@ -288,6 +288,35 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		return false
 	end
+	local function holdFill(item: UIFlexItem, form: Instance)
+		local child = item.Parent
+		local holder = if child then child.Parent else nil
+		local list = if holder then holder:FindFirstChildWhichIsA("UIListLayout") else nil
+		if list == nil then
+			return
+		end
+		local along = if list.FillDirection == E.FillDirection.Horizontal then E.AutomaticSize.X else E.AutomaticSize.Y
+		local at: Instance? = holder
+		while at and at ~= form do
+			local hugs = at:IsA("GuiObject")
+				and not at:IsA("ScrollingFrame")
+				and (at.AutomaticSize == E.AutomaticSize.XY or at.AutomaticSize == along)
+			if not hugs then
+				return
+			end
+			at = at.Parent
+		end
+		if at == nil then
+			return
+		end
+		if item.FlexMode == E.UIFlexMode.Fill then
+			item.FlexMode = E.UIFlexMode.Grow
+		elseif item.FlexMode == E.UIFlexMode.Shrink then
+			item.FlexMode = E.UIFlexMode.None
+		elseif item.FlexMode == E.UIFlexMode.Custom then
+			item.ShrinkRatio = 0
+		end
+	end
 	local function bareText(form: GuiObject): boolean
 		local found = form:IsA("TextLabel") and not backed(form, form)
 		for _, node in form:GetDescendants() do
@@ -484,6 +513,16 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			})
 			properties[index] = frame
 			forms[index] = frame
+			for _, inner in frame:GetDescendants() do
+				if inner:IsA("UIFlexItem") then
+					holdFill(inner, frame)
+				end
+			end
+			runtime.connect(frame, "DescendantAdded", function(inner: Instance)
+				if inner:IsA("UIFlexItem") then
+					holdFill(inner, frame)
+				end
+			end)
 		end
 		assert(#sizes > 0, "Facet Region needs at least one form")
 		local floor = ctx.hitFloor()

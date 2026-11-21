@@ -11,5 +11,7 @@ ignore it, because Roblox does not flex an automatic-size axis; put
 `GrowRatio` and `ShrinkRatio`. The weight must be a positive number. For the
 cross axis, use `align = "stretch"` on the stack or `width = "fill"` on a
 container. Fill also shrinks: use it in a row that has a bounded width. In a
-hugging stack or a Region form, a filled Button can shrink below its label.
-There, give the Button a fixed width, or set `align = "stretch"` on a VStack.
+hugging stack, a filled Button can shrink below its label to fit a narrow
+ancestor. A Region form that hugs keeps a filled child at its natural size.
+For equal buttons, give each Button a fixed width, or set
+`align = "stretch"` on a VStack.

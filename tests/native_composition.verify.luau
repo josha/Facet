@@ -1622,6 +1622,43 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps a filled child of a hugging Region form at its natural size", {
+			id = "native_composition::Composition::keeps a filled child of a hugging Region form at its natural size",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition "Hud" {
+						topbar = false,
+						UI.Region "Tools" {
+							zone = "topRight" :: "topRight",
+							rank = 1,
+							UI.HStack "Hugging" {
+								UI.Button "Open" { label = "Upgrades", UI.fill() },
+								UI.Button "Weighted" { label = "Customize", UI.fill(2) },
+							},
+						},
+						UI.Region "Bar" {
+							zone = "bottom" :: "bottom",
+							rank = 1,
+							UI.HStack "Bounded" {
+								width = 320,
+								UI.Button "Wide" { label = "Settings", UI.fill() },
+							},
+						},
+					}
+				end)
+				local function flex(name: string): UIFlexItem
+					return w.find(name):FindFirstChildWhichIsA("UIFlexItem")
+				end
+				expect(flex("Open").FlexMode.Name):toBe("Grow")
+				expect(flex("Weighted").FlexMode.Name):toBe("Custom")
+				expect(flex("Weighted").GrowRatio):toBe(2)
+				expect(flex("Weighted").ShrinkRatio):toBe(0)
+				expect(flex("Wide").FlexMode.Name):toBe("Fill")
+				w.stop()
+			end,
+		})
+
 		it("collapses a colliding region that has no smaller form into the zone's overflow control", {
 			id = "native_composition::Composition::collapses a colliding region that has no smaller form into the zone's overflow control",
 			run = function()
