@@ -26,9 +26,11 @@ Form selection, zone fallback, fit warnings and resize motion.
   corners, and uses the full width.
   The composition resolves again from the richest forms.
   The `left` and `right` zones that the moved zone covers give way first.
-- When the `topLeft` and `topRight` zones are too wide for one row after no
-  region can give way, the `topRight` zone moves below the `topLeft` zone.
-  The composition resolves again from the richest forms.
+- When a top corner zone is still too tall, or the two top corner zones are
+  too wide for one row, the `top` zone moves below the corners and the
+  corners share the row. When they are still too wide, the `topRight` zone
+  moves below the `topLeft` zone. Each time, the composition resolves again
+  from the richest forms.
 - A region can still fail to fit at its last form when nothing else can give
   way. The composition then warns once in the output and names the region.
   Give that region a smaller form, `mayDrop = true` or a higher rank number.

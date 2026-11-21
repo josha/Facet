@@ -1864,6 +1864,20 @@ return function(verifyHarness: Verify.Harness)
 				local stepped, _, level = resolver.resolve(353, 700, 8, { weapon, short })
 				expect(stepped[2]):toBe(2)
 				expect(level.lift[13] or 0):toBe(0)
+				local status: Declared =
+					{ zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { { x = 160, y = 40 } } }
+				local column: Declared = {
+					zone = "topRight" :: "topRight",
+					rank = 3,
+					mayDrop = false,
+					sizes = { { x = 330, y = 44 }, { x = 121, y = 400 } },
+				}
+				local kept, _, moved, missed = resolver.resolve(749, 323, 8, { weapon, status, column })
+				expect(kept[1]):toBe(1)
+				expect(kept[2]):toBe(1)
+				expect(kept[3]):toBe(1)
+				expect(moved.top):toBe(52)
+				expect(#missed):toBe(0)
 			end,
 		})
 

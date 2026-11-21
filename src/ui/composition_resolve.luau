@@ -31,7 +31,7 @@ export type Shift = {
 export type Area = { left: number, right: number, reach: number }
 export type Rows = { top: number, bottom: number }
 type Edge = "top" | "bottom"
-type Stacked = { top: boolean, bottom: boolean, sink: boolean? }
+type Stacked = { top: boolean, bottom: boolean, sink: boolean?, wide: boolean? }
 
 local EDGE_ROWS: { [number]: Edge } = { [1] = "top", [3] = "bottom" }
 
@@ -274,7 +274,8 @@ local function resolve(
 			local top, middle, bottom = column * 4 + 1, column * 4 + 2, column * 4 + 3
 			for row, key in { top, middle, bottom } do
 				local room = lane
-				if column ~= 2 and row ~= 2 and (zoneW[8 + row] or 0) == 0 then
+				local alone = (zoneW[8 + row] or 0) == 0 or (stack.wide == true and row == 1 and stack.top)
+				if column ~= 2 and row ~= 2 and alone then
 					local opposite = if sink > 0 and row == 1
 						then 0
 						else zoneW[(if column == 1 then 12 else 4) + row] or 0
@@ -434,19 +435,6 @@ local function resolve(
 			end
 		end
 		if chosen == nil then
-			local leftCorner, rightCorner = zoneW[5] or 0, zoneW[13] or 0
-			if not stack.sink and leftCorner > 0 and rightCorner > 0 and leftCorner + gap + rightCorner > width then
-				return resolve(
-					width,
-					height,
-					gap,
-					regions,
-					strip,
-					{ top = stack.top, bottom = stack.bottom, sink = true },
-					lean,
-					areas
-				)
-			end
 			for edge in squeezed do
 				local _, _, _, lone = between(if edge == "top" then 1 else 3, edge)
 				if
@@ -462,7 +450,8 @@ local function resolve(
 			end
 			for edge in squeezed do
 				if squeezed[edge] and not (if edge == "top" then stack.top else stack.bottom) and corner[edge] > 0 then
-					local next: Stacked = { top = stack.top, bottom = stack.bottom, sink = stack.sink }
+					local next: Stacked =
+						{ top = stack.top, bottom = stack.bottom, sink = stack.sink, wide = stack.wide }
 					if edge == "top" then
 						next.top = true
 					else
@@ -470,6 +459,36 @@ local function resolve(
 					end
 					return resolve(width, height, gap, regions, strip, next, lean, areas)
 				end
+			end
+			local leftCorner, rightCorner = zoneW[5] or 0, zoneW[13] or 0
+			local crowded = leftCorner > 0 and rightCorner > 0 and leftCorner + gap + rightCorner > width
+			local tall = false
+			for _, key in { 5, 13 } do
+				tall = tall or (zoneH[key] or 0) > height - floorOf(key) - (if key == 13 then sink else 0)
+			end
+			if (crowded or tall) and not stack.wide and (zoneW[9] or 0) > 0 then
+				return resolve(
+					width,
+					height,
+					gap,
+					regions,
+					strip,
+					{ top = true, bottom = stack.bottom, sink = stack.sink, wide = true },
+					lean,
+					areas
+				)
+			end
+			if crowded and not stack.sink then
+				return resolve(
+					width,
+					height,
+					gap,
+					regions,
+					strip,
+					{ top = stack.top, bottom = stack.bottom, sink = true, wide = stack.wide },
+					lean,
+					areas
+				)
 			end
 			shift.top = if stack.top and (zoneW[9] or 0) > 0 then corner.top + gap else 0
 			shift.bottom = if stack.bottom and (zoneW[11] or 0) > 0 then corner.bottom + gap else 0

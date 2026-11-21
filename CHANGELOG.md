@@ -52,9 +52,12 @@ below 4.5:1: it moves the color toward white or black until the pair passes,
 and `report.advice` names the color. Before, one such pair rejected the whole
 theme, and a game that did not read the report showed the neutral theme.
 
-When the `topLeft` and `topRight` zones are too wide for one row and no
-region can give way, the `topRight` zone moves below the `topLeft` zone.
-Before, the two zones drew over each other on a portrait phone.
+When a top corner zone is still too tall, or the `topLeft` and `topRight`
+zones are too wide for one row, and no region can give way, the `top` zone
+moves below the corners and the corners share the row. When the corners are
+still too wide, the `topRight` zone moves below the `topLeft` zone. Before,
+the two corners drew over each other on a portrait phone, and a tall corner
+form drew over the touch controls.
 
 A `center` row region does not go over a wider side zone that cannot step
 down, drop or land. Before, the row kept its lane width and three wide
