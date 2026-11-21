@@ -11,6 +11,13 @@ inside a Compose owner. This is usually the component that you give to
 Property tables accept native Instances and Compose directives as children.
 A `nil` child omits that entry.
 
+A constructor checks its options. In a strict build (tests and Studio Edit) a
+wrong option is an error. In a live client the control is replaced by an
+error label, but three mistakes are repaired and reported instead: an unknown
+option is ignored, a stack `surface` that is not `surface`, `panel` or `pane`
+becomes `panel`, and a `Compose.show`, `switch` or `keyed` child of a Region
+gets a form of its own. Do not rely on a repair: write the documented option.
+
 Open:
 
 - [Factory-options](Factory-options.md)

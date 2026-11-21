@@ -94,6 +94,24 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 		end
 		return consumed
 	end
+	local function strictNow(): boolean
+		local mode = ctx.config.buildMode
+		if mode then
+			return mode.strict
+		end
+		return ctx.config.strictBuild ~= false
+	end
+	function ctx.recover(message: string): boolean
+		if strictNow() then
+			return false
+		end
+		if ctx.config.onError then
+			ctx.config.onError(message)
+		elseif task and task.spawn then
+			task.spawn(error, `Facet recovered from an option error: {message}`, 0)
+		end
+		return true
+	end
 	function ctx.props<P>(spec: P, behavioralKeys: { string } | { [string]: boolean }?, defaults: unknown?): P
 		local result: { [unknown]: unknown } = if type(defaults) == "table"
 			then table.clone(defaults :: { [unknown]: unknown })
@@ -118,18 +136,17 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 			for _, key in unknown do
 				table.insert(messages, unknownOption(key, consumed))
 			end
-			error(table.concat(messages, "\n"), 0)
+			local text = table.concat(messages, "\n")
+			if not ctx.recover(text) then
+				error(text, 0)
+			end
+			for _, key in unknown do
+				result[key] = nil
+			end
 		end
 		return (result :: unknown) :: P
 	end
 
-	local function strictNow(): boolean
-		local mode = ctx.config.buildMode
-		if mode then
-			return mode.strict
-		end
-		return ctx.config.strictBuild ~= false
-	end
 	local function failedControl(control: string, failure: unknown): Instance
 		local message = string.sub((string.gsub(tostring(failure), "^[%w%._]+:%d+: ", "")), 1, 400)
 		if ctx.config.onError then

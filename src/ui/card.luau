@@ -401,7 +401,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				else D2.new(1, 0, 0, 0),
 			ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
 			Host.UIAspectRatioConstraint {
-				AspectRatio = if row then 1 else ratio,
+				AspectRatio = if row
+					then 1
+					else function(use: ComposeTypes.Use): number
+						local env = UI.environment()
+						return if use(env.isShort) and use(env.isLandscape) then math.max(ratio, 4) else ratio
+					end,
 				AspectType = E.AspectType.FitWithinMaxSize,
 				DominantAxis = E.DominantAxis.Width,
 			},

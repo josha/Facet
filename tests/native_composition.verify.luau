@@ -1986,6 +1986,58 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("recovers from option mistakes in a live build and rejects them in a strict build", {
+			id = "native_composition::Composition::recovers from option mistakes in a live build and rejects them in a strict build",
+			run = function()
+				local notes: { unknown } = {}
+				local engine, runtime, UI = make({
+					strictBuild = false,
+					onError = function(failure: unknown)
+						table.insert(notes, failure)
+					end,
+				})
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local text: TextLabel
+				local stack: Frame
+				local region: Frame
+				local shown = Facet.Compose.cell(true)
+				runtime.mount(function()
+					text = UI.Text { text = "Pot", maxWidth = 120 }
+					stack = UI.VStack "Seat" {
+						surface = function()
+							return "panel"
+						end,
+						UI.Text { text = "Dex" },
+					}
+					region = UI.Region {
+						Name = "Car",
+						zone = "topLeft",
+						rank = 1,
+						Facet.Compose.show(shown, function()
+							return UI.HStack "Full" { surface = "panel", UI.Text { text = "Comet" } }
+						end),
+					}
+					return UI.Composition { region, UI.Region { Name = "Pot", zone = "top", rank = 2, text } }
+				end, layer)
+				expect(text.ClassName):toBe("TextLabel")
+				expect(text:GetAttribute("FacetError")):toBe(nil)
+				expect(stack:GetAttribute("FacetError")):toBe(nil)
+				expect(stack:HasTag("facet-panel")):toBe(true)
+				expect(region:GetAttribute("FacetError")):toBe(nil)
+				expect(region:FindFirstChild("Full", true) ~= nil):toBe(true)
+				expect(#notes):toBe(3)
+				local _, strictRuntime, strict = make()
+				local strictLayer = engine.new("ScreenGui")
+				strictLayer.Parent = engine.new("Folder")
+				expect(function()
+					strictRuntime.mount(function()
+						return strict.Text { text = "Pot", maxWidth = 120 }
+					end, strictLayer)
+				end):toThrow("unknown option 'maxWidth'")
+			end,
+		})
+
 		it("keeps a hugging row form on one line and lets a row form with a width wrap", {
 			id = "native_composition::Composition::keeps a hugging row form on one line and lets a row form with a width wrap",
 			run = function()
