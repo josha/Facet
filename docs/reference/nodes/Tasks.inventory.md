@@ -5,7 +5,8 @@ Show a few items, each with a picture and its action.
 ```luau
 local Facet = require(game.ReplicatedStorage.Packages.Facet)
 local C = Facet.Compose
-type Item = { id: string, name: string, art: string, note: string, action: string? }
+type Item = { id: string, name: string, art: string, note: string, action: string?,
+  ready: Facet.ReadOnlyValue<boolean>? }
 local function bag(app: Facet.App, open: Facet.Value<boolean>, owned: { Item }, shop: { Item },
   act: (Item) -> ()): Frame
   local UI = app.UI
@@ -17,7 +18,7 @@ local function bag(app: Facet.App, open: Facet.Value<boolean>, owned: { Item }, 
     for _, item in items do
       table.insert(list, UI.Card(item.id) {
         title = item.name, caption = item.note, glyph = item.art, layout = "row",
-        reveal = "always",
+        reveal = "always", enabled = item.ready,
         primaryAction = if item.action
           then { label = item.action, onActivate = function() act(item) end } else nil,
       })
@@ -38,8 +39,9 @@ end
 ```
 
 Each item has a picture: `image` for game art, or `glyph`, a Facet icon name
-or an emoji that the Card draws large, as `art` here. `note` holds the quantity or the price. `enabled`
-on the action shows what the player cannot buy. Keep `note` short.
-`layout = "row"` puts the picture beside the text, so the bag fits a phone in
-landscape. With `minCellWidth`, the Grid shows as many columns as fit the
-panel, and its cells take the height of the tallest Card. [Confirm](Tasks.confirm.md) a purchase.
+or an emoji, as `art` here. `note` holds only the quantity or the price.
+`ready` is false for an item the player cannot buy: `enabled` dims the Card
+and its action, so add no words such as "cannot afford". `layout = "row"`
+puts the picture beside the text, so the bag fits a phone in landscape. With
+`minCellWidth`, the Grid shows as many columns as fit the panel.
+[Confirm](Tasks.confirm.md) a purchase.

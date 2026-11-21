@@ -55,7 +55,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			spec.glyph == nil or (nonempty(spec.glyph) and string.match(spec.glyph, "^rbx") == nil),
 			"Facet UI.Card: glyph must be an icon name or an emoji; give an image asset to image"
 		)
-		assert(spec.glyph == nil or spec.artwork == nil, "Facet UI.Card: give glyph or artwork, not both")
 		local media = spec.image ~= nil or spec.artwork ~= nil or spec.glyph ~= nil
 		assert(
 			spec.layout == nil or spec.layout == "stack" or spec.layout == "row",
@@ -68,7 +67,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		assert(nonempty(read(spec.title)), "Facet UI.Card: title is required: a nonempty string")
 		assert(spec.caption == nil or text(read(spec.caption)), "Facet UI.Card: caption must be a string")
-		local ratio = spec.imageAspectRatio or (if spec.glyph and spec.image == nil then 4 / 3 else 16 / 9)
+		local ratio = spec.imageAspectRatio
+			or (if spec.glyph and spec.image == nil and spec.artwork == nil then 4 / 3 else 16 / 9)
 		assert(
 			type(ratio) == "number" and ratio > 0 and ratio < math.huge,
 			"Facet UI.Card: imageAspectRatio must be a positive finite number"
@@ -418,7 +418,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return live
 			end, artwork)
 		end
-		if spec.glyph then
+		if spec.glyph and spec.artwork == nil then
 			local glyph = spec.glyph
 			runtime.mount(function()
 				local centered = ctx.types.Vector2.new(0.5, 0.5)
@@ -533,14 +533,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			},
 			if row then Host.Folder "Leading" { artwork } else artwork,
 			titleLabel,
-			if row
-				then Host.UISizeConstraint "RowFloor" {
+		}
+		if row then
+			table.insert(
+				bodyChildren,
+				Host.UISizeConstraint "RowFloor" {
 					MinSize = function(use: ComposeTypes.Use): Vector2
 						return ctx.types.Vector2.new(0, thumb(use) + ctx.metric("space.s", use))
 					end,
 				}
-				else nil,
-		}
+			)
+		end
 		if captionLabel then
 			table.insert(bodyChildren, captionLabel)
 		end
