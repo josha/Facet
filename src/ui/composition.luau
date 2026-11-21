@@ -1233,6 +1233,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			local across = if column ~= 2 then zones[MIDDLE[row]] else nil
 			local acrossSize = if across then ctx.observe.AbsoluteSize(across) else nil
 			local markSize = Compose.cell(V2.zero)
+			local others: { { row: number, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
+			for name, place in resolver.CELLS do
+				local other = zones[name]
+				if across and other and name ~= "topbar" and place[1] == column and place[2] ~= row then
+					table.insert(others, { row = place[2], size = ctx.observe.AbsoluteSize(other) })
+				end
+			end
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
@@ -1256,10 +1263,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					local reaches = if column == 1 then x + wide + space > left else x - wide - space < left + mid.X
 					local head = y - hold * side
 					if reaches and head < top + mid.Y + space and head + side + space > top then
-						if row == 1 then
-							y, hold = top + mid.Y + space, 0
-						else
-							y, hold = top - space, 1
+						local low = if row == 1 then top + mid.Y + space else top - space - side
+						local mine = if column == 1 then x else x - wide
+						local free = low >= 0 and low + side <= screen.Y
+						for _, other in others do
+							local box = use(other.size) / unit
+							local first = (screen.Y - box.Y) * (other.row - 1) / 2 + lowered(moved, column, other.row)
+							local start = (screen.X - box.X) * (column - 1) / 2 + leaned(moved, column, other.row)
+							if
+								box.X > 0
+								and box.Y > 0
+								and low < first + box.Y + space
+								and low + side + space > first
+								and mine < start + box.X + space
+								and mine + wide + space > start
+							then
+								free = false
+							end
+						end
+						if free then
+							y, hold = if row == 1 then low else low + side, if row == 1 then 0 else 1
 						end
 					end
 				end

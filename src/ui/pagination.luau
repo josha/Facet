@@ -160,9 +160,35 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		local digits = measure("DigitMeasure", "0000000000")
 		local ellipsis = measure("EllipsisMeasure", "…")
+		local refused = false
+		local function named(page: number, count: number?): string
+			local ok, text = pcall(assert(format), page, count)
+			if ok and type(text) == "string" then
+				return text
+			end
+			if not refused then
+				refused = true
+				checks.note(`Facet UI.Pagination: label must return a string for page {page}; the row shows the number`)
+			end
+			return tostring(page)
+		end
+		local known = Compose.formula(function(use: ComposeTypes.Use): number?
+			return use(state).count
+		end)
+		local sampled = Compose.formula(function(use: ComposeTypes.Use): string
+			local count = use(known)
+			if format == nil or form == "arrows" or count == nil then
+				return ""
+			end
+			local lines: { string } = {}
+			for page = 1, math.min(count, SAMPLED) do
+				lines[page] = named(page, count)
+			end
+			return table.concat(lines, "\n")
+		end)
 		local function caption(current: number, count: number?, use: ComposeTypes.Use): string
 			if format then
-				return format(current, count)
+				return named(current, count)
 			elseif form == "step" then
 				return if count ~= nil then `{current} / {count}` else tostring(current)
 			elseif count ~= nil then
@@ -181,16 +207,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return "No pages"
 			end
 			if format then
-				local longest = format(st.current, st.count)
-				for page = 1, math.min(st.count or 0, SAMPLED) do
-					local text = format(page, st.count)
-					if (utf8.len(text) or #text) > (utf8.len(longest) or #longest) then
-						longest = text
-					end
+				local lines = use(sampled)
+				if form == "arrows" or (st.count ~= nil and st.current <= SAMPLED) then
+					return lines
 				end
-				return longest
+				local own = named(st.current, st.count)
+				return if lines == "" then own else `{lines}\n{own}`
 			elseif form == "step" then
-				local zeros = string.rep("0", #tostring(st.count or st.current))
+				local zeros =
+					string.rep("0", if st.count ~= nil then #tostring(st.count) else math.max(4, #tostring(st.current)))
 				return if st.count ~= nil then `{zeros} / {st.count}` else zeros
 			end
 			if st.count ~= nil then

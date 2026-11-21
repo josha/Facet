@@ -19,8 +19,10 @@ It requires `page` (a number or a readable) and `onChange(nextPage)`.
   Previous, a label and Next. Its root has the width of that row, so it also
   fits a hugging stack or a Region form. The label is "2 / 6".
 - `label` is a function `(page, count)` that returns the text of the label,
-  such as a name. The label keeps the width of the longest text of the first
-  64 pages, so the arrows do not move.
+  such as a name. `count` is `nil` for an unknown count. The function must
+  give the same text for the same page. The label keeps the width of the
+  widest text of the first 64 pages, so the arrows do not move. A value that
+  is not a string shows the page number, with a diagnostic line.
 - `controls` is an optional table. The control sets `controls.diagnostics()`,
   which returns the refusal lines.
 
