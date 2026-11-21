@@ -8,6 +8,7 @@ local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.face
 local UTILITY = ".facet-button.facet-appearance-utility::UIStroke"
 local DISABLED_EDGE = 0.6
 local SHADOW = "finish"
+local CONTROL_SHADOW = "finishControl"
 local GLOW_STRENGTH = 0.55
 local LIFT_STRENGTH = 0.35
 local FAINT_GLOW = 8
@@ -27,7 +28,7 @@ local LOOKS: { [string]: { edge: Table, depth: Table } } = {
 	},
 	hard = {
 		edge = { width = 3, role = "content", controls = { width = 2 } },
-		depth = { lift = 6, blur = 0, glow = 0, sheen = 0, strength = 1, controls = true },
+		depth = { lift = 6, blur = 0, glow = 0, sheen = 0, strength = 1, controls = { lift = 4 } },
 	},
 }
 
@@ -147,9 +148,12 @@ local function apply(
 	local side = measure(".depth.side", depth.side, false)
 	local tint, tintName = paint(".depth.role", depth.role, if glow > 0 then "accent" else "content")
 	local strength = share(".depth.strength", depth.strength, if glow > 0 then GLOW_STRENGTH else LIFT_STRENGTH)
-	if depth.controls ~= nil and type(depth.controls) ~= "boolean" then
-		issue(".depth.controls", "controls is true or false")
+	local held: unknown = depth.controls
+	local low: Table? = if type(held) == "table" then held :: Table else nil
+	if held ~= nil and type(held) ~= "boolean" and low == nil then
+		issue(".depth.controls", "controls is true, false or a table with lift")
 	end
+	local controlLift = if low then measure(".depth.controls.lift", low.lift, true) else lift
 	local onControls = edge.controls
 	local own: Table? = if type(onControls) == "table" then onControls :: Table else nil
 	if onControls ~= nil and type(onControls) ~= "boolean" and own == nil then
@@ -256,14 +260,23 @@ local function apply(
 			}
 		local shadows = table.clone(style.shadows or {})
 		shadows[SHADOW] = shadow
+		local lower = glow <= 0 and low ~= nil and controlLift ~= lift
+		if lower then
+			local share = if lift > 0 then controlLift / lift else 1
+			local near = table.clone(shadow)
+			near.blurRadius = { offset = (if depth.blur == nil then lift * 2 else blur) * share }
+			near.offset = { x = { offset = side * share }, y = { offset = controlLift } }
+			shadows[CONTROL_SHADOW] = near
+		end
 		style.shadows = shadows
 		local chrome = package.chrome :: { [string]: Table }
-		for _, slot in if depth.controls == true then { "panel", "control" } else { "panel" } do
+		for _, slot in if held == true or low ~= nil then { "panel", "control" } else { "panel" } do
+			local name = if slot == "control" and lower then CONTROL_SHADOW else SHADOW
 			local layer = chrome[slot]
 			if layer == nil then
-				chrome[slot] = { kind = "native", shadow = SHADOW }
+				chrome[slot] = { kind = "native", shadow = name }
 			elseif type(layer) == "table" and layer.kind == "native" then
-				layer.shadow = SHADOW
+				layer.shadow = name
 			end
 		end
 	end

@@ -744,6 +744,12 @@ return function(verifyHarness: Verify.Harness)
 				local refusedTypo, typoReport = themes.define(typo)
 				expect(refusedTypo):toBe(nil)
 				expect(typoReport.errors[1].field):toBe("finish.edge.role")
+				local chunky: any =
+					assert((themes.define({ identity = { id = "chunky" }, finish = { look = "hard" } })))
+				expect(chunky.style.shadows.finish.offset.y.offset):toBe(6)
+				expect(chunky.style.shadows.finishControl.offset.y.offset):toBe(4)
+				expect(chunky.chrome.control.shadow):toBe("finishControl")
+				expect(chunky.chrome.panel.shadow):toBe("finish")
 				local turned: Facet.ThemeDefinition =
 					{ identity = { id = "turned" }, finish = { look = "glow", depth = { lift = 6 } } }
 				local dropped: any = assert((themes.define(turned)))

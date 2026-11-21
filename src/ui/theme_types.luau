@@ -331,7 +331,7 @@ export type FinishDepth = {
 	side: number?,
 	role: string?,
 	strength: number?,
-	controls: boolean?,
+	controls: (boolean | { lift: number })?,
 }
 export type FinishLook = "flat" | "raised" | "glow" | "hard"
 export type Finish = { look: FinishLook?, edge: FinishEdge?, depth: FinishDepth? }

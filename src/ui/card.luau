@@ -557,7 +557,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				bodyChildren,
 				Host.UISizeConstraint "RowFloor" {
 					MinSize = function(use: ComposeTypes.Use): Vector2
-						return ctx.types.Vector2.new(0, thumb(use) + ctx.metric("space.s", use))
+						local clear = if use(trailing) > 0 then 2 else 1
+						return ctx.types.Vector2.new(0, thumb(use) + clear * ctx.metric("space.s", use))
 					end,
 				}
 			)
