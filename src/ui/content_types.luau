@@ -89,6 +89,7 @@ export type CardOptions = {
 	primaryAction: CardAction?,
 	menu: CardMenu?,
 	reveal: ("automatic" | "always")?,
+	layout: ("stack" | "row")?,
 	browseTarget: (() -> GuiObject?)?,
 	enabled: Types.ValueBoolean?,
 	controls: CardControls?,

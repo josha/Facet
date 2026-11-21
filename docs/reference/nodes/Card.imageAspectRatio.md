@@ -8,8 +8,9 @@ Card.imageAspectRatio option values and behavior.
   The card mounts it once in the artwork frame and sizes it to fill the frame. With `image`, the image shows under the
   artwork. The card owns the artwork and releases it with the card.
 - `glyph` is a Facet icon name or an emoji. The card draws it in the middle
-  of the artwork frame at 60 percent of the frame height. Do not give `glyph`
-  and `artwork` together.
+  of the artwork frame at 75 percent of the frame height. With `glyph` and no
+  `image`, the default `imageAspectRatio` is `4/3`. Do not give `glyph` and
+  `artwork` together.
 - With `onActivate`, the body is a Button. `onActivate(input)` receives the
   native input of the activation, or `nil`. Without it, the body is plain
   artwork and text. The primary action is a Button. `menu` is a Menu behind a

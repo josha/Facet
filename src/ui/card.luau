@@ -57,9 +57,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		)
 		assert(spec.glyph == nil or spec.artwork == nil, "Facet UI.Card: give glyph or artwork, not both")
 		local media = spec.image ~= nil or spec.artwork ~= nil or spec.glyph ~= nil
+		assert(
+			spec.layout == nil or spec.layout == "stack" or spec.layout == "row",
+			"Facet UI.Card: layout must be stack or row"
+		)
+		local row = spec.layout == "row" and media
+		local above = media and not row
+		local function thumb(use: ComposeTypes.Use): number
+			return ctx.controlSize(ctx.config.controlSize, "height", use)
+		end
 		assert(nonempty(read(spec.title)), "Facet UI.Card: title is required: a nonempty string")
 		assert(spec.caption == nil or text(read(spec.caption)), "Facet UI.Card: caption must be a string")
-		local ratio = spec.imageAspectRatio or 16 / 9
+		local ratio = spec.imageAspectRatio or (if spec.glyph and spec.image == nil then 4 / 3 else 16 / 9)
 		assert(
 			type(ratio) == "number" and ratio > 0 and ratio < math.huge,
 			"Facet UI.Card: imageAspectRatio must be a positive finite number"
@@ -378,10 +387,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			BackgroundTransparency = 1,
 			Image = image,
 			Visible = media,
-			Size = if media then D2.new(1, 0, 0, 100000) else D2.new(1, 0, 0, 0),
+			AnchorPoint = if row then ctx.types.Vector2.new(0, 0.5) else nil,
+			Position = if row
+				then function(use: ComposeTypes.Use): UDim2
+					return D2.new(0, ctx.metric("space.s", use), 0.5, 0)
+				end
+				else nil,
+			Size = if row
+				then function(use: ComposeTypes.Use): UDim2
+					return D2.fromOffset(thumb(use), thumb(use))
+				end
+				elseif media then D2.new(1, 0, 0, 100000)
+				else D2.new(1, 0, 0, 0),
 			ScaleType = if spec.imageFraming == "fit" then E.ScaleType.Fit else E.ScaleType.Crop,
 			Host.UIAspectRatioConstraint {
-				AspectRatio = ratio,
+				AspectRatio = if row then 1 else ratio,
 				AspectType = E.AspectType.FitWithinMaxSize,
 				DominantAxis = E.DominantAxis.Width,
 			},
@@ -406,7 +426,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					return Host.Frame "Glyph" {
 						AnchorPoint = centered,
 						Position = D2.fromScale(0.5, 0.5),
-						Size = D2.fromScale(0.6, 0.6),
+						Size = if row then D2.fromScale(1, 1) else D2.fromScale(0.75, 0.75),
 						BackgroundTransparency = 1,
 						Host.UIAspectRatioConstraint { AspectRatio = 1 },
 						ctx.icon(glyph, { Name = "Icon", Size = D2.fromScale(1, 1) }),
@@ -417,7 +437,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					AutomaticSize = E.AutomaticSize.None,
 					AnchorPoint = centered,
 					Position = D2.fromScale(0.5, 0.5),
-					Size = D2.fromScale(1, 0.6),
+					Size = if row then D2.fromScale(1, 1) else D2.fromScale(1, 0.75),
 					Text = glyph,
 					TextScaled = true,
 					TextXAlignment = E.TextXAlignment.Center,
@@ -443,7 +463,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local function closing(use: ComposeTypes.Use): UDim
 			return D.new(
 				0,
-				if media
+				if above
 						and read<<string>>(subtitle, use) == ""
 						and (not revealing or not inFlow(use))
 					then ctx.metric("space.s", use)
@@ -455,9 +475,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return D.new(0, ctx.metric("space.s", use))
 			end
 			return Host.UIPadding {
-				PaddingLeft = side,
+				PaddingLeft = if row
+					then function(use: ComposeTypes.Use): UDim
+						return D.new(0, 2 * ctx.metric("space.s", use) + thumb(use))
+					end
+					else side,
 				PaddingRight = side,
-				PaddingTop = if media or bottom then nil else side,
+				PaddingTop = if above or bottom then nil else side,
 				PaddingBottom = if bottom then side else closing,
 			}
 		end
@@ -471,7 +495,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			TextTruncate = E.TextTruncate.AtEnd,
 			inset(false),
 		}, nil, "label")
-		ctx.clampLines(titleLabel, CARD_TEXT_LINES)
+		ctx.clampLines(titleLabel, if row then 1 else CARD_TEXT_LINES)
 		local captionLabel: TextLabel?
 		if spec.caption ~= nil or badges ~= nil then
 			local label = ctx.text({
@@ -489,7 +513,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				TextTruncate = E.TextTruncate.AtEnd,
 				inset(true),
 			}, nil, "caption")
-			ctx.clampLines(label, CARD_TEXT_LINES)
+			ctx.clampLines(label, if row then 1 else CARD_TEXT_LINES)
 			label:AddTag("facet-secondary")
 			captionLabel = label
 		end
@@ -507,8 +531,15 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					return D.new(0, ctx.metric("space.xs", use))
 				end,
 			},
-			artwork,
+			if row then Host.Folder "Leading" { artwork } else artwork,
 			titleLabel,
+			if row
+				then Host.UISizeConstraint "RowFloor" {
+					MinSize = function(use: ComposeTypes.Use): Vector2
+						return ctx.types.Vector2.new(0, thumb(use) + ctx.metric("space.s", use))
+					end,
+				}
+				else nil,
 		}
 		if captionLabel then
 			table.insert(bodyChildren, captionLabel)
@@ -719,6 +750,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			"image",
 			"artwork",
 			"glyph",
+			"layout",
 			"title",
 			"caption",
 			"imageAspectRatio",

@@ -282,6 +282,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			caption = { type = "string", label = "Caption", order = 2 },
 			image = { type = "string", label = "Image URI", order = 3 },
 			glyph = { type = "string", label = "Glyph", order = 17 },
+			layout = { type = "choice", label = "Layout", order = 18, options = { "stack", "row" } },
 			imageAspectRatio = { type = "number", label = "Artwork ratio", order = 4 },
 			imageFraming = { type = "choice", label = "Image framing", order = 5, options = { "fit", "crop" } },
 			reveal = { type = "choice", label = "Reveal", order = 6, options = { "automatic", "always" } },
@@ -569,6 +570,7 @@ local controls: { [string]: Types.ControlSpec } = {
 		fields = nativeFields(4, {
 			grow = { type = "number", label = "Grow", order = 40 },
 			columns = { type = "number", label = "Columns", order = 1 },
+			minCellWidth = { type = "number", label = "Minimum cell width", order = 18 },
 			gap = {
 				type = "choice",
 				label = "Spacing",

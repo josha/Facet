@@ -3151,9 +3151,62 @@ return function(verifyHarness: Verify.Harness)
 					engine.environment.poke(tall:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 66))
 					settle()
 					expect(grid.CellSize.Y.Offset):toBe(66)
+					local row = engine.new("Frame")
+					row.Name = "Reveal"
+					row.Parent = short
+					engine.environment.poke(row, "AbsolutePosition", V2.new(0, 58))
+					engine.environment.poke(row, "AbsoluteSize", V2.new(120, 44))
+					settle()
+					expect(grid.CellSize.Y.Offset):toBe(102)
+					row.Parent = nil
 					tall.Parent = nil
+					settle()
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 50))
 					expect(grid.CellSize.Y.Offset):toBe(50)
 					stop()
+				end,
+			})
+			it("fits as many columns as minCellWidth allows, with columns as the most", {
+				id = "native_layout::Grid::fits as many columns as minCellWidth allows, with columns as the most",
+				run = function()
+					local root, engine, stop = build(nil, function(UI, Host)
+						return UI.Grid "Tiles" {
+							minCellWidth = 100,
+							gap = 0,
+							cellHeight = 40,
+							Host.Frame { Name = "A" },
+							Host.Frame { Name = "B" },
+						}
+					end)
+					local V2 = engine.types.Vector2
+					local grid = child(root, "UIGridLayout")
+					engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, 40))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(430, 40))
+					expect(grid.FillDirectionMaxCells):toBe(4)
+					expect(grid.CellSize.X.Scale):toBeCloseTo(1 / 4, 1e-4)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(90, 40))
+					expect(grid.FillDirectionMaxCells):toBe(1)
+					stop()
+					local capped, engine2, stop2 = build(nil, function(UI, Host)
+						return UI.Grid "Tiles" {
+							minCellWidth = 100,
+							columns = 3,
+							gap = 0,
+							cellHeight = 40,
+							Host.Frame { Name = "A" },
+						}
+					end)
+					local layout = child(capped, "UIGridLayout")
+					engine2.environment.poke(layout, "AbsoluteCellSize", engine2.types.Vector2.new(100, 40))
+					engine2.environment.poke(capped, "AbsoluteSize", engine2.types.Vector2.new(900, 40))
+					expect(layout.FillDirectionMaxCells):toBe(3)
+					stop2()
+					expect((mentions(
+						refusal(function(UI: FacetControls)
+							return UI.Grid { UI.Text { text = "A" } }
+						end),
+						"without it, set minCellWidth"
+					))):toBe(true)
 				end,
 			})
 			it("fills columns first with flow column and follows the child count", {

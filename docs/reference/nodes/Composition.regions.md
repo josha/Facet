@@ -52,8 +52,9 @@ a stable stack or frame form, not around the Region.
   is necessary. Let each form hug its content, or give it a pixel size that
   a 358 pixel phone can show. A form that fills its parent has no size of its
   own.
-  Each form must be a concrete GuiObject. Put `Compose.show` or other reactive
-  children inside a stable stack or frame; do not pass a factory as a form.
+  Each form must be a concrete GuiObject, not a factory.
+- Use `topbar` for short readouts: it uses no play area. Keep `top` to one
+  short row; a second row covers the character on a phone.
 
 A smaller form must keep routes to the richer form's tasks. Use passive text
 or an icon for the built-in reveal, or make a button open all omitted choices.

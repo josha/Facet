@@ -11,7 +11,9 @@ other options are `caption`,
 `imageFraming` (`fit` or `crop`), `onActivate`, `primaryAction = { label,
 icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
 (`automatic` or `always`), `browseTarget`, `enabled`, `ringTarget`,
-`badges = { leading?, trailing? }` and `controls`.
+`badges = { leading?, trailing? }`, `layout` and `controls`. `layout = "row"`
+shows the art as a small square at the start of the text, for a short row.
+A row card shows one line of title and one line of caption.
 
 With `reveal = "automatic"`, the action row overlays the bottom of the card
 on a pointer device. It uses a plate above the content and adds no layout

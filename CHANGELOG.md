@@ -25,8 +25,17 @@ each cell the height of its tallest Card. Before, the cells had the height of a 
 cards overlapped each other and the parts around the grid.
 
 `UI.Card` has the new option `glyph`: a Facet icon name or an emoji. The Card
-draws it in the art frame at 60 percent of the frame height. Use it for an
-item that has no art.
+draws it in the art frame at 75 percent of the frame height, and the frame of
+a glyph card is `4/3` by default. Use it for an item that has no art.
+
+`UI.Card` has the new option `layout`. With `layout = "row"`, the art is a
+square of the control height at the start of the title and the caption, and
+the card is as short as a list row. The default, `stack`, keeps the art above
+the text.
+
+`UI.Grid` has the new option `minCellWidth`. The grid shows as many columns
+as fit at that width or more, and `columns` becomes optional and is the most
+columns. Use it for item tiles in a panel of unknown width.
 
 A Card in a box taller than its content keeps its plate and its place on
 hover. Before, in a Grid cell or a stretched row, the plate became as small

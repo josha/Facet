@@ -1113,23 +1113,47 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	UI.Grid = ctx.construct("Grid", function(spec: LayoutProps.GridProps): Frame
-		local properties, children = split(
-			spec,
-			{ "columns", "flow", "gap", "rowGap", "cellHeight", "aspectRatio", "align", "padding", "width", "height" }
-		)
+		local properties, children = split(spec, {
+			"columns",
+			"minCellWidth",
+			"flow",
+			"gap",
+			"rowGap",
+			"cellHeight",
+			"aspectRatio",
+			"align",
+			"padding",
+			"width",
+			"height",
+		})
 		local size, automatic = kit.extent(spec, "fill", "hug")
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
 		local cardHeight = if spec.cellHeight == nil and spec.aspectRatio == nil then Compose.cell(0) else nil
 		local cellWidth = if spec.aspectRatio ~= nil then Compose.cell(0) else nil
+		local least = spec.minCellWidth
+		assert(
+			least == nil or (type(least) == "number" and least > 0 and least < math.huge),
+			"Facet Grid minCellWidth must be a pixel width above 0"
+		)
+		local floorWidth = if least then UI.environment().scaled(least) else nil
+		local across = Compose.cell(0)
 		local function columns(use: ComposeTypes.Use?): number
-			local count = read(spec.columns, use)
+			local count = read<<number?>>(spec.columns, use)
 			assert(
-				type(count) == "number" and count >= 1 and count % 1 == 0,
-				"Facet Grid columns must be a whole number, 1 or more"
+				(count == nil and floorWidth ~= nil) or (type(count) == "number" and count >= 1 and count % 1 == 0),
+				"Facet Grid columns must be a whole number, 1 or more; without it, set minCellWidth"
 			)
-			return count
+			if floorWidth == nil then
+				return assert(count)
+			end
+			local width = read<<number>>(across, use)
+			local gap = kit.spacing(spec.gap, use)
+			local fit = if width > 0
+				then math.max(1, math.floor((width + gap) / (read<<number>>(floorWidth, use) + gap)))
+				else count or 2
+			return if count then math.min(count, fit) else fit
 		end
 		local layout: Engine.UIGridLayoutProps = {
 			SortOrder = E.SortOrder.LayoutOrder,
@@ -1185,6 +1209,15 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			),
 			properties
 		)
+		if floorWidth then
+			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
+			local extent, cell = ctx.observe.AbsoluteSize(node), ctx.observe.AbsoluteCellSize(grid)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local measured, offset = use(cell), grid.CellSize.Y.Offset
+				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
+				across:set(math.floor(use(extent).X / unit + 0.5))
+			end)
+		end
 		if cellWidth then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
 			local cell = ctx.observe.AbsoluteCellSize(grid)
@@ -1206,8 +1239,8 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					if child:IsA("GuiObject") then
 						local reach, found = 0, false
 						for _, part in child:GetChildren() do
-							if part:IsA("GuiObject") and part:HasTag("facet-card-part") then
-								found = true
+							if part:IsA("GuiObject") then
+								found = found or part:HasTag("facet-card-part")
 								if part.Visible then
 									local bottom = part.AbsolutePosition.Y + part.AbsoluteSize.Y
 									reach = math.max(reach, (bottom - child.AbsolutePosition.Y) / unit)
