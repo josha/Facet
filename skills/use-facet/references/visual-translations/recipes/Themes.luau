@@ -22,7 +22,8 @@ return function(bakery: boolean, weak: boolean)
 	local base = Facet.themes.neutralPackage()
 	local cream, brown, berry = rgb(255, 242, 208), rgb(62, 29, 19), rgb(131, 27, 58)
 	local steel, ink, amber = rgb(18, 26, 34), rgb(237, 243, 245), rgb(251, 170, 50)
-	local foreground, background, accent = if bakery then brown else ink, if bakery then cream else steel, if bakery then berry else amber
+	local foreground, background, accent =
+		if bakery then brown else ink, if bakery then cream else steel, if bakery then berry else amber
 	local foregroundAccent = if bakery then cream else steel
 	local title = base.metrics.typography.title
 	title.size = if bakery then 74 else 54
@@ -105,7 +106,12 @@ return function(bakery: boolean, weak: boolean)
 		rules = {
 			{
 				selector = ".example-action::UIPadding",
-				properties = { PaddingLeft = UDim.new(), PaddingRight = UDim.new(), PaddingTop = UDim.new(), PaddingBottom = UDim.new() },
+				properties = {
+					PaddingLeft = UDim.new(),
+					PaddingRight = UDim.new(),
+					PaddingTop = UDim.new(),
+					PaddingBottom = UDim.new(),
+				},
 			},
 			{
 				selector = ".drone-choice.facet-selected::UIStroke",

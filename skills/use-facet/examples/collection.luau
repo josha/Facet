@@ -454,7 +454,7 @@ return {
 			end,
 			UI.fill(),
 		}
-		local list = if artwork then UI.VirtualGrid "Records" (rows) else UI.VirtualList "Records" (rows)
+		local list = if artwork then UI.VirtualGrid "Records"(rows) else UI.VirtualList "Records"(rows)
 		list.Parent = recordsBody
 		UI.ScrollView "EmptyResults" {
 			Parent = C.static(recordsBody),
@@ -498,7 +498,7 @@ return {
 					width = "fill",
 					align = "center",
 					gap = "s",
-					UI.TextInput "Search" (search),
+					UI.TextInput "Search"(search),
 					UI.Button "Filters" {
 						label = function(use: Facet.Use): string
 							local category = use(model.category)

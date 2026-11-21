@@ -20,9 +20,15 @@ Breaking: a passive Toast hugs its content by default. `width = "fill"` gives
 the former full-width row. Before, a short message such as "+10 coins" spanned
 the screen.
 
-A `Grid` that holds Cards and sets no `cellHeight` and no `aspectRatio` gives
-each cell the height of its tallest Card. Before, the cells had the height of a control and the
-cards overlapped each other and the parts around the grid.
+A `Grid` that sets no `cellHeight` and no `aspectRatio` gives each cell the
+height of its tallest Card or hugging stack, and at least the height of a
+control. Before, the cells had the height of a control, and taller children
+overlapped each other and the parts around the grid. A grid of Buttons keeps
+the height of a control.
+
+A `Grid` turns off the horizontal hug of each child, so a child is as wide
+as its cell. Before, a hugging stack with a child that fills its width grew
+past the cell by its padding, and its content went past its plate.
 
 `UI.Card` has the new option `glyph`: a Facet icon name or an emoji. The Card
 draws it in the art frame at 75 percent of the frame height, and the frame of

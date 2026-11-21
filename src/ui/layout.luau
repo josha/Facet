@@ -1175,7 +1175,10 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				local tallest = if cardHeight then use(cardHeight) else 0
 				local height = if cellWidth
 					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
-					elseif tallest > 0 then tallest
+					elseif tallest > 0 then math.max(
+						tallest,
+						ctx.controlSize(ctx.config.controlSize, "height", use)
+					)
 					else read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
@@ -1236,19 +1239,23 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				local cell, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
 				local unit = if cell.Y > 0 and offset > 0 then cell.Y / offset else 1
 				for _, child in node:GetChildren() do
-					if child:IsA("GuiObject") then
-						local reach, found = 0, false
+					if child:IsA("GuiObject") and not child:IsA("GuiButton") then
+						local reach, found, card = 0, false, false
 						for _, part in child:GetChildren() do
 							if part:IsA("GuiObject") then
-								found = found or part:HasTag("facet-card-part")
-								if part.Visible then
+								card = card or part:HasTag("facet-card-part")
+								if part.Visible and part.Size.Y.Scale == 0 then
+									found = true
 									local bottom = part.AbsolutePosition.Y + part.AbsoluteSize.Y
 									reach = math.max(reach, (bottom - child.AbsolutePosition.Y) / unit)
 								end
 							end
 						end
-						if found then
-							heights[child] = reach
+						local hugging = child.AutomaticSize == E.AutomaticSize.Y
+							or child.AutomaticSize == E.AutomaticSize.XY
+						if found and (card or hugging) then
+							local padding = child:FindFirstChildWhichIsA("UIPadding")
+							heights[child] = reach + (if padding then padding.PaddingBottom.Offset else 0)
 						end
 					end
 				end
@@ -1296,6 +1303,19 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				end
 			end)
 		end
+		local function cellWide(child: Instance)
+			if child:IsA("GuiObject") then
+				if child.AutomaticSize == E.AutomaticSize.XY then
+					child.AutomaticSize = E.AutomaticSize.Y
+				elseif child.AutomaticSize == E.AutomaticSize.X then
+					child.AutomaticSize = E.AutomaticSize.None
+				end
+			end
+		end
+		for _, child in node:GetChildren() do
+			cellWide(child)
+		end
+		runtime.connect(node, "ChildAdded", cellWide)
 		if cells then
 			local function count()
 				local total = 0

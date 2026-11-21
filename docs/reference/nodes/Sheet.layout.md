@@ -13,7 +13,7 @@ Placement, content regions, scrolling and dismissal.
   toward it. Under reduced motion it arrives and leaves at once.
   `center` presents a floating task panel with Close and no grabber or drag
   resizing. Detents
-  still set its height; use one `hug` detent for short intrinsic content.
+  still set its height; use `hug`. A fraction leaves short content in a tall panel.
 - `width`: `automatic`, `narrow` or `wide`. Uses the Dialog tokens:
   `controls.alert.maxWidth`, `controls.popup.panelWidth` and `controls.dialog.wideWidth`. The safe room bounds each one.
   A `center` sheet with `automatic` width narrows to content that does not fill it, down to `narrow`.
