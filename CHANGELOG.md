@@ -1,5 +1,17 @@
 # Current package
 
+A theme can take its edge and depth from a named look and its motion from a
+named feel: `finish = { look = "raised" }` and `motion = { feel = "calm" }`.
+The looks are `flat`, `raised`, `glow` and `hard`; the feels are `calm`,
+`crisp` and `lively`. A stated value replaces the value of the name. An
+author who cannot see the result chose shadows and glows too faint to show;
+the names carry values that show. The words-only direction card now names
+the look, the feel and an icon or a glyph for each thing.
+
+A finish reads a role that the palette of the theme does not state, such as
+`hairline`, from the base palette. Before, `define` failed for a palette with
+only the main colors.
+
 `UI.Pagination` has a `step` form for a short set, such as the cars of a
 garage: Previous, a label and Next in a row that has its own width, so it
 fits a HUD Region. A `label` function gives the text of the label for a

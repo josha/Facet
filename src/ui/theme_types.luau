@@ -318,29 +318,12 @@ export type ReadOnlyThemePackage = {
 }
 export type FinishControlEdge = { width: number?, role: string?, transparency: number? }
 export type FinishEdge = {
-	width: number,
-	role: string?,
-	transparency: number?,
-	controls: (boolean | FinishControlEdge)?,
-}
-export type FinishDepth = {
-	lift: number,
-	glow: number,
-	sheen: number,
-	blur: number?,
-	side: number?,
-	role: string?,
-	strength: number?,
-	controls: boolean?,
-}
-export type FinishLook = "flat" | "raised" | "glow" | "hard"
-export type FinishEdgePatch = {
 	width: number?,
 	role: string?,
 	transparency: number?,
 	controls: (boolean | FinishControlEdge)?,
 }
-export type FinishDepthPatch = {
+export type FinishDepth = {
 	lift: number?,
 	glow: number?,
 	sheen: number?,
@@ -350,9 +333,8 @@ export type FinishDepthPatch = {
 	strength: number?,
 	controls: boolean?,
 }
-export type Finish =
-	{ edge: FinishEdge, depth: FinishDepth }
-	| { look: FinishLook, edge: FinishEdgePatch?, depth: FinishDepthPatch? }
+export type FinishLook = "flat" | "raised" | "glow" | "hard"
+export type Finish = { look: FinishLook?, edge: FinishEdge?, depth: FinishDepth? }
 export type MotionFeel = "calm" | "crisp" | "lively"
 export type ThemeDefinition = {
 	base: ThemePackage?,

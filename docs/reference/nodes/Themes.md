@@ -7,6 +7,7 @@ Open one option group below. Each group gives part of this contract.
 Open:
 
 - [Themes.art](Themes.art.md)
+- [Themes.character](Themes.character.md)
 - [Themes.chrome](Themes.chrome.md)
 - [Themes.definition](Themes.definition.md)
 - [Themes.finish](Themes.finish.md)

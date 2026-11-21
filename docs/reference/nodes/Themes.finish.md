@@ -15,7 +15,8 @@ local definition: Facet.ThemeDefinition = {
 ```
 
 Without `finish` the plates are those of the base theme, and `report.advice`
-has a `finish` entry. A `finish` with a part missing is an error.
+has a `finish` entry. A `finish` with a part missing is an error, unless it
+has a `look`: [Themes.character](Themes.character.md) names four.
 
 Take each value from the direction of the product, not from another theme.
 
