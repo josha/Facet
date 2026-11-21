@@ -2050,6 +2050,7 @@ local derived: Types.Derived = {
 				label = { type = "string" },
 				leading = { type = "boolean" },
 				mayDrop = { type = "boolean" },
+				plate = { type = "boolean" },
 				rank = { type = "number" },
 				reveal = { type = "boolean" },
 				trailing = { type = "boolean" },

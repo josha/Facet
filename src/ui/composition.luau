@@ -331,6 +331,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			"Facet Region expand must be a function that returns the richest content"
 		)
 		assert(spec.reveal == nil or type(spec.reveal) == "boolean", "Facet Region reveal must be a boolean")
+		assert(spec.plate == nil or type(spec.plate) == "boolean", "Facet Region plate must be a boolean")
 		assert(spec.label == nil or type(spec.label) == "string", "Facet Region label must be a string")
 		assert(spec.icon == nil or type(spec.icon) == "string", "Facet Region icon must be an icon name")
 		local label = if spec.label ~= "" then spec.label else nil
@@ -374,7 +375,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local lift = Compose.cell(0)
 		local properties: Types.FrameProps = ctx.props(
 			spec,
-			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "label", "icon", "leading", "trailing" },
+			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "plate", "label", "icon", "leading", "trailing" },
 			{
 				BorderSizePixel = 0,
 				Size = D2.new(),
@@ -422,15 +423,17 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
-			if zone == "topbar" and bareText(child) then
-				child = UI.HStack "Readout" {
-					surface = "panel",
-					align = "center",
-					padding = { top = "s", bottom = "s", left = "m", right = "m" },
-					child,
-				}
-			else
-				outlineOverWorld(child)
+			if spec.plate ~= false then
+				if zone == "topbar" and bareText(child) then
+					child = UI.HStack "Readout" {
+						surface = "panel",
+						align = "center",
+						padding = { top = "s", bottom = "s", left = "m", right = "m" },
+						child,
+					}
+				else
+					outlineOverWorld(child)
+				end
 			end
 			contents[index] = child
 			if index == 1 then

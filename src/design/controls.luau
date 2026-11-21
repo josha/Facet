@@ -1153,6 +1153,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			rank = { type = "number", label = "Priority", order = 2 },
 			mayDrop = { type = "boolean", label = "May drop", order = 3 },
 			reveal = { type = "boolean", label = "Reveal", order = 4 },
+			plate = { type = "boolean", label = "Plate", order = 5 },
 		}),
 	},
 	RowActions = {

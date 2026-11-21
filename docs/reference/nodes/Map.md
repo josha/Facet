@@ -12,6 +12,7 @@ With a shell: `lute run tools/facet docs <path>` or `docs --search TEXT`.
 | --- | --- |
 | World-led hub | [Tasks.hub](Tasks.hub.md) |
 | Live HUD | [Tasks.hud](Tasks.hud.md) |
+| Key and gamepad hint on a HUD button | [Tasks.shortcut](Tasks.shortcut.md) |
 | Minimap | [Tasks.minimap](Tasks.minimap.md) |
 | Bag or small shop with pictures | [Tasks.inventory](Tasks.inventory.md) |
 | List, preview and detail | [Tasks.collection-detail](Tasks.collection-detail.md) |

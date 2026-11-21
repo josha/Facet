@@ -1812,6 +1812,84 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps a center region clear of a wider side zone that cannot give way", {
+			id = "native_composition::Composition::keeps a center region clear of a wider side zone that cannot give way",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local dock: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { { x = 270, y = 44 } } }
+				local pill: Declared = {
+					zone = "top" :: "top",
+					rank = 3,
+					mayDrop = true,
+					sizes = { { x = 120, y = 40 }, { x = 80, y = 30 } },
+				}
+				local forms = resolver.resolve(385, 700, 8, { dock, pill })
+				expect(forms[1]):toBe(1)
+				expect(forms[2]):toBe(0)
+				local fixed: Declared =
+					{ zone = "top" :: "top", rank = 3, mayDrop = false, sizes = { { x = 80, y = 30 } } }
+				local kept, _, shift = resolver.resolve(385, 700, 8, { dock, fixed })
+				expect(kept[2]):toBe(1)
+				expect(shift.leanTop < 0):toBe(true)
+				local right = (385 - 80) / 2 + shift.leanTop + 80
+				expect(right <= 385 - 270):toBe(true)
+			end,
+		})
+
+		it("backs a bare topbar readout, outlines bare text in other zones and honors plate = false", {
+			id = "native_composition::Composition::backs a bare topbar readout, outlines bare text in other zones and honors plate = false",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local status: Frame
+				local menu: Frame
+				local stance: Frame
+				local raw: Frame
+				runtime.mount(function()
+					status = UI.Region {
+						Name = "Status",
+						zone = "topbar",
+						rank = 1,
+						UI.HStack "Full" { UI.Text { text = "100" } },
+					}
+					menu = UI.Region {
+						Name = "Menu",
+						zone = "topbar",
+						rank = 2,
+						trailing = true,
+						UI.HStack "Row" { UI.Button { label = "Bag", onActivate = function() end } },
+					}
+					stance = UI.Region {
+						Name = "Stance",
+						zone = "left",
+						rank = 3,
+						UI.VStack "Column" { UI.Text { text = "STANDING" } },
+					}
+					raw = UI.Region {
+						Name = "Raw",
+						zone = "topbar",
+						rank = 4,
+						plate = false,
+						UI.HStack "Plain" { UI.Text { text = "4:59" } },
+					}
+					return UI.Composition { gap = 8, padding = 0, status, menu, stance, raw }
+				end, layer)
+				local readout = status:FindFirstChild("Readout", true)
+				expect(readout ~= nil):toBeTrueWith("the bare readout has no plate stack")
+				expect(assert(readout):HasTag("facet-panel")):toBeTrueWith("the plate stack has no panel surface")
+				expect(menu:FindFirstChild("Readout", true)):toBe(nil)
+				expect(raw:FindFirstChild("Readout", true)):toBe(nil)
+				local label = assert(stance:FindFirstChildWhichIsA("TextLabel", true))
+				expect(label:HasTag("facet-over-world")):toBeTrueWith("bare text has no over-world tag")
+				expect(label:FindFirstChild("WorldOutline") ~= nil):toBeTrueWith("bare text has no outline")
+				local plain = assert(raw:FindFirstChildWhichIsA("TextLabel", true))
+				expect(plain:HasTag("facet-over-world")):toBe(false)
+			end,
+		})
+
 		it("steps a lower-rank side region down before a center region that its row squeezes", {
 			id = "native_composition::Composition::steps a lower-rank side region down before a center region that its row squeezes",
 			run = function()

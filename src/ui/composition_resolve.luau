@@ -96,7 +96,20 @@ local function resolve(
 			if edge and lone ~= 0 and lean[edge] == lone then
 				return width - side - gap, lone, side, lone
 			end
-			return math.max(lane, width - 2 * (side + gap)), 0, side, lone
+			local centered = width - 2 * (side + gap)
+			if centered >= lane then
+				return centered, 0, side, lone
+			end
+			for _, key in { 4 + row, 12 + row } do
+				for _, index in members[key] or ({} :: { number }) do
+					local region, form = regions[index], forms[index]
+					local lands = strip ~= nil and region.zone == "topbar" and not landed[index]
+					if form > 0 and (form < #region.sizes or region.mayDrop or lands) then
+						return lane, 0, side, lone
+					end
+				end
+			end
+			return math.max(0, centered), 0, side, lone
 		end
 		for index, region in regions do
 			local column, row = cellOf(region.zone, strip ~= nil and not landed[index], region.trailing)

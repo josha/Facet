@@ -23,6 +23,14 @@ return function(
 		return value == E.AutomaticSize.X or value == E.AutomaticSize.XY,
 			value == E.AutomaticSize.Y or value == E.AutomaticSize.XY
 	end
+	local function roomy(use: ComposeTypes.Use): boolean
+		local extent = painted
+		if not geometry.reflow or extent == nil or not use(dressed) then
+			return false
+		end
+		local _, y = axes(use)
+		return y and use(measured).Y > use(extent).Y + 1
+	end
 	local function moving(use: ComposeTypes.Use): boolean
 		return use(factor) ~= 1 and use(natural).X > 0 and use(natural).Y > 0
 	end
@@ -70,8 +78,12 @@ return function(
 				return D2.fromScale(if x then 0 else 1, if y then 0 else 1)
 			end
 			else D2.fromScale(1, 1),
-		AnchorPoint = V2.new(0.5, 0.5),
-		Position = D2.fromScale(0.5, 0.5),
+		AnchorPoint = function(use: ComposeTypes.Use): Vector2
+			return if roomy(use) then V2.new(0.5, 0) else V2.new(0.5, 0.5)
+		end,
+		Position = function(use: ComposeTypes.Use): UDim2
+			return if roomy(use) then D2.fromScale(0.5, 0) else D2.fromScale(0.5, 0.5)
+		end,
 		AutomaticSize = if geometry.reflow then geometry.AutomaticSize or automatic else E.AutomaticSize.None,
 		Visible = false,
 		Text = "",

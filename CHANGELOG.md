@@ -4,7 +4,8 @@ A `topbar` region form that shows text with no surface and no Button gets a
 panel plate. Before, a currency or a timer in the strip was bare text over the
 world, and it was small and hard to read on a bright scene. A form with its
 own `surface` keeps it. In the other zones, a Text with no plate under it
-gets an outline in the surface color.
+gets an outline in the surface color. `plate = false` on a Region keeps its
+text bare in either case.
 
 The strip of a HUD `Composition` sits under a modal's scrim. Before, the
 strip's ScreenGui had the display order of its host, the engine drew it above
@@ -22,6 +23,9 @@ the screen.
 A `Grid` that holds Cards and sets no `cellHeight` and no `aspectRatio` gives
 each cell the height of its tallest Card. Before, the cells had the height of a control and the
 cards overlapped each other and the parts around the grid.
+
+The new recipe `Tasks.shortcut` makes an InputAction with a key and a gamepad
+button for a HUD Button and shows it with `shortcutHint`.
 
 The new recipe `Tasks.inventory` shows a bag and a small shop in a Sheet:
 a segmented Picker, a Grid of Cards with a picture for each item, and the
