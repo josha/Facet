@@ -1574,7 +1574,6 @@ return function(verifyHarness: Verify.Harness)
 							UI.Region "Stay" {
 								zone = "left" :: "left",
 								rank = 1,
-								reveal = if reveal then nil else false,
 								form = stayForm,
 								Host.Frame { Name = "StayFull" },
 							},
