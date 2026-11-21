@@ -7,7 +7,7 @@ local Media = require("./media_types")
 export type Input<T> = Types.Input<T>
 
 export type Diagnostics = { diagnostics: (() -> { string })? }
-export type PaginationForm = "numbers" | "arrows" | "label"
+export type PaginationForm = "numbers" | "arrows" | "label" | "step"
 export type PaginationOptions = {
 	page: Types.ValueNumber,
 	onChange: (number) -> (),
@@ -18,6 +18,7 @@ export type PaginationOptions = {
 	boundaryCount: number?,
 	showFirstLast: boolean?,
 	form: PaginationForm?,
+	label: ((page: number, count: number?) -> string)?,
 	direction: ("ltr" | "rtl")?,
 	controlSize: Input<Types.ControlSize?>?,
 	enabled: Types.ValueBoolean?,

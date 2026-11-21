@@ -1793,7 +1793,7 @@ local derived: Types.Derived = {
 				controls = { type = "value" },
 				direction = { type = "choice", options = { "ltr", "rtl" } },
 				enabled = { type = "boolean" },
-				form = { type = "choice", options = { "numbers", "arrows", "label" } },
+				form = { type = "choice", options = { "numbers", "arrows", "label", "step" } },
 				hasNext = { type = "boolean" },
 				hasPrevious = { type = "boolean" },
 				onChange = { type = "event" },

@@ -101,6 +101,8 @@ local BACKED_TAGS = {
 	"facet-tab",
 }
 
+local MIDDLE = { "top", "center", "bottom" }
+
 local function lowered(moved: resolver.Shift, column: number, row: number): number
 	local lift = moved.lift[column * 4 + row] or 0
 	return if row == 3
@@ -1228,12 +1230,22 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					open:set(false)
 				end
 			end)
+			local across = if column ~= 2 then zones[MIDDLE[row]] else nil
+			local acrossSize = if across then ctx.observe.AbsoluteSize(across) else nil
+			local markSize = Compose.cell(V2.zero)
+			local others: { { row: number, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
+			for name, place in resolver.CELLS do
+				local other = zones[name]
+				if across and other and name ~= "topbar" and place[1] == column and place[2] ~= row then
+					table.insert(others, { row = place[2], size = ctx.observe.AbsoluteSize(other) })
+				end
+			end
 			local function place(use: ComposeTypes.Use): (UDim2, Vector2)
 				local unit, space = use(safeUnit), kit.spacing(gap, use)
 				local size = use(zoneSize) / unit
 				local moved = use(shift)
-				local at = (use(safeSize) / unit - size) * anchor
-					+ V2.new(leaned(moved, column, row), lowered(moved, column, row))
+				local screen = use(safeSize) / unit
+				local at = (screen - size) * anchor + V2.new(leaned(moved, column, row), lowered(moved, column, row))
 				if column == 2 then
 					return if row == 3
 						then D2.fromOffset(at.X + size.X / 2, at.Y - space)
@@ -1241,134 +1253,183 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 						V2.new(0.5, if row == 3 then 1 else 0)
 				end
 				local x = if column == 1 then at.X + size.X + space else at.X - space
-				return D2.fromOffset(x, at.Y + size.Y * (row - 1) / 2),
-					V2.new(if column == 1 then 0 else 1, (row - 1) / 2)
-			end
-			runtime.mount(function()
-				local marks: { { region: Frame, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
-				local parts: Types.TextButtonProps = {
-					Text = "",
-					BackgroundTransparency = 1,
-					ZIndex = 5,
-					Position = function(use: ComposeTypes.Use): UDim2
-						return (place(use))
-					end,
-					AnchorPoint = function(use: ComposeTypes.Use): Vector2
-						local _, anchor = place(use)
-						return anchor
-					end,
-					Visible = function(use: ComposeTypes.Use): boolean
-						return #use(dropped) > 0
-					end,
-					ctx.styled(
-						Host.Frame "Badge" {
-							AnchorPoint = V2.new(0.5, 0.5),
-							Position = D2.fromScale(0.5, 0.5),
-							Size = D2.fromOffset(28, 20),
-							Visible = function(use: ComposeTypes.Use): boolean
-								return use(lone) == nil
-							end,
-							Host.UICorner { CornerRadius = ctx.round },
-							ctx.icon("more", {
-								AnchorPoint = V2.new(0.5, 0.5),
-								Position = D2.fromScale(0.5, 0.5),
-								Size = D2.fromOffset(16, 16),
-							}),
-						},
-						"badge"
-					),
-				}
-				for _, region in children do
-					local entry = declared[region]
-					if entry.reveal and (entry.label or entry.icon) then
-						local named = Host.Frame("Mark" .. region.Name)({
-							BackgroundTransparency = 1,
-							AnchorPoint = V2.new(0.5, 0.5),
-							Position = D2.fromScale(0.5, 0.5),
-							Size = D2.new(),
-							AutomaticSize = E.AutomaticSize.XY,
-							Visible = function(use: ComposeTypes.Use): boolean
-								return use(lone) == region
-							end,
-							mark("Mark", entry.label, entry.icon, region.Name),
-						})
-						parts[#parts + 1] = named
-						table.insert(marks, { region = region, size = ctx.observe.AbsoluteSize(named) })
-					end
-				end
-				parts.Size = function(use: ComposeTypes.Use): UDim2
+				local y, hold = at.Y + size.Y * (row - 1) / 2, (row - 1) / 2
+				local mid = if acrossSize then use(acrossSize) / unit else V2.zero
+				if mid.X > 0 and mid.Y > 0 then
 					local side = floor(use)
-					local wide = side
-					local only = use(lone)
-					for _, named in marks do
-						if named.region == only then
-							wide = math.max(wide, use(named.size).X / use(safeUnit))
-						end
-					end
-					return D2.fromOffset(wide, side)
-				end
-				local trigger = Host.TextButton("ZoneReveal" .. frame.Name)(parts)
-				Compose.watch(function(use: ComposeTypes.Use)
-					local names: { string } = {}
-					if use(lone) == nil then
-						for _, region in use(dropped) do
-							local entry = declared[region]
-							if not (entry.label or entry.icon) then
-								table.insert(names, region.Name)
+					local wide = math.max(side, use(markSize).X / unit)
+					local left = (screen.X - mid.X) / 2 + leaned(moved, 2, row)
+					local top = (screen.Y - mid.Y) * (row - 1) / 2 + lowered(moved, 2, row)
+					local reaches = if column == 1 then x + wide + space > left else x - wide - space < left + mid.X
+					local head = y - hold * side
+					if reaches and head < top + mid.Y + space and head + side + space > top then
+						local low = if row == 1 then top + mid.Y + space else top - space - side
+						local mine = if column == 1 then x else x - wide
+						local free = low >= 0 and low + side <= screen.Y
+						for _, other in others do
+							local box = use(other.size) / unit
+							local first = (screen.Y - box.Y) * (other.row - 1) / 2 + lowered(moved, column, other.row)
+							local start = (screen.X - box.X) * (column - 1) / 2 + leaned(moved, column, other.row)
+							if
+								box.X > 0
+								and box.Y > 0
+								and low < first + box.Y + space
+								and low + side + space > first
+								and mine < start + box.X + space
+								and mine + wide + space > start
+							then
+								free = false
 							end
 						end
+						if free then
+							y, hold = if row == 1 then low else low + side, if row == 1 then 0 else 1
+						end
 					end
-					trigger:SetAttribute("FacetReveal", if #names > 0 then table.concat(names, ", ") else nil)
-				end)
-				return UI.Popover("Hidden" .. frame.Name)({
-					isPresented = open,
-					onPresentedChange = function(value: boolean)
-						open:set(value and #dropped:peek() > 0)
-					end,
-					compact = "popover",
-					closeButton = false,
-					edge = if column == 2 and row == 3 then "top" else EXPAND_EDGE[column],
-					content = function(): Instance
-						release()
-						local slots: Types.FrameProps = {
-							Name = "ZoneHidden",
-							BackgroundTransparency = 1,
-							Size = D2.new(),
-							AutomaticSize = E.AutomaticSize.XY,
-							Host.UIListLayout {
-								SortOrder = E.SortOrder.LayoutOrder,
-								Padding = function(use: ComposeTypes.Use): UDim
-									return D.new(0, kit.spacing(gap, use))
+				end
+				return D2.fromOffset(x, y), V2.new(if column == 1 then 0 else 1, hold)
+			end
+			local build: (() -> ())? = Compose.bindOwner(function()
+				runtime.mount(function()
+					local marks: { { region: Frame, size: ComposeTypes.ReadOnlyValue<Vector2> } } = {}
+					local parts: Types.TextButtonProps = {
+						Text = "",
+						BackgroundTransparency = 1,
+						ZIndex = 5,
+						Position = function(use: ComposeTypes.Use): UDim2
+							return (place(use))
+						end,
+						AnchorPoint = function(use: ComposeTypes.Use): Vector2
+							local _, anchor = place(use)
+							return anchor
+						end,
+						Visible = function(use: ComposeTypes.Use): boolean
+							return #use(dropped) > 0
+						end,
+						ctx.styled(
+							Host.Frame "Badge" {
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.fromOffset(28, 20),
+								Visible = function(use: ComposeTypes.Use): boolean
+									return use(lone) == nil
 								end,
+								Host.UICorner { CornerRadius = ctx.round },
+								ctx.icon("more", {
+									AnchorPoint = V2.new(0.5, 0.5),
+									Position = D2.fromScale(0.5, 0.5),
+									Size = D2.fromOffset(16, 16),
+								}),
 							},
-						}
-						local slotFrames = {}
-						for index, region in dropped:peek() do
-							local title = declared[region].label
-							local slot = Host.Frame("Hidden" .. region.Name)({
-								LayoutOrder = index,
+							"badge"
+						),
+					}
+					for _, region in children do
+						local entry = declared[region]
+						if entry.reveal and (entry.label or entry.icon) then
+							local named = Host.Frame("Mark" .. region.Name)({
+								BackgroundTransparency = 1,
+								AnchorPoint = V2.new(0.5, 0.5),
+								Position = D2.fromScale(0.5, 0.5),
+								Size = D2.new(),
+								AutomaticSize = E.AutomaticSize.XY,
+								Visible = function(use: ComposeTypes.Use): boolean
+									return use(lone) == region
+								end,
+								mark("Mark", entry.label, entry.icon, region.Name),
+							})
+							parts[#parts + 1] = named
+							table.insert(marks, { region = region, size = ctx.observe.AbsoluteSize(named) })
+						end
+					end
+					parts.Size = function(use: ComposeTypes.Use): UDim2
+						local side = floor(use)
+						local wide = side
+						local only = use(lone)
+						for _, named in marks do
+							if named.region == only then
+								wide = math.max(wide, use(named.size).X / use(safeUnit))
+							end
+						end
+						return D2.fromOffset(wide, side)
+					end
+					local trigger = Host.TextButton("ZoneReveal" .. frame.Name)(parts)
+					local reach = ctx.observe.AbsoluteSize(trigger)
+					Compose.watch(function(use: ComposeTypes.Use)
+						markSize:set(use(reach))
+					end)
+					Compose.watch(function(use: ComposeTypes.Use)
+						local names: { string } = {}
+						if use(lone) == nil then
+							for _, region in use(dropped) do
+								local entry = declared[region]
+								if not (entry.label or entry.icon) then
+									table.insert(names, region.Name)
+								end
+							end
+						end
+						trigger:SetAttribute("FacetReveal", if #names > 0 then table.concat(names, ", ") else nil)
+					end)
+					return UI.Popover("Hidden" .. frame.Name)({
+						isPresented = open,
+						onPresentedChange = function(value: boolean)
+							open:set(value and #dropped:peek() > 0)
+						end,
+						compact = "popover",
+						closeButton = false,
+						edge = if column == 2 and row == 3 then "top" else EXPAND_EDGE[column],
+						content = function(): Instance
+							release()
+							local slots: Types.FrameProps = {
+								Name = "ZoneHidden",
 								BackgroundTransparency = 1,
 								Size = D2.new(),
 								AutomaticSize = E.AutomaticSize.XY,
-								if title then Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder } else nil,
-								if title
-									then UI.Text "Label" { text = title, textRole = "caption", LayoutOrder = -1 }
-									else nil,
-							})
-							slots[#slots + 1] = slot
-							slotFrames[region] = slot
-						end
-						local holder = Host.Frame(slots)
-						for region, slot in slotFrames do
-							assert(declared[region].reveal).host(slot)
-							table.insert(hosting, region)
-						end
-						Compose.cleanup(release)
-						return holder
-					end,
-					trigger = trigger,
-				})
-			end, safe)
+								Host.UIListLayout {
+									SortOrder = E.SortOrder.LayoutOrder,
+									Padding = function(use: ComposeTypes.Use): UDim
+										return D.new(0, kit.spacing(gap, use))
+									end,
+								},
+							}
+							local slotFrames = {}
+							for index, region in dropped:peek() do
+								local title = declared[region].label
+								local slot = Host.Frame("Hidden" .. region.Name)({
+									LayoutOrder = index,
+									BackgroundTransparency = 1,
+									Size = D2.new(),
+									AutomaticSize = E.AutomaticSize.XY,
+									if title then Host.UIListLayout { SortOrder = E.SortOrder.LayoutOrder } else nil,
+									if title
+										then UI.Text "Label" { text = title, textRole = "caption", LayoutOrder = -1 }
+										else nil,
+								})
+								slots[#slots + 1] = slot
+								slotFrames[region] = slot
+							end
+							local holder = Host.Frame(slots)
+							for region, slot in slotFrames do
+								assert(declared[region].reveal).host(slot)
+								table.insert(hosting, region)
+							end
+							Compose.cleanup(release)
+							return holder
+						end,
+						trigger = trigger,
+					})
+				end, safe)
+			end)
+			local eager = false
+			for _, region in children do
+				eager = eager or (declared[region].mayDrop and declared[region].reveal ~= nil)
+			end
+			Compose.watch(function(use: ComposeTypes.Use)
+				local make = build
+				if make and (eager or #use(dropped) > 0) then
+					build = nil
+					make()
+				end
+			end)
 		end
 		local resolutions: { [string]: Resolution } = {}
 		local resolutionCount = 0

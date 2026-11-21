@@ -21,6 +21,7 @@ With a shell: `lute run tools/facet docs <path>` or `docs --search TEXT`.
 | Open a page and return | [Tasks.pages](Tasks.pages.md) |
 | Brief task over play | [Tasks.sheet](Tasks.sheet.md) |
 | Peer pages | [Tasks.tabs](Tasks.tabs.md) |
+| Previous and Next through a short set | [Pagination.card](Pagination.card.md) |
 | Theme | [Tasks.theme](Tasks.theme.md) |
 | Progress and timers | [Tasks.progress](Tasks.progress.md) |
 | Notices | [Tasks.notices](Tasks.notices.md) |

@@ -1574,7 +1574,6 @@ return function(verifyHarness: Verify.Harness)
 							UI.Region "Stay" {
 								zone = "left" :: "left",
 								rank = 1,
-								reveal = if reveal then nil else false,
 								form = stayForm,
 								Host.Frame { Name = "StayFull" },
 							},
@@ -1778,6 +1777,55 @@ return function(verifyHarness: Verify.Harness)
 				expect((wideForm:peek())):toBe(1)
 				expect((smallForm:peek())):toBe(1)
 				expect((otherForm:peek())):toBe(0)
+				w.stop()
+			end,
+		})
+
+		it("moves the overflow control of a side zone clear of a wide centre zone", {
+			id = "native_composition::Composition::moves the overflow control of a side zone clear of a wide centre zone",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				local seatForm = Compose.cell(1)
+				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region "Board" {
+							zone = "center" :: "center",
+							rank = 1,
+							Host.Frame { Name = "BoardFull" },
+						},
+						UI.Region "Seat" {
+							zone = "left" :: "left",
+							rank = 3,
+							mayDrop = true,
+							label = "Maya",
+							form = seatForm,
+							Host.Frame { Name = "SeatFull" },
+						},
+					}
+				end)
+				local board = w.find("BoardFull")
+				w.size(board, 300, 160)
+				w.size(w.find("SeatFull"), 114, 60)
+				w.size(w.find("Reveal"), 44, 44)
+				w.size(w.find("Zones"), 353, 600)
+				w.size(w.find("Center"), 300, 160)
+				expect((seatForm:peek())):toBe(0)
+				local target = w.find("ZoneRevealLeft")
+				expect(target.Visible):toBe(true)
+				expect(target.AnchorPoint.Y):toBe(1)
+				expect(target.Position.Y.Offset):toBe((600 - 160) / 2 - 8)
+				w.size(board, 300, 580)
+				w.size(w.find("Center"), 300, 580)
+				expect((seatForm:peek())):toBe(0)
+				expect(target.AnchorPoint.Y):toBe(0.5)
+				w.size(board, 300, 160)
+				w.size(w.find("Center"), 300, 160)
+				expect(target.AnchorPoint.Y):toBe(1)
+				w.size(w.find("Center"), 20, 160)
+				expect(target.AnchorPoint.Y):toBe(0.5)
 				w.stop()
 			end,
 		})

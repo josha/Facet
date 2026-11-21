@@ -13,6 +13,7 @@ type State = { current: number?, count: number?, hasPrevious: boolean, hasNext: 
 
 local MAX_SAFE = 9007199254740991
 local MAX_WINDOW = 20
+local SAMPLED = 64
 local ARROWS = { "first", "previous", "next", "last" }
 
 return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
@@ -59,8 +60,13 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		)
 		local form: Content.PaginationForm = spec.form or "numbers"
 		assert(
-			form == "numbers" or form == "arrows" or form == "label",
-			"Facet UI.Pagination: form is numbers, arrows or label"
+			form == "numbers" or form == "arrows" or form == "label" or form == "step",
+			"Facet UI.Pagination: form is numbers, arrows, label or step"
+		)
+		local format = spec.label
+		assert(
+			format == nil or type(format) == "function",
+			"Facet UI.Pagination: label is a function (page, count) that returns a string"
 		)
 		local direction = spec.direction or "ltr"
 		assert(direction == "ltr" or direction == "rtl", "Facet UI.Pagination: direction is ltr or rtl")
@@ -154,10 +160,63 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		local digits = measure("DigitMeasure", "0000000000")
 		local ellipsis = measure("EllipsisMeasure", "…")
+		local refused = false
+		local function named(page: number, count: number?): string
+			local ok, text = pcall(assert(format), page, count)
+			if ok and type(text) == "string" then
+				return text
+			end
+			if not refused then
+				refused = true
+				checks.note(`Facet UI.Pagination: label must return a string for page {page}; the row shows the number`)
+			end
+			return tostring(page)
+		end
+		local known = Compose.formula(function(use: ComposeTypes.Use): number?
+			return use(state).count
+		end)
+		local sampled = Compose.formula(function(use: ComposeTypes.Use): string
+			local count = use(known)
+			if format == nil or form == "arrows" or count == nil then
+				return ""
+			end
+			local lines: { string } = {}
+			for page = 1, math.min(count, SAMPLED) do
+				lines[page] = named(page, count)
+			end
+			return table.concat(lines, "\n")
+		end)
+		local function caption(current: number, count: number?, use: ComposeTypes.Use): string
+			if format then
+				return named(current, count)
+			elseif form == "step" then
+				return if count ~= nil then `{current} / {count}` else tostring(current)
+			elseif count ~= nil then
+				return ctx.phrase(
+					"Facet.PageOf",
+					"Page {current} of {count}",
+					{ current = current, count = count },
+					use
+				)
+			end
+			return ctx.phrase("Facet.Page", "Page {current}", { current = current }, use)
+		end
 		local widest = measure("LabelMeasure", function(use: ComposeTypes.Use): string
 			local st = use(state)
 			if st.current == nil then
 				return "No pages"
+			end
+			if format then
+				local lines = use(sampled)
+				if form == "arrows" or (st.count ~= nil and st.current <= SAMPLED) then
+					return lines
+				end
+				local own = named(st.current, st.count)
+				return if lines == "" then own else `{lines}\n{own}`
+			elseif form == "step" then
+				local zeros =
+					string.rep("0", if st.count ~= nil then #tostring(st.count) else math.max(4, #tostring(st.current)))
+				return if st.count ~= nil then `{zeros} / {st.count}` else zeros
 			end
 			if st.count ~= nil then
 				return ctx.phrase(
@@ -262,7 +321,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					out[#out + 1] = { kind = "page", key = tostring(entry.page), page = entry.page }
 					previous = entry.page
 				end
-			elseif chosen == "label" then
+			elseif chosen == "label" or chosen == "step" then
 				out[#out + 1] = { kind = "label", key = "label" }
 			end
 			out[#out + 1] = { kind = "next", key = "next" }
@@ -378,14 +437,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 							if st.current == nil then
 								return "No pages"
 							end
-							return if st.count ~= nil
-								then ctx.phrase(
-									"Facet.PageOf",
-									"Page {current} of {count}",
-									{ current = st.current, count = st.count },
-									use
-								)
-								else ctx.phrase("Facet.Page", "Page {current}", { current = st.current }, use)
+							return caption(st.current, st.count, use)
 						end,
 						TextXAlignment = E.TextXAlignment.Center,
 						AutomaticSize = function(use: ComposeTypes.Use)
@@ -466,6 +518,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			"boundaryCount",
 			"showFirstLast",
 			"form",
+			"label",
 			"direction",
 			"controlSize",
 			"enabled",
@@ -474,7 +527,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			Name = "Pagination",
 			BackgroundTransparency = 1,
 			Size = function(use: ComposeTypes.Use)
-				return D2.new(1, 0, 0, floor(use))
+				if form ~= "step" then
+					return D2.new(1, 0, 0, floor(use))
+				end
+				local count = #use(entries)
+				local wide = (count - 1) * (floor(use) + gap(use)) + math.ceil(use(widestBounds).X)
+				return D2.fromOffset(wide, floor(use))
 			end,
 			Attributes = {
 				FacetCurrent = function(use: ComposeTypes.Use)

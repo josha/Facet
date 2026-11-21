@@ -116,6 +116,100 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("steps through a short set in a row that hugs, with the caller's label", {
+			id = "native_pagination::native Pagination::steps through a short set in a row that hugs, with the caller's label",
+			run = function()
+				local names = { "Comet GT", "Dune Runner", "Atlas" }
+				local page = Compose.cell(1)
+				local calls = 0
+				local world = worlds.new(function(UI: FacetControls)
+					return UI.Pagination "Cars" {
+						page = page,
+						pageCount = 3,
+						form = "step" :: "step",
+						label = function(current: number, count: number?): string
+							calls += 1
+							return `{names[current]} {current} / {count}`
+						end,
+						onChange = function(nextPage: number)
+							page:set(nextPage)
+						end,
+					}
+				end)
+				local root = world.find("Cars")
+				local label = root:FindFirstChild("Label", true)
+				local measure = root:FindFirstChild("LabelMeasure", true)
+				local lines = "Comet GT 1 / 3\nDune Runner 2 / 3\nAtlas 3 / 3"
+				Verify.expect(label.Text):toBe("Comet GT 1 / 3")
+				Verify.expect(measure.Text):toBe(lines)
+				world.bounds(measure, 90)
+				local arrow = world.find("Previous").Size.X.Offset
+				local gap = root:FindFirstChild("Row"):FindFirstChildWhichIsA("UIListLayout").Padding.Offset
+				Verify.expect(root.Size.X.Scale):toBe(0)
+				Verify.expect(root.Size.X.Offset):toBe(2 * arrow + 2 * gap + 90)
+				Verify.expect(label.Size.X.Offset):toBe(90)
+				Verify.expect(root:FindFirstChild("Page-1", true)):toBe(nil)
+				local before = calls
+				world.find("Next").Activated:Fire()
+				Verify.expect(label.Text):toBe("Dune Runner 2 / 3")
+				Verify.expect(measure.Text):toBe(lines)
+				Verify.expect(root.Size.X.Offset):toBe(2 * arrow + 2 * gap + 90)
+				Verify.expect(calls - before <= 2):toBe(true)
+				world.find("Previous").Activated:Fire()
+				Verify.expect((page:peek())):toBe(1)
+				world.stop()
+				local plain = worlds.new(function(UI: FacetControls)
+					return UI.Pagination "Plain" {
+						page = 2,
+						pageCount = 6,
+						form = "step" :: "step",
+						showFirstLast = true,
+						onChange = function() end,
+					}
+				end)
+				local wide = plain.find("Plain")
+				Verify.expect(wide:FindFirstChild("Label", true).Text):toBe("2 / 6")
+				plain.bounds(wide:FindFirstChild("LabelMeasure", true), 40)
+				Verify.expect(wide.Size.X.Offset):toBe(4 * arrow + 4 * gap + 40)
+				plain.stop()
+				local open = worlds.new(function(UI: FacetControls)
+					return UI.Pagination "Open" {
+						page = 12,
+						hasNext = true,
+						form = "step" :: "step",
+						onChange = function() end,
+					}
+				end)
+				Verify.expect(open.find("Open"):FindFirstChild("Label", true).Text):toBe("12")
+				Verify.expect(open.find("Open"):FindFirstChild("LabelMeasure", true).Text):toBe("0000")
+				open.stop()
+				local empty = worlds.new(function(UI: FacetControls)
+					return UI.Pagination "Empty" {
+						page = 1,
+						pageCount = 0,
+						form = "step" :: "step",
+						onChange = function() end,
+					}
+				end)
+				Verify.expect(empty.find("Empty"):FindFirstChild("Label", true).Text):toBe("No pages")
+				empty.stop()
+				local full = worlds.new(function(UI: FacetControls)
+					return UI.Pagination "Full" {
+						page = 2,
+						pageCount = 6,
+						form = "label" :: "label",
+						label = function(current: number): string
+							return if current == 2 then nil :: any else `Rank {current}`
+						end,
+						onChange = function() end,
+					}
+				end)
+				Verify.expect(full.find("Full").Size.X.Scale):toBe(1)
+				Verify.expect(full.find("Full"):FindFirstChild("Label", true).Text):toBe("2")
+				full.stop()
+			end,
+		})
+
 		verifyHarness:case(
 			"formats the page label by key with a native Translator and falls back to the English source",
 			{

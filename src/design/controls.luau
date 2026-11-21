@@ -942,7 +942,12 @@ local controls: { [string]: Types.ControlSpec } = {
 		fields = nativeFields(7, {
 			page = { type = "number", label = "Initial page", order = 1 },
 			pageCount = { type = "number", label = "Page count", order = 2 },
-			form = { type = "choice", label = "Presentation", order = 3, options = { "numbers", "arrows", "label" } },
+			form = {
+				type = "choice",
+				label = "Presentation",
+				order = 3,
+				options = { "numbers", "arrows", "label", "step" },
+			},
 			siblingCount = { type = "number", label = "Sibling count", order = 4 },
 			boundaryCount = { type = "number", label = "Boundary count", order = 5 },
 			showFirstLast = { type = "boolean", label = "First and last", order = 6 },
