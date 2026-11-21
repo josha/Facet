@@ -30,6 +30,7 @@ visual system and image-based surfaces, use [game themes](game-themes.md).
 | Inspect optional context | Popover near the source; DisclosureGroup in the reading flow |
 | Complete a temporary task | Sheet or Dialog; Alert for a brief consequential confirmation |
 | Follow a short sequence | PageView; Pagination for actual bounded result pages |
+| Step through a short set with Previous and Next | Pagination with `form = "step"` and a `label`; do not build it from two Buttons and a Text |
 | Navigate spatial information | ZoomView with Path; SpatialGrid for spatial arrangement |
 | Show accepted progress | ProgressView or Timer; StepIndicator for task stages |
 | Notice a result | Toast for brief feedback; Notice for persistent information; StatusIndicator for state |

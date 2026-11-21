@@ -13,8 +13,14 @@ It requires `page` (a number or a readable) and `onChange(nextPage)`.
   default of each is 1.
 - `showFirstLast` (default false) adds First and Last arrows. Last shows only
   for a known count.
-- `form` is `numbers` (default), `arrows` or `label`. `direction` is `ltr`
-  (default) or `rtl`. `controlSize` and `enabled` are optional.
+- `form` is `numbers` (default), `arrows`, `label` or `step`. `direction` is
+  `ltr` (default) or `rtl`. `controlSize` and `enabled` are optional.
+- `step` moves through a short set, such as cars or characters. It shows
+  Previous, a label and Next. Its root has the width of that row, so it also
+  fits a hugging stack or a Region form. The label is "2 / 6".
+- `label` is a function `(page, count)` that returns the text of the label,
+  such as a name. The label keeps the width of the longest text of the first
+  64 pages, so the arrows do not move.
 - `controls` is an optional table. The control sets `controls.diagnostics()`,
   which returns the refusal lines.
 
@@ -41,8 +47,9 @@ number. When the selected page leaves the window, or a selected arrow becomes
 disabled at an edge, the selection moves to the current page. When the row has
 no live page or arrow, for example when the count drops to zero, the selection
 moves to the nearest selectable object outside the row. `rtl` reverses
-the row once. The root is a Frame that fills its width. `AutomaticSize` on X
-causes an error, because the window narrows to the width that it gets.
+the row once. Except in the `step` form, the root is a Frame that fills its width.
+`AutomaticSize` on X causes an error, because the window narrows to the
+width that it gets.
 
 The root has the attributes `FacetCurrent`, `FacetCount`, `FacetForm` and
 `FacetDirection`. Use Pagination for results that you load one page at a time.

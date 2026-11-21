@@ -1,5 +1,10 @@
 # Current package
 
+`UI.Pagination` has a `step` form for a short set, such as the cars of a
+garage: Previous, a label and Next in a row that has its own width, so it
+fits a HUD Region. A `label` function gives the text of the label for a
+page. Before, an author built this row from two Buttons and a Text.
+
 Facet Neutral has larger type: caption 16, label 17, body 18, heading 22,
 title 26, strong 18 and numeral 20, with a minimum text size of 16. A theme
 that keeps the Neutral minimum gets its smaller sizes raised to 16. Before,
