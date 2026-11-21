@@ -1,5 +1,6 @@
 --!strict
 local ThemeTypes = require("./theme_types")
+local support = require("./theme_support")
 
 local PLATES = ".facet-panel::UIStroke, .facet-sheet::UIStroke"
 local CONTROLS = ".facet-button::UIStroke, .facet-stepper-button::UIStroke"
@@ -7,12 +8,39 @@ local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.face
 local UTILITY = ".facet-button.facet-appearance-utility::UIStroke"
 local DISABLED_EDGE = 0.6
 local SHADOW = "finish"
+local CONTROL_SHADOW = "finishControl"
 local GLOW_STRENGTH = 0.55
 local LIFT_STRENGTH = 0.35
 local FAINT_GLOW = 8
 local FAINT_STRENGTH = 0.4
 
 type Table = { [string]: unknown }
+
+local LOOKS: { [string]: { edge: Table, depth: Table } } = {
+	flat = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
+	raised = {
+		edge = { width = 1, transparency = 0.5 },
+		depth = { lift = 8, blur = 24, glow = 0, sheen = 0.2, strength = 0.55, controls = true },
+	},
+	glow = {
+		edge = { width = 2, role = "accent", transparency = 0.1, controls = { width = 1, transparency = 0.4 } },
+		depth = { lift = 0, glow = 28, sheen = 0.14, strength = 0.85 },
+	},
+	hard = {
+		edge = { width = 3, role = "content", controls = { width = 2 } },
+		depth = { lift = 6, blur = 0, glow = 0, sheen = 0, strength = 1, controls = { lift = 4 } },
+	},
+}
+
+local function over(base: Table, stated: unknown): Table
+	local out = table.clone(base)
+	if type(stated) == "table" then
+		for key, value in stated :: Table do
+			out[key] = value
+		end
+	end
+	return out
+end
 
 local function amount(value: unknown): number?
 	return if type(value) == "number" and value == value and value >= 0 and value < math.huge then value else nil
@@ -32,7 +60,8 @@ end
 
 local function apply(
 	package: ThemeTypes.ThemePackage,
-	finish: unknown
+	finish: unknown,
+	neutral: ThemeTypes.ReadOnlyThemePackage
 ): ({ ThemeTypes.ThemeIssue }, { ThemeTypes.ThemeIssue })
 	local issues: { ThemeTypes.ThemeIssue } = {}
 	local advice: { ThemeTypes.ThemeIssue } = {}
@@ -40,19 +69,35 @@ local function apply(
 		table.insert(issues, { field = "finish" .. field, message = message })
 	end
 	if type(finish) ~= "table" then
-		issue("", "finish is a table with edge and depth")
+		issue("", "finish is a table with a look, or with edge and depth")
 		return issues, advice
 	end
 	local stated = finish :: Table
-	local edge, depth = stated.edge :: Table, stated.depth :: Table
-	if type(edge) ~= "table" then
+	local look = if stated.look == nil then nil else LOOKS[stated.look :: string]
+	if stated.look ~= nil and look == nil then
+		issue(".look", "look is flat, raised, glow or hard")
+		return issues, advice
+	end
+	if look == nil and type(stated.edge) ~= "table" then
 		issue(".edge", "State the edge. For no edge, use edge = { width = 0 }")
 	end
-	if type(depth) ~= "table" then
+	if look == nil and type(stated.depth) ~= "table" then
 		issue(".depth", "State the depth. For a flat plate, use depth = { lift = 0, glow = 0, sheen = 0 }")
 	end
 	if #issues > 0 then
 		return issues, advice
+	end
+	local edge: Table = if look then over(look.edge, stated.edge) else stated.edge :: Table
+	local depth: Table = if look then over(look.depth, stated.depth) else stated.depth :: Table
+	if look and type(stated.depth) == "table" then
+		local own = stated.depth :: Table
+		local lifts, glows = amount(own.lift) or 0, amount(own.glow) or 0
+		local turned = (lifts > 0 and own.glow == nil and (amount(look.depth.glow) or 0) > 0)
+			or (glows > 0 and own.lift == nil and (amount(look.depth.lift) or 0) > 0)
+		if turned then
+			depth.lift, depth.glow = lifts, glows
+			depth.blur, depth.side, depth.strength = own.blur, own.side, own.strength
+		end
 	end
 	local style = package.style
 	local palette = style.themes[1]
@@ -67,7 +112,7 @@ local function apply(
 			issue(field, "A role is the name of a palette color")
 			return nil, fallback
 		end
-		local found = color(palette, name)
+		local found = color(palette, name) or color(support.neutralBase(neutral, palette.colors), name)
 		if found == nil then
 			issue(field, `The palette {palette.name} has no color {name}`)
 		end
@@ -103,9 +148,12 @@ local function apply(
 	local side = measure(".depth.side", depth.side, false)
 	local tint, tintName = paint(".depth.role", depth.role, if glow > 0 then "accent" else "content")
 	local strength = share(".depth.strength", depth.strength, if glow > 0 then GLOW_STRENGTH else LIFT_STRENGTH)
-	if depth.controls ~= nil and type(depth.controls) ~= "boolean" then
-		issue(".depth.controls", "controls is true or false")
+	local held: unknown = depth.controls
+	local low: Table? = if type(held) == "table" then held :: Table else nil
+	if held ~= nil and type(held) ~= "boolean" and low == nil then
+		issue(".depth.controls", "controls is true, false or a table with lift")
 	end
+	local controlLift = if low then measure(".depth.controls.lift", low.lift, true) else lift
 	local onControls = edge.controls
 	local own: Table? = if type(onControls) == "table" then onControls :: Table else nil
 	if onControls ~= nil and type(onControls) ~= "boolean" and own == nil then
@@ -212,21 +260,30 @@ local function apply(
 			}
 		local shadows = table.clone(style.shadows or {})
 		shadows[SHADOW] = shadow
+		local lower = glow <= 0 and low ~= nil and controlLift ~= lift
+		if lower then
+			local share = if lift > 0 then controlLift / lift else 1
+			local near = table.clone(shadow)
+			near.blurRadius = { offset = (if depth.blur == nil then lift * 2 else blur) * share }
+			near.offset = { x = { offset = side * share }, y = { offset = controlLift } }
+			shadows[CONTROL_SHADOW] = near
+		end
 		style.shadows = shadows
 		local chrome = package.chrome :: { [string]: Table }
-		for _, slot in if depth.controls == true then { "panel", "control" } else { "panel" } do
+		for _, slot in if held == true or low ~= nil then { "panel", "control" } else { "panel" } do
+			local name = if slot == "control" and lower then CONTROL_SHADOW else SHADOW
 			local layer = chrome[slot]
 			if layer == nil then
-				chrome[slot] = { kind = "native", shadow = SHADOW }
+				chrome[slot] = { kind = "native", shadow = name }
 			elseif type(layer) == "table" and layer.kind == "native" then
-				layer.shadow = SHADOW
+				layer.shadow = name
 			end
 		end
 	end
 
 	if sheen > 0 then
 		for _, each in style.themes do
-			local lit = color(each, tintName) or tint
+			local lit = color(each, tintName) or color(support.neutralBase(neutral, each.colors), tintName) or tint
 			if lit then
 				local extra = (each.extra or {}) :: Table
 				local gradients = table.clone((extra.chromeGradient or {}) :: Table)

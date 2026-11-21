@@ -696,6 +696,108 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("takes the edge, the depth and the motion of a theme from a named look and a named feel", {
+			id = "native_themes_media::native themes and media::takes the edge, the depth and the motion of a theme from a named look and a named feel",
+			run = function()
+				local raised: Facet.ThemeDefinition = { identity = { id = "raised" }, finish = { look = "raised" } }
+				local lifted: any = assert((themes.define(raised)))
+				local shadow = lifted.style.shadows.finish
+				expect(shadow.offset.y.offset):toBe(8)
+				expect(shadow.blurRadius.offset):toBe(24)
+				expect(lifted.chrome.control.shadow):toBe("finish")
+				local tuned: Facet.ThemeDefinition =
+					{ identity = { id = "tuned" }, finish = { look = "glow", depth = { glow = 12 } } }
+				local glowing: any = assert((themes.define(tuned)))
+				local lit = glowing.style.shadows.finish
+				expect(lit.blurRadius.offset):toBe(12)
+				expect(lit.transparency):toBeCloseTo(0.15, 5)
+				local flat: Facet.ThemeDefinition = { identity = { id = "flat" }, finish = { look = "flat" } }
+				local quiet: any, quietReport = themes.define(flat)
+				expect(quiet.style.shadows == nil or quiet.style.shadows.finish == nil):toBe(true)
+				expect(quietReport.ok):toBe(true)
+				local odd = { identity = { id = "odd" }, finish = { look = "shiny" } }
+				local none, refused = themes.define(odd :: any)
+				expect(none):toBe(nil)
+				expect(refused.errors[1].field):toBe("finish.look")
+				local bare: Facet.ThemeDefinition = {
+					identity = { id = "bare" },
+					style = {
+						defaultTheme = "Night",
+						themes = {
+							{
+								name = "Night",
+								colors = {
+									surface = { r = 0.06, g = 0.08, b = 0.12 },
+									content = { r = 0.93, g = 0.95, b = 0.98 },
+									accent = { r = 1, g = 0.38, b = 0.16 },
+								},
+							},
+						},
+					},
+					finish = { look = "raised" },
+				}
+				local inked, inkedReport = themes.define(bare)
+				expect(inked ~= nil):toBe(true)
+				expect(#inkedReport.errors):toBe(0)
+				local typo = table.clone(bare)
+				typo.finish = { look = "raised", edge = { role = "hairlime" } }
+				local refusedTypo, typoReport = themes.define(typo)
+				expect(refusedTypo):toBe(nil)
+				expect(typoReport.errors[1].field):toBe("finish.edge.role")
+				local hard: Facet.ThemeDefinition = { identity = { id = "chunky" }, finish = { look = "hard" } }
+				local chunky: any = assert((themes.define(hard)))
+				expect(chunky.style.shadows.finish.offset.y.offset):toBe(6)
+				expect(chunky.style.shadows.finishControl.offset.y.offset):toBe(4)
+				expect(chunky.chrome.control.shadow):toBe("finishControl")
+				expect(chunky.chrome.panel.shadow):toBe("finish")
+				local turned: Facet.ThemeDefinition =
+					{ identity = { id = "turned" }, finish = { look = "glow", depth = { lift = 6 } } }
+				local dropped: any = assert((themes.define(turned)))
+				expect(dropped.style.shadows.finish.offset.y.offset):toBe(6)
+				expect(dropped.style.shadows.finish.transparency):toBeCloseTo(0.65, 5)
+
+				local neutral: any = themes.neutralPackage().metrics.motion
+				local crisp: Facet.ThemeDefinition = { identity = { id = "crisp" }, motion = { feel = "crisp" } }
+				local quick: any = assert((themes.define(crisp)))
+				expect(quick.metrics.motion.sheet.enter < neutral.sheet.enter):toBe(true)
+				expect(quick.metrics.motion.springs.control.period < neutral.springs.control.period):toBe(true)
+				expect(quick.motion):toBe(nil)
+				local calm: Facet.ThemeDefinition = { identity = { id = "calm" }, motion = { feel = "calm" } }
+				local slow: any = assert((themes.define(calm)))
+				expect(slow.metrics.motion.sheet.enter > neutral.sheet.enter):toBe(true)
+				local lively: Facet.ThemeDefinition = {
+					identity = { id = "lively" },
+					motion = { feel = "lively" },
+					metrics = { motion = { sheet = { enter = 0.5 } } },
+				}
+				local bouncy: any = assert((themes.define(lively)))
+				expect(bouncy.metrics.motion.springs.control.damping < 1):toBe(true)
+				expect(bouncy.metrics.motion.easing.present):toBe(neutral.easing.present)
+				expect(bouncy.metrics.motion.sheet.enter):toBe(0.5)
+				expect(bouncy.metrics.motion.sheet.exit):toBe(neutral.sheet.exit)
+				local nudged: Facet.ThemeDefinition = {
+					identity = { id = "nudged" },
+					motion = { feel = "crisp" },
+					metrics = { motion = { hover = 0.3 } },
+				}
+				local kept: any = assert((themes.define(nudged)))
+				expect(kept.metrics.motion.hover):toBe(0.3)
+				expect(kept.metrics.motion.sheet.enter):toBe(quick.metrics.motion.sheet.enter)
+				expect(kept.metrics.motion.springs.move.period):toBe(quick.metrics.motion.springs.move.period)
+				local settled: Facet.ThemeDefinition =
+					{ identity = { id = "settled" }, base = bouncy, motion = { feel = "calm" } }
+				local quieted: any = assert((themes.define(settled)))
+				expect(quieted.metrics.motion.materialize.popOvershoot):toBe(
+					slow.metrics.motion.materialize.popOvershoot
+				)
+				expect(quieted.metrics.motion.springs.flick.damping):toBe(slow.metrics.motion.springs.flick.damping)
+				local wrong = { identity = { id = "wrong" }, motion = { feel = "wobbly" } }
+				local missing, complaint = themes.define(wrong :: any)
+				expect(missing):toBe(nil)
+				expect(complaint.errors[1].field):toBe("motion.feel")
+			end,
+		})
+
 		it("draws the finish edge inside the box, on plates and on controls", {
 			id = "native_themes_media::native themes and media::draws the finish edge inside the box, on plates and on controls",
 			run = function()

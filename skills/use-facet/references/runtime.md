@@ -6,7 +6,9 @@ task's pages and overlays in the same mount. For a plugin or existing host, read
 Edit persistent source; Play-only edits are not the delivered change.
 
 A game UI defines its own theme before its first screen: follow
-`Tasks.theme`. Facet Neutral is a base, not a finished look.
+`Tasks.theme`. Facet Neutral is a base, not a finished look. Give each item a
+Card `glyph`: an emoji fits any thing. Give each currency, stat and action an
+`icon` from `Icons.names`. A screen of words alone reads as unfinished.
 
 If Studio's command executor cannot require a module because its capabilities
 are restricted, run the inspection from a temporary LocalScript during Play

@@ -318,25 +318,28 @@ export type ReadOnlyThemePackage = {
 }
 export type FinishControlEdge = { width: number?, role: string?, transparency: number? }
 export type FinishEdge = {
-	width: number,
+	width: number?,
 	role: string?,
 	transparency: number?,
 	controls: (boolean | FinishControlEdge)?,
 }
 export type FinishDepth = {
-	lift: number,
-	glow: number,
-	sheen: number,
+	lift: number?,
+	glow: number?,
+	sheen: number?,
 	blur: number?,
 	side: number?,
 	role: string?,
 	strength: number?,
-	controls: boolean?,
+	controls: (boolean | { lift: number })?,
 }
-export type Finish = { edge: FinishEdge, depth: FinishDepth }
+export type FinishLook = "flat" | "raised" | "glow" | "hard"
+export type Finish = { look: FinishLook?, edge: FinishEdge?, depth: FinishDepth? }
+export type MotionFeel = "calm" | "crisp" | "lively"
 export type ThemeDefinition = {
 	base: ThemePackage?,
 	finish: Finish?,
+	motion: { feel: MotionFeel }?,
 	schema: string?,
 	identity: IdentityPatch?,
 	style: { defaultTheme: string?, themes: { PalettePatch }?, shadows: { [string]: Shadow }? }?,
