@@ -598,9 +598,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			trailing = spec.trailing == true,
 			animate = false,
 			reveals = spec.reveal ~= false,
-			reveal = if spec.reveal ~= false and spec.mayDrop == true
-				then { host = hostInto, back = returnHome }
-				else nil,
+			reveal = if spec.reveal ~= false then { host = hostInto, back = returnHome } else nil,
 			label = label,
 			icon = icon,
 		}
@@ -1337,7 +1335,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			list: { resolver.Declared },
 			listKey: string,
 			band: resolver.Strip?,
-			areas: { resolver.Area }?
+			areas: { resolver.Area }?,
+			holds: { boolean }?
 		): Resolution
 			local reserved: { string } = {}
 			for _, area in areas or {} do
@@ -1352,8 +1351,34 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if known then
 				return known
 			end
-			local chosen, down, moved, overflow, packed =
+			local chosen, down, moved, overflow, packed, missed =
 				resolver.resolve(width, height, spacing, list, band, nil, nil, areas)
+			local trial = list
+			for _ = 1, #list do
+				local pick: number? = nil
+				for _, index in missed do
+					local region = trial[index]
+					local best = if pick then trial[pick] else nil
+					if
+						holds
+						and holds[index]
+						and not region.mayDrop
+						and (best == nil or region.rank > best.rank or (region.rank == best.rank and index > pick))
+					then
+						pick = index
+					end
+				end
+				if pick == nil then
+					break
+				end
+				trial = table.clone(trial)
+				local forced = table.clone(trial[pick])
+				forced.mayDrop = true
+				trial[pick] = forced
+				local _
+				chosen, down, moved, _, packed, missed =
+					resolver.resolve(width, height, spacing, trial, band, nil, nil, areas)
+			end
 			local made: Resolution =
 				{ chosen = chosen, down = down, moved = moved, overflow = overflow, packed = packed }
 			if resolutionCount >= RESOLUTIONS then
@@ -1430,6 +1455,10 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				else nil
 			local spacing = kit.spacing(gap, use)
 			local listKey = regionsKey(list)
+			local holds: { boolean } = {}
+			for index, region in regions do
+				holds[index] = declared[region].reveal ~= nil
+			end
 			local offset = use(zoneOffset)
 			local areas: { resolver.Area } = {}
 			for _, area in use(touchAreas) do
@@ -1442,7 +1471,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				list,
 				listKey,
 				if band and strip and strip.X > 0 then band else nil,
-				areas
+				areas,
+				holds
 			)
 			local chosen, down, moved, overflow, packed =
 				result.chosen, result.down, result.moved, result.overflow, result.packed
@@ -1471,7 +1501,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					local observed = touchControls
 					local shown = if observed then use(observed) ~= false or use(holding) else true
 					local controls = if shown then phoneControls(phone) else nil
-					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls).overflow
+					local missed = resolved(phone.X, phone.Y, spacing, list, listKey, nil, controls, holds).overflow
 					local names = misfits(phone.X, missed)
 					if #names > 0 then
 						table.insert(

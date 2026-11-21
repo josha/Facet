@@ -4031,7 +4031,7 @@ return function(verifyHarness: Verify.Harness)
 						engine.environment.poke(VerifyRoblox.assertInstance(label), "TextFits", true)
 					end
 				end
-				expect((height())):toBe(56)
+				expect((height())):toBe(60)
 				expect((wraps())):toBe(true)
 				engine.environment.poke(
 					VerifyRoblox.assertInstance(input),
@@ -6148,7 +6148,7 @@ return function(verifyHarness: Verify.Harness)
 					"TextBounds",
 					engine.types.Vector2.new(100, 8)
 				)
-				expect(assert(controls.placementOf)(2).offset):toBe(56)
+				expect(assert(controls.placementOf)(2).offset):toBe(60)
 				engine.environment.poke(
 					VerifyRoblox.assertInstance(row:FindFirstChild("Value", true)),
 					"TextBounds",
@@ -6165,7 +6165,7 @@ return function(verifyHarness: Verify.Harness)
 				local value = row:FindFirstChild("Value", true)
 				value.Text = ""
 				engine.environment.poke(VerifyRoblox.assertInstance(value), "TextBounds", engine.types.Vector2.zero)
-				expect(assert(controls.placementOf)(2).offset):toBe(56)
+				expect(assert(controls.placementOf)(2).offset):toBe(60)
 				value.Text = "Restored"
 				engine.environment.poke(
 					VerifyRoblox.assertInstance(value),

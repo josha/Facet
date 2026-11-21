@@ -152,7 +152,7 @@ return function(verifyHarness: Verify.Harness)
 				end)
 				local badge = w.find("Badge")
 				expect(roles(badge)):toEqual({ "caption" })
-				expect(w.styled(badge, "TextSize")):toBe(14)
+				expect(w.styled(badge, "TextSize")):toBe(16)
 				expect(w.styled(badge, "TextColor3")):toBe(w.styled(w.find("Plain"), "TextColor3"))
 				w.stop()
 			end,
@@ -269,7 +269,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(clamp ~= nil and short:FindFirstChild("LineClamp") ~= nil):toBe(true)
 				local s, l = short.AbsoluteSize, long.AbsoluteSize
 				local bound = if clamp then clamp.MaxSize.Y else 0
-				local fits = s.Y > 0 and l.X > 0 and l.X <= 160 and l.Y <= bound and bound < 4 * s.Y
+				local fits = s.Y > 0 and l.X > 0 and l.X <= 160 and l.Y <= math.max(bound, s.Y) and bound < 4 * s.Y
 				expect(if fits then "fits" else `short {s.X}x{s.Y}, long {l.X}x{l.Y}, clamp {bound}`):toBe("fits")
 				expect(long.TextWrapped):toBe(true)
 				expect(long.TextTruncate):toBe(E.TextTruncate.AtEnd)

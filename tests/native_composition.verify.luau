@@ -1574,6 +1574,7 @@ return function(verifyHarness: Verify.Harness)
 							UI.Region "Stay" {
 								zone = "left" :: "left",
 								rank = 1,
+								reveal = if reveal then nil else false,
 								form = stayForm,
 								Host.Frame { Name = "StayFull" },
 							},
@@ -1614,6 +1615,61 @@ return function(verifyHarness: Verify.Harness)
 						w.size(zones, 800, 400)
 						expect((feedForm:peek())):toBe(1)
 						expect(feed.Parent):toBe(home)
+						expect(target.Visible):toBe(false)
+					end
+					w.stop()
+				end
+			end,
+		})
+
+		it("collapses a colliding region that has no smaller form into the zone's overflow control", {
+			id = "native_composition::Composition::collapses a colliding region that has no smaller form into the zone's overflow control",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				for _, reveal in { true, false } do
+					local walletForm, questForm = Compose.cell(1), Compose.cell(1)
+					local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return UI.Composition "Hud" {
+							gap = 8,
+							padding = 0,
+							topbar = false,
+							UI.Region "Wallet" {
+								zone = "topLeft" :: "topLeft",
+								rank = 1,
+								form = walletForm,
+								Host.Frame { Name = "WalletFull" },
+							},
+							UI.Region "Quests" {
+								zone = "bottomLeft" :: "bottomLeft",
+								rank = 2,
+								reveal = if reveal then nil else false,
+								form = questForm,
+								Host.Frame { Name = "QuestsFull" },
+							},
+						}
+					end)
+					local quests = w.find("QuestsFull")
+					local home = quests.Parent
+					w.size(w.find("WalletFull"), 200, 260)
+					w.size(quests, 200, 260)
+					local zones = w.find("Zones")
+					w.size(zones, 800, 600)
+					expect((walletForm:peek())):toBe(1)
+					expect((questForm:peek())):toBe(1)
+					w.size(zones, 800, 400)
+					expect((walletForm:peek())):toBe(if reveal then 1 else 0)
+					expect((questForm:peek())):toBe(if reveal then 0 else 1)
+					expect(w.find("Hud"):GetAttribute("FacetUnfit")):toBe(true)
+					expect((string.find(w.find("FacetUnfitDetails").Value, "Quests", 1, true)) ~= nil):toBe(true)
+					local target = w.find("ZoneRevealBottomLeft")
+					expect(target ~= nil):toBe(reveal)
+					if target then
+						expect(target.Visible):toBe(true)
+						target.Activated:Fire()
+						expect((quests:IsDescendantOf(w.find("HiddenQuests")))):toBe(true)
+						w.size(zones, 800, 600)
+						expect((questForm:peek())):toBe(1)
+						expect(quests.Parent):toBe(home)
 						expect(target.Visible):toBe(false)
 					end
 					w.stop()
