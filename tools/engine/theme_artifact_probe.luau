@@ -3,7 +3,9 @@
 type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)
 type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 type ThemePackage = typeof(require("@repo/tools/typecheck/aliases").ThemePackage)
-type Artifact = { build: (typeof(require("../../src").themes)) -> (ThemePackage?, { ok: boolean }) }
+type Artifact = {
+	build: (typeof(require("../../src").themes)) -> (ThemePackage?, { ok: boolean, advice: { { message: string } } }),
+}
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local fs = require("@std/fs")
 local process = require("@std/process")
