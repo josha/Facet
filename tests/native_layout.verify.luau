@@ -3163,6 +3163,11 @@ return function(verifyHarness: Verify.Harness)
 					settle()
 					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 50))
 					expect(grid.CellSize.Y.Offset):toBe(50)
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 70))
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 60))
+					expect(grid.CellSize.Y.Offset):toBe(60)
+					short.Visible = false
+					expect(grid.CellSize.Y.Offset < 60):toBe(true)
 					stop()
 				end,
 			})

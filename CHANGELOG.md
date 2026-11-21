@@ -1,5 +1,17 @@
 # Current package
 
+A Slider row shows `row.icon` on the title line, before the title, and the
+track on its own line at the full width of the row. Before, the icon was in a
+column of its own, centred between the title and the track.
+
+A `Composition` does not move a `top` or `bottom` zone beside its corners to
+a place that is off the screen; it reports the regions that do not fit. A
+`Grid` with automatic cell height ignores a hidden child, measures with the
+layout unit of the grid, and releases its connections to a removed child.
+`minCellWidth` counts columns in the width inside the Grid's padding. A Card
+with `image` and `glyph` shows the image only. The theme contrast repair
+tries both white and black and keeps the nearest color that passes.
+
 A `topbar` region form that shows text with no surface and no Button gets a
 panel plate. Before, a currency or a timer in the strip was bare text over the
 world, and it was small and hard to read on a bright scene. A form with its

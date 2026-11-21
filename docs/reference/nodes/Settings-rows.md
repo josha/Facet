@@ -8,7 +8,8 @@ The `row` form of Button, Toggle and Slider is one list row. The row has the
 trailing parts. `Captions` holds the `Title` and the `Description`. The
 description is secondary text. The trailing part is the value and chevron of
 a Button, the switch of a Toggle, or nothing on a Slider. A Slider puts its
-value next to its title and its track below the description.
+icon and its value on the title line and its track below the description, so
+`Content` holds no `LeadingIcon` there.
 
 A row fills its width. Its minimum height is the `controlSize` height, and it
 grows with its content. The row takes the `facet-size-<step>` tag of its

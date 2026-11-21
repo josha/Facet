@@ -273,6 +273,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			if at:IsA("GuiButton") or at:FindFirstChild("Backdrop") or at:FindFirstChild("Ground") then
 				return true
 			end
+			if (at:IsA("ImageLabel") or at:IsA("ImageButton")) and at.Image ~= "" then
+				return true
+			end
 			for _, tag in BACKED_TAGS do
 				if at:HasTag(tag) then
 					return true
@@ -860,7 +863,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				end
 				local function read()
 					local value = parent:GetAttribute("FacetTouchClearance")
-					hostClearance:set(if type(value) == "number" then value else 0)
+					local list = parent:FindFirstChildWhichIsA("UIListLayout")
+					local fromTop = list == nil or list.VerticalAlignment == E.VerticalAlignment.Top
+					hostClearance:set(if fromTop and type(value) == "number" then value else 0)
 				end
 				local changed = parent:GetAttributeChangedSignal("FacetTouchClearance"):Connect(read)
 				Compose.cleanup(function()

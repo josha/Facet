@@ -1900,6 +1900,23 @@ return function(verifyHarness: Verify.Harness)
 				expect(narrow[3]):toBe(2)
 				expect(under.top):toBe(156)
 				expect(#unfit):toBe(0)
+				local pillar: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { { x = 200, y = 300 } } }
+				local jump = { { left = 664, right = 736, reach = 132 } }
+				local _, _, level = resolver.resolve(796, 342, 8, { pillar, status }, nil, nil, nil, jump)
+				expect(level.top):toBe(0)
+				local slab: Declared = {
+					zone = "bottomRight" :: "bottomRight",
+					rank = 1,
+					mayDrop = false,
+					sizes = { { x = 560, y = 200 } },
+				}
+				local low: Declared =
+					{ zone = "bottom" :: "bottom", rank = 1, mayDrop = false, sizes = { { x = 250, y = 60 } } }
+				local phone = { { left = 0, right = 325, reach = 111 }, { left = 680, right = 752, reach = 132 } }
+				local _, _, held, flagged = resolver.resolve(812, 358, 8, { slab, low }, nil, nil, nil, phone)
+				expect(held.bottom):toBe(0)
+				expect(#flagged > 0):toBe(true)
 				local bar: Declared =
 					{ zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { { x = 300, y = 40 } } }
 				local _, _, centered = resolver.resolve(749, 323, 8, { weapon, bar, column }, nil, nil, nil, ring)

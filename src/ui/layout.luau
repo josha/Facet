@@ -1216,33 +1216,32 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			properties
 		)
 		if floorWidth then
-			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			local extent, cell = ctx.observe.AbsoluteSize(node), ctx.observe.AbsoluteCellSize(grid)
+			local extent, unit = ctx.observe.AbsoluteSize(node), ctx.layoutUnit(node)
+			local insets = node:FindFirstChildWhichIsA("UIPadding")
 			Compose.watch(function(use: ComposeTypes.Use)
-				local measured, offset = use(cell), grid.CellSize.Y.Offset
-				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
-				across:set(math.floor(use(extent).X / unit + 0.5))
+				local inset = if insets then insets.PaddingLeft.Offset + insets.PaddingRight.Offset else 0
+				across:set(math.max(0, math.floor(use(extent).X / use(unit) + 0.5) - inset))
 			end)
 		end
 		if cellWidth then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			local cell = ctx.observe.AbsoluteCellSize(grid)
+			local cell, unit = ctx.observe.AbsoluteCellSize(grid), ctx.layoutUnit(node)
 			Compose.watch(function(use: ComposeTypes.Use)
-				local measured, offset = use(cell), grid.CellSize.Y.Offset
-				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
-				cellWidth:set(measured.X / unit)
+				cellWidth:set(use(cell).X / use(unit))
 			end)
 		end
 		if cardHeight then
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
+			local scale = ctx.layoutUnit(node)
 			local watched: { [Instance]: RBXScriptConnection } = {}
-			local adopted: { [Instance]: RBXScriptConnection } = {}
+			local adopted: { [Instance]: { RBXScriptConnection } } = {}
 			local heights: { [Instance]: number } = {}
 			local function measure()
-				local cell, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
-				local unit = if cell.Y > 0 and offset > 0 then cell.Y / offset else 1
+				local unit = scale:peek()
 				for _, child in node:GetChildren() do
-					if child:IsA("GuiObject") and not child:IsA("GuiButton") then
+					if child:IsA("GuiObject") and not child.Visible then
+						heights[child] = nil
+					elseif child:IsA("GuiObject") and not child:IsA("GuiButton") then
 						local reach, found, card = 0, false, false
 						for _, part in child:GetChildren() do
 							if part:IsA("GuiObject") then
@@ -1277,32 +1276,63 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 					watched[part] = part:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
 				end
 			end
+			local function unwatch(part: Instance)
+				local connection = watched[part]
+				if connection then
+					connection:Disconnect()
+					watched[part] = nil
+				end
+			end
 			local function adopt(child: Instance)
 				if child:IsA("GuiObject") then
 					for _, part in child:GetChildren() do
 						watch(part)
 					end
 					if adopted[child] == nil then
-						adopted[child] = child.ChildAdded:Connect(function(part: Instance)
-							watch(part)
-							measure()
-						end)
+						adopted[child] = {
+							child.ChildAdded:Connect(function(part: Instance)
+								watch(part)
+								measure()
+							end),
+							child.ChildRemoved:Connect(function(part: Instance)
+								unwatch(part)
+								measure()
+							end),
+							child:GetPropertyChangedSignal("Visible"):Connect(measure),
+						}
 					end
 				end
+				measure()
+			end
+			local function release(child: Instance)
+				for _, connection in adopted[child] or {} do
+					connection:Disconnect()
+				end
+				adopted[child] = nil
+				for _, part in child:GetChildren() do
+					unwatch(part)
+				end
+				heights[child] = nil
 				measure()
 			end
 			for _, child in node:GetChildren() do
 				adopt(child)
 			end
 			runtime.connect(node, "ChildAdded", adopt)
-			runtime.connect(node, "ChildRemoved", measure)
+			runtime.connect(node, "ChildRemoved", release)
 			watched[grid] = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(scale)
+				measure()
+			end)
 			Compose.cleanup(function()
 				for _, connection in watched do
 					connection:Disconnect()
 				end
-				for _, connection in adopted do
-					connection:Disconnect()
+				for _, connections in adopted do
+					for _, connection in connections do
+						connection:Disconnect()
+					end
 				end
 			end)
 		end

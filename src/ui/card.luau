@@ -418,7 +418,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return live
 			end, artwork)
 		end
-		if spec.glyph and spec.artwork == nil then
+		if spec.glyph and spec.artwork == nil and spec.image == nil then
 			local glyph = spec.glyph
 			runtime.mount(function()
 				local centered = ctx.types.Vector2.new(0.5, 0.5)

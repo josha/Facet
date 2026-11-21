@@ -83,17 +83,21 @@ local function legible(ink: ThemeTypes.RGB, grounds: { ThemeTypes.RGB }): ThemeT
 			worst = ground
 		end
 	end
-	local toward: ThemeTypes.RGB = if luminance(worst) < 0.1791
-		then { r = 1, g = 1, b = 1 }
-		else { r = 0, g = 0, b = 0 }
+	local white: ThemeTypes.RGB, black: ThemeTypes.RGB = { r = 1, g = 1, b = 1 }, { r = 0, g = 0, b = 0 }
+	local toward, away = white, black
+	if luminance(worst) >= 0.1791 then
+		toward, away = black, white
+	end
 	for step = 1, 20 do
-		local candidate = mix(ink, toward, step / 20)
-		local passes = true
-		for _, ground in grounds do
-			passes = passes and ratioOf(candidate, ground) >= 4.5
-		end
-		if passes then
-			return candidate
+		for _, target in { toward, away } do
+			local candidate = mix(ink, target, step / 20)
+			local passes = true
+			for _, ground in grounds do
+				passes = passes and ratioOf(candidate, ground) >= 4.5
+			end
+			if passes then
+				return candidate
+			end
 		end
 	end
 	return toward

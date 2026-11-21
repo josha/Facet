@@ -276,6 +276,17 @@ local function resolve(
 			local tall = zoneH[key] or 0
 			return if tall > 0 then tall + floorOf(key) else 0
 		end
+		local function shorter(key: number, limit: number): boolean
+			for _, index in members[key] or ({} :: { number }) do
+				for form = 1, forms[index] - 1 do
+					local size = regions[index].sizes[form]
+					if size and size.y <= limit then
+						return true
+					end
+				end
+			end
+			return false
+		end
 		local function settled(key: number): boolean
 			for _, index in members[key] or ({} :: { number }) do
 				local region, form = regions[index], forms[index]
@@ -325,6 +336,9 @@ local function resolve(
 				local reach = floorOf(key)
 				if column == 2 and row == 1 and stack.top and (zoneH[key] or 0) > 0 then
 					reach += corner.top + gap
+				end
+				if column == 2 and row == 3 and stack.bottom and (zoneH[key] or 0) > 0 then
+					reach = math.max(reach, corner.bottom + gap)
 				end
 				check(key, room, height - reach - (if key == 13 then sink else 0))
 			end
@@ -474,7 +488,13 @@ local function resolve(
 				end
 			end
 			for edge in squeezed do
-				if squeezed[edge] and not (if edge == "top" then stack.top else stack.bottom) and corner[edge] > 0 then
+				local tall = zoneH[if edge == "top" then 9 else 11] or 0
+				if
+					squeezed[edge]
+					and not (if edge == "top" then stack.top else stack.bottom)
+					and corner[edge] > 0
+					and corner[edge] + gap + tall <= height
+				then
 					local next: Stacked =
 						{ top = stack.top, bottom = stack.bottom, sink = stack.sink, wide = stack.wide }
 					if edge == "top" then
@@ -490,8 +510,8 @@ local function resolve(
 			local tall = false
 			for _, key in { 5, 13 } do
 				local reserved = floorOf(key)
-				tall = tall
-					or (reserved > 0 and (zoneH[key] or 0) > height - reserved - (if key == 13 then sink else 0))
+				local limit = height - reserved - (if key == 13 then sink else 0)
+				tall = tall or (reserved > 0 and (zoneH[key] or 0) > limit and shorter(key, limit))
 			end
 			if (crowded or tall) and not stack.wide and (zoneW[9] or 0) > 0 then
 				return resolve(

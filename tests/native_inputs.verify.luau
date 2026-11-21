@@ -2579,6 +2579,26 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("puts the icon of a slider row on the title line and the track on its own line", {
+			id = "native_inputs::native input controls::puts the icon of a slider row on the title line and the track on its own line",
+			run = function()
+				local volume = Compose.cell(0.5)
+				local node, stop = world(function(UI: FacetControls)
+					return UI.Slider "Volume" { row = { title = "Volume", icon = "volume" }, value = volume }
+				end)
+				local header = find(node, "Header")
+				local icon = find(header, "LeadingIcon")
+				expect(icon.Parent):toBe(header)
+				expect(header:FindFirstChild("Title") ~= nil):toBe(true)
+				local captions = assert(header.Parent)
+				expect(captions.Name):toBe("Captions")
+				expect((assert(captions.Parent):FindFirstChild("LeadingIcon"))):toBe(nil)
+				expect(find(node, "Track"):IsDescendantOf(captions)):toBe(true)
+				expect(find(node, "Track"):IsDescendantOf(header)):toBe(false)
+				stop()
+			end,
+		})
+
 		it("plays the press haptic once for each slider detent and never for a continuous slider", {
 			id = "native_inputs::native input controls::plays the press haptic once for each slider detent and never for a continuous slider",
 			run = function()
