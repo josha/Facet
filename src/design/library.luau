@@ -151,7 +151,10 @@ local FIELD_DEFAULTS: { [string]: { [string]: Literal } } = {
 local ON_BY_DEFAULT: { [string]: true } = { Visible = true, Interactable = true, AutoLocalize = true, enabled = true }
 
 local TEXT_REFUSES: { [string]: boolean } = { TextXAlignment = true, TextDirection = true }
+local THEME_NAMES: { [string]: boolean } = { plate = true }
 local REFUSED: { [string]: { [string]: boolean } } = {
+	HStack = THEME_NAMES,
+	VStack = THEME_NAMES,
 	Text = TEXT_REFUSES,
 	Timer = TEXT_REFUSES,
 	Typewriter = TEXT_REFUSES,

@@ -269,7 +269,8 @@ definition, and a line with no value there is not in the product.
 | Palette | `style.themes[n].colors` and `extra`, by role |
 | Type | `metrics.typography`: a size and a family for `title`, `heading`, `numeral`, `strong`, `label`, `body` and `caption` |
 | Shape and edge | `metrics.radii`, and `finish`: the width and the color of the edge, and the lift, the glow and the sheen of the plate |
-| Controls | `finish.edge.controls` and `finish.depth.controls`, or art in `chrome` when images were made |
+| Controls | `finish.edge.controls` and `finish.depth.controls` (a shadow in a shade of each fill), or art in `chrome` when images were made |
+| A second kind of panel, such as rows | `finish.plates` and `plate` on the stack; see `Themes.plates` |
 | Signature and response | `chrome.focus`, `metrics.motion` and the effect controls |
 
 State `finish` in every theme. Its values come from the card as the concept

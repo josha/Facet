@@ -57,4 +57,6 @@ Shadows, gaps and `corners`: see
 [VStack-and-HStack.edges](VStack-and-HStack.edges.md).
 
 A panel stack can point at a thing with `tail`: see
-[VStack-and-HStack.tail](VStack-and-HStack.tail.md).
+[VStack-and-HStack.tail](VStack-and-HStack.tail.md). With `plate`, it takes
+the line and the shadow of a plate that the theme names: see
+[Themes.plates](Themes.plates.md).

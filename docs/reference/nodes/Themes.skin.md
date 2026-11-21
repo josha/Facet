@@ -12,6 +12,10 @@ Themes.skin option values and behavior.
   edge. `onCaption(shown)` reports whether the plaque shows the label.
   `shadowTransparency` blends the shadow toward transparent; fading controls
   bind it to their paint so their glow cannot outlast their visible panel.
+  `fill` is the readable fill color of the target. A shadow with a `shade`
+  from 0 to 1 takes that color, made darker by the share, in place of its
+  `color`. A slot named `plate-<name>` that the theme does not have uses
+  the `panel` recipe.
   A `target` that is a TextBox gets no art images, only the recipe shadow.
   Roblox draws children above their parent, so art in a TextBox would cover
   its text and placeholder.

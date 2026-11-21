@@ -25,7 +25,7 @@ Take each value from the direction of the product, not from another theme.
 | `edge.width` | Pixels of line around every panel and Sheet, drawn inside the box, so it takes no room from a gap. 0 is no line. With `metrics.radii.panel = 0` the corners of the line are square. |
 | `edge.role` | The palette color of the line. The default is `hairline`. |
 | `edge.transparency` | 0 to 1. Default 0. |
-| `edge.controls` | `true` draws the same line on Buttons and Stepper keys. `{ width?, role?, transparency? }` draws their own line; a value left out is that of the plates. A disabled control has 0.6 transparency or more. `bare`, `link` and `utility` Buttons keep none. The default is `false`. |
+| `edge.controls` | `true` draws the same line on Buttons and Stepper keys. `{ width?, role?, transparency? }` draws their own line; a value left out is that of the plates. A disabled control has 0.6 transparency or more. `bare`, `link` and `utility` Buttons keep none. Default `false`. |
 | `depth.lift` | Pixels that a shadow falls below the plate. 0: no shadow. |
 | `depth.blur` | Pixels of softness of that shadow. Default: twice the lift. 0: a hard shadow. |
 | `depth.side` | Pixels that the shadow falls to the right. Default 0. |
@@ -33,10 +33,10 @@ Take each value from the direction of the product, not from another theme.
 | `depth.sheen` | 0 to 1. The opacity at the top of a wash of the role color that fades down the plate. |
 | `depth.role` | The palette color of the glow, the sheen and the shadow. The default is `accent` with a glow. Without one, the sheen is `content` and the shadow is black. |
 | `depth.strength` | 0 to 1, the opacity of the shadow or the glow. The defaults are 0.35 and 0.55. |
-| `depth.controls` | `true` gives controls the shadow of the panels; `{ lift = 4 }`, a shorter one. The default is `false`. |
+| `depth.controls` | `true` gives controls the shadow of the panels; a table, [their own](Themes.plates.md). Default `false`. |
 
-These are sample measures on a screen of 1080 lines, with a saturated color.
-They are not limits: the ground and the color move them.
+These are sample measures on a screen of 1080 lines, with a saturated
+color. The ground and the color move them.
 
 | Value | What shows |
 | --- | --- |
@@ -66,4 +66,4 @@ a readout, the actions in each state, a field, and records. It returns
 the first screen, and call `stop()` after the capture.
 
 Related: [edge rules](Themes.stylesheet.md), [chrome](Themes.chrome.md),
-[palette](Themes.palette.md).
+[palette](Themes.palette.md), [plates](Themes.plates.md).

@@ -98,6 +98,7 @@ return function(verifyHarness: Verify.Harness)
 	local media = require("./lib/control_families").media
 	local themes: FixtureThemeTypes.Themes = require("../src/ui/themes")(Compose)
 	local engineLib = require("./lib/native_engine")
+	local themeSupport = require("../src/ui/theme_support")
 
 	local function setup()
 		local engine = engineLib.new()
@@ -795,6 +796,180 @@ return function(verifyHarness: Verify.Harness)
 				local missing, complaint = themes.define(wrong :: any)
 				expect(missing):toBe(nil)
 				expect(complaint.errors[1].field):toBe("motion.feel")
+			end,
+		})
+
+		it("gives a named plate its own line and shadow, and the control shadow a share of the fill", {
+			id = "native_themes_media::native themes and media::gives a named plate its own line and shadow, and the control shadow a share of the fill",
+			run = function()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "plates" },
+					finish = {
+						edge = { width = 6, role = "content" },
+						depth = {
+							lift = 12,
+							side = 10,
+							blur = 0,
+							glow = 0,
+							sheen = 0,
+							strength = 1,
+							controls = { lift = 8, side = 0, shade = 0.4 },
+						},
+						plates = {
+							row = { edge = { width = 4 }, depth = { lift = 8, side = 0 } },
+							quiet = { edge = { width = 0 }, depth = { lift = 0 } },
+						},
+					},
+				}
+				local package: any = assert((themes.define(definition)))
+				local row = package.style.shadows["finishPlate.row"]
+				expect(row.offset.y.offset):toBe(8)
+				expect(row.offset.x.offset):toBe(0)
+				expect(row.blurRadius.offset):toBe(0)
+				expect(row.transparency):toBe(0)
+				expect(package.chrome["plate-row"].shadow):toBe("finishPlate.row")
+				expect(package.chrome["plate-quiet"].shadow):toBeNil()
+				expect(themeSupport.plateReach(package)):toBe(12)
+				expect(package.style.shadows["finishPlate.quiet"]):toBeNil()
+				expect(package.style.shadows.finish.offset.y.offset):toBe(12)
+				expect(package.chrome.panel.shadow):toBe("finish")
+				local near = package.style.shadows.finishControl
+				expect(near.shade):toBe(0.4)
+				expect(near.offset.y.offset):toBe(8)
+				expect(near.offset.x.offset):toBe(0)
+				expect(package.chrome.control.shadow):toBe("finishControl")
+				local function at(selector: string): (number, any)
+					for index, rule in package.rules do
+						if rule.selector == selector then
+							return index, rule.properties
+						end
+					end
+					error("No rule: " .. selector)
+				end
+				local plates = at(".facet-panel::UIStroke, .facet-sheet::UIStroke")
+				local rowIndex, rowLine = at(".facet-plate-row::UIStroke")
+				expect(rowIndex > plates):toBe(true)
+				expect(rowLine.Thickness):toBe(4)
+				expect(rowLine.Color.role):toBe("content")
+				expect(rowLine.Transparency):toBe(0)
+				local _, quietLine = at(".facet-plate-quiet::UIStroke")
+				expect(quietLine.Transparency):toBe(1)
+
+				local same: Facet.ThemeDefinition = {
+					identity = { id = "same" },
+					finish = { look = "hard", depth = { controls = { shade = 0.5 } } },
+				}
+				local tinted: any = assert((themes.define(same)))
+				expect(tinted.style.shadows.finishControl.shade):toBe(0.5)
+				expect(tinted.style.shadows.finishControl.offset.y.offset):toBe(4)
+
+				local level: Facet.ThemeDefinition = {
+					identity = { id = "level" },
+					finish = {
+						look = "flat",
+						depth = { controls = { lift = 4, shade = 0.4 } },
+						plates = { row = { edge = { width = 2 }, depth = { lift = 20, blur = 0 } } },
+					},
+				}
+				local keyed: any = assert((themes.define(level)))
+				expect(keyed.style.shadows.finish):toBeNil()
+				expect(keyed.chrome.panel == nil or keyed.chrome.panel.shadow == nil):toBe(true)
+				expect(keyed.style.shadows.finishControl.offset.y.offset):toBe(4)
+				expect(keyed.style.shadows.finishControl.blurRadius.offset):toBe(8)
+				expect(keyed.style.shadows.finishControl.shade):toBe(0.4)
+				expect(keyed.chrome.control.shadow):toBe("finishControl")
+				expect(keyed.chrome["plate-row"].shadow):toBe("finishPlate.row")
+				expect(themeSupport.plateReach(keyed)):toBe(20)
+
+				local bare: Facet.ThemeDefinition = {
+					identity = { id = "bare-keys" },
+					finish = { look = "hard", depth = { controls = { lift = 0 } } },
+				}
+				local unlifted: any = assert((themes.define(bare)))
+				expect(unlifted.style.shadows.finishControl):toBeNil()
+				expect(unlifted.chrome.control == nil or unlifted.chrome.control.shadow == nil):toBe(true)
+
+				local soft: Facet.ThemeDefinition = {
+					identity = { id = "soft" },
+					finish = { look = "raised", plates = { row = { depth = { lift = 4 } } } },
+				}
+				local softened: any = assert((themes.define(soft)))
+				expect(softened.style.shadows["finishPlate.row"].offset.y.offset):toBe(4)
+				expect(softened.style.shadows["finishPlate.row"].blurRadius.offset):toBe(12)
+
+				local lit: Facet.ThemeDefinition = {
+					identity = { id = "lit" },
+					finish = { look = "glow", plates = { row = { depth = { lift = 4 } } } },
+				}
+				local glowing: any = assert((themes.define(lit)))
+				local dropped = glowing.style.shadows["finishPlate.row"]
+				expect(dropped.offset.y.offset):toBe(4)
+				expect(dropped.blurRadius.offset):toBe(8)
+				expect(dropped.transparency):toBeCloseTo(0.65, 5)
+
+				local spaced =
+					{ identity = { id = "spaced" }, finish = { look = "raised", plates = { ["big row"] = {} } } }
+				local none, refused = themes.define(spaced :: any)
+				expect(none):toBe(nil)
+				expect(refused.errors[1].field):toBe("finish.plates.big row")
+				local shiny = {
+					identity = { id = "shiny" },
+					finish = { look = "raised", plates = { row = { depth = { sheen = 0.4 } } } },
+				}
+				local noShine, refusedShine = themes.define(shiny :: any)
+				expect(noShine):toBe(nil)
+				expect(refusedShine.errors[1].field):toBe("finish.plates.row.depth")
+				for field, part in
+					{
+						["finish.plates.row.width"] = { width = 2 },
+						["finish.plates.row.look"] = { look = "flat" },
+						["finish.plates.row.edge"] = { edge = 2 },
+						["finish.plates.row.depth.blur"] = { depth = { lift = 0, blur = "x" } },
+					} :: { [string]: any }
+				do
+					local wrong = { identity = { id = "wrong" }, finish = { look = "raised", plates = { row = part } } }
+					local nothing, said = themes.define(wrong :: any)
+					expect(nothing):toBe(nil)
+					expect(said.errors[1].field):toBe(field)
+				end
+			end,
+		})
+
+		it("colors a shaded shadow from the fill of its control", {
+			id = "native_themes_media::native themes and media::colors a shaded shadow from the fill of its control",
+			run = function()
+				local engine, runtime = setup()
+				local C3 = engine.types.Color3
+				for _, live in { false, true } do
+					local package = themes.neutralPackage()
+					assert(package.chrome).control = {
+						kind = "native" :: "native",
+						shadow = { shade = 0.5, offset = { y = { offset = 8 } }, blurRadius = { offset = 0 } },
+					}
+					local fill = Compose.cell(C3.new(1, 0.5, 0.2))
+					local target: TextButton? = nil
+					local stop = runtime.mount(function()
+						target = Facet.host(runtime).TextButton({ Text = "Buy" })
+						runtime.mount(function()
+							return themes.skin(
+								runtime,
+								if live then themeState(package) else package,
+								"control",
+								{ types = engine.types, target = target :: GuiObject, fill = fill }
+							)
+						end, target)
+						return target
+					end, engine.new("Folder"))
+					local shadow = assert(target):FindFirstChild("ChromeShadow") :: FixtureShadow
+					expect(shadow.Color.R):toBeCloseTo(0.5, 5)
+					expect(shadow.Color.G):toBeCloseTo(0.25, 5)
+					expect(shadow.Color.B):toBeCloseTo(0.1, 5)
+					fill:set(C3.new(0.2, 1, 0.4))
+					expect(shadow.Color.R):toBeCloseTo(0.1, 5)
+					expect(shadow.Color.G):toBeCloseTo(0.5, 5)
+					stop()
+				end
+				runtime:dispose()
 			end,
 		})
 

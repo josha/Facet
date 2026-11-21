@@ -33,8 +33,9 @@ package does not need a copy before a control reads it.
 
 `Facet.ThemeFinish` types the `finish` field of a `Facet.ThemeDefinition`:
 the edge and the depth of every plate, as a named look or as values. See
-[Themes.finish](nodes/Themes.finish.md) and
-[Themes.character](nodes/Themes.character.md).
+[Themes.finish](nodes/Themes.finish.md),
+[Themes.character](nodes/Themes.character.md) and
+[Themes.plates](nodes/Themes.plates.md).
 
 `UI.Group` returns a native CanvasGroup. Its `groupTransparency` option accepts
 a readable number and fades the children together. `Facet.GroupProps` types

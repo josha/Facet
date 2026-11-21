@@ -37,6 +37,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		"width",
 		"height",
 		"surface",
+		"plate",
 		"status",
 		"corners",
 		"ground",
@@ -550,8 +551,41 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				end
 			end)
 		end
-		if spec.surface == "panel" then
-			ctx.skin(frame, "panel")
+		local wanted: unknown = spec.plate
+		if surface == "panel" then
+			local slot = "panel"
+			if wanted ~= nil then
+				local problem: string? = nil
+				if type(wanted) ~= "string" or string.match(wanted, "^%a%w*$") == nil then
+					problem = "plate is the name of a plate in finish.plates of the theme"
+				elseif spec.tail ~= nil then
+					problem = "a stack with a tail has the panel finish. Remove plate or tail"
+				else
+					local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(ctx.config.theme)
+					local chrome: { [string]: Theme.SkinLayer }? = if package then package.chrome or {} else nil
+					if chrome and chrome[themeSupport.PLATE .. wanted] == nil then
+						local names: { string } = {}
+						for key in chrome do
+							if string.sub(key, 1, #themeSupport.PLATE) == themeSupport.PLATE then
+								table.insert(names, string.sub(key, #themeSupport.PLATE + 1))
+							end
+						end
+						table.sort(names)
+						problem = if #names > 0
+							then `the theme has no plate named {wanted}. It has: {table.concat(names, ", ")}`
+							else `the theme has no plate named {wanted}. Name it in finish.plates of the theme`
+					end
+				end
+				if problem == nil then
+					slot = themeSupport.PLATE .. (wanted :: string)
+					frame:AddTag("facet-plate-" .. (wanted :: string))
+				elseif not ctx.recover(`Facet stack: {problem}; this stack uses the panel finish`) then
+					error(`Facet stack: {problem}`, 0)
+				end
+			end
+			ctx.skin(frame, slot)
+		elseif wanted ~= nil and not ctx.recover('Facet stack: plate needs surface = "panel"') then
+			error('Facet stack: plate needs surface = "panel"', 0)
 		end
 		if spec.tail ~= nil then
 			stackTail(ctx, frame, spec.tail, function(use: ComposeTypes.Use, extent: Vector2): number

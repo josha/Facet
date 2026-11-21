@@ -1,5 +1,16 @@
 # Current package
 
+A theme can name plates: `finish.plates = { row = { edge = { width = 2 },
+depth = { lift = 4 } } }`, and a VStack or an HStack with `surface = "panel"`
+takes one with `plate = "row"`. Before, every panel had the one line and the
+one shadow of the theme, so the rows in a panel could not have a thinner
+line and a shorter shadow than the panel. `depth.controls` accepts `side`
+and `shade`: with a `shade`, the shadow of a control takes the fill of that
+control, made darker, so each Button has a lower edge in its own color. The
+controls can have that shadow on a theme whose panels have none. A stated
+`controls` table beside a look keeps the values of the look that it does
+not state.
+
 A theme can take its edge and depth from a named look and its motion from a
 named feel: `finish = { look = "raised" }` and `motion = { feel = "calm" }`.
 The looks are `flat`, `raised`, `glow` and `hard`; the feels are `calm`,

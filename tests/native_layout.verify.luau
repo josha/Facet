@@ -451,6 +451,97 @@ return function(verifyHarness: Verify.Harness)
 				expect(string.find(tostring(problem), "surface must be", 1, true) ~= nil):toBe(true)
 			end,
 		})
+		it("gives a stack the line and the shadow of a plate that the theme names", {
+			id = "native_layout::stack surfaces::gives a stack the line and the shadow of a plate that the theme names",
+			run = function()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "plated" },
+					finish = {
+						look = "hard",
+						plates = { row = { edge = { width = 2 }, depth = { lift = 3 } } },
+					},
+				}
+				local package = assert((Facet.themes.define(definition)))
+				local root, _, stop = build({ theme = package }, function(UI)
+					return UI.VStack "Drink" { surface = "panel", plate = "row", padding = "s" }
+				end)
+				expect(table.find(root:GetTags(), "facet-panel") ~= nil):toBe(true)
+				expect(table.find(root:GetTags(), "facet-plate-row") ~= nil):toBe(true)
+				expect(root:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+				stop()
+				local plain, _, stopPlain = build({ theme = package }, function(UI)
+					return UI.VStack "Menu" { surface = "panel", padding = "s" }
+				end)
+				expect(table.find(plain:GetTags(), "facet-plate-row")):toBe(nil)
+				expect(plain:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(6)
+				stopPlain()
+				for _, case in
+					{
+						{ options = { surface = "panel", plate = "card" }, text = "no plate named card. It has: row" },
+						{ options = { surface = "panel", plate = 4 }, text = "plate is the name of a plate" },
+						{
+							options = { surface = "panel", plate = "row", tail = "bottom" },
+							text = "a stack with a tail",
+						},
+						{ options = { plate = "row" }, text = 'plate needs surface = "panel"' },
+					}
+				do
+					local ok, problem = true, ""
+					local _, _, stopBad = build({ theme = package }, function(UI)
+						ok, problem = pcall(function()
+							UI.VStack(case.options :: any)
+						end)
+						return UI.VStack {}
+					end)
+					stopBad()
+					expect(ok):toBe(false)
+					expect(string.find(tostring(problem), case.text, 1, true) ~= nil):toBe(true)
+				end
+
+				local other: Facet.ThemeDefinition = { identity = { id = "plain" }, finish = { look = "raised" } }
+				local selected = Facet.Compose.cell(package)
+				local live, _, stopLive = build({ theme = selected }, function(UI)
+					return UI.VStack "Drink" { surface = "panel", plate = "row", padding = "s" }
+				end)
+				expect(live:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+				selected:set(assert((Facet.themes.define(other))))
+				local swapped = live:FindFirstChild("ChromeShadow")
+				expect(swapped.Enabled):toBe(true)
+				expect(swapped.Offset.Y.Offset):toBe(8)
+				selected:set(package)
+				expect(live:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+				stopLive()
+			end,
+		})
+
+		it("gives the shadow of a Button a shade of the fill of that Button", {
+			id = "native_layout::stack surfaces::gives the shadow of a Button a shade of the fill of that Button",
+			run = function()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "keys" },
+					finish = { look = "hard", depth = { controls = { shade = 0.4 } } },
+				}
+				local package = assert((Facet.themes.define(definition)))
+				local button, engine, stop = build({ theme = package }, function(UI)
+					return UI.Button "Buy" { label = "Buy", onActivate = function() end }
+				end)
+				local shadow = button:FindFirstChild("ChromeShadow")
+				local black = engine.types.Color3.new(0, 0, 0)
+				local wanted = (button:GetStyled("BackgroundColor3") :: Color3):Lerp(black, 0.4)
+				expect(wanted.R > 0):toBe(true)
+				expect(shadow.Color.R):toBeCloseTo(wanted.R, 5)
+				expect(shadow.Color.G):toBeCloseTo(wanted.G, 5)
+				expect(shadow.Color.B):toBeCloseTo(wanted.B, 5)
+				expect(shadow.Offset.Y.Offset):toBe(4)
+				stop()
+				local plain: Facet.ThemeDefinition = { identity = { id = "plain-keys" }, finish = { look = "hard" } }
+				local unshaded, _, stopPlain = build({ theme = assert((Facet.themes.define(plain))) }, function(UI)
+					return UI.Button "Buy" { label = "Buy", onActivate = function() end }
+				end)
+				expect(unshaded:FindFirstChild("ChromeShadow").Color.R):toBe(0)
+				stopPlain()
+			end,
+		})
 	end)
 
 	describe("stack stretch matching", function()

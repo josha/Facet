@@ -98,6 +98,9 @@ return function(
 		return if fade == 0 then base else 1 - (1 - base) * (1 - fade)
 	end
 	local types, Host = typesFor(settings), (runtime.constructors :: unknown) :: Engine.Host
+	local function shaded(fill: Color3, share: number): Color3
+		return fill:Lerp(color(types, { r = 0, g = 0, b = 0 }) :: Color3, math.clamp(share, 0, 1))
+	end
 	local D2, V2 = types.UDim2, types.Vector2
 	local function axis(value: ThemeTypes.ShadowAxis?): (number, number)
 		local resolved: ThemeTypes.ShadowAxis = value or {}
@@ -112,7 +115,7 @@ return function(
 	if not Compose.isValue(packageOrReadable) and type(packageOrReadable) ~= "function" then
 		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable) or neutral
 		local chrome = package.chrome
-		local recipe = if chrome then chrome[slot] else nil
+		local recipe = support.chromeLayer(chrome, slot)
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 			local root = Host.Frame "Skin" {
 				Size = settings.Size or D2.fromScale(1, 1),
@@ -130,9 +133,16 @@ return function(
 				assert(shadow ~= nil, "Facet theme unknown shadow preset")
 			end
 			if shadow then
+				local plain = color(types, shadow.color or { r = 0, g = 0, b = 0 }) :: Color3
+				local tone: Engine.Input<Color3> = plain
+				if shadow.shade ~= nil and settings.fill ~= nil then
+					tone = function(use: ComposeTypes.Use): Color3
+						return shaded(read<<Color3>>(settings.fill, use), shadow.shade or 0)
+					end
+				end
 				runtime.mount(function()
 					return Host.UIShadow "ChromeShadow" {
-						Color = color(types, shadow.color or { r = 0, g = 0, b = 0 }),
+						Color = tone,
 						Transparency = if settings.shadowTransparency == nil
 							then shadow.transparency or 0.5
 							else function(use: ComposeTypes.Use)
@@ -168,7 +178,7 @@ return function(
 	local function buildLayers(use: ComposeTypes.Use): { ImageLayer }
 		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral
 		local chrome = package.chrome
-		local recipe = if chrome then chrome[slot] else nil
+		local recipe = support.chromeLayer(chrome, slot)
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" or overText then
 			return {}
 		end
@@ -438,7 +448,9 @@ return function(
 		end
 		local node = Host.ImageLabel(properties)
 		node:AddTag("facet-skin-art")
-		node:AddTag("facet-skin-art-" .. slot)
+		node:AddTag(
+			"facet-skin-art-" .. (if string.sub(slot, 1, #support.PLATE) == support.PLATE then "panel" else slot)
+		)
 		if captionSource then
 			local current = captionSource
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -583,7 +595,7 @@ return function(
 	local shadow = Compose.formula(function(use: ComposeTypes.Use)
 		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral
 		local chrome = package.chrome
-		local recipe = if chrome then chrome[slot] else nil
+		local recipe = support.chromeLayer(chrome, slot)
 		local value = if recipe then recipe.shadow else nil
 		if type(value) == "string" then
 			value = (package.style.shadows or {})[value] or shadowPresets[value]
@@ -605,10 +617,11 @@ return function(
 				local properties: Engine.UIShadowNativeProps = {
 					Name = "ChromeShadow",
 					Color = function(use: ComposeTypes.Use)
-						return color(
-								types,
-								(use(retainedShadow) :: ThemeTypes.Shadow).color or { r = 0, g = 0, b = 0 }
-							) :: Color3
+						local current = use(retainedShadow) :: ThemeTypes.Shadow
+						if current.shade ~= nil and settings.fill ~= nil then
+							return shaded(read<<Color3>>(settings.fill, use), current.shade)
+						end
+						return color(types, current.color or { r = 0, g = 0, b = 0 }) :: Color3
 					end,
 					Transparency = function(use: ComposeTypes.Use)
 						return shadowTransparency((use(retainedShadow) :: ThemeTypes.Shadow).transparency or 0.5, use)

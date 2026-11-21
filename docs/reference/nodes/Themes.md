@@ -13,6 +13,7 @@ Open:
 - [Themes.finish](Themes.finish.md)
 - [Themes.metrics](Themes.metrics.md)
 - [Themes.palette](Themes.palette.md)
+- [Themes.plates](Themes.plates.md)
 - [Themes.schema](Themes.schema.md)
 - [Themes.skin](Themes.skin.md)
 - [Themes.stylesheet](Themes.stylesheet.md)
