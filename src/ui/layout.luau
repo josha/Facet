@@ -350,24 +350,22 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				end,
 		}
 	end
-	local function stack(given: LayoutProps.StackProps, vertical: boolean): Frame
-		local spec = given
-		local plate = PLATES[if type(spec.surface) == "string" then spec.surface else ""]
+	local function stack(spec: LayoutProps.StackProps, vertical: boolean): Frame
+		local surface: string? = if type(spec.surface) == "string" then spec.surface else nil
+		local plate = PLATES[surface or ""]
 		if spec.surface ~= nil and plate == nil then
 			local message = "Facet stack: surface must be surface, panel or pane"
 			if not ctx.recover(message .. "; this stack uses panel") then
 				error(message, 0)
 			end
-			local patched = table.clone(spec)
-			patched.surface = "panel"
-			spec = patched
+			surface = "panel"
 			plate = PLATES.panel
 		end
 		local corners = spec.corners
 		assert(corners == nil or plate ~= nil, "Facet stack: corners need a surface")
-		assert(spec.tail == nil or spec.surface == "panel", 'Facet stack: tail needs surface = "panel"')
+		assert(spec.tail == nil or surface == "panel", 'Facet stack: tail needs surface = "panel"')
 		local properties, children = split(spec, flowKeys)
-		local metric = CORNERS[spec.surface or ""]
+		local metric = CORNERS[surface or ""]
 		local function shape(use: ComposeTypes.Use?): UDim
 			return cornerShape(corners, "stack", use)
 		end

@@ -404,8 +404,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				AspectRatio = if row
 					then 1
 					else function(use: ComposeTypes.Use): number
-						local env = UI.environment()
-						return if use(env.isShort) and use(env.isLandscape) then math.max(ratio, 4) else ratio
+						local env = if UI.environment then UI.environment() else nil
+						return if env and use(env.isShort) and use(env.isLandscape) then math.max(ratio, 4) else ratio
 					end,
 				AspectType = E.AspectType.FitWithinMaxSize,
 				DominantAxis = E.DominantAxis.Width,
