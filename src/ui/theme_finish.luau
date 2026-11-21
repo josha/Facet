@@ -1,5 +1,6 @@
 --!strict
 local ThemeTypes = require("./theme_types")
+local support = require("./theme_support")
 
 local PLATES = ".facet-panel::UIStroke, .facet-sheet::UIStroke"
 local CONTROLS = ".facet-button::UIStroke, .facet-stepper-button::UIStroke"
@@ -25,7 +26,7 @@ local LOOKS: { [string]: { edge: Table, depth: Table } } = {
 		depth = { lift = 0, glow = 28, sheen = 0.14, strength = 0.85 },
 	},
 	hard = {
-		edge = { width = 3, role = "content", controls = { width = 2, role = "content" } },
+		edge = { width = 3, role = "content", controls = { width = 2 } },
 		depth = { lift = 6, blur = 0, glow = 0, sheen = 0, strength = 1, controls = true },
 	},
 }
@@ -59,7 +60,7 @@ end
 local function apply(
 	package: ThemeTypes.ThemePackage,
 	finish: unknown,
-	inherited: ThemeTypes.Palette?
+	neutral: ThemeTypes.ReadOnlyThemePackage
 ): ({ ThemeTypes.ThemeIssue }, { ThemeTypes.ThemeIssue })
 	local issues: { ThemeTypes.ThemeIssue } = {}
 	local advice: { ThemeTypes.ThemeIssue } = {}
@@ -67,7 +68,7 @@ local function apply(
 		table.insert(issues, { field = "finish" .. field, message = message })
 	end
 	if type(finish) ~= "table" then
-		issue("", "finish is a table with edge and depth")
+		issue("", "finish is a table with a look, or with edge and depth")
 		return issues, advice
 	end
 	local stated = finish :: Table
@@ -87,6 +88,16 @@ local function apply(
 	end
 	local edge: Table = if look then over(look.edge, stated.edge) else stated.edge :: Table
 	local depth: Table = if look then over(look.depth, stated.depth) else stated.depth :: Table
+	if look and type(stated.depth) == "table" then
+		local own = stated.depth :: Table
+		local lifts, glows = amount(own.lift) or 0, amount(own.glow) or 0
+		local turned = (lifts > 0 and own.glow == nil and (amount(look.depth.glow) or 0) > 0)
+			or (glows > 0 and own.lift == nil and (amount(look.depth.lift) or 0) > 0)
+		if turned then
+			depth.lift, depth.glow = lifts, glows
+			depth.blur, depth.side, depth.strength = own.blur, own.side, own.strength
+		end
+	end
 	local style = package.style
 	local palette = style.themes[1]
 	for _, candidate in style.themes do
@@ -100,7 +111,7 @@ local function apply(
 			issue(field, "A role is the name of a palette color")
 			return nil, fallback
 		end
-		local found = color(palette, name) or (if inherited then color(inherited, name) else nil)
+		local found = color(palette, name) or color(support.neutralBase(neutral, palette.colors), name)
 		if found == nil then
 			issue(field, `The palette {palette.name} has no color {name}`)
 		end
@@ -259,7 +270,7 @@ local function apply(
 
 	if sheen > 0 then
 		for _, each in style.themes do
-			local lit = color(each, tintName) or tint
+			local lit = color(each, tintName) or color(support.neutralBase(neutral, each.colors), tintName) or tint
 			if lit then
 				local extra = (each.extra or {}) :: Table
 				local gradients = table.clone((extra.chromeGradient or {}) :: Table)

@@ -299,11 +299,25 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			if patch then
 				base = merge(base, { metrics = { motion = patch } })
 			else
-				table.insert(errors, { field = "motion.feel", message = "feel is calm, crisp or lively" })
+				table.insert(
+					errors,
+					{ field = "motion.feel", message = "motion is { feel = ... }. feel is calm, crisp or lively" }
+				)
 			end
 		end
 		local package = merge(base, definition);
 		(package :: { motion: unknown? }).motion = nil
+		local givenMetrics = (definition :: { metrics: unknown? }).metrics
+		local givenMotion = if type(givenMetrics) == "table" then (givenMetrics :: { motion: unknown? }).motion else nil
+		if type(givenMotion) == "table" and type(package.metrics) == "table" then
+			local tokens = copy(base.metrics.motion) :: { [string]: unknown }
+			for key, value in givenMotion :: { [string]: unknown } do
+				tokens[key] = if type(value) == "table" and type(tokens[key]) == "table"
+					then merge(tokens[key], value)
+					else copy(value)
+			end
+			(package.metrics :: { motion: unknown }).motion = tokens
+		end
 		if type(package.identity) ~= "table" or type(package.identity.id) ~= "string" then
 			table.insert(errors, { field = "identity.id", message = "A theme package needs an identity" })
 		end
@@ -317,7 +331,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		(package :: { finish: unknown? }).finish = nil
 		local finishAdvice: { ThemeTypes.ThemeIssue } = {}
 		if finish ~= nil then
-			local issues, notes = themeFinish.apply(package, finish, base.style.themes[1])
+			local issues, notes = themeFinish.apply(package, finish, neutral)
 			for _, issue in issues do
 				table.insert(errors, issue)
 			end
@@ -773,7 +787,7 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		if finish == nil then
 			table.insert(advice, {
 				field = "finish",
-				message = "The theme does not state its edge and depth, so its plates are the base theme's. Add finish with the values of the direction, or finish = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } } for flat plates",
+				message = 'The theme does not state its edge and depth, so its plates are the base theme\'s. Add finish with a look, such as finish = { look = "raised" }, or with the values of the direction. For flat plates, use finish = { look = "flat" }',
 			})
 		end
 		local resolvedTypography = package.metrics.typography :: { [string]: unknown }

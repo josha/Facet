@@ -734,11 +734,21 @@ return function(verifyHarness: Verify.Harness)
 							},
 						},
 					},
-					finish = { look = "hard" },
+					finish = { look = "raised" },
 				}
 				local inked, inkedReport = themes.define(bare)
 				expect(inked ~= nil):toBe(true)
 				expect(#inkedReport.errors):toBe(0)
+				local typo = table.clone(bare)
+				typo.finish = { look = "raised", edge = { role = "hairlime" } }
+				local refusedTypo, typoReport = themes.define(typo)
+				expect(refusedTypo):toBe(nil)
+				expect(typoReport.errors[1].field):toBe("finish.edge.role")
+				local turned: Facet.ThemeDefinition =
+					{ identity = { id = "turned" }, finish = { look = "glow", depth = { lift = 6 } } }
+				local dropped: any = assert((themes.define(turned)))
+				expect(dropped.style.shadows.finish.offset.y.offset):toBe(6)
+				expect(dropped.style.shadows.finish.transparency):toBeCloseTo(0.65, 5)
 
 				local neutral: any = themes.neutralPackage().metrics.motion
 				local crisp: Facet.ThemeDefinition = { identity = { id = "crisp" }, motion = { feel = "crisp" } }
@@ -756,9 +766,25 @@ return function(verifyHarness: Verify.Harness)
 				}
 				local bouncy: any = assert((themes.define(lively)))
 				expect(bouncy.metrics.motion.springs.control.damping < 1):toBe(true)
-				expect(bouncy.metrics.motion.easing.present):toBe("outBack")
+				expect(bouncy.metrics.motion.easing.present):toBe(neutral.easing.present)
 				expect(bouncy.metrics.motion.sheet.enter):toBe(0.5)
 				expect(bouncy.metrics.motion.sheet.exit):toBe(neutral.sheet.exit)
+				local nudged: Facet.ThemeDefinition = {
+					identity = { id = "nudged" },
+					motion = { feel = "crisp" },
+					metrics = { motion = { hover = 0.3 } },
+				}
+				local kept: any = assert((themes.define(nudged)))
+				expect(kept.metrics.motion.hover):toBe(0.3)
+				expect(kept.metrics.motion.sheet.enter):toBe(quick.metrics.motion.sheet.enter)
+				expect(kept.metrics.motion.springs.move.period):toBe(quick.metrics.motion.springs.move.period)
+				local settled: Facet.ThemeDefinition =
+					{ identity = { id = "settled" }, base = bouncy, motion = { feel = "calm" } }
+				local quieted: any = assert((themes.define(settled)))
+				expect(quieted.metrics.motion.materialize.popOvershoot):toBe(
+					slow.metrics.motion.materialize.popOvershoot
+				)
+				expect(quieted.metrics.motion.springs.flick.damping):toBe(slow.metrics.motion.springs.flick.damping)
 				local wrong = { identity = { id = "wrong" }, motion = { feel = "wobbly" } }
 				local missing, complaint = themes.define(wrong :: any)
 				expect(missing):toBe(nil)

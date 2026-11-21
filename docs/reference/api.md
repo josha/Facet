@@ -32,8 +32,9 @@ Theme readers accept `Facet.ReadOnlyThemePackage`, the shallow readonly view of
 package does not need a copy before a control reads it.
 
 `Facet.ThemeFinish` types the `finish` field of a `Facet.ThemeDefinition`:
-the edge and the depth of every plate as values. See
-[Themes.finish](nodes/Themes.finish.md).
+the edge and the depth of every plate, as a named look or as values. See
+[Themes.finish](nodes/Themes.finish.md) and
+[Themes.character](nodes/Themes.character.md).
 
 `UI.Group` returns a native CanvasGroup. Its `groupTransparency` option accepts
 a readable number and fades the children together. `Facet.GroupProps` types
