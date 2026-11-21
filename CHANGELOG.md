@@ -1,5 +1,33 @@
 # Current package
 
+Facet Neutral has larger type: caption 16, label 17, body 18, heading 22,
+title 26, strong 18 and numeral 20, with a minimum text size of 16. A theme
+that keeps the Neutral minimum gets its smaller sizes raised to 16. Before,
+text on a desktop screen was small beside a hand-built UI. A theme can set
+`controls.typography.minimumSize` as low as 14 to keep smaller sizes.
+
+When one zone of a Composition still covers another zone after every Region
+is at its last form, a Region of those zones now hides behind the "…"
+control of its zone, where the player can open it. The Region with the
+highest rank number goes first. Before, the regions stayed over each other.
+A Region with `reveal = false` stays in view, and so does a Region that is
+only too large for its lane or the screen. The fit warning and `FacetUnfit`
+still name each Region that does not fit. Every zone that has a Region with `reveal` now has a
+hidden "…" control ready.
+
+A hugging Region form keeps a child with `UI.fill()` at its natural size.
+Before, three filled Buttons in a hugging row collapsed to their minimum
+width and their labels ran over each other, because the Region takes its
+size from the form and the filled children then shrank to that size.
+
+A row Card with `reveal = "always"` shows its actions at the trailing end of
+the row while the title keeps 120 pixels of room. Before, each row had a
+full-width button below it.
+
+A centered Sheet on a screen less than 600 pixels tall keeps a `space.s`
+margin above and below. Before, the `space.m` margin took 16 more pixels
+from a phone in landscape.
+
 A live build recovers from three option mistakes that replaced the control
 with an error label before. It ignores an unknown option. It gives a stack
 whose `surface` is not one of `surface`, `panel` or `pane` the `panel`

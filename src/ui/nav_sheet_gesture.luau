@@ -56,6 +56,7 @@ export type Gesture = {
 }
 
 local HANDLE = 20
+local SHORT = 600
 local HELD_PULL = 0.2
 local FLUSH: { [string]: number } = { left = 0, right = 0, bottom = 0 }
 
@@ -130,6 +131,12 @@ return function(
 		local function gutter(use: ComposeTypes.Use?): number
 			return if ctx.readSource(placed, use) == "center" then ctx.metric("space.m", use) else 0
 		end
+		local function rim(use: ComposeTypes.Use?): number
+			if ctx.readSource(placed, use) ~= "center" then
+				return 0
+			end
+			return ctx.metric(if ctx.readSource(extent, use).Y < SHORT then "space.s" else "space.m", use)
+		end
 		local function across(use: ComposeTypes.Use?): number
 			return math.max(0, ctx.readSource(extent, use).X - 2 * gutter(use))
 		end
@@ -185,7 +192,7 @@ return function(
 				or function<T>(source: ComposeTypes.ReadOnlyValue<T>): T
 					return source:peek()
 				end
-			return math.max(1, get(extent).Y - keyboard(get) - 2 * gutter(use))
+			return math.max(1, get(extent).Y - keyboard(get) - 2 * rim(use))
 		end
 		local function minimum(use: ComposeTypes.Use?): number
 			return ctx.metric("targetSizes.minimum", use) * 4 + ctx.metric("space.m", use) * 2

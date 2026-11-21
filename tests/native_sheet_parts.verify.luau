@@ -638,8 +638,15 @@ return function(verifyHarness: Verify.Harness)
 				)
 				local floating = centered.find("SheetPanel")
 				Verify.expect(floating.Size.X.Offset):toBe(390 - 2 * 16)
-				Verify.expect(floating.Size.Y.Offset <= 300 - 2 * 16):toBe(true)
+				Verify.expect(floating.Size.Y.Offset <= 300 - 2 * 8):toBe(true)
+				Verify.expect(floating.Size.Y.Offset > 300 - 2 * 16):toBe(true)
 				centered.stop()
+				local roomy = mount(
+					{ width = "wide" :: "wide", placement = "center" :: "center" },
+					{ room = Vector2.new(390, 700), detent = "large", motionLevel = "none" }
+				)
+				Verify.expect(roomy.find("SheetPanel").Size.Y.Offset <= (700 - 2 * 16) * 0.95 + 1):toBe(true)
+				roomy.stop()
 			end,
 		})
 

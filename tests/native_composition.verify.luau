@@ -1574,6 +1574,7 @@ return function(verifyHarness: Verify.Harness)
 							UI.Region "Stay" {
 								zone = "left" :: "left",
 								rank = 1,
+								reveal = if reveal then nil else false,
 								form = stayForm,
 								Host.Frame { Name = "StayFull" },
 							},
@@ -1618,6 +1619,166 @@ return function(verifyHarness: Verify.Harness)
 					end
 					w.stop()
 				end
+			end,
+		})
+
+		it("keeps a filled child of a hugging Region form at its natural size", {
+			id = "native_composition::Composition::keeps a filled child of a hugging Region form at its natural size",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition "Hud" {
+						topbar = false,
+						UI.Region "Tools" {
+							zone = "topRight" :: "topRight",
+							rank = 1,
+							UI.HStack "Hugging" {
+								UI.Button "Open" { label = "Upgrades", UI.fill() },
+								UI.Button "Weighted" { label = "Customize", UI.fill(2) },
+							},
+						},
+						UI.Region "Bar" {
+							zone = "bottom" :: "bottom",
+							rank = 1,
+							UI.HStack "Bounded" {
+								width = 320,
+								UI.Button "Wide" { label = "Settings", UI.fill() },
+							},
+						},
+						UI.Region "Capped" {
+							zone = "left" :: "left",
+							rank = 1,
+							UI.HStack "Limited" {
+								maxWidth = 240,
+								UI.Button "Held" { label = "Garage", UI.fill() },
+							},
+						},
+					}
+				end)
+				local function flex(name: string): UIFlexItem
+					return w.find(name):FindFirstChildWhichIsA("UIFlexItem")
+				end
+				expect(flex("Open").FlexMode.Name):toBe("Grow")
+				expect(flex("Weighted").FlexMode.Name):toBe("Custom")
+				expect(flex("Weighted").GrowRatio):toBe(2)
+				expect(flex("Weighted").ShrinkRatio):toBe(0)
+				expect(flex("Wide").FlexMode.Name):toBe("Fill")
+				expect(flex("Held").FlexMode.Name):toBe("Fill")
+				w.stop()
+			end,
+		})
+
+		it("collapses a colliding region that has no smaller form into the zone's overflow control", {
+			id = "native_composition::Composition::collapses a colliding region that has no smaller form into the zone's overflow control",
+			run = function()
+				local overlay = require("./lib/overlay_world")
+				for _, reveal in { true, false } do
+					local walletForm, questForm = Compose.cell(1), Compose.cell(1)
+					local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+						return UI.Composition "Hud" {
+							gap = 8,
+							padding = 0,
+							topbar = false,
+							UI.Region "Wallet" {
+								zone = "topLeft" :: "topLeft",
+								rank = 1,
+								form = walletForm,
+								Host.Frame { Name = "WalletFull" },
+							},
+							UI.Region "Quests" {
+								zone = "bottomLeft" :: "bottomLeft",
+								rank = 2,
+								reveal = if reveal then nil else false,
+								form = questForm,
+								Host.Frame { Name = "QuestsFull" },
+							},
+						}
+					end)
+					local quests = w.find("QuestsFull")
+					local home = quests.Parent
+					w.size(w.find("WalletFull"), 200, 260)
+					w.size(quests, 200, 260)
+					local zones = w.find("Zones")
+					w.size(zones, 800, 600)
+					expect((walletForm:peek())):toBe(1)
+					expect((questForm:peek())):toBe(1)
+					w.size(zones, 800, 400)
+					expect((walletForm:peek())):toBe(if reveal then 1 else 0)
+					expect((questForm:peek())):toBe(if reveal then 0 else 1)
+					expect(w.find("Hud"):GetAttribute("FacetUnfit")):toBe(true)
+					local details = assert(string.match(w.find("FacetUnfitDetails").Value, "^[^;]*"))
+					expect((string.find(details, if reveal then "Quests" else "Wallet", 1, true)) ~= nil):toBe(true)
+					expect((string.find(details, if reveal then "Wallet" else "Quests", 1, true))):toBe(nil)
+					local target = w.find("ZoneRevealBottomLeft")
+					expect(target ~= nil):toBe(reveal)
+					if target then
+						expect(target.Visible):toBe(true)
+						target.Activated:Fire()
+						expect((quests:IsDescendantOf(w.find("HiddenQuests")))):toBe(true)
+						w.size(zones, 800, 600)
+						expect((questForm:peek())):toBe(1)
+						expect(quests.Parent):toBe(home)
+						expect(target.Visible):toBe(false)
+					end
+					w.stop()
+				end
+			end,
+		})
+
+		it("keeps a region that is only too large in view and hides only the region that frees a covered zone", {
+			id = "native_composition::Composition::keeps a region that is only too large in view and hides only the region that frees a covered zone",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local panel: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { { x = 369, y = 186 } } }
+				local tools: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 2, mayDrop = false, sizes = { { x = 150, y = 164 } } }
+				local forms, _, _, overflow, _, colliding = resolver.resolve(353, 671, 8, { panel, tools })
+				expect(forms[1]):toBe(1)
+				expect(#overflow > 0):toBe(true)
+				expect(#colliding):toBe(0)
+				local empty: Declared =
+					{ zone = "bottomLeft" :: "bottomLeft", rank = 9, mayDrop = false, sizes = { { x = 0, y = 0 } } }
+				local low: Declared =
+					{ zone = "bottomLeft" :: "bottomLeft", rank = 3, mayDrop = false, sizes = { { x = 200, y = 400 } } }
+				local _, _, _, _, _, hits = resolver.resolve(353, 671, 8, { panel, tools, empty, low })
+				expect(hits):toEqual({ 1, 2, 4 })
+				local overlay = require("./lib/overlay_world")
+				local wideForm, smallForm, otherForm = Compose.cell(1), Compose.cell(1), Compose.cell(1)
+				local w: any = overlay.new(function(UI: FacetControls, Host: RobloxHost)
+					return UI.Composition "Hud" {
+						gap = 8,
+						padding = 0,
+						topbar = false,
+						UI.Region "Wide" {
+							zone = "topLeft" :: "topLeft",
+							rank = 1,
+							form = wideForm,
+							Host.Frame { Name = "WideFull" },
+						},
+						UI.Region "Small" {
+							zone = "topLeft" :: "topLeft",
+							rank = 9,
+							form = smallForm,
+							Host.Frame { Name = "SmallFull" },
+						},
+						UI.Region "Other" {
+							zone = "bottomLeft" :: "bottomLeft",
+							rank = 2,
+							form = otherForm,
+							Host.Frame { Name = "OtherFull" },
+						},
+					}
+				end)
+				w.size(w.find("WideFull"), 300, 320)
+				w.size(w.find("SmallFull"), 100, 60)
+				w.size(w.find("OtherFull"), 300, 320)
+				w.size(w.find("Zones"), 800, 600)
+				expect((wideForm:peek())):toBe(1)
+				expect((smallForm:peek())):toBe(1)
+				expect((otherForm:peek())):toBe(0)
+				w.stop()
 			end,
 		})
 

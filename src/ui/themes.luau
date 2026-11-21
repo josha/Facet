@@ -223,7 +223,7 @@ local neutral: ThemeTypes.ThemePackage = {
 			},
 			alert = { maxWidth = 560 },
 			popup = { panelWidth = 360 },
-			typography = { preferredSizeStep = 2, minimumSize = 14 },
+			typography = { preferredSizeStep = 2, minimumSize = 16 },
 			dialog = { wideWidth = 800 },
 			snackbar = { maxWidth = 480 },
 			radial = { narrow = 48, regular = 64, wide = 88 },
@@ -235,7 +235,7 @@ local neutral: ThemeTypes.ThemePackage = {
 	rules = {},
 }
 local typographySizes: { [string]: number } =
-	{ caption = 14, label = 15, body = 16, heading = 20, title = 24, control = 18, strong = 16, numeral = 18 }
+	{ caption = 16, label = 17, body = 18, heading = 22, title = 26, control = 18, strong = 18, numeral = 20 }
 for role, size in typographySizes do
 	neutral.metrics.typography[role] = {
 		size = size,

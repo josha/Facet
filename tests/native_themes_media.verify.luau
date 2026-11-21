@@ -2124,7 +2124,7 @@ return function(verifyHarness: Verify.Harness)
 				local package = themes.define(definition)
 				expect((table.isfrozen(assert(package).metrics.typography))):toBe(true)
 				definition.metrics.typography.body.size = 23
-				expect(assert(package).metrics.typography.body.size):toBe(16)
+				expect(assert(package).metrics.typography.body.size):toBe(18)
 				local malformedDefinition = definition :: any
 				malformedDefinition.rules = {
 					{
@@ -3752,9 +3752,18 @@ return function(verifyHarness: Verify.Harness)
 				definition.metrics.typography.caption.size = 12
 				definition.metrics.typography.body.size = 15
 				local resolved = assert((themes.define(definition)))
-				expect(resolved.metrics.typography.caption.size):toBe(14)
-				expect(resolved.metrics.typography.body.size):toBe(15)
+				expect(resolved.metrics.typography.caption.size):toBe(16)
+				expect(resolved.metrics.typography.body.size):toBe(17)
 				expect(definition.metrics.typography.caption.size):toBe(12)
+				local compact = themes.neutralPackage()
+				compact.metrics.typography.caption.size = 12
+				compact.metrics.controls.typography.minimumSize = 14
+				local kept = assert((themes.define(compact)))
+				expect(kept.metrics.typography.caption.size):toBe(14)
+				local tiny = themes.neutralPackage()
+				tiny.metrics.typography.caption.size = 10
+				tiny.metrics.controls.typography.minimumSize = 8
+				expect(assert((themes.define(tiny))).metrics.typography.caption.size):toBe(14)
 			end,
 		})
 

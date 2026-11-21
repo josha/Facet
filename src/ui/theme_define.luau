@@ -4,6 +4,7 @@ local ThemeTypes = require("./theme_types")
 local support = require("./theme_support")
 local themeFinish = require("./theme_finish")
 local DATA_FORMS = table.freeze({ "udim", "udim2", "vector2", "colorSequence", "numberSequence" })
+local SIZE_FLOOR = 14
 
 local copy, merge, frozen, shadowPresets = support.copy, support.merge, support.frozen, support.shadowPresets
 local easings = (ComposeTypes.easing :: unknown) :: { read [string]: ((number) -> number)? }
@@ -341,8 +342,9 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 			end
 		end
 		local minimum = math.max(
-			neutral.metrics.controls.typography.minimumSize,
-			support.numericMetric(package.metrics, "controls.typography.minimumSize") or 0
+			SIZE_FLOOR,
+			support.numericMetric(package.metrics, "controls.typography.minimumSize")
+				or neutral.metrics.controls.typography.minimumSize
 		)
 		local sizes: { number } = {}
 		for _, entry in package.metrics.typography do
