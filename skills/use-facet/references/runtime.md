@@ -5,6 +5,9 @@ task's pages and overlays in the same mount. For a plugin or existing host, read
 [runtime details](runtime-details.md) before choosing the mount target.
 Edit persistent source; Play-only edits are not the delivered change.
 
+A game UI defines its own theme before its first screen: follow
+`Tasks.theme`. Facet Neutral is a base, not a finished look.
+
 If Studio's command executor cannot require a module because its capabilities
 are restricted, run the inspection from a temporary LocalScript during Play
 and read its output. Do not change the installed library's `Sandboxed` or
@@ -107,7 +110,8 @@ and clean up subscriptions with `C.cleanup(function() connection:Disconnect() en
 `C.switch(source, { [key] = builder }, fallback)` picks one branch by value.
 `C.keyed({ from = list, key = function(value, index) return value.id end, render = function(value, index, key) ... end })`
 builds one child for each list entry and keeps it while its key stays; `value`
-and `index` arrive as readables. `C.watch(function(use) ... end)` runs a side
+and `index` arrive as readables. Here `key` is always a function; only
+VirtualList and VirtualGrid also take a field name such as `key = "id"`. `C.watch(function(use) ... end)` runs a side
 effect when the values that it reads change.
 Keep durable selection and drafts outside disposable pages and recycled rows.
 

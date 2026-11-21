@@ -1,5 +1,10 @@
 # Current package
 
+A Region form that is a hugging row does not wrap. Before, `wrap = true` on an
+HStack with no width put each child on a line of its own, because a row that
+hugs has no width to wrap at, and a hotbar became a column over the play area.
+A row form with a width still wraps.
+
 A Slider row shows `row.icon` on the title line, before the title, and the
 track on its own line at the full width of the row. Before, the icon was in a
 column of its own, centred between the title and the track.

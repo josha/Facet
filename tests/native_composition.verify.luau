@@ -1986,6 +1986,31 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps a hugging row form on one line and lets a row form with a width wrap", {
+			id = "native_composition::Composition::keeps a hugging row form on one line and lets a row form with a width wrap",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local wide: Frame
+				local narrow: Frame
+				runtime.mount(function()
+					wide = UI.HStack "Wide" { wrap = true, UI.Text { text = "Hoe" }, UI.Text { text = "Can" } }
+					narrow = UI.HStack "Narrow" {
+						width = 120,
+						wrap = true,
+						UI.Text { text = "Hoe" },
+						UI.Text { text = "Can" },
+					}
+					return UI.Composition {
+						UI.Region { Name = "Hotbar", zone = "bottom", rank = 1, wide, narrow },
+					}
+				end, layer)
+				expect(assert(wide:FindFirstChildWhichIsA("UIListLayout")).Wraps):toBe(false)
+				expect(assert(narrow:FindFirstChildWhichIsA("UIListLayout")).Wraps):toBe(true)
+			end,
+		})
+
 		it("reaches past the touch padding of the Screen that holds it", {
 			id = "native_composition::Composition::reaches past the touch padding of the Screen that holds it",
 			run = function()

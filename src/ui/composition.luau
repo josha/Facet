@@ -423,6 +423,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
+			local list = child:FindFirstChildWhichIsA("UIListLayout")
+			local hugs = child.AutomaticSize == E.AutomaticSize.X or child.AutomaticSize == E.AutomaticSize.XY
+			if list and hugs and list.FillDirection == E.FillDirection.Horizontal and list.Wraps then
+				list.Wraps = false
+			end
 			if spec.plate ~= false then
 				if zone == "topbar" and bareText(child) then
 					child = UI.HStack "Readout" {
