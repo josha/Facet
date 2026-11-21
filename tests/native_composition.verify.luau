@@ -1848,7 +1848,14 @@ return function(verifyHarness: Verify.Harness)
 				local menu: Frame
 				local stance: Frame
 				local raw: Frame
+				local lone: Frame
 				runtime.mount(function()
+					lone = UI.Region {
+						Name = "Lone",
+						zone = "topbar",
+						rank = 5,
+						UI.Text { text = "120" },
+					}
 					status = UI.Region {
 						Name = "Status",
 						zone = "topbar",
@@ -1875,16 +1882,18 @@ return function(verifyHarness: Verify.Harness)
 						plate = false,
 						UI.HStack "Plain" { UI.Text { text = "4:59" } },
 					}
-					return UI.Composition { gap = 8, padding = 0, status, menu, stance, raw }
+					return UI.Composition { gap = 8, padding = 0, status, menu, stance, raw, lone }
 				end, layer)
 				local readout = status:FindFirstChild("Readout", true)
 				expect(readout ~= nil):toBeTrueWith("the bare readout has no plate stack")
 				expect(assert(readout):HasTag("facet-panel")):toBeTrueWith("the plate stack has no panel surface")
 				expect(menu:FindFirstChild("Readout", true)):toBe(nil)
+				expect(lone:FindFirstChild("Readout", true) ~= nil):toBeTrueWith(
+					"a Region of one bare Text has no plate"
+				)
 				expect(raw:FindFirstChild("Readout", true)):toBe(nil)
 				local label = assert(stance:FindFirstChildWhichIsA("TextLabel", true))
 				expect(label:HasTag("facet-over-world")):toBeTrueWith("bare text has no over-world tag")
-				expect(label:FindFirstChild("WorldOutline") ~= nil):toBeTrueWith("bare text has no outline")
 				local plain = assert(raw:FindFirstChildWhichIsA("TextLabel", true))
 				expect(plain:HasTag("facet-over-world")):toBe(false)
 			end,

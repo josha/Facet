@@ -18,18 +18,11 @@ return function(
 	local natural = Compose.cell(V2.zero)
 	local painted: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 	local dressed = Compose.cell(false)
+	local inset = Compose.cell(V2.zero)
 	local function axes(use: ComposeTypes.Use): (boolean, boolean)
 		local value = ctx.read<<Enum.AutomaticSize?>>(geometry.AutomaticSize, use) or automatic
 		return value == E.AutomaticSize.X or value == E.AutomaticSize.XY,
 			value == E.AutomaticSize.Y or value == E.AutomaticSize.XY
-	end
-	local function roomy(use: ComposeTypes.Use): boolean
-		local extent = painted
-		if not geometry.reflow or extent == nil or not use(dressed) then
-			return false
-		end
-		local _, y = axes(use)
-		return y and use(measured).Y > use(extent).Y + 1
 	end
 	local function moving(use: ComposeTypes.Use): boolean
 		return use(factor) ~= 1 and use(natural).X > 0 and use(natural).Y > 0
@@ -78,16 +71,24 @@ return function(
 				return D2.fromScale(if x then 0 else 1, if y then 0 else 1)
 			end
 			else D2.fromScale(1, 1),
-		AnchorPoint = function(use: ComposeTypes.Use): Vector2
-			return if roomy(use) then V2.new(0.5, 0) else V2.new(0.5, 0.5)
-		end,
-		Position = function(use: ComposeTypes.Use): UDim2
-			return if roomy(use) then D2.fromScale(0.5, 0) else D2.fromScale(0.5, 0.5)
-		end,
+		AnchorPoint = V2.new(0.5, 0.5),
+		Position = D2.fromScale(0.5, 0.5),
 		AutomaticSize = if geometry.reflow then geometry.AutomaticSize or automatic else E.AutomaticSize.None,
 		Visible = false,
 		Text = "",
 		scale,
+		if geometry.reflow
+			then Host.UISizeConstraint "FeedbackFloor" {
+				MinSize = function(use: ComposeTypes.Use): Vector2
+					local x, y = axes(use)
+					local rest = use(natural) - use(inset)
+					return V2.new(
+						if x then math.max(0, math.floor(rest.X)) else 0,
+						if y then math.max(0, math.floor(rest.Y)) else 0
+					)
+				end,
+			}
+			else nil,
 	}
 	paintProps.BackgroundColor3 = ctx.observeStyled.BackgroundColor3(node)
 	paintProps.BackgroundTransparency = ctx.observeStyled.BackgroundTransparency(node)
@@ -231,14 +232,23 @@ return function(
 							ctx.observeStyled :: unknown
 						) :: { [string]: (Instance) -> ComposeTypes.Value<UDim> }
 						if padding then
+							local left = observePadding["PaddingLeft"](padding)
+							local right = observePadding["PaddingRight"](padding)
+							local top = observePadding["PaddingTop"](padding)
+							local bottom = observePadding["PaddingBottom"](padding)
 							runtime.mount(function()
 								return Host.UIPadding {
-									PaddingLeft = observePadding["PaddingLeft"](padding),
-									PaddingRight = observePadding["PaddingRight"](padding),
-									PaddingTop = observePadding["PaddingTop"](padding),
-									PaddingBottom = observePadding["PaddingBottom"](padding),
+									PaddingLeft = left,
+									PaddingRight = right,
+									PaddingTop = top,
+									PaddingBottom = bottom,
 								}
 							end, paint)
+							Compose.watch(function(use: ComposeTypes.Use)
+								inset:set(
+									V2.new(use(left).Offset + use(right).Offset, use(top).Offset + use(bottom).Offset)
+								)
+							end)
 						end
 						Compose.cleanup(function()
 							moving = false

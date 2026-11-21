@@ -80,6 +80,7 @@ export type CardControls = {
 export type CardOptions = {
 	image: Types.ValueString?,
 	artwork: (() -> GuiObject)?,
+	glyph: string?,
 	title: Types.ValueString,
 	caption: Types.ValueString?,
 	imageAspectRatio: number?,

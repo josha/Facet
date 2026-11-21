@@ -683,7 +683,12 @@ local function rulesFor(
 			or math.max(0, 1 - (1 - (extra.hairlineOpacity or 0.92)) * 3),
 	})
 	rule(".facet-pane", { BackgroundColor3 = c("surfaceStrong"), BackgroundTransparency = 0, BorderSizePixel = 0 })
-	rule(".facet-over-world::UIStroke", { Color = c("surface"), Thickness = 1, Transparency = 0.4 })
+	rule(".facet-over-world::UIStroke", {
+		Color = c("surface"),
+		Thickness = 1,
+		Transparency = 0.4,
+		ApplyStrokeMode = types.Enum.ApplyStrokeMode.Contextual,
+	})
 	rule(".facet-scrim", {
 		BackgroundColor3 = color(types, extra.scrim) or types.Color3.new(0, 0, 0),
 		BackgroundTransparency = 1 - (extra.scrimOpacity or 0.45),

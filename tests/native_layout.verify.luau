@@ -3126,6 +3126,36 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 				end,
 			})
+			it("sizes its cells to the tallest Card and follows the cards", {
+				id = "native_layout::Grid::sizes its cells to the tallest Card and follows the cards",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.Grid "Bag" {
+							columns = 2,
+							UI.Card "Tall" { title = "Wand", caption = "A long caption" },
+							UI.Card "Short" { title = "Seed" },
+						}
+					end)
+					local V2 = engine.types.Vector2
+					local grid = child(root, "UIGridLayout")
+					local tall = root:FindFirstChild("Tall")
+					local short = root:FindFirstChild("Short")
+					local function settle()
+						engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, grid.CellSize.Y.Offset))
+					end
+					settle()
+					engine.environment.poke(tall:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 80))
+					settle()
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 50))
+					expect(grid.CellSize.Y.Offset):toBe(80)
+					engine.environment.poke(tall:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 66))
+					settle()
+					expect(grid.CellSize.Y.Offset):toBe(66)
+					tall.Parent = nil
+					expect(grid.CellSize.Y.Offset):toBe(50)
+					stop()
+				end,
+			})
 			it("fills columns first with flow column and follows the child count", {
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()

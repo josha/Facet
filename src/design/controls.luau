@@ -281,6 +281,7 @@ local controls: { [string]: Types.ControlSpec } = {
 			title = { type = "string", label = "Title", order = 1 },
 			caption = { type = "string", label = "Caption", order = 2 },
 			image = { type = "string", label = "Image URI", order = 3 },
+			glyph = { type = "string", label = "Glyph", order = 17 },
 			imageAspectRatio = { type = "number", label = "Artwork ratio", order = 4 },
 			imageFraming = { type = "choice", label = "Image framing", order = 5, options = { "fit", "crop" } },
 			reveal = { type = "choice", label = "Reveal", order = 6, options = { "automatic", "always" } },

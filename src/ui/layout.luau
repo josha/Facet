@@ -1198,34 +1198,36 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
 			local watched: { [Instance]: RBXScriptConnection } = {}
 			local adopted: { [Instance]: RBXScriptConnection } = {}
-			local across = 0
+			local heights: { [Instance]: number } = {}
 			local function measure()
 				local cell, offset = grid.AbsoluteCellSize, grid.CellSize.Y.Offset
 				local unit = if cell.Y > 0 and offset > 0 then cell.Y / offset else 1
-				local best, cards = 0, false
 				for _, child in node:GetChildren() do
 					if child:IsA("GuiObject") then
+						local reach, found = 0, false
 						for _, part in child:GetChildren() do
-							if part:IsA("GuiObject") then
-								cards = cards or part:HasTag("facet-card-part")
-								if part.Visible and part.Name ~= "FeedbackPaint" then
-									local reach = part.AbsolutePosition.Y
-										+ part.AbsoluteSize.Y
-										- child.AbsolutePosition.Y
-									best = math.max(best, reach / unit)
+							if part:IsA("GuiObject") and part:HasTag("facet-card-part") then
+								found = true
+								if part.Visible then
+									local bottom = part.AbsolutePosition.Y + part.AbsoluteSize.Y
+									reach = math.max(reach, (bottom - child.AbsolutePosition.Y) / unit)
 								end
 							end
 						end
+						if found then
+							heights[child] = reach
+						end
 					end
 				end
-				if not cards then
-					cardHeight:set(0)
-					return
+				local best = 0
+				for child, reach in heights do
+					if child.Parent == node then
+						best = math.max(best, reach)
+					else
+						heights[child] = nil
+					end
 				end
-				local width = math.floor(cell.X + 0.5)
-				local prior = if width == across then cardHeight:peek() else 0
-				across = width
-				cardHeight:set(math.max(prior, math.ceil(best)))
+				cardHeight:set(math.ceil(best - 0.01))
 			end
 			local function watch(part: Instance)
 				if part:IsA("GuiObject") and watched[part] == nil then
@@ -1250,6 +1252,7 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 				adopt(child)
 			end
 			runtime.connect(node, "ChildAdded", adopt)
+			runtime.connect(node, "ChildRemoved", measure)
 			watched[grid] = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
 			Compose.cleanup(function()
 				for _, connection in watched do

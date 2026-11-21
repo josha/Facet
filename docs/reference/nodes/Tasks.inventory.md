@@ -17,11 +17,7 @@ local function bag(app: Facet.App, open: Facet.Value<boolean>, owned: { Item }, 
     local list: { Instance } = {}
     for _, item in items do
       table.insert(list, UI.Card(item.id) {
-        title = item.name, caption = item.note, reveal = "always",
-        artwork = function()
-          return UI.ZStack { width = "fill", height = "fill", alignH = "center",
-            alignV = "center", UI.Text { text = item.art, textRole = "title" } }
-        end,
+        title = item.name, caption = item.note, reveal = "always", glyph = item.art,
         primaryAction = if item.action
           then { label = item.action, onActivate = function() act(item) end } else nil,
       })
@@ -43,7 +39,7 @@ local function bag(app: Facet.App, open: Facet.Value<boolean>, owned: { Item }, 
 end
 ```
 
-Each item has a picture: `image` for game art, or an icon or emoji in
-`artwork`, as `art` here. `note` holds the quantity or the price. `enabled`
+Each item has a picture: `image` for game art, or `glyph`, a Facet icon name
+or an emoji that the Card draws large, as `art` here. `note` holds the quantity or the price. `enabled`
 on the action shows what the player cannot buy. A Grid of Cards with no cell
 size fits its cells to the cards. [Confirm](Tasks.confirm.md) a purchase.

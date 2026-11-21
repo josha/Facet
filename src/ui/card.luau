@@ -10,6 +10,7 @@ local ControlTypes = require("./control_types")
 local InputProps = require("./input_props")
 local reducedMotion = require("./motion").reduced
 local feedbackPaint = require("./feedback_paint")
+local standardIcons = require("./icons")
 
 local ACTION_KEYS: { [string]: boolean } = { label = true, icon = true, onActivate = true, enabled = true, busy = true }
 local MENU_KEYS: { [string]: boolean } = { items = true, label = true }
@@ -50,7 +51,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			"Facet UI.Card: artwork must be a function that returns a GuiObject"
 		)
 		assert(spec.image == nil or nonempty(read(spec.image)), "Facet UI.Card: image must be a nonempty image string")
-		local media = spec.image ~= nil or spec.artwork ~= nil
+		assert(
+			spec.glyph == nil or (nonempty(spec.glyph) and string.match(spec.glyph, "^rbx") == nil),
+			"Facet UI.Card: glyph must be an icon name or an emoji; give an image asset to image"
+		)
+		assert(spec.glyph == nil or spec.artwork == nil, "Facet UI.Card: give glyph or artwork, not both")
+		local media = spec.image ~= nil or spec.artwork ~= nil or spec.glyph ~= nil
 		assert(nonempty(read(spec.title)), "Facet UI.Card: title is required: a nonempty string")
 		assert(spec.caption == nil or text(read(spec.caption)), "Facet UI.Card: caption must be a string")
 		local ratio = spec.imageAspectRatio or 16 / 9
@@ -91,7 +97,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local badges = spec.badges
 		if badges ~= nil then
 			fields(badges, CORNER_KEYS, "badges")
-			assert(media, "Facet UI.Card: badges need image or artwork")
+			assert(media, "Facet UI.Card: badges need image, artwork or glyph")
 			local function checkBadge(corner: string, badge: Content.CardBadge?)
 				if badge == nil then
 					return
@@ -392,6 +398,33 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				return live
 			end, artwork)
 		end
+		if spec.glyph then
+			local glyph = spec.glyph
+			runtime.mount(function()
+				local centered = ctx.types.Vector2.new(0.5, 0.5)
+				if standardIcons.registered(glyph) then
+					return Host.Frame "Glyph" {
+						AnchorPoint = centered,
+						Position = D2.fromScale(0.5, 0.5),
+						Size = D2.fromScale(0.6, 0.6),
+						BackgroundTransparency = 1,
+						Host.UIAspectRatioConstraint { AspectRatio = 1 },
+						ctx.icon(glyph, { Name = "Icon", Size = D2.fromScale(1, 1) }),
+					}
+				end
+				return ctx.text({
+					Name = "Glyph",
+					AutomaticSize = E.AutomaticSize.None,
+					AnchorPoint = centered,
+					Position = D2.fromScale(0.5, 0.5),
+					Size = D2.fromScale(1, 0.6),
+					Text = glyph,
+					TextScaled = true,
+					TextXAlignment = E.TextXAlignment.Center,
+					TextYAlignment = E.TextYAlignment.Center,
+				})
+			end, artwork)
+		end
 		local subtitle: Types.Input<string> = if not badges
 			then caption
 			else function(use: ComposeTypes.Use): string
@@ -685,6 +718,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local card = Host.Frame(ctx.props(spec, {
 			"image",
 			"artwork",
+			"glyph",
 			"title",
 			"caption",
 			"imageAspectRatio",

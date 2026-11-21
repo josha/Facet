@@ -24,6 +24,18 @@ A `Grid` that holds Cards and sets no `cellHeight` and no `aspectRatio` gives
 each cell the height of its tallest Card. Before, the cells had the height of a control and the
 cards overlapped each other and the parts around the grid.
 
+`UI.Card` has the new option `glyph`: a Facet icon name or an emoji. The Card
+draws it in the art frame at 60 percent of the frame height. Use it for an
+item that has no art.
+
+A Card in a box taller than its content keeps its plate and its place on
+hover. Before, in a Grid cell or a stretched row, the plate became as small
+as the content and the content moved to the middle of the box.
+
+A `center` row region does not go over a wider side zone that cannot step
+down, drop or land. Before, the row kept its lane width and three wide
+Buttons at `topRight` covered a short region at `top` on a phone.
+
 The new recipe `Tasks.shortcut` makes an InputAction with a key and a gamepad
 button for a HUD Button and shows it with `shortcutHint`.
 

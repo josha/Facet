@@ -414,6 +414,30 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("draws a glyph large in the art frame: an emoji as scaled text and an icon name as a square icon", {
+			id = "native_card::native Card::draws a glyph large in the art frame: an emoji as scaled text and an icon name as a square icon",
+			run = function()
+				local world = mount({ title = "Potion", glyph = "\u{1F9EA}" })
+				local art = world.find("Artwork")
+				expect(art.Visible):toBe(true)
+				local glyph = art:FindFirstChild("Glyph")
+				expect(glyph.ClassName):toBe("TextLabel")
+				expect(glyph.TextScaled):toBe(true)
+				expect(glyph.Size):toBe(UDim2.fromScale(1, 0.6))
+				world.stop()
+				local named = mount({ title = "Bag", glyph = "bag" })
+				local frame = named.find("Artwork"):FindFirstChild("Glyph")
+				expect(frame.ClassName):toBe("Frame")
+				expect(frame.Size):toBe(UDim2.fromScale(0.6, 0.6))
+				expect(frame:FindFirstChildWhichIsA("UIAspectRatioConstraint").AspectRatio):toBe(1)
+				expect(frame:FindFirstChild("Icon") ~= nil):toBe(true)
+				named.stop()
+				expect(function()
+					mount({ title = "Coins", glyph = "rbxassetid://1" })
+				end):toThrow("glyph must be an icon name or an emoji")
+			end,
+		})
+
 		it("omits absent caption and action-cancel resources", {
 			id = "native_card::native Card::omits absent caption and action-cancel resources",
 			run = function()
@@ -620,7 +644,7 @@ return function(verifyHarness: Verify.Harness)
 				plain.stop()
 				expect(function()
 					mount({ title = "Coins", badges = { leading = { label = "New" } } })
-				end):toThrow("badges need image or artwork")
+				end):toThrow("badges need image, artwork or glyph")
 				expect(function()
 					mount({ image = "rbxassetid://1", title = "Coins", badges = { top = { label = "New" } } })
 				end):toThrow("badges has the unknown field 'top'")
@@ -1160,6 +1184,23 @@ return function(verifyHarness: Verify.Harness)
 				expect(root.Size.Y.Offset):toBe(137)
 				world.engine.environment.poke(paint, "AbsoluteSize", world.V2(230, 160))
 				expect(root.Size.Y.Offset):toBe(160)
+				world.stop()
+			end,
+		})
+
+		it("floors the lift paint at the rest box of the card so a card in a taller cell keeps its plate", {
+			id = "native_card::native Card::floors the lift paint at the rest box of the card so a card in a taller cell keeps its plate",
+			run = function()
+				local world = stacked(Compose.cell(false))
+				local root = world.find("C")
+				hover(root, true)
+				settle(world, 0.1)
+				local paint = world.find("FeedbackPaint")
+				local floor = paint:FindFirstChild("FeedbackFloor")
+				expect(floor ~= nil):toBeTrueWith("the lift paint has no size floor")
+				expect(floor.MinSize.Y):toBe(137)
+				expect(floor.MinSize.X):toBe(0)
+				expect(paint.AnchorPoint):toEqual(world.V2(0.5, 0.5))
 				world.stop()
 			end,
 		})

@@ -540,6 +540,7 @@ local derived: Types.Derived = {
 				caption = { type = "string" },
 				controls = { type = "value" },
 				enabled = { type = "boolean" },
+				glyph = { type = "string" },
 				image = { type = "string" },
 				imageAspectRatio = { type = "number" },
 				imageFraming = { type = "choice", options = { "fit", "crop" } },

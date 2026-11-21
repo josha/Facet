@@ -286,7 +286,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		return false
 	end
 	local function bareText(form: GuiObject): boolean
-		local found = false
+		local found = form:IsA("TextLabel") and not backed(form, form)
 		for _, node in form:GetDescendants() do
 			if node:IsA("GuiButton") then
 				return false
@@ -300,9 +300,6 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local function outline(node: Instance)
 			if node:IsA("TextLabel") and not node:HasTag(OVER_WORLD) and not backed(node, form) then
 				node:AddTag(OVER_WORLD)
-				runtime.mount(function()
-					return Host.UIStroke "WorldOutline" {}
-				end, node)
 			end
 		end
 		for _, node in form:GetDescendants() do

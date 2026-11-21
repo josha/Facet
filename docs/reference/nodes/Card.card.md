@@ -12,7 +12,8 @@ UI.Card "Card" {
 }
 ```
 
-Key options: `title`, `image`, `onActivate`, `primaryAction`, `menu`, `badges`.
+Key options: `title`, `image`, `glyph`, `onActivate`, `primaryAction`, `menu`,
+`badges`.
 
 Facet shows item states, such as Owned or Rare, as `badges` on the top corners
 of the art. Do not put Badges in `artwork` with ZStack, Position or ZIndex.
@@ -20,8 +21,8 @@ of the art. Do not put Badges in `artwork` with ZStack, Position or ZIndex.
 A card without `primaryAction` and `menu` ends at its body. In a selectable
 collection, the card shows the selected color on its own plate.
 
-An item of a bag or a shop has a picture. With no art, `artwork` returns a
-Facet icon or an emoji; see [Tasks.inventory](Tasks.inventory.md).
+An item of a bag or a shop has a picture. With no art, set `glyph` to a Facet
+icon name or an emoji; see [Tasks.inventory](Tasks.inventory.md).
 
 Keep durable item state in the model.
 

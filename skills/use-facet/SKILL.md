@@ -381,8 +381,8 @@ finish them here, before a second screen calls them.
   in new colors.
 - **A record.** One item with its visual, its name, the value that decides
   and its state, in a full form and a short form. When the game has no art
-  for an item, a Facet icon or an emoji is its visual; node
-  `Tasks.inventory` shows a bag built this way. When the whole record is
+  for an item, a Facet icon or an emoji is its visual, in the `glyph` of
+  its Card; node `Tasks.inventory` shows a bag built this way. When the whole record is
   one Button with content of its own, the Button hugs that content, so the
   records of one list differ in width. Use `align = "stretch"` on the list,
   or a `Size` with a width, to make each record span the list.
