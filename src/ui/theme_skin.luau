@@ -115,7 +115,7 @@ return function(
 	if not Compose.isValue(packageOrReadable) and type(packageOrReadable) ~= "function" then
 		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable) or neutral
 		local chrome = package.chrome
-		local recipe = if chrome then chrome[slot] else nil
+		local recipe = support.chromeLayer(chrome, slot)
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" then
 			local root = Host.Frame "Skin" {
 				Size = settings.Size or D2.fromScale(1, 1),
@@ -178,7 +178,7 @@ return function(
 	local function buildLayers(use: ComposeTypes.Use): { ImageLayer }
 		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral
 		local chrome = package.chrome
-		local recipe = if chrome then chrome[slot] else nil
+		local recipe = support.chromeLayer(chrome, slot)
 		if recipe == nil or recipe.kind == "native" or recipe.kind == "none" or overText then
 			return {}
 		end
@@ -448,7 +448,9 @@ return function(
 		end
 		local node = Host.ImageLabel(properties)
 		node:AddTag("facet-skin-art")
-		node:AddTag("facet-skin-art-" .. slot)
+		node:AddTag(
+			"facet-skin-art-" .. (if string.sub(slot, 1, #support.PLATE) == support.PLATE then "panel" else slot)
+		)
 		if captionSource then
 			local current = captionSource
 			Compose.watch(function(use: ComposeTypes.Use)
@@ -593,7 +595,7 @@ return function(
 	local shadow = Compose.formula(function(use: ComposeTypes.Use)
 		local package = read<<ThemeTypes.ReadOnlyThemePackage?>>(packageOrReadable, use) or neutral
 		local chrome = package.chrome
-		local recipe = if chrome then chrome[slot] else nil
+		local recipe = support.chromeLayer(chrome, slot)
 		local value = if recipe then recipe.shadow else nil
 		if type(value) == "string" then
 			value = (package.style.shadows or {})[value] or shadowPresets[value]

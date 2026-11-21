@@ -35,35 +35,42 @@ end)
 
 ## A named plate
 
-`finish.plates` is a table of names. A name has letters and digits. Each
-plate has an `edge`, a `depth`, or both, with the fields of
-[Themes.finish](Themes.finish.md): `edge.width`, `edge.role`,
-`edge.transparency`, `depth.lift`, `depth.blur`, `depth.side`, `depth.glow`,
-`depth.strength` and `depth.role`. State only the values that differ; a
-value left out is that of the theme. `edge.width = 0` is a plate with no
-line, and `depth.lift = 0` on a theme with a lift is a plate with no
-shadow. A stated `lift` on a theme with a glow replaces the glow for that
-plate, and a stated `glow` replaces a lift.
+`finish.plates` is a table of names. A name starts with a letter and has
+letters and digits. A plate has `edge = { width, role, transparency }`,
+`depth = { lift, blur, side, glow, strength, role }`, or both, with the
+meanings of [Themes.finish](Themes.finish.md). Other keys cause an error.
+State only the values that differ; a value left out is that of the theme.
+
+- `edge.width = 0` is a plate with no line.
+- A stated `lift` without `blur` or `side` keeps the proportions of the
+  theme's shadow. `lift = 0` is a plate with no shadow.
+- On a theme with a glow, a stated `lift` replaces the glow for that plate,
+  and `glow = 0` is a plate with no glow.
 
 A VStack or an HStack with `surface = "panel"` takes the plate with
-`plate = "row"`. The stack keeps the fill, the corner and the sheen of a
-panel; give it a `BackgroundColor3` when the direction shows another fill.
-A name that the theme does not have, or `plate` without
-`surface = "panel"`, causes an error.
+`plate = "row"`. The stack keeps the corner and the sheen of a panel. Give
+it its own fill with `BackgroundColor3`: a row with the fill of the panel
+around it reads as part of that panel. A name that the theme does not
+have, `plate` without `surface = "panel"`, or `plate` with `tail`, causes
+an error. A game that changes its theme names the same plates in each
+theme; under a theme without the name, the stack has the panel finish.
+On a theme with panel art in `chrome`, a plate keeps that art and has no
+shadow of its own.
 
 Use a plate when the direction shows two kinds of panel. Do not use it to
 make one panel different: one plate that stands out reads as an error.
 
 ## The shadow of the controls
 
-`depth.controls` gives Buttons and other controls a shadow:
+`depth.controls` gives Buttons and other controls a shadow. `true` is the
+shadow of the panels. A table states their own; it does not need a shadow
+on the panels:
 
 | Value | Meaning |
 | --- | --- |
-| `true` | The shadow of the panels. |
-| `lift` | Pixels that the shadow falls below the control. Left out: the lift of the panels. |
+| `lift` | Pixels that the shadow falls below the control. Left out: the value of the look, or the lift of the panels. 0: no shadow. |
 | `side` | Pixels that it falls to the right. Left out: the side of the panels, in proportion to the lift. |
-| `shade` | 0 to 1. The shadow takes the fill of its control, made darker by this share, so a green Button has a dark green shadow and a pink one a dark pink shadow. Left out: the shadow color of the panels. |
+| `shade` | 0 to 1. The shadow takes the fill of its control, made darker by this share: a green Button has a dark green shadow, and a pink one a dark pink shadow. Left out: the shadow color of the panels. |
 
 A hard shadow with a `shade` reads as the lower edge of a solid key. Values
 from 0.3 to 0.5 show on a saturated fill. The shadow follows the fill when

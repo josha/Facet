@@ -63,6 +63,14 @@ it](../SKILL.md#read-the-card-off-the-concept):
   Buttons and Stepper keys. `edge.controls = { width = 1, transparency =
   0.5 }` draws a line of their own; a value that you leave out is that of
   the plates. `depth.controls = true` gives them the shadow of the plates.
+  `depth.controls = { lift = 6, side = 0, shade = 0.45 }` gives them a
+  shadow of their own, in a dark shade of the fill of each control: the
+  lower edge of a solid key. It does not need a shadow on the plates.
+- **A second kind of plate.** When the concept draws the rows in a panel
+  with their own line and shadow, name a plate:
+  `plates = { row = { edge = { width = 2 }, depth = { lift = 4 } } }`, and
+  give each row stack `surface = "panel", plate = "row"`. State only the
+  values that differ from the theme. See `Themes.plates`.
   Do not write a stroke rule on a control's tag for this: the edge of
   `finish` is drawn inside the box, and a stroke that you add is drawn
   outside it and takes the gap to the next control.

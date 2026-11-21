@@ -2,6 +2,7 @@
 local ComposeTypes = require("../vendor/compose/core")
 local Shared = require("./types")
 local Theme = require("./theme_types")
+local themeSupport = require("./theme_support")
 
 return function(
 	ctx: Shared.Context,
@@ -324,9 +325,19 @@ return function(
 			return nil, nil
 		end
 		local function skinned(package: Theme.ReadOnlyThemePackage?): boolean
-			local recipe = if package and package.chrome then package.chrome[slot] else nil
+			local recipe = if package then themeSupport.chromeLayer(package.chrome, slot) else nil
 			return recipe ~= nil and (recipe.kind ~= "native" and recipe.kind ~= "none" or recipe.shadow ~= nil)
 		end
+		local function shades(package: Theme.ReadOnlyThemePackage?): boolean
+			local recipe = if package then themeSupport.chromeLayer(package.chrome, slot) else nil
+			local named: unknown = if recipe then recipe.shadow else nil
+			local shadow: unknown = if type(named) == "string" and package
+				then (package.style.shadows or {})[named]
+				else named
+			return type(shadow) == "table" and (shadow :: Theme.Shadow).shade ~= nil
+		end
+		local live = Compose.isValue(config.theme) or type(config.theme) == "function"
+		local tinted = slot == "control" and (live or shades(ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme)))
 		local function hasSkin(): boolean
 			return skinned(ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme))
 		end
@@ -350,12 +361,14 @@ return function(
 			return independent(themes.skin(runtime, config.theme, slot, {
 				types = types,
 				target = node,
-				fill = (observeStyled(node, "BackgroundColor3") :: unknown) :: ComposeTypes.ReadOnlyValue<Color3>,
+				fill = if tinted
+					then (observeStyled(node, "BackgroundColor3") :: unknown) :: ComposeTypes.ReadOnlyValue<Color3>
+					else nil,
 				artTransparency = artTransparency,
 				emphasisTheme = if stateOptions.emphasis then authoredTheme else nil,
 				shadowTransparency = function(use: ComposeTypes.Use)
 					local package = ctx.read<<Theme.ReadOnlyThemePackage?>>(config.theme, use)
-					local recipe = package and (package.chrome or {})[slot]
+					local recipe = if package then themeSupport.chromeLayer(package.chrome, slot) else nil
 					local fill = if recipe and recipe.kind == "native"
 						then math.clamp(use(background) :: number, 0, 1)
 						else 0

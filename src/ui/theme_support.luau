@@ -350,13 +350,32 @@ local function controlSelectedArtwork(
 	return nil, nil, false
 end
 
+local PLATE = "plate-"
+
+local function chromeLayer(chrome: { [string]: ThemeTypes.SkinLayer }?, slot: string): ThemeTypes.SkinLayer?
+	if chrome == nil then
+		return nil
+	end
+	local layer = chrome[slot]
+	if layer == nil and string.sub(slot, 1, #PLATE) == PLATE then
+		return chrome.panel
+	end
+	return layer
+end
+
 local function plateReach(package: ThemeTypes.ReadOnlyThemePackage?): number
 	if package == nil then
 		return 0
 	end
 	local reach = 0
 	local chrome: { [string]: ThemeTypes.SkinLayer } = package.chrome or {}
-	for _, slot in { "panel", "control" } do
+	local slots = { "panel", "control" }
+	for slot in chrome do
+		if string.sub(slot, 1, #PLATE) == PLATE then
+			table.insert(slots, slot)
+		end
+	end
+	for _, slot in slots do
 		local recipe = chrome[slot]
 		local declared: unknown = if recipe then recipe.shadow else nil
 		local shadow: ThemeTypes.Shadow? = if type(declared) == "string"
@@ -398,6 +417,8 @@ return {
 	frozen = frozen,
 	shadowPresets = shadowPresets,
 	plateReach = plateReach,
+	chromeLayer = chromeLayer,
+	PLATE = PLATE,
 	numericMetric = numericMetric,
 	paletteFor = paletteFor,
 	typesFor = typesFor,
