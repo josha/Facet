@@ -423,7 +423,7 @@ local NEGATIVE_PROBES: { { string } } = {
 	{ "ScrollView axis", 'UI.ScrollView({ axis = "z" })' },
 	{ "ScrollView native canvas", "UI.ScrollView({ CanvasSize = 3 })" },
 	{ "ScrollView native return", "local wrong: Frame = UI.ScrollView({})" },
-	{ "Grid columns required", 'UI.Grid({ gap = "s" })' },
+	{ "Grid minCellWidth type", 'UI.Grid({ minCellWidth = "wide" })' },
 	{ "Grid columns type", 'UI.Grid({ columns = "two" })' },
 	{ "Grid alignment", 'UI.Grid({ columns = 2, align = "stretch" })' },
 	{ "Fill weight", 'UI.fill("wide")' },

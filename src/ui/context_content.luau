@@ -932,7 +932,7 @@ return function(
 			local value: ComposeTypes.ReadOnlyValue<number>
 			local scope = Compose.createRootOwner(function()
 				local probe = Host.Frame(key)({ Size = types.UDim2.fromOffset(100, 1), Visible = false })
-				if parent:IsA("ScrollingFrame") then
+				if parent:IsA("ScrollingFrame") or parent:FindFirstChildWhichIsA("UIGridLayout") then
 					local container = Host.Folder(key .. "Container")({ probe })
 					container.Parent = parent
 				else

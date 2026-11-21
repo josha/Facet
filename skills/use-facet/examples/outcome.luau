@@ -168,7 +168,7 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 							"AcceptedIdentity"
 						),
 					},
-					UI.Table "ContributionDetails" (contributions),
+					UI.Table "ContributionDetails"(contributions),
 					UI.Text "ChangeDetails" { text = result.explanation or "", wrap = true, Visible = explanation },
 				},
 				UI.AdaptiveStack "OutcomeAndGains" {
@@ -212,7 +212,7 @@ function Outcome.build(app: Facet.App, state: State, callbacks: Callbacks): Fram
 						label = result.standingsLabel or "Contributions",
 						expanded = details,
 						content = function()
-							return UI.Table "Participants" (records)
+							return UI.Table "Participants"(records)
 						end,
 					}
 					else nil,

@@ -458,7 +458,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 		local spec = record.spec
 		local bounded = ctx.config.toastParent ~= nil
 		local bottom = spec.position == "bottom"
-		local hug = spec.width == "hug"
+		local hug = spec.width ~= "fill"
 		local contentHug = hug and spec.content ~= nil
 		local extent = if contentHug then ctx.layoutSize(stack.layer) else nil
 		local natural: ComposeTypes.ReadOnlyValue<Vector2>? = nil

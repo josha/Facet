@@ -196,9 +196,16 @@ return function(
 			end
 		end
 		local inset = if spec.contentInset == "none" then 0 else 8
+		local hugged = Compose.cell(0)
 		local panelWidth = Compose.formula(function(use: ComposeTypes.Use): number
 			local band = gesture.outset("left", use) + gesture.outset("right", use)
-			return math.max(0, math.min(parts.width(ctx, spec.width, use), gesture.across(use))) + band
+			local limit = math.max(0, math.min(parts.width(ctx, spec.width, use), gesture.across(use)))
+			local natural = use(hugged)
+			if natural > 0 and use(gesture.placed) == "center" then
+				local floor = math.min(limit, parts.width(ctx, "narrow", use))
+				limit = math.clamp(natural - band, floor, limit)
+			end
+			return limit + band
 		end)
 		local function contentPadding(): UIPadding
 			local function horizontal(use: ComposeTypes.Use): UDim
@@ -226,6 +233,21 @@ return function(
 				content,
 			}
 			bodyContent = assert(scrollViewport)
+			if spec.width == nil or spec.width == "automatic" then
+				local authored = ctx.observe.Size(content)
+				local across = ctx.observe.AbsoluteSize(content)
+				local room = ctx.observe.AbsoluteSize(bodyContent)
+				Compose.watch(function(use: ComposeTypes.Use)
+					local scale = math.max(use(unit), 0.001)
+					local width, available = use(across).X / scale, use(room).X / scale
+					if use(authored).X.Scale > 0 or width <= 0 or available <= 0 then
+						hugged:set(0)
+						return
+					end
+					local chrome = math.max(0, panelWidth:peek() - available)
+					hugged:set(math.ceil(width + chrome))
+				end)
+			end
 		end
 		if hero and not sticky then
 			table.insert(bodyChildren, heroFrame())

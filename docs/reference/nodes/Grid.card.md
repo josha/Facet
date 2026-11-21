@@ -8,7 +8,7 @@ Inside an app mount, set `local UI = app.UI`.
 UI.Grid "Grid" { columns = 2, UI.Text { text = "Item" } }
 ```
 
-Key options: `columns`, `gap`.
+Key options: `columns`, `minCellWidth`, `gap`.
 
 Use VirtualGrid for an interactive collection.
 

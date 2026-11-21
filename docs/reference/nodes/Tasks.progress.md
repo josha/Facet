@@ -25,6 +25,9 @@ script.Destroying:Connect(app.dispose)
 
 Use the same clock for the deadline and now. The timer reports display completion. The server owns round state.
 
+Round a number before you show it, such as `math.floor(value + 0.5)`. A game
+value such as health can carry a fraction, and the text then shows all of it.
+
 Open:
 
 - [ProgressView.card](ProgressView.card.md)

@@ -85,6 +85,21 @@ local function phoneControls(phone: { X: number, Y: number }): { resolver.Area }
 	}
 end
 local OUTSIDE = "facet-button-outside"
+local OVER_WORLD = "facet-over-world"
+local BACKED_TAGS = {
+	"facet-badge",
+	"facet-button",
+	"facet-card",
+	"facet-chip",
+	"facet-field",
+	"facet-menu",
+	"facet-notice",
+	"facet-pane",
+	"facet-panel",
+	"facet-sheet",
+	"facet-surface",
+	"facet-tab",
+}
 
 local function lowered(moved: resolver.Shift, column: number, row: number): number
 	local lift = moved.lift[column * 4 + row] or 0
@@ -252,6 +267,50 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 	local function mark(name: string, label: string?, icon: string?, region: string): Instance
 		return UI.Badge(name)({ label = label, icon = icon, name = label or region })
 	end
+	local function backed(node: Instance, form: Instance): boolean
+		local at: Instance? = node
+		while at do
+			if at:IsA("GuiButton") or at:FindFirstChild("Backdrop") or at:FindFirstChild("Ground") then
+				return true
+			end
+			if (at:IsA("ImageLabel") or at:IsA("ImageButton")) and at.Image ~= "" then
+				return true
+			end
+			for _, tag in BACKED_TAGS do
+				if at:HasTag(tag) then
+					return true
+				end
+			end
+			if at == form then
+				return false
+			end
+			at = at.Parent
+		end
+		return false
+	end
+	local function bareText(form: GuiObject): boolean
+		local found = form:IsA("TextLabel") and not backed(form, form)
+		for _, node in form:GetDescendants() do
+			if node:IsA("GuiButton") then
+				return false
+			elseif node:IsA("TextLabel") and not backed(node, form) then
+				found = true
+			end
+		end
+		return found
+	end
+	local function outlineOverWorld(form: GuiObject)
+		local function outline(node: Instance)
+			if node:IsA("TextLabel") and not node:HasTag(OVER_WORLD) and not backed(node, form) then
+				node:AddTag(OVER_WORLD)
+			end
+		end
+		for _, node in form:GetDescendants() do
+			outline(node)
+		end
+		outline(form)
+		runtime.connect(form, "DescendantAdded", outline)
+	end
 	UI.Region = ctx.construct("Region", function(spec: LayoutProps.RegionProps): Frame
 		local zone, rank = spec.zone, spec.rank
 		assert(
@@ -272,6 +331,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 			"Facet Region expand must be a function that returns the richest content"
 		)
 		assert(spec.reveal == nil or type(spec.reveal) == "boolean", "Facet Region reveal must be a boolean")
+		assert(spec.plate == nil or type(spec.plate) == "boolean", "Facet Region plate must be a boolean")
 		assert(spec.label == nil or type(spec.label) == "string", "Facet Region label must be a string")
 		assert(spec.icon == nil or type(spec.icon) == "string", "Facet Region icon must be an icon name")
 		local label = if spec.label ~= "" then spec.label else nil
@@ -315,7 +375,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local lift = Compose.cell(0)
 		local properties: Types.FrameProps = ctx.props(
 			spec,
-			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "label", "icon", "leading", "trailing" },
+			{ "zone", "rank", "mayDrop", "form", "expand", "reveal", "plate", "label", "icon", "leading", "trailing" },
 			{
 				BorderSizePixel = 0,
 				Size = D2.new(),
@@ -363,6 +423,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 					and child:IsA("GuiObject"),
 				"Facet Region forms must be GuiObjects, richest first. Put reactive children inside a stable form."
 			)
+			if spec.plate ~= false then
+				if zone == "topbar" and bareText(child) then
+					child = UI.HStack "Readout" {
+						surface = "panel",
+						align = "center",
+						padding = { top = "s", bottom = "s", left = "m", right = "m" },
+						child,
+					}
+				else
+					outlineOverWorld(child)
+				end
+			end
 			contents[index] = child
 			if index == 1 then
 				richest = child
@@ -612,7 +684,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		local overscan = ctx.config.environment and ctx.config.environment.overscanInsets
 		local FRACTION = { top = 60 / 1080, bottom = 60 / 1080, left = 90 / 1920, right = 90 / 1920 }
 		properties.BorderSizePixel = 0
-		properties.Size = if properties.Size == nil then D2.fromScale(1, 1) else properties.Size
+		local hostClearance = Compose.cell(0)
+		properties.Size = if properties.Size == nil
+			then function(use: ComposeTypes.Use): UDim2
+				return D2.new(1, 0, 1, use(hostClearance))
+			end
+			else properties.Size
 		properties[#properties + 1] = kit.insets(function(use: ComposeTypes.Use): Types.Padding
 			local value = readPadding(base, use)
 			local sides: Types.Sides = if type(value) == "table"
@@ -776,6 +853,27 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 		end
 		kit.underTopbar(root, under)
 		kit.touchClearance(root, touch, touchAreas)
+		do
+			local host = ctx.observe.Parent(root)
+			Compose.watch(function(use: ComposeTypes.Use)
+				local parent = use(host)
+				if parent == nil then
+					hostClearance:set(0)
+					return
+				end
+				local function read()
+					local value = parent:GetAttribute("FacetTouchClearance")
+					local list = parent:FindFirstChildWhichIsA("UIListLayout")
+					local fromTop = list == nil or list.VerticalAlignment == E.VerticalAlignment.Top
+					hostClearance:set(if fromTop and type(value) == "number" then value else 0)
+				end
+				local changed = parent:GetAttributeChangedSignal("FacetTouchClearance"):Connect(read)
+				Compose.cleanup(function()
+					changed:Disconnect()
+				end)
+				read()
+			end)
+		end
 		do
 			local owner = assert(Compose.currentOwner())
 			local measuring: ComposeTypes.Owner? = nil
@@ -970,7 +1068,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls)
 				ScreenInsets = E.ScreenInsets.TopbarSafeInsets,
 				DisplayOrder = function(use: ComposeTypes.Use): number
 					local host = use(screen)
-					return if host then host.DisplayOrder else 0
+					return if host then host.DisplayOrder - 1 else 0
 				end,
 				Enabled = enabled,
 				Host.StyleLink {

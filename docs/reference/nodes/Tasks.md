@@ -6,6 +6,7 @@ pages; read another recipe only for a missing pattern. Each recipe names its con
 Open:
 
 - [Tasks.hud](Tasks.hud.md)
+- [Tasks.shortcut](Tasks.shortcut.md)
 - [Tasks.minimap](Tasks.minimap.md)
 - [Tasks.pages](Tasks.pages.md)
 - [Tasks.notices](Tasks.notices.md)
@@ -13,6 +14,7 @@ Open:
 - [Tasks.safe-layout](Tasks.safe-layout.md)
 - [Tasks.settings](Tasks.settings.md)
 - [Tasks.collection-detail](Tasks.collection-detail.md)
+- [Tasks.inventory](Tasks.inventory.md)
 - [Tasks.confirm](Tasks.confirm.md)
 - [Tasks.inspect](Tasks.inspect.md)
 - [Tasks.sheet](Tasks.sheet.md)

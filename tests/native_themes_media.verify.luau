@@ -2046,8 +2046,8 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
-		it("rejects malformed type roles, unknown shadow presets and unreadable selected labels", {
-			id = "native_themes_media::native themes and media::rejects malformed type roles, unknown shadow presets and unreadable selected labels",
+		it("rejects malformed type roles and unknown shadow presets, and repairs unreadable selected labels", {
+			id = "native_themes_media::native themes and media::rejects malformed type roles and unknown shadow presets, and repairs unreadable selected labels",
 			run = function()
 				local typed = themes.neutralPackage()
 				local roles = (typed.metrics.typography :: unknown) :: { [string]: unknown }
@@ -2060,7 +2060,23 @@ return function(verifyHarness: Verify.Harness)
 				local palette = selected.style.themes[1]
 				palette.extra = if palette.extra then table.clone(palette.extra) else {}
 				assert(selected.style.themes[1].extra).controlSelected = { r = 0.9, g = 0.9, b = 0.92 }
-				expect((select(2, themes.define(selected))).ok):toBe(false)
+				local mended, mending = themes.define(selected)
+				expect(mending.ok):toBe(true)
+				local mendedExtra = assert(assert(mended).style.themes[1].extra)
+				local label, fill = assert(mendedExtra.onSelected), assert(mendedExtra.controlSelected)
+				local function light(value: { r: number, g: number, b: number }): number
+					local function linear(channel: number): number
+						return if channel <= 0.04045 then channel / 12.92 else ((channel + 0.055) / 1.055) ^ 2.4
+					end
+					return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
+				end
+				local a, b = light(label), light(fill)
+				expect((math.max(a, b) + 0.05) / (math.min(a, b) + 0.05) >= 4.5):toBe(true)
+				local told = false
+				for _, note in mending.advice do
+					told = told or string.find(note.message, "onSelected", 1, true) ~= nil
+				end
+				expect(told):toBeTrueWith("the report does not say that onSelected changed")
 				local valid = themes.neutralPackage()
 				valid.chrome = { control = { kind = "native" :: "native", shadow = "raised" } }
 				expect((select(2, themes.define(valid))).ok):toBe(true)
@@ -4052,9 +4068,16 @@ return function(verifyHarness: Verify.Harness)
 							},
 						},
 					}
-					local refused, refusal = themes.define(faint)
-					expect(refused):toBeNil()
-					expect(refusal.ok):toBe(false)
+					local mended, mending = themes.define(faint)
+					expect(mending.ok):toBe(true)
+					local dusk = assert(assert(assert(mended).style.themes[1].extra).contentSecondary)
+					expect(ratio(dusk, strong) >= 4.5):toBe(true)
+					expect(ratio(dusk, surface) >= 4.5):toBe(true)
+					local told = false
+					for _, note in mending.advice do
+						told = told or string.find(note.message, "contentSecondary", 1, true) ~= nil
+					end
+					expect(told):toBeTrueWith("the report does not say that contentSecondary changed")
 				end,
 			})
 			it("keeps the contrast step on a saturated control plate", {

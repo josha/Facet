@@ -1,5 +1,101 @@
 # Current package
 
+A Slider row shows `row.icon` on the title line, before the title, and the
+track on its own line at the full width of the row. Before, the icon was in a
+column of its own, centred between the title and the track.
+
+A `Composition` does not move a `top` or `bottom` zone beside its corners to
+a place that is off the screen; it reports the regions that do not fit. A
+`Grid` with automatic cell height ignores a hidden child, measures with the
+layout unit of the grid, and releases its connections to a removed child.
+`minCellWidth` counts columns in the width inside the Grid's padding. A Card
+with `image` and `glyph` shows the image only. The theme contrast repair
+tries both white and black and keeps the nearest color that passes.
+
+A `topbar` region form that shows text with no surface and no Button gets a
+panel plate. Before, a currency or a timer in the strip was bare text over the
+world, and it was small and hard to read on a bright scene. A form with its
+own `surface` keeps it. In the other zones, a Text with no plate under it
+gets an outline in the surface color. `plate = false` on a Region keeps its
+text bare in either case.
+
+The strip of a HUD `Composition` sits under a modal's scrim. Before, the
+strip's ScreenGui had the display order of its host, the engine drew it above
+the scrim, and its buttons stayed bright while a Sheet was open.
+
+A `center` Sheet with `automatic` width narrows to content that does not fill
+it, down to the `narrow` width. Before, a body with a fixed width sat at the
+start edge of a wider panel and left the rest empty. A body with
+`width = "fill"` keeps the full width.
+
+Breaking: a passive Toast hugs its content by default. `width = "fill"` gives
+the former full-width row. Before, a short message such as "+10 coins" spanned
+the screen.
+
+A `Grid` that sets no `cellHeight` and no `aspectRatio` gives each cell the
+height of its tallest Card or hugging stack, and at least the height of a
+control. Before, the cells had the height of a control, and taller children
+overlapped each other and the parts around the grid. A grid of Buttons keeps
+the height of a control.
+
+A `Grid` turns off the horizontal hug of each child, so a child is as wide
+as its cell. Before, a hugging stack with a child that fills its width grew
+past the cell by its padding, and its content went past its plate.
+
+`UI.Card` has the new option `glyph`: a Facet icon name or an emoji. The Card
+draws it in the art frame at 75 percent of the frame height, and the frame of
+a glyph card is `4/3` by default. Use it for an item that has no art.
+
+`UI.Card` has the new option `layout`. With `layout = "row"`, the art is a
+square of the control height at the start of the title and the caption, and
+the card is as short as a list row. The default, `stack`, keeps the art above
+the text.
+
+`UI.Grid` has the new option `minCellWidth`. The grid shows as many columns
+as fit at that width or more, and `columns` becomes optional and is the most
+columns. Use it for item tiles in a panel of unknown width.
+
+A Card in a box taller than its content keeps its plate and its place on
+hover. Before, in a Grid cell or a stretched row, the plate became as small
+as the content and the content moved to the middle of the box.
+
+`Facet.themes.define` repairs a text color whose contrast on its ground is
+below 4.5:1: it moves the color toward white or black until the pair passes,
+and `report.advice` names the color. Before, one such pair rejected the whole
+theme, and a game that did not read the report showed the neutral theme.
+
+When a top corner zone at its last form is over the touch controls, or the
+`topLeft` and `topRight` zones are too wide for one row, and no region can
+give way, the `top` zone moves below the corners and the corners share the
+row. There, a narrow `top` zone sits at the left edge below `topLeft`, not in
+the center of the play area. When the corners are still too wide, the
+`topRight` zone moves below the `topLeft` zone. Before, the two corners drew
+over each other on a portrait phone, and a tall corner form drew over the
+touch controls.
+
+With the `top` or `bottom` zone below or above its corners, a corner region
+at its last form now uses the room that the other corner leaves in the row.
+Before, it was held to one third of the width and the composition reported
+that it did not fit, although it was drawn with room to spare.
+
+A `Composition` that is a direct child of a `Screen` now reaches past the
+bottom padding that the Screen adds for the touch controls. The Composition
+clears each touch control in its own column. Before, the Screen held the
+whole HUD above the highest touch control, so a game with action buttons
+around Jump had a HUD area less than 100 pixels high on a phone in
+landscape, and the regions that did not fit drew over the play area.
+
+A `center` row region does not go over a wider side zone that cannot step
+down, drop or land. Before, the row kept its lane width and three wide
+Buttons at `topRight` covered a short region at `top` on a phone.
+
+The new recipe `Tasks.shortcut` makes an InputAction with a key and a gamepad
+button for a HUD Button and shows it with `shortcutHint`.
+
+The new recipe `Tasks.inventory` shows a bag and a small shop in a Sheet:
+a segmented Picker, a Grid of Cards with a picture for each item, and the
+action on the Card.
+
 Breaking: UI.Text refuses the native `TextXAlignment` and `TextDirection`.
 Use `textAlign` and `direction`. `textAlign = "start"` and `"end"` now follow
 the text direction. With `direction = "rtl"`, `start` is the right edge. With

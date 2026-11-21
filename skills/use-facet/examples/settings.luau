@@ -17,7 +17,6 @@ return {
 	build = function(app: Facet.App, initial: Values, callbacks: Callbacks): Frame
 		local C, UI = Facet.Compose, app.UI
 		local Host = Facet.host(app.runtime)
-		local env = UI.environment()
 		local accepted: Facet.Value<Values> = C.cell(copy(initial))
 		local volume = C.cell(math.clamp(initial.musicVolume, 0, 1))
 		local captions = C.cell(initial.captions)
@@ -119,11 +118,7 @@ return {
 				onActivate = apply,
 			},
 		}
-		local detent = C.cell("hug")
-		local detents: { Facet.SheetDetent } = { "hug", { id = "room", fraction = 0.95 } }
-		C.watch(function(use: Facet.Use)
-			detent:set(if use(env.isShort) then "room" else "hug")
-		end)
+		local detents: { Facet.SheetDetent } = { "hug" }
 		local bodyInset: Facet.Sides = { top = "s", bottom = "s", left = "m", right = "m" }
 		local settings = UI.Sheet "ExplorationSettings" {
 			isPresented = open,
@@ -134,7 +129,6 @@ return {
 			contentInset = "none",
 			closeButton = "Close",
 			detents = detents,
-			detent = detent,
 			initialFocus = "MusicVolume",
 			actions = actions,
 			content = function()

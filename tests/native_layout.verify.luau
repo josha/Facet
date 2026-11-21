@@ -3126,6 +3126,158 @@ return function(verifyHarness: Verify.Harness)
 					stop()
 				end,
 			})
+			it("sizes its cells to the tallest Card and follows the cards", {
+				id = "native_layout::Grid::sizes its cells to the tallest Card and follows the cards",
+				run = function()
+					local root, engine, stop = build(nil, function(UI)
+						return UI.Grid "Bag" {
+							columns = 2,
+							UI.Card "Tall" { title = "Wand", caption = "A long caption" },
+							UI.Card "Short" { title = "Seed" },
+						}
+					end)
+					local V2 = engine.types.Vector2
+					local grid = child(root, "UIGridLayout")
+					local tall = root:FindFirstChild("Tall")
+					local short = root:FindFirstChild("Short")
+					local function settle()
+						engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, grid.CellSize.Y.Offset))
+					end
+					settle()
+					engine.environment.poke(tall:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 80))
+					settle()
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 50))
+					expect(grid.CellSize.Y.Offset):toBe(80)
+					engine.environment.poke(tall:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 66))
+					settle()
+					expect(grid.CellSize.Y.Offset):toBe(66)
+					local row = engine.new("Frame")
+					row.Name = "Reveal"
+					row.Parent = short
+					engine.environment.poke(row, "AbsolutePosition", V2.new(0, 58))
+					engine.environment.poke(row, "AbsoluteSize", V2.new(120, 44))
+					settle()
+					expect(grid.CellSize.Y.Offset):toBe(102)
+					row.Parent = nil
+					tall.Parent = nil
+					settle()
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 50))
+					expect(grid.CellSize.Y.Offset):toBe(50)
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 70))
+					engine.environment.poke(short:FindFirstChild("Body"), "AbsoluteSize", V2.new(120, 60))
+					expect(grid.CellSize.Y.Offset):toBe(60)
+					short.Visible = false
+					expect(grid.CellSize.Y.Offset < 60):toBe(true)
+					stop()
+				end,
+			})
+			it(
+				"sizes its cells to a hugging child that wraps a Card, and leaves a grid of Buttons at the control height",
+				{
+					id = "native_layout::Grid::sizes its cells to a hugging child that wraps a Card, and leaves a grid of Buttons at the control height",
+					run = function()
+						local root, engine, stop = build(nil, function(UI)
+							return UI.Grid "Shop" { columns = 2 }
+						end)
+						local V2 = engine.types.Vector2
+						local grid = child(root, "UIGridLayout")
+						local rest = grid.CellSize.Y.Offset
+						engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, rest))
+						local slot = engine.new("Frame")
+						slot.Name = "Slot"
+						slot.AutomaticSize = engine.types.Enum.AutomaticSize.Y
+						slot.Size = engine.types.UDim2.fromScale(1, 0)
+						local inner = engine.new("Frame")
+						inner.Name = "Inner"
+						inner.Size = engine.types.UDim2.fromScale(1, 0)
+						inner.Parent = slot
+						slot.Parent = root
+						local wide = engine.new("Frame")
+						wide.AutomaticSize = engine.types.Enum.AutomaticSize.XY
+						wide.Parent = root
+						expect(wide.AutomaticSize):toBe(engine.types.Enum.AutomaticSize.Y)
+						wide.Parent = nil
+						engine.environment.poke(slot:FindFirstChild("Inner"), "AbsoluteSize", V2.new(100, 104))
+						expect(grid.CellSize.Y.Offset):toBe(104)
+						engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, 104))
+						local padding = engine.new("UIPadding")
+						padding.PaddingBottom = engine.types.UDim.new(0, 8)
+						padding.Parent = slot
+						engine.environment.poke(slot:FindFirstChild("Inner"), "AbsoluteSize", V2.new(100, 100))
+						for _ = 1, 4 do
+							engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, grid.CellSize.Y.Offset))
+						end
+						expect(grid.CellSize.Y.Offset):toBe(108)
+						padding.Parent = nil
+						engine.environment.poke(slot:FindFirstChild("Inner"), "AbsoluteSize", V2.new(100, 10))
+						expect(grid.CellSize.Y.Offset):toBe(rest)
+						stop()
+						local buttons, engine2, stop2 = build(nil, function(UI)
+							return UI.Grid "Keys" { columns = 2, UI.Button { label = "A" }, UI.Button { label = "B" } }
+						end)
+						local keys = child(buttons, "UIGridLayout")
+						local before = keys.CellSize.Y.Offset
+						for _, button in buttons:GetChildren() do
+							if button:IsA("GuiButton") then
+								for _, part in button:GetChildren() do
+									if part:IsA("GuiObject") then
+										engine2.environment.poke(
+											part,
+											"AbsoluteSize",
+											engine2.types.Vector2.new(100, 300)
+										)
+									end
+								end
+							end
+						end
+						expect(keys.CellSize.Y.Offset):toBe(before)
+						stop2()
+					end,
+				}
+			)
+			it("fits as many columns as minCellWidth allows, with columns as the most", {
+				id = "native_layout::Grid::fits as many columns as minCellWidth allows, with columns as the most",
+				run = function()
+					local root, engine, stop = build(nil, function(UI, Host)
+						return UI.Grid "Tiles" {
+							minCellWidth = 100,
+							gap = 0,
+							cellHeight = 40,
+							Host.Frame { Name = "A" },
+							Host.Frame { Name = "B" },
+						}
+					end)
+					local V2 = engine.types.Vector2
+					local grid = child(root, "UIGridLayout")
+					engine.environment.poke(grid, "AbsoluteCellSize", V2.new(100, 40))
+					engine.environment.poke(root, "AbsoluteSize", V2.new(430, 40))
+					expect(grid.FillDirectionMaxCells):toBe(4)
+					expect(grid.CellSize.X.Scale):toBeCloseTo(1 / 4, 1e-4)
+					engine.environment.poke(root, "AbsoluteSize", V2.new(90, 40))
+					expect(grid.FillDirectionMaxCells):toBe(1)
+					stop()
+					local capped, engine2, stop2 = build(nil, function(UI, Host)
+						return UI.Grid "Tiles" {
+							minCellWidth = 100,
+							columns = 3,
+							gap = 0,
+							cellHeight = 40,
+							Host.Frame { Name = "A" },
+						}
+					end)
+					local layout = child(capped, "UIGridLayout")
+					engine2.environment.poke(layout, "AbsoluteCellSize", engine2.types.Vector2.new(100, 40))
+					engine2.environment.poke(capped, "AbsoluteSize", engine2.types.Vector2.new(900, 40))
+					expect(layout.FillDirectionMaxCells):toBe(3)
+					stop2()
+					expect((mentions(
+						refusal(function(UI: FacetControls)
+							return UI.Grid { UI.Text { text = "A" } }
+						end),
+						"without it, set minCellWidth"
+					))):toBe(true)
+				end,
+			})
 			it("fills columns first with flow column and follows the child count", {
 				id = "native_layout::Grid::fills columns first with flow column and follows the child count",
 				run = function()

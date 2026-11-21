@@ -18,6 +18,7 @@ return function(
 	local natural = Compose.cell(V2.zero)
 	local painted: ComposeTypes.ReadOnlyValue<Vector2>? = nil
 	local dressed = Compose.cell(false)
+	local inset = Compose.cell(V2.zero)
 	local function axes(use: ComposeTypes.Use): (boolean, boolean)
 		local value = ctx.read<<Enum.AutomaticSize?>>(geometry.AutomaticSize, use) or automatic
 		return value == E.AutomaticSize.X or value == E.AutomaticSize.XY,
@@ -76,6 +77,18 @@ return function(
 		Visible = false,
 		Text = "",
 		scale,
+		if geometry.reflow
+			then Host.UISizeConstraint "FeedbackFloor" {
+				MinSize = function(use: ComposeTypes.Use): Vector2
+					local x, y = axes(use)
+					local rest = use(natural) - use(inset)
+					return V2.new(
+						if x then math.max(0, math.floor(rest.X)) else 0,
+						if y then math.max(0, math.floor(rest.Y)) else 0
+					)
+				end,
+			}
+			else nil,
 	}
 	paintProps.BackgroundColor3 = ctx.observeStyled.BackgroundColor3(node)
 	paintProps.BackgroundTransparency = ctx.observeStyled.BackgroundTransparency(node)
@@ -219,14 +232,23 @@ return function(
 							ctx.observeStyled :: unknown
 						) :: { [string]: (Instance) -> ComposeTypes.Value<UDim> }
 						if padding then
+							local left = observePadding["PaddingLeft"](padding)
+							local right = observePadding["PaddingRight"](padding)
+							local top = observePadding["PaddingTop"](padding)
+							local bottom = observePadding["PaddingBottom"](padding)
 							runtime.mount(function()
 								return Host.UIPadding {
-									PaddingLeft = observePadding["PaddingLeft"](padding),
-									PaddingRight = observePadding["PaddingRight"](padding),
-									PaddingTop = observePadding["PaddingTop"](padding),
-									PaddingBottom = observePadding["PaddingBottom"](padding),
+									PaddingLeft = left,
+									PaddingRight = right,
+									PaddingTop = top,
+									PaddingBottom = bottom,
 								}
 							end, paint)
+							Compose.watch(function(use: ComposeTypes.Use)
+								inset:set(
+									V2.new(use(left).Offset + use(right).Offset, use(top).Offset + use(bottom).Offset)
+								)
+							end)
 						end
 						Compose.cleanup(function()
 							moving = false

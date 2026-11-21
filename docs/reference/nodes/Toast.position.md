@@ -8,8 +8,8 @@ Toast.position option values and behavior.
   `FacetInsetBottom` reservation of its layer and of every enabled sibling
   ScreenGui (a TabView bottom bar, a visible toast with an action, an affixed
   Notice), read each frame while a toast shows.
-- `width`: `fill` (the default) spans the layer less 16 pixels on each side.
-  `hug` fits the content, centred, up to 560 pixels, and wraps longer text.
+- `width`: `hug` (the default) fits the content, centred, up to 560 pixels,
+  and wraps longer text. `fill` spans the layer less 16 pixels on each side.
   Width and placement use the configured overlay parent when one is supplied.
 - `fade`: by default the row fades in and out as it slides (the fade draws
   the row through a CanvasGroup only while it runs, so settled text keeps

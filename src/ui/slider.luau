@@ -752,10 +752,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					})
 				)
 			end
-			table.insert(
-				captions,
+			if row.icon then
+				table.insert(header, 1, ctx.icon(row.icon, { Name = "LeadingIcon" }))
+			end
+			local heading =
 				ctx.row(header, { Name = "Header", Size = D2.new(1, 0, 0, 0), AutomaticSize = E.AutomaticSize.Y })
-			)
+			assert(heading:FindFirstChildWhichIsA("UIListLayout")).VerticalAlignment = E.VerticalAlignment.Center
+			table.insert(captions, heading)
 			if row.description then
 				table.insert(
 					captions,
@@ -803,7 +806,6 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		local node: Frame
 		if spec.row and not vertical then
 			local content, size, mark = ctx.listRow({
-				leading = if spec.row.icon then { ctx.icon(spec.row.icon, { Name = "LeadingIcon" }) } else nil,
 				captions = captions,
 				described = true,
 				controlSize = spec.controlSize,

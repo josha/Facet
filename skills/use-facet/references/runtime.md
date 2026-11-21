@@ -77,8 +77,9 @@ component it calls.
 | `UserInputService` key checks | An `InputAction` with the Button's `shortcutHint` |
 
 
-Put `table.unpack(rows)` last in a constructor; before other entries Luau keeps
-only its first value. In a `Stage` where the player chooses colors, keep
+Put `table.unpack(rows)` last in a constructor; before another entry or a
+named option Luau keeps only its first value, and the screen shows one row.
+`C.fragment(function() return rows end)` adds a list at any place. In a `Stage` where the player chooses colors, keep
 `Ambient` and `LightColor` near white.
 
 ## First screen with native art

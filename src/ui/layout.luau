@@ -648,6 +648,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 		kit.underTopbar(frame, under)
 		if chrome == "device" then
 			kit.touchClearance(frame, touch)
+			Compose.watch(function(use: ComposeTypes.Use)
+				frame:SetAttribute("FacetTouchClearance", use(touch))
+			end)
 		end
 		if plate then
 			glass.backdrop(ctx, frame, plate, CORNERS[spec.surface or ""], spec.surface == "panel")
@@ -1113,22 +1116,47 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 	end)
 
 	UI.Grid = ctx.construct("Grid", function(spec: LayoutProps.GridProps): Frame
-		local properties, children = split(
-			spec,
-			{ "columns", "flow", "gap", "rowGap", "cellHeight", "aspectRatio", "align", "padding", "width", "height" }
-		)
+		local properties, children = split(spec, {
+			"columns",
+			"minCellWidth",
+			"flow",
+			"gap",
+			"rowGap",
+			"cellHeight",
+			"aspectRatio",
+			"align",
+			"padding",
+			"width",
+			"height",
+		})
 		local size, automatic = kit.extent(spec, "fill", "hug")
 		local flow = spec.flow or "row"
 		assert(flow == "row" or flow == "column", "Facet Grid flow must be row or column")
 		local cells = if flow == "column" then Compose.cell(0) else nil
+		local cardHeight = if spec.cellHeight == nil and spec.aspectRatio == nil then Compose.cell(0) else nil
 		local cellWidth = if spec.aspectRatio ~= nil then Compose.cell(0) else nil
+		local least = spec.minCellWidth
+		assert(
+			least == nil or (type(least) == "number" and least > 0 and least < math.huge),
+			"Facet Grid minCellWidth must be a pixel width above 0"
+		)
+		local floorWidth = if least then UI.environment().scaled(least) else nil
+		local across = Compose.cell(0)
 		local function columns(use: ComposeTypes.Use?): number
-			local count = read(spec.columns, use)
+			local count = read<<number?>>(spec.columns, use)
 			assert(
-				type(count) == "number" and count >= 1 and count % 1 == 0,
-				"Facet Grid columns must be a whole number, 1 or more"
+				(count == nil and floorWidth ~= nil) or (type(count) == "number" and count >= 1 and count % 1 == 0),
+				"Facet Grid columns must be a whole number, 1 or more; without it, set minCellWidth"
 			)
-			return count
+			if floorWidth == nil then
+				return assert(count)
+			end
+			local width = read<<number>>(across, use)
+			local gap = kit.spacing(spec.gap, use)
+			local fit = if width > 0
+				then math.max(1, math.floor((width + gap) / (read<<number>>(floorWidth, use) + gap)))
+				else count or 2
+			return if count then math.min(count, fit) else fit
 		end
 		local layout: Engine.UIGridLayoutProps = {
 			SortOrder = E.SortOrder.LayoutOrder,
@@ -1147,8 +1175,13 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			CellSize = function(use: ComposeTypes.Use): UDim2
 				local count = columns(use)
 				local gap = kit.spacing(spec.gap, use)
+				local tallest = if cardHeight then use(cardHeight) else 0
 				local height = if cellWidth
 					then math.floor(use(cellWidth) / assert(read<<number?>>(spec.aspectRatio, use)))
+					elseif tallest > 0 then math.max(
+						tallest,
+						ctx.controlSize(ctx.config.controlSize, "height", use)
+					)
 					else read<<number?>>(spec.cellHeight, use)
 				return D2.new(
 					1 / count,
@@ -1182,15 +1215,140 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			),
 			properties
 		)
-		if cellWidth then
-			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
-			local cell = ctx.observe.AbsoluteCellSize(grid)
+		if floorWidth then
+			local extent, unit = ctx.observe.AbsoluteSize(node), ctx.layoutUnit(node)
+			local insets = node:FindFirstChildWhichIsA("UIPadding")
 			Compose.watch(function(use: ComposeTypes.Use)
-				local measured, offset = use(cell), grid.CellSize.Y.Offset
-				local unit = if measured.Y > 0 and offset > 0 then measured.Y / offset else 1
-				cellWidth:set(measured.X / unit)
+				local inset = if insets then insets.PaddingLeft.Offset + insets.PaddingRight.Offset else 0
+				across:set(math.max(0, math.floor(use(extent).X / use(unit) + 0.5) - inset))
 			end)
 		end
+		if cellWidth then
+			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
+			local cell, unit = ctx.observe.AbsoluteCellSize(grid), ctx.layoutUnit(node)
+			Compose.watch(function(use: ComposeTypes.Use)
+				cellWidth:set(use(cell).X / use(unit))
+			end)
+		end
+		if cardHeight then
+			local grid = assert(node:FindFirstChildWhichIsA("UIGridLayout"))
+			local scale = ctx.layoutUnit(node)
+			local watched: { [Instance]: RBXScriptConnection } = {}
+			local adopted: { [Instance]: { RBXScriptConnection } } = {}
+			local heights: { [Instance]: number } = {}
+			local function measure()
+				local unit = scale:peek()
+				for _, child in node:GetChildren() do
+					if child:IsA("GuiObject") and not child.Visible then
+						heights[child] = nil
+					elseif child:IsA("GuiObject") and not child:IsA("GuiButton") then
+						local reach, found, card = 0, false, false
+						for _, part in child:GetChildren() do
+							if part:IsA("GuiObject") then
+								card = card or part:HasTag("facet-card-part")
+								if part.Visible and part.Size.Y.Scale == 0 then
+									found = true
+									local bottom = part.AbsolutePosition.Y + part.AbsoluteSize.Y
+									reach = math.max(reach, (bottom - child.AbsolutePosition.Y) / unit)
+								end
+							end
+						end
+						local hugging = child.AutomaticSize == E.AutomaticSize.Y
+							or child.AutomaticSize == E.AutomaticSize.XY
+						if found and (card or hugging) then
+							local padding = child:FindFirstChildWhichIsA("UIPadding")
+							heights[child] = reach + (if padding then padding.PaddingBottom.Offset else 0)
+						end
+					end
+				end
+				local best = 0
+				for child, reach in heights do
+					if child.Parent == node then
+						best = math.max(best, reach)
+					else
+						heights[child] = nil
+					end
+				end
+				cardHeight:set(math.ceil(best - 0.01))
+			end
+			local function watch(part: Instance)
+				if part:IsA("GuiObject") and watched[part] == nil then
+					watched[part] = part:GetPropertyChangedSignal("AbsoluteSize"):Connect(measure)
+				end
+			end
+			local function unwatch(part: Instance)
+				local connection = watched[part]
+				if connection then
+					connection:Disconnect()
+					watched[part] = nil
+				end
+			end
+			local function adopt(child: Instance)
+				if child:IsA("GuiObject") then
+					for _, part in child:GetChildren() do
+						watch(part)
+					end
+					if adopted[child] == nil then
+						adopted[child] = {
+							child.ChildAdded:Connect(function(part: Instance)
+								watch(part)
+								measure()
+							end),
+							child.ChildRemoved:Connect(function(part: Instance)
+								unwatch(part)
+								measure()
+							end),
+							child:GetPropertyChangedSignal("Visible"):Connect(measure),
+						}
+					end
+				end
+				measure()
+			end
+			local function release(child: Instance)
+				for _, connection in adopted[child] or {} do
+					connection:Disconnect()
+				end
+				adopted[child] = nil
+				for _, part in child:GetChildren() do
+					unwatch(part)
+				end
+				heights[child] = nil
+				measure()
+			end
+			for _, child in node:GetChildren() do
+				adopt(child)
+			end
+			runtime.connect(node, "ChildAdded", adopt)
+			runtime.connect(node, "ChildRemoved", release)
+			watched[grid] = grid:GetPropertyChangedSignal("AbsoluteCellSize"):Connect(measure)
+			Compose.watch(function(use: ComposeTypes.Use)
+				use(scale)
+				measure()
+			end)
+			Compose.cleanup(function()
+				for _, connection in watched do
+					connection:Disconnect()
+				end
+				for _, connections in adopted do
+					for _, connection in connections do
+						connection:Disconnect()
+					end
+				end
+			end)
+		end
+		local function cellWide(child: Instance)
+			if child:IsA("GuiObject") then
+				if child.AutomaticSize == E.AutomaticSize.XY then
+					child.AutomaticSize = E.AutomaticSize.Y
+				elseif child.AutomaticSize == E.AutomaticSize.X then
+					child.AutomaticSize = E.AutomaticSize.None
+				end
+			end
+		end
+		for _, child in node:GetChildren() do
+			cellWide(child)
+		end
+		runtime.connect(node, "ChildAdded", cellWide)
 		if cells then
 			local function count()
 				local total = 0

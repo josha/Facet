@@ -380,7 +380,9 @@ finish them here, before a second screen calls them.
   type: a definition with only colors, fonts and radii is the neutral theme
   in new colors.
 - **A record.** One item with its visual, its name, the value that decides
-  and its state, in a full form and a short form. When the whole record is
+  and its state, in a full form and a short form. When the game has no art
+  for an item, a Facet icon or an emoji is its visual, in the `glyph` of
+  its Card; node `Tasks.inventory` shows a bag built this way. When the whole record is
   one Button with content of its own, the Button hugs that content, so the
   records of one list differ in width. Use `align = "stretch"` on the list,
   or a `Size` with a width, to make each record span the list.
@@ -532,7 +534,11 @@ HUD that does not fit a phone.
 Put compact status that the player looks at quickly, such as the round, the
 score, a timer or the currency, in `zone = "topbar"` with `leading = true` or
 `trailing = true`. It sits in the strip at the top of the screen beside the
-Roblox controls, and it leaves the play area clear. Composition moves it
+Roblox controls, and it leaves the play area clear. Facet puts a plate under
+a readout there that has none, so it reads over the world. Give the value
+the `numeral` or `strong` role; a `label` is small for a value that the
+player watches. When the value already names itself, such as `ROUND 01`,
+show it with no label before it. Composition moves it
 below the strip when the strip has no room.
 
 A standard command, such as settings, close, back, menu or more, is an

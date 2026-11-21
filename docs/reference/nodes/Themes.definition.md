@@ -24,8 +24,8 @@ For a complete typed definition, open [Tasks.theme](Tasks.theme.md).
   `rotation` must be 0 or 180, and its `tint` needs `r`, `g` and `b` from 0
   to 1. Each palette pair needs a
   contrast of at least 4.5:1, which includes `onSelected` (or `content`) on
-  `controlSelected`.
-  Color channels and semantic contrast pairs are validated. A package that
+  `controlSelected`. `define` moves a lower text color toward white or black;
+  `report.advice` names it. A package that
   does not declare `style.themes` gets only the first palette of its base. Thus
   a package derived from Neutral has one palette unless it declares more.
 - `checkCoverage(package, needs)` returns `{ ok, covered, missing }`.

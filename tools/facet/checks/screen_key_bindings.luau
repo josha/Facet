@@ -70,6 +70,11 @@ local PINS: { Pin } = {
 		reason = "the minimap recipe owns M and ButtonY bindings in its game InputContext, enabled only while the HUD is available and gameplay input is not suspended",
 	},
 	{
+		path = "docs/reference/nodes/Tasks.shortcut.md",
+		count = 2,
+		reason = "the shortcut recipe teaches one Bag InputAction with a B and a ButtonY InputBinding in the game's own InputContext, the hotkey that a HUD Button shows with shortcutHint",
+	},
+	{
 		path = "skills/use-facet/references/game-screens.md",
 		count = 2,
 		reason = "the quick wheel teaches one QuickChat InputAction with a Q and a ButtonY InputBinding in the game's own InputContext, the hotkey that opens its RadialMenu overlay",

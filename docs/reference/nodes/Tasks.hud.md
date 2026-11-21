@@ -19,9 +19,8 @@ local function hud(app: Facet.App, goal: Facet.ReadOnlyValue<string>,
         UI.Text { text = progress, textRole = "caption" } },
       UI.HStack "Short" { surface = "panel", padding = "s",
         UI.Text { text = progress } } },
-    if resource then UI.Region "Resource" { zone = "topRight", rank = 3, mayDrop = true, reveal = false,
-      UI.HStack "Counter" { surface = "panel", padding = "s",
-        UI.Text { text = resource, textRole = "numeral" } } } else nil,
+    if resource then UI.Region "Resource" { zone = "topbar", rank = 3,
+      UI.Text { text = resource, textRole = "numeral" } } else nil,
     UI.Region "Command" { zone = "action", rank = 1,
       UI.VStack "Primary" { width = wide, align = "stretch",
         UI.Button "Command" { label = label, appearance = "emphasis",
@@ -35,7 +34,8 @@ portrait screen, bottom right otherwise. The Button and the bound action
 call activate; `shortcutHint` shows the action's glyph. The game owns its
 InputContext; activate can act in the world or open a
 [destination](Tasks.pages.md). Keep the center and movement controls clear.
-Pass resources only when needed for play. Test short layouts.
+A short readout, such as a currency, a timer or health, goes in `topbar`:
+that strip uses no play area. A taller panel goes in a top corner, not `top`.
 
 [Layout](Tasks.safe-layout.md), [actions](HUD-actions.md), [map](Tasks.minimap.md),
 [state](Tasks.state.md), [details](Tasks.collection-detail.md).

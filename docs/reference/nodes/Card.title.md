@@ -3,13 +3,17 @@
 Card shows one item of a browsable collection: artwork, a title and an
 optional caption, with a primary action and a More menu that show on
 engagement. It requires `title` (a nonempty string or readable). `image` or
-`artwork` adds art; without either, the Card is a text card with padded title
-and caption, for example a shop item. The other options are `caption`,
+`artwork` adds art. `glyph` is a Facet icon name or an emoji; Facet draws it
+large in the art frame, for an item with no art. Without these, the Card is a
+text card with padded title and caption, for example a rule or a note. The
+other options are `caption`,
 `imageAspectRatio` (default `16/9`),
 `imageFraming` (`fit` or `crop`), `onActivate`, `primaryAction = { label,
 icon?, onActivate, enabled?, busy? }`, `menu = { items, label? }`, `reveal`
 (`automatic` or `always`), `browseTarget`, `enabled`, `ringTarget`,
-`badges = { leading?, trailing? }` and `controls`.
+`badges = { leading?, trailing? }`, `layout` and `controls`. `layout = "row"`
+shows the art as a small square at the start of the text, for a short row.
+A row card shows one line of title and one line of caption.
 
 With `reveal = "automatic"`, the action row overlays the bottom of the card
 on a pointer device. It uses a plate above the content and adds no layout

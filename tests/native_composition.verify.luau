@@ -1812,6 +1812,210 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		it("keeps a center region clear of a wider side zone that cannot give way", {
+			id = "native_composition::Composition::keeps a center region clear of a wider side zone that cannot give way",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local dock: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { { x = 270, y = 44 } } }
+				local pill: Declared = {
+					zone = "top" :: "top",
+					rank = 3,
+					mayDrop = true,
+					sizes = { { x = 120, y = 40 }, { x = 80, y = 30 } },
+				}
+				local forms = resolver.resolve(385, 700, 8, { dock, pill })
+				expect(forms[1]):toBe(1)
+				expect(forms[2]):toBe(0)
+				local fixed: Declared =
+					{ zone = "top" :: "top", rank = 3, mayDrop = false, sizes = { { x = 80, y = 30 } } }
+				local kept, _, shift = resolver.resolve(385, 700, 8, { dock, fixed })
+				expect(kept[2]):toBe(1)
+				expect(shift.leanTop < 0):toBe(true)
+				local right = (385 - 80) / 2 + shift.leanTop + 80
+				expect(right <= 385 - 270):toBe(true)
+			end,
+		})
+
+		it("puts the right top corner under the left one when the two cannot share the row", {
+			id = "native_composition::Composition::puts the right top corner under the left one when the two cannot share the row",
+			run = function()
+				local resolver = require("../src/ui/composition_resolve")
+				type Declared = resolver.Declared
+				local weapon: Declared =
+					{ zone = "topLeft" :: "topLeft", rank = 1, mayDrop = false, sizes = { { x = 250, y = 32 } } }
+				local menus: Declared =
+					{ zone = "topRight" :: "topRight", rank = 3, mayDrop = false, sizes = { { x = 207, y = 150 } } }
+				local forms, _, shift, overflow = resolver.resolve(353, 700, 8, { weapon, menus })
+				expect(forms[1]):toBe(1)
+				expect(forms[2]):toBe(1)
+				expect(shift.lift[13]):toBe(40)
+				expect(#overflow):toBe(0)
+				local wide, _, loose = resolver.resolve(700, 400, 8, { weapon, menus })
+				expect(wide[2]):toBe(1)
+				expect(loose.lift[13] or 0):toBe(0)
+				local short: Declared = {
+					zone = "topRight" :: "topRight",
+					rank = 3,
+					mayDrop = false,
+					sizes = { { x = 207, y = 150 }, { x = 90, y = 44 } },
+				}
+				local stepped, _, level = resolver.resolve(353, 700, 8, { weapon, short })
+				expect(stepped[2]):toBe(2)
+				expect(level.lift[13] or 0):toBe(0)
+				local status: Declared =
+					{ zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { { x = 160, y = 40 } } }
+				local column: Declared = {
+					zone = "topRight" :: "topRight",
+					rank = 3,
+					mayDrop = false,
+					sizes = { { x = 330, y = 44 }, { x = 121, y = 150 } },
+				}
+				local open = resolver.resolve(749, 323, 8, { weapon, status, column })
+				expect(open[3]):toBe(2)
+				local ring = { { left = 551, right = 749, reach = 197 } }
+				local kept, _, moved, missed =
+					resolver.resolve(749, 323, 8, { weapon, status, column }, nil, nil, nil, ring)
+				expect(kept[1]):toBe(1)
+				expect(kept[2]):toBe(1)
+				expect(kept[3]):toBe(1)
+				expect(moved.top):toBe(52)
+				expect(moved.leanTop):toBe((160 - 749) / 2)
+				expect(#missed):toBe(0)
+				local panel: Declared = {
+					zone = "topLeft" :: "topLeft",
+					rank = 1,
+					mayDrop = false,
+					sizes = { { x = 221, y = 44 }, { x = 114, y = 84 } },
+				}
+				local stack: Declared = {
+					zone = "topRight" :: "topRight",
+					rank = 2,
+					mayDrop = false,
+					sizes = { { x = 313, y = 52 }, { x = 133, y = 148 } },
+				}
+				local narrow, _, under, unfit = resolver.resolve(358, 812, 8, { panel, status, stack })
+				expect(narrow[1]):toBe(2)
+				expect(narrow[3]):toBe(2)
+				expect(under.top):toBe(156)
+				expect(#unfit):toBe(0)
+				local pillar: Declared =
+					{ zone = "topRight" :: "topRight", rank = 1, mayDrop = false, sizes = { { x = 200, y = 300 } } }
+				local jump = { { left = 664, right = 736, reach = 132 } }
+				local _, _, level = resolver.resolve(796, 342, 8, { pillar, status }, nil, nil, nil, jump)
+				expect(level.top):toBe(0)
+				local slab: Declared = {
+					zone = "bottomRight" :: "bottomRight",
+					rank = 1,
+					mayDrop = false,
+					sizes = { { x = 560, y = 200 } },
+				}
+				local low: Declared =
+					{ zone = "bottom" :: "bottom", rank = 1, mayDrop = false, sizes = { { x = 250, y = 60 } } }
+				local phone = { { left = 0, right = 325, reach = 111 }, { left = 680, right = 752, reach = 132 } }
+				local _, _, held, flagged = resolver.resolve(812, 358, 8, { slab, low }, nil, nil, nil, phone)
+				expect(held.bottom):toBe(0)
+				expect(#flagged > 0):toBe(true)
+				local bar: Declared =
+					{ zone = "top" :: "top", rank = 2, mayDrop = false, sizes = { { x = 300, y = 40 } } }
+				local _, _, centered = resolver.resolve(749, 323, 8, { weapon, bar, column }, nil, nil, nil, ring)
+				expect(centered.top):toBe(52)
+				expect(centered.leanTop):toBe(0)
+			end,
+		})
+
+		it("backs a bare topbar readout, outlines bare text in other zones and honors plate = false", {
+			id = "native_composition::Composition::backs a bare topbar readout, outlines bare text in other zones and honors plate = false",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local status: Frame
+				local menu: Frame
+				local stance: Frame
+				local raw: Frame
+				local lone: Frame
+				runtime.mount(function()
+					lone = UI.Region {
+						Name = "Lone",
+						zone = "topbar",
+						rank = 5,
+						UI.Text { text = "120" },
+					}
+					status = UI.Region {
+						Name = "Status",
+						zone = "topbar",
+						rank = 1,
+						UI.HStack "Full" { UI.Text { text = "100" } },
+					}
+					menu = UI.Region {
+						Name = "Menu",
+						zone = "topbar",
+						rank = 2,
+						trailing = true,
+						UI.HStack "Row" { UI.Button { label = "Bag", onActivate = function() end } },
+					}
+					stance = UI.Region {
+						Name = "Stance",
+						zone = "left",
+						rank = 3,
+						UI.VStack "Column" { UI.Text { text = "STANDING" } },
+					}
+					raw = UI.Region {
+						Name = "Raw",
+						zone = "topbar",
+						rank = 4,
+						plate = false,
+						UI.HStack "Plain" { UI.Text { text = "4:59" } },
+					}
+					return UI.Composition { gap = 8, padding = 0, status, menu, stance, raw, lone }
+				end, layer)
+				local readout = status:FindFirstChild("Readout", true)
+				expect(readout ~= nil):toBeTrueWith("the bare readout has no plate stack")
+				expect(assert(readout):HasTag("facet-panel")):toBeTrueWith("the plate stack has no panel surface")
+				expect(menu:FindFirstChild("Readout", true)):toBe(nil)
+				expect(lone:FindFirstChild("Readout", true) ~= nil):toBeTrueWith(
+					"a Region of one bare Text has no plate"
+				)
+				expect(raw:FindFirstChild("Readout", true)):toBe(nil)
+				local label = assert(stance:FindFirstChildWhichIsA("TextLabel", true))
+				expect(label:HasTag("facet-over-world")):toBeTrueWith("bare text has no over-world tag")
+				local plain = assert(raw:FindFirstChildWhichIsA("TextLabel", true))
+				expect(plain:HasTag("facet-over-world")):toBe(false)
+			end,
+		})
+
+		it("reaches past the touch padding of the Screen that holds it", {
+			id = "native_composition::Composition::reaches past the touch padding of the Screen that holds it",
+			run = function()
+				local engine, runtime, UI = make()
+				local layer = engine.new("ScreenGui")
+				layer.Parent = engine.new("Folder")
+				local hud: Frame
+				local screen: Frame
+				runtime.mount(function()
+					hud = UI.Composition "HUD" {
+						UI.Region {
+							Name = "Status",
+							zone = "topLeft",
+							rank = 1,
+							UI.HStack "Full" { UI.Text { text = "100" } },
+						},
+					}
+					screen = UI.Screen "Root" { hud }
+					return screen
+				end, layer)
+				expect(screen:GetAttribute("FacetTouchClearance")):toBe(0)
+				expect(hud.Size.Y.Scale):toBe(1)
+				expect(hud.Size.Y.Offset):toBe(0)
+				screen:SetAttribute("FacetTouchClearance", 120)
+				expect(hud.Size.Y.Offset):toBe(120)
+				screen:SetAttribute("FacetTouchClearance", 0)
+				expect(hud.Size.Y.Offset):toBe(0)
+			end,
+		})
+
 		it("steps a lower-rank side region down before a center region that its row squeezes", {
 			id = "native_composition::Composition::steps a lower-rank side region down before a center region that its row squeezes",
 			run = function()

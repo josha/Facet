@@ -26,6 +26,11 @@ Form selection, zone fallback, fit warnings and resize motion.
   corners, and uses the full width.
   The composition resolves again from the richest forms.
   The `left` and `right` zones that the moved zone covers give way first.
+- When a top corner at its last form is over the touch controls, or the two
+  top corners are too wide for one row, `top` moves below the corners and
+  the corners share the row. A narrow `top` then sits at the left.
+  When the corners are still too wide, `topRight` moves below `topLeft`.
+  Each time, it resolves again.
 - A region can still fail to fit at its last form when nothing else can give
   way. The composition then warns once in the output and names the region.
   Give that region a smaller form, `mayDrop = true` or a higher rank number.

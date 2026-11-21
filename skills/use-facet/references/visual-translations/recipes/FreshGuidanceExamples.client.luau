@@ -8,7 +8,8 @@ local function mount()
 		stop()
 	end
 	local example = script:GetAttribute("Example")
-	stop = run(if type(example) == "string" then example else "Bakery", script:GetAttribute("Weak") == true, actionEnabled)
+	stop =
+		run(if type(example) == "string" then example else "Bakery", script:GetAttribute("Weak") == true, actionEnabled)
 end
 script:GetAttributeChangedSignal("Example"):Connect(mount)
 script:GetAttributeChangedSignal("Weak"):Connect(mount)

@@ -18,8 +18,8 @@ By default, Slider shows an inline track and a value readout, with an optional
 label. Its default native `AutomaticSize.Y` keeps the authored width and fits
 the control height. `row` gives a stacked title, description and track. A
 Slider row has the `facet-slider-settings` tag and the horizontal padding of a
-Button. It shows `row.icon` before the stack, so the Slider row lines up with
-Button and Toggle rows.
+Button. It shows `row.icon` on the title line, before the title. The track is
+on its own line and uses the full width of the row.
 
 Slider also supports `onCommit(value)`, `tapToPosition` (default true),
 `thumbImage`, `trackImage` and `row`. Dragging uses native drag detection.

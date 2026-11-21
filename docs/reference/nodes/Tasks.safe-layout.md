@@ -28,7 +28,6 @@ region that takes the drag. Composition lifts only the zones above a
 control, and keeps the room while a Facet overlay holds the controls off.
 Rotation updates the clearance.
 Nested surfaces add only clearance that their own bounds still overlap.
-Bottom actions stay grouped above these controls; the world stays visible.
 
 This policy applies to ScreenGui content in PlayerGui. Plugin and world
 surfaces do not reserve touch space. Screen `chrome = "band"` or `"edge"`
@@ -37,8 +36,10 @@ outside TouchGui can declare `touchReservations` through Facet.app or
 Facet.controls. See [host touch reservations](Tasks.safe-layout.host.md).
 
 Keep one Composition per HUD. Supply shorter region forms when the remaining
-height is small. Check native-control clearance after rotation and dismissal
-with actual touch input. A capture alone does not prove activation.
+height is small. On a phone the thumbs own the bottom of the screen. A
+`bottom` region lifts above them and can cover the character in portrait,
+so put a readout in `topbar` or a top corner. Keep `bottom` and
+`action` for buttons. Check clearance with real touch after rotation.
 
 - [Tasks.hud](Tasks.hud.md)
 - [Composition.layout.step-down](Composition.layout.step-down.md)

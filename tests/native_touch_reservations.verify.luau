@@ -118,12 +118,12 @@ return function(harness: Verify.Harness)
 					t:expect(w.chat.AbsoluteSize.Y > 0):toBe(true)
 					t:expect(w.prompt.AbsoluteSize.Y > 0):toBe(true)
 					t:expect(w.bottom(w.chat) <= w.stick.AbsolutePosition.Y):toBe(true)
-					t:expect(w.bottom(w.prompt) <= w.stick.AbsolutePosition.Y):toBe(nested)
+					t:expect(w.bottom(w.prompt) <= w.stick.AbsolutePosition.Y):toBe(false)
 					if w.screen then
 						local padding = w.screen:FindFirstChildWhichIsA("UIPadding")
 						assert(padding)
 						t:expect(padding.PaddingBottom.Offset):toBe(152)
-						t:expect(w.stick.AbsolutePosition.Y - w.bottom(w.prompt) < 24):toBe(true)
+						t:expect(w.screen:GetAttribute("FacetTouchClearance")):toBe(152)
 					end
 				end
 			end

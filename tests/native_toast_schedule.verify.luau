@@ -468,15 +468,26 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		verifyHarness:case("a passive toast with no width hugs its text", {
+			id = "native_toast_schedule::UI.Toast: presentation::a passive toast with no width hugs its text",
+			run = function()
+				local f = toasts({ { message = "a" } }, { motionLevel = "none" })
+				f.world.advance(0.1)
+				local list = rows(f.world)
+				expect(overlay.find(list[1], "WidthCap").MaxSize.X):toBe(560)
+			end,
+		})
+
 		verifyHarness:case("fill spans the layer less the margins; hug fits the text, centred, up to 560", {
 			id = "native_toast_schedule::UI.Toast: presentation::fill spans the layer less the margins; hug fits the text, centred, up to 560",
 			run = function()
 				local f = toasts(
-					{ { message = "a" }, { message = "b", width = "hug" :: "hug" } },
+					{ { message = "a", width = "fill" :: "fill" }, { message = "b", width = "hug" :: "hug" } },
 					{ motionLevel = "none" }
 				)
 				f.world.advance(0.1)
 				local list = rows(f.world)
+				expect(overlay.find(list[1], "WidthCap")):toBe(nil)
 				expect(list[1].Size.X.Scale):toBe(1)
 				expect(list[1]:FindFirstAncestor("ToastStack").Size.X.Offset):toBe(-32)
 				expect(list[1].Parent:FindFirstChildWhichIsA("UIListLayout").HorizontalAlignment):toBe(
