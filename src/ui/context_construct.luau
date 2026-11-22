@@ -101,6 +101,7 @@ return function(ctx: Shared.Context): ((Instance) -> ()) -> ()
 		end
 		return ctx.config.strictBuild ~= false
 	end
+	ctx.skinSlots = setmetatable({}, { __mode = "k" }) :: { [unknown]: string }
 	function ctx.recover(message: string): boolean
 		if strictNow() then
 			return false

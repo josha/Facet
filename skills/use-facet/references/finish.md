@@ -69,8 +69,9 @@ it](../SKILL.md#read-the-card-off-the-concept):
 - **A second kind of plate.** When the concept draws the rows in a panel
   with their own line and shadow, name a plate:
   `plates = { row = { edge = { width = 2 }, depth = { lift = 4 } } }`, and
-  give each row stack `surface = "panel", plate = "row"`. State only the
-  values that differ from the theme. See `Themes.plates`.
+  give each row `plate = "row"`: on a row `UI.Card`, or on a stack with
+  `surface = "panel"`. State only the values that differ from the theme.
+  See `Themes.plates`.
   Do not write a stroke rule on a control's tag for this: the edge of
   `finish` is drawn inside the box, and a stroke that you add is drawn
   outside it and takes the gap to the next control.

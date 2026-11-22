@@ -75,11 +75,19 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				error(`Facet UI.Card: {problem}`, 0)
 			end
 		end
+		local slot: string? = nil
+		if plate then
+			local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme)
+			local layer = if package then themeSupport.chromeLayer(package.chrome, themeSupport.PLATE .. plate) else nil
+			if layer == nil or layer.kind == nil or layer.kind == "native" then
+				slot = themeSupport.PLATE .. plate
+			end
+		end
 		local function plated(node: GuiObject, shadow: boolean)
 			if plate then
 				node:AddTag("facet-plate-" .. plate)
-				if shadow then
-					ctx.skin(node, themeSupport.PLATE .. plate)
+				if shadow and slot then
+					ctx.skin(node, slot)
 				end
 			end
 		end
@@ -613,6 +621,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			for _, child in bodyChildren do
 				props[#props + 1] = child
 			end
+			if slot and media then
+				ctx.skinSlots[props] = slot
+			end
 			local button = UI.Button(props)
 			button:AddTag("facet-panel")
 			body = button
@@ -771,7 +782,9 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				"panel"
 			)
 			plateLayer:AddTag("facet-card-part")
-			plated(plateLayer, false)
+			if media then
+				plated(plateLayer, false)
+			end
 			if flowing then
 				plateLayer:AddTag("facet-card-inflow")
 			end
@@ -893,8 +906,8 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		if not media then
 			ctx.styled(card, "panel")
 			card:AddTag("facet-card-text")
-			plated(card, true)
 			Host.UIPadding { Parent = Compose.static(card) }
+			plated(card, true)
 		end
 		root = card
 		if row and reveal == "always" and revealing then

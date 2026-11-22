@@ -945,7 +945,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 
 		if not kit.unskinned[spec] then
 			local function skin(use: ComposeTypes.Use?)
-				ctx.skin(node, "control", {
+				ctx.skin(node, ctx.skinSlots[spec] or "control", {
 					emphasis = read(spec.appearance, use) == "emphasis",
 					selected = spec.selected,
 					disabled = function(use: ComposeTypes.Use)

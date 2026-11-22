@@ -329,6 +329,7 @@ export type Context = {
 	column: (ChildList, FrameNativeProps?) -> Frame,
 	listRow: (ListRow) -> (Frame, Input<UDim2>, (GuiObject) -> ()),
 	recover: (string) -> boolean,
+	skinSlots: { [unknown]: string },
 	icon: (Input<Theme.ResolvedIcon?>, ImageLabelNativeProps?, Input<Theme.SkinState>?) -> ImageLabel,
 	iconVaries: (Input<Theme.ResolvedIcon?>?) -> boolean,
 	iconShows: (string) -> boolean,

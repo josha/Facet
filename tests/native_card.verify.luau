@@ -260,23 +260,36 @@ return function(verifyHarness: Verify.Harness)
 					identity = { id = "plated-cards" },
 					finish = { look = "hard", plates = { row = { edge = { width = 2 }, depth = { lift = 3 } } } },
 				}
-				local options = { motionLevel = "none", theme = assert((Facet.themes.define(definition))) }
-				local function tagged(node: any): boolean
-					return node:HasTag("facet-panel") and node:HasTag("facet-plate-row")
+				local package = assert((Facet.themes.define(definition)))
+				local options = { motionLevel = "none", theme = package }
+				local function line(world: worlds.World, node: any, property: string): any
+					local _, sheet = world.runtime.mount(function()
+						return Facet.themes.createStyleSheet(world.runtime, package, { types = world.engine.types })
+					end, world.engine.new("Folder"))
+					return styleRules.resolve(sheet, node, property, "UIStroke")
+				end
+				local function drop(node: any): number?
+					local shadow = node:FindFirstChild("ChromeShadow") :: any
+					return if shadow then shadow.Offset.Y.Offset else nil
 				end
 
 				local still, stillCard =
 					mount({ glyph = "star", title = "Taro Milk", layout = "row", plate = "row" }, options)
 				local stillBody = stillCard:FindFirstChild("Body") :: any
-				expect(tagged(stillBody)):toBe(true)
-				expect(stillBody:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+				expect(line(still, stillBody, "Thickness")):toBe(2)
+				expect(line(still, stillBody, "Transparency")):toBe(0)
+				expect(drop(stillBody)):toBe(3)
 				still.stop()
 
 				local words, wordsCard = mount({ title = "Notes", plate = "row" }, options)
-				expect(tagged(wordsCard)):toBe(true)
-				expect((wordsCard:FindFirstChild("Body") :: any):HasTag("facet-plate-row")):toBe(false)
-				local wordsShadow = wordsCard:FindFirstChild("ChromeShadow") :: any
-				expect(wordsShadow.Offset.Y.Offset):toBe(3)
+				expect(line(words, wordsCard, "Thickness")):toBe(2)
+				expect(line(words, wordsCard:FindFirstChild("Body"), "Transparency")):toBe(1)
+				expect(drop(wordsCard)):toBe(3)
+				local paddings = 0
+				for _, child in wordsCard:GetChildren() do
+					paddings += if child:IsA("UIPadding") then 1 else 0
+				end
+				expect(paddings):toBe(1)
 				words.stop()
 
 				local pressed, pressedCard = mount({
@@ -287,14 +300,32 @@ return function(verifyHarness: Verify.Harness)
 					onActivate = function() end,
 				}, options)
 				local pressedBody = pressedCard:FindFirstChild("Body") :: any
-				expect(tagged(pressedBody)):toBe(true)
-				expect(pressedBody:FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(4)
+				expect(pressedBody.ClassName):toBe("TextButton")
+				expect(line(pressed, pressedBody, "Thickness")):toBe(2)
+				expect(line(pressed, pressedBody, "Transparency")):toBe(0)
+				expect(drop(pressedBody)):toBe(3)
 				pressed.stop()
+
+				local off, offCard = mount({
+					glyph = "star",
+					title = "Sold out",
+					layout = "row",
+					plate = "row",
+					enabled = false,
+					onActivate = function() end,
+				}, options)
+				expect(line(off, offCard:FindFirstChild("Body"), "Transparency")):toBe(0.6)
+				off.stop()
+
+				local tap, tapCard = mount({ title = "Tap me", onActivate = function() end }, options)
+				expect(line(tap, tapCard, "Thickness")):toBe(3)
+				expect(line(tap, tapCard:FindFirstChild("Body"), "Transparency")):toBe(1)
+				tap.stop()
 
 				local plain, plainCard = mount({ glyph = "star", title = "Plain", layout = "row" }, options)
 				local plainBody = plainCard:FindFirstChild("Body") :: any
-				expect(plainBody:HasTag("facet-plate-row")):toBe(false)
-				expect(plainBody:FindFirstChild("ChromeShadow")):toBeNil()
+				expect(line(plain, plainBody, "Thickness")):toBe(3)
+				expect(drop(plainBody)):toBeNil()
 				plain.stop()
 
 				local ok, problem = pcall(function()

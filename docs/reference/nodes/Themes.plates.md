@@ -51,14 +51,13 @@ A VStack or an HStack with `surface = "panel"` takes the plate with
 `plate = "row"`. The stack keeps the corner and the sheen of a panel. Give
 it its own fill with `BackgroundColor3`: a row with the fill of the panel
 around it reads as part of that panel. A [Card](Card.title.md) takes a
-plate in the same way, and keeps its own fill. A Card with `onActivate`
-is a control: it takes the line of the plate and keeps the shadow of the
-controls. A name that the theme does not
+plate in the same way, and keeps its own fill. A name that the theme does not
 have, `plate` without `surface = "panel"`, or `plate` with `tail`, causes
 an error. A game that changes its theme names the same plates in each
-theme; under a theme without the name, the stack has the panel finish.
-On a theme with panel art in `chrome`, a plate keeps that art and has no
-shadow of its own.
+theme; under a theme without the name, the stack or the Card has the
+panel finish. On a theme with panel art in `chrome`, a plate stack keeps
+that art and has no shadow of its own, and a plate Card takes only the
+line.
 
 Use a plate when the direction shows two kinds of panel. Do not use it to
 make one panel different: one plate that stands out reads as an error.

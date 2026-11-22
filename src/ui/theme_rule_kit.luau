@@ -274,7 +274,11 @@ return function(
 			BorderStrokePosition = types.Enum.BorderStrokePosition.Inner,
 		})
 		add(".facet-fading > .facet-fade-stroke", { Enabled = true })
+		local lined = false
 		for _, definition in (package.rules or {}) :: { ThemeTypes.Rule } do
+			lined = lined
+				or string.find(definition.selector, ".facet-panel::UIStroke", 1, true) ~= nil
+				or string.find(definition.selector, ".facet-button::UIStroke", 1, true) ~= nil
 			local properties: ThemeTypes.RuleProperties = {}
 			for key, value in (definition.properties or definition.props or {}) :: ThemeTypes.AuthoredRuleProperties do
 				if type(value) == "table" and type((value :: { role: string }).role) == "string" then
@@ -298,8 +302,14 @@ return function(
 					Thickness = properties.Thickness,
 					Transparency = properties.Transparency or 0,
 				}, true)
-				rule(".facet-card-text >> .facet-card-body::UIStroke", { Transparency = 1 }, true)
 			end
+		end
+		if lined then
+			rule(
+				".facet-card-text > .facet-card-body::UIStroke, .facet-card-text >> .facet-card-inflow::UIStroke",
+				{ Transparency = 1 },
+				true
+			)
 		end
 		local present: { [string]: boolean } = {}
 		local presence: { NativeRule } = {}
