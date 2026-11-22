@@ -307,6 +307,25 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		end
 		local package = merge(base, definition);
 		(package :: { motion: unknown? }).motion = nil
+		local origin = definition.base or neutral
+		if type(package.style) == "table" and type(package.style.themes) == "table" then
+			for _, palette in package.style.themes :: { { name: unknown, colors: unknown, extra: unknown } } do
+				if type(palette) == "table" and palette.colors == nil then
+					local same: ThemeTypes.Palette? = nil
+					for _, candidate in origin.style.themes do
+						if candidate.name == palette.name then
+							same = candidate
+						end
+					end
+					if same then
+						palette.colors = copy(same.colors)
+						if palette.extra == nil then
+							palette.extra = copy(same.extra)
+						end
+					end
+				end
+			end
+		end
 		local givenMetrics = (definition :: { metrics: unknown? }).metrics
 		local givenMotion = if type(givenMetrics) == "table" then (givenMetrics :: { motion: unknown? }).motion else nil
 		if type(givenMotion) == "table" and type(package.metrics) == "table" then

@@ -81,7 +81,10 @@ return function(
 			}
 		end,
 		axes = { { key = "groupTransparency", values = { 0, 0.4, 1 } } },
-		states = { { name = "padding s", props = properties { padding = "s" } } },
+		states = {
+			{ name = "padding s", props = properties { padding = "s" } },
+			{ name = "pill corners", props = properties { corners = "pill", padding = "s" } },
+		},
 	}
 	pages.ZStack = {
 		family = "layout",
@@ -102,6 +105,16 @@ return function(
 			{ key = "alignH", values = { "start", "center", "end" } },
 			{ key = "alignV", values = { "start", "center", "end" } },
 		},
-		states = { { name = "padding s", props = properties { padding = "s" } } },
+		states = {
+			{ name = "padding s", props = properties { padding = "s" } },
+			{ name = "12 px corners", props = properties { corners = 12 } },
+			{ name = "hug, max height 60", props = properties { height = "hug", maxHeight = 60 } },
+			{
+				name = "ground behind the layers",
+				props = function(c: Context): Types.Properties
+					return { ground = plate(c, "facet-status-info", 10, 10) }
+				end,
+			},
+		},
 	}
 end

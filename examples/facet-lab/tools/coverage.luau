@@ -72,7 +72,8 @@ for line in string.gmatch(controlsBody, "[^\n]+") do
 		end
 		local fields: { [string]: string } = {}
 		for propsName in string.gmatch(source, "%.([%w_]+)") do
-			local declared = origins[assert(propsName)]
+			local typeName = assert(propsName)
+			local declared = origins[typeName] or origins[(string.gsub(typeName, "Input$", ""))]
 			if declared then
 				for field, origin in declared do
 					fields[field] = fields[field] or origin
@@ -152,11 +153,20 @@ end
 
 local GLOBAL = { ref = "the root hook every constructor takes" }
 local PLATE = "the Theme finish page shows a named plate under the Look themes; other themes refuse the name"
+local GROW = "the Flex grow helper on the HStack page shows grow on a stack; this control takes the same weight"
 local ALLOW: { [string]: { [string]: string } } = {
 	environment = {},
 	Card = { plate = PLATE },
 	HStack = { plate = PLATE },
 	VStack = { plate = PLATE },
+	Grid = { grow = GROW },
+	Group = { grow = GROW },
+	ScrollView = { grow = GROW },
+	ZStack = { grow = GROW },
+	Timer = {
+		direction = "the Timer page shows the readout at its own width; the Text page shows direction",
+		textAlign = "the Timer page shows the readout at its own width; the Text page shows textAlign",
+	},
 	Flash = {
 		color = "the reward sequence page drives Flash through UI.sequence",
 		mode = "the reward sequence page drives Flash through UI.sequence",
@@ -185,6 +195,7 @@ local ALLOW: { [string]: { [string]: string } } = {
 		transparency = "the Travel page drives these options from its custom demos",
 	},
 	ZoomView = {
+		preferredSelection = "the ZoomView page drives its options from its custom demos",
 		content = "the ZoomView page drives these options from its custom demo",
 		contentSize = "the ZoomView page drives these options from its custom demo",
 		controls = "the ZoomView page drives these options from its custom demo",

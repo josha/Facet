@@ -22,7 +22,7 @@ local LOOKS: { [string]: { edge: Table, depth: Table } } = {
 	flat = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
 	raised = {
 		edge = { width = 1, transparency = 0.5 },
-		depth = { lift = 8, blur = 24, glow = 0, sheen = 0.2, strength = 0.55, controls = true },
+		depth = { lift = 8, blur = 24, glow = 0, sheen = 0.2, strength = 0.55, controls = { lift = 3 } },
 	},
 	glow = {
 		edge = { width = 2, role = "accent", transparency = 0.1, controls = { width = 1, transparency = 0.4 } },
@@ -49,7 +49,7 @@ local function amount(value: unknown): number?
 end
 
 local function color(palette: ThemeTypes.Palette, role: string): ThemeTypes.RGB?
-	local found: unknown = palette.colors[role]
+	local found: unknown = if palette.colors then palette.colors[role] else nil
 	if found == nil and palette.extra then
 		found = (palette.extra :: Table)[role]
 	end

@@ -2,6 +2,10 @@
 
 Optional semantic colors and their defaults.
 
+- A palette in `style.themes` with a `name` and no `colors` takes the colors
+  of the base palette with that name. `themes = { { name = "Dark" },
+  { name = "Light" } }` keeps both palettes of Facet Neutral in a theme
+  that states only a finish.
 - `controlHover` and `controlPressed`: the control plate on hover and on
   press. When a palette sets `control` and not these roles, `define` makes
   them from `control`. They keep the contrast step of the neutral Dark or

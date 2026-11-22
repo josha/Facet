@@ -705,7 +705,36 @@ return function(verifyHarness: Verify.Harness)
 				local shadow = lifted.style.shadows.finish
 				expect(shadow.offset.y.offset):toBe(8)
 				expect(shadow.blurRadius.offset):toBe(24)
-				expect(lifted.chrome.control.shadow):toBe("finish")
+				local lip = lifted.style.shadows.finishControl
+				expect(lip.offset.y.offset):toBe(3)
+				expect(lip.blurRadius.offset):toBe(9)
+				expect(lip.transparency):toBeCloseTo(0.45, 5)
+				expect(lifted.chrome.control.shadow):toBe("finishControl")
+				expect(themeSupport.plateReach(lifted)):toBe(32)
+				local full: Facet.ThemeDefinition =
+					{ identity = { id = "full" }, finish = { look = "raised", depth = { controls = true } } }
+				local heavy: any = assert((themes.define(full)))
+				expect(heavy.chrome.control.shadow):toBe("finish")
+				local named: Facet.ThemeDefinition = {
+					identity = { id = "named" },
+					style = { themes = { { name = "Dark" }, { name = "Light" } } },
+					finish = { look = "raised" },
+				}
+				local both: any = assert((themes.define(named)))
+				local source = themes.neutralPackage().style.themes
+				expect(#both.style.themes):toBe(2)
+				for index, palette in both.style.themes do
+					expect(palette.name):toBe(source[index].name)
+					expect(palette.colors.surface.r):toBe(source[index].colors.surface.r)
+				end
+				local unknown: Facet.ThemeDefinition = {
+					identity = { id = "unknown" },
+					style = { themes = { { name = "Dark" }, { name = "Aurora" } } },
+					finish = { look = "raised" },
+				}
+				local fresh, freshReport = themes.define(unknown)
+				expect(fresh ~= nil):toBe(true)
+				expect(#freshReport.errors):toBe(0)
 				local tuned: Facet.ThemeDefinition =
 					{ identity = { id = "tuned" }, finish = { look = "glow", depth = { glow = 12 } } }
 				local glowing: any = assert((themes.define(tuned)))
