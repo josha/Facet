@@ -7,8 +7,58 @@ return function(
 	pages: { [string]: PageDefinition },
 	plate: (Context, string, number, number) -> Frame,
 	properties: (Types.Properties) -> Types.Source,
-	art: string
+	art: string,
+	shared: { sizes: Types.Axis, disabled: Types.State, none: unknown }
 )
+	pages.Pagination = {
+		family = "navigation",
+		cellWidth = 360,
+		alias = "Pagination",
+		purpose = "Moves between numbered result pages, or next/previous for unknown counts.",
+		alternatives = "PageView for swiped content.",
+		scenarios = { "paging" },
+		snippet = "UI.Pagination { page = page, pageCount = 12, onChange = function(n) page:set(n) end }",
+		base = function(c: Context): Types.Properties
+			local page = c.cell("page", 4)
+			return {
+				page = page,
+				pageCount = 12,
+				onChange = function(n)
+					page:set(n)
+					c.log("onChange")(n)
+				end,
+			}
+		end,
+		axes = {
+			{ key = "form", values = { "numbers", "arrows", "label", "step" } },
+			shared.sizes,
+			{ key = "direction", values = { "ltr", "rtl" } },
+		},
+		states = {
+			{
+				name = "step with a label (a short set)",
+				props = properties {
+					form = "step",
+					pageCount = 5,
+					label = function(page: number, count: number): string
+						return `Car {page} of {count}`
+					end,
+				},
+			},
+			{
+				name = "two siblings, two at each end",
+				props = properties { siblingCount = 2, boundaryCount = 2, pageCount = 20 },
+			},
+			shared.disabled,
+			{ name = "first/last", props = properties { showFirstLast = true } },
+			{
+				name = "unknown total",
+				props = properties { pageCount = shared.none, hasNext = true, hasPrevious = true },
+			},
+			{ name = "no pages", props = properties { pageCount = 0 } },
+			{ name = "diagnostics table", props = properties { controls = {} } },
+		},
+	}
 	pages.Group = {
 		family = "layout",
 		alias = "Group (one fade)",
