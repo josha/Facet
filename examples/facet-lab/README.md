@@ -57,14 +57,17 @@ the captions stay above the bottom padding.
 The **Environment** page reports `thumbTarget` and compares `scaled(48)` with
 `scaled(48, "body")` as the preview text size changes.
 
-Choose **Facet capabilities → Theme finish** to see the edge and the depth that a theme gives a
-panel, the rows in it and the controls. In Settings, the themes named
-**Look: flat**, **raised**, **glow** and **hard** are Facet Neutral with one
+Choose **Facet capabilities → Theme finish** to see the edge and the depth
+that a theme gives a panel, the rows in it and the controls. In Settings,
+the themes with a name that starts with **Look:** (flat, glow, hard and
+raised, each with a Dark and a Light palette) are Facet Neutral with one
 finish look, one motion feel and a plate named `row`. Compare the four, and
-change the **rows** option between Cards and stacks. Foundation and Neutral
-name no plate, so their rows have the panel finish. **Navigation →
-Pagination** has the `step` form with a `label`, and **Collections → Card**
-has the row layout with its action beside the title.
+change the **rows** option between `cards` and `stacks`. Foundation and
+Neutral name no plate, so their rows have the panel finish. **Navigation →
+Pagination** has the `step` form and a state with a `label`. In
+**Collections → Card**, the States matrix shows the row layout with its
+action beside the title; the Playground box is too narrow for that, so the
+action goes below.
 
 The coverage command checks declared options across all public controls. It
 does not prove layout or input behavior. Existing Timer, Typewriter, reward
@@ -111,6 +114,6 @@ set in Studio to test native accessibility rendering.
 `orientation`, `input`, `distance`, `text`, `motion`, `transparency`, `hover`,
 `reset` and `status`. Each entry is a BindableFunction.
 
-Source files live in `src/`, optional Foundation palettes and entry modules
-in `themes/`, and local captures in the ignored `evidence/` directory.
+Source files live in `src/`, the optional Foundation palettes, the Look
+themes and their entry modules in `themes/`, and local captures in the ignored `evidence/` directory.
 The project maps Facet and the shared gallery directly from this repository.

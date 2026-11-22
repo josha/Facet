@@ -40,10 +40,11 @@ return function(
 				props = properties {
 					form = "step",
 					pageCount = 5,
-					label = function(page: number, count: number): string
-						return `Car {page} of {count}`
+					label = function(page: number, count: number?): string
+						return if count then `Car {page} of {count}` else `Car {page}`
 					end,
 				},
+				across = false,
 			},
 			{
 				name = "two siblings, two at each end",

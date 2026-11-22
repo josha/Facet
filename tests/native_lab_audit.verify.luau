@@ -206,8 +206,15 @@ return function(verifyHarness: Verify.Harness)
 					Verify.expect(row():HasTag("facet-plate-row")):toBe(true)
 					w.stop()
 				end
+				local neutral = themes.neutralPackage().style.themes
 				for _, name in { "flat", "raised", "glow" } do
-					Verify.expect(assert(looks.make(themes, name).chrome)["plate-row"] ~= nil):toBe(true)
+					local look = looks.make(themes, name)
+					Verify.expect(assert(look.chrome)["plate-row"] ~= nil):toBe(true)
+					Verify.expect(#look.style.themes):toBe(#neutral)
+					for index, palette in look.style.themes do
+						Verify.expect(palette.name):toBe(neutral[index].name)
+						Verify.expect(palette.colors.surface.r):toBe(neutral[index].colors.surface.r)
+					end
 				end
 			end,
 		})

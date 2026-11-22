@@ -2,6 +2,7 @@
 
 type Themes = typeof(require("@repo/tools/typecheck/aliases").FacetModule.themes)
 type ThemeDefinition = typeof(require("@repo/tools/typecheck/aliases").ThemeDefinition)
+type PalettePatch = typeof(require("@repo/tools/typecheck/aliases").PalettePatch)
 
 local DEFINITIONS: { [string]: ThemeDefinition } = {
 	flat = {
@@ -37,7 +38,14 @@ local DEFINITIONS: { [string]: ThemeDefinition } = {
 local looks = {}
 
 function looks.make(themes: Themes, name: string)
-	local package, report = themes.define(assert(DEFINITIONS[name], "unknown look"))
+	local definition = table.clone(assert(DEFINITIONS[name], "unknown look"))
+	local neutral = themes.neutralPackage().style
+	local palettes: { PalettePatch } = {}
+	for _, palette in neutral.themes do
+		table.insert(palettes, { name = palette.name, colors = palette.colors, extra = palette.extra })
+	end
+	definition.style = { defaultTheme = neutral.defaultTheme, themes = palettes }
+	local package, report = themes.define(definition)
 	return assert(package, report.errors[1] and report.errors[1].message)
 end
 

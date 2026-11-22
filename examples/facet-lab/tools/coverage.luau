@@ -151,8 +151,12 @@ for id, data in catalog.PAGE_DATA do
 end
 
 local GLOBAL = { ref = "the root hook every constructor takes" }
+local PLATE = "the Theme finish page shows a named plate under the Look themes; other themes refuse the name"
 local ALLOW: { [string]: { [string]: string } } = {
 	environment = {},
+	Card = { plate = PLATE },
+	HStack = { plate = PLATE },
+	VStack = { plate = PLATE },
 	Flash = {
 		color = "the reward sequence page drives Flash through UI.sequence",
 		mode = "the reward sequence page drives Flash through UI.sequence",

@@ -16,7 +16,9 @@ local DRINKS = {
 }
 
 local page: CatalogTypes.PageDefinition = {
-	host = "VStack",
+	facet = true,
+	title = "Theme finish",
+	surface = "Facet.themes.define (finish)",
 	family = "facet",
 	cellWidth = 460,
 	alias = "Theme finish (look, named plate, control shadow)",
@@ -31,7 +33,6 @@ local page: CatalogTypes.PageDefinition = {
 	end,
 	axes = { { key = "rows", values = { "cards", "stacks" } } },
 	states = {},
-	demonstrates = { "plate", "surface" },
 	make = function(UI: FacetControls, p: Properties, c: Context): Instance
 		local theme = if c.ctx then c.ctx.theme else nil
 		local named = c.Compose.formula(function(use: Use): string

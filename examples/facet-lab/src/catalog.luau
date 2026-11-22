@@ -3490,10 +3490,11 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{
 				name = "row layout, action beside the title",
 				props = properties { layout = "row", reveal = "always", menu = NONE, onActivate = NONE },
+				across = false,
 				cellWidth = 420,
 			},
 			{
-				name = "glyph for the picture",
+				name = "row layout, glyph for the picture",
 				props = properties { image = NONE, glyph = "star", layout = "row", menu = NONE },
 				cellWidth = 420,
 			},
