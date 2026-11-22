@@ -80,6 +80,7 @@ return function(PAGE_DATA: { [string]: PageDefinition }, NONE: unknown, properti
 		base = outlineBase,
 		axes = { { key = "selectionMode", values = { "single", "multiple" }, matrix = false } },
 		states = {
+			{ name = "no focus restore", props = properties { restoreFocus = false } },
 			{ name = "content clipped", props = properties { contentOverflow = "clip" } },
 			{ name = "content visible", props = properties { contentOverflow = "visible" } },
 			{ name = "expanded", props = expandedState },

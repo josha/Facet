@@ -44,21 +44,22 @@ type Catalog = { PAGE_DATA: { [string]: PageData } }
 local catalog =
 	Lute.chunk.load(fs.readFileToString("src/catalog.luau"), { name = "catalog", environment = env })() :: Catalog
 
+local UNTYPED: { [string]: string } = {
+	DiegeticScreen = "its props type is not in the props generator",
+}
 local specs: { [string]: { [string]: string } } = {}
 local names: { string } = {}
 local origins = ControlProps.optionOrigins("../..")
 local controlTypes = fs.readFileToString(FACET .. "control_types.luau")
 local constructors: { [string]: string } = {}
-local collecting: string? = nil
+local declaring: string? = nil
 for line in string.gmatch(controlTypes, "[^\n]+") do
-	local opened = string.match(line, "^type ([%w_]+Shapes) =")
-	if opened then
-		collecting = opened
-		constructors[opened] = ""
-	elseif collecting and string.sub(line, 1, 1) == "\t" then
-		constructors[collecting] ..= line
-	else
-		collecting = nil
+	local name = string.match(line, "^export type ([%w_]+)") or string.match(line, "^type ([%w_]+)")
+	if name then
+		declaring = if name == "Controls" then nil else name
+	end
+	if declaring then
+		constructors[declaring] = (constructors[declaring] or "") .. line .. "\n"
 	end
 end
 local controlsBody = assert(string.match(controlTypes, "export type Controls = {\n(.-)\n}"))
@@ -67,18 +68,27 @@ for line in string.gmatch(controlsBody, "[^\n]+") do
 	if control and expr then
 		local source: string = expr
 		if string.match(expr, "^[%w_]+Constructor$") then
-			local shapesName = string.gsub(expr, "Constructor$", "Shapes")
-			source = constructors[shapesName] or expr
+			source = constructors[expr] or expr
+			for word in string.gmatch(source, "[%a_][%w_]*") do
+				if word ~= expr and constructors[word] and string.match(word, "Builder$") then
+					source ..= constructors[word]
+				end
+			end
 		end
 		local fields: { [string]: string } = {}
 		for propsName in string.gmatch(source, "%.([%w_]+)") do
-			local declared = origins[assert(propsName)]
+			local typeName = assert(propsName)
+			local declared = origins[typeName] or origins[(string.gsub(typeName, "Input$", ""))]
 			if declared then
 				for field, origin in declared do
 					fields[field] = fields[field] or origin
 				end
 			end
 		end
+		assert(
+			next(fields) ~= nil or string.match(control, "^%l") ~= nil or UNTYPED[control] ~= nil,
+			`coverage: no option fields found for {control}; the type lookup in this tool is out of date`
+		)
 		specs[control] = fields
 		table.insert(names, control)
 	end
@@ -152,11 +162,21 @@ end
 
 local GLOBAL = { ref = "the root hook every constructor takes" }
 local PLATE = "the Theme finish page shows a named plate under the Look themes; other themes refuse the name"
+local GROW = "the Flex grow helper on the HStack page shows grow on a stack; this control takes the same weight"
 local ALLOW: { [string]: { [string]: string } } = {
 	environment = {},
 	Card = { plate = PLATE },
 	HStack = { plate = PLATE },
 	VStack = { plate = PLATE },
+	Grid = { grow = GROW },
+	Group = { grow = GROW },
+	ScrollView = { grow = GROW },
+	ZStack = { grow = GROW },
+	Region = { plate = "not shown: the forms on the Region page are Badges, which carry their own plate" },
+	Timer = {
+		direction = "the Timer page shows the readout at its own width; the Text page shows direction",
+		textAlign = "the Timer page shows the readout at its own width; the Text page shows textAlign",
+	},
 	Flash = {
 		color = "the reward sequence page drives Flash through UI.sequence",
 		mode = "the reward sequence page drives Flash through UI.sequence",
@@ -182,16 +202,17 @@ local ALLOW: { [string]: { [string]: string } } = {
 		onLanded = "the Travel page drives these options from its custom demos",
 		onStarted = "the Travel page drives these options from its custom demos",
 		stagger = "the Travel page drives these options from its custom demos",
-		transparency = "the Travel page drives these options from its custom demos",
+		transparency = "not shown: the Travel demos keep the moving item opaque",
 	},
 	ZoomView = {
+		preferredSelection = "not shown: the ZoomView demos name no selection target",
 		content = "the ZoomView page drives these options from its custom demo",
 		contentSize = "the ZoomView page drives these options from its custom demo",
 		controls = "the ZoomView page drives these options from its custom demo",
-		doubleTapZoom = "the ZoomView page drives these options from its custom demo",
-		focus = "the ZoomView page drives these options from its custom demo",
-		followTransition = "custom_transition grows a following ZoomView with a scaled split page reveal",
-		minZoom = "the ZoomView page drives these options from its custom demo",
+		doubleTapZoom = "not shown: the ZoomView demos keep the default double-tap zoom",
+		focus = "not shown: the ZoomView demos set no focus point",
+		followTransition = "not shown: the ZoomView demos follow no transition",
+		minZoom = "not shown: the ZoomView demos keep the fit zoom as the minimum",
 		zoom = "the ZoomView page drives these options from its custom demo",
 	},
 }

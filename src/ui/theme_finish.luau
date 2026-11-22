@@ -4,7 +4,8 @@ local support = require("./theme_support")
 
 local PLATES = ".facet-panel::UIStroke, .facet-sheet::UIStroke"
 local CONTROLS = ".facet-button::UIStroke, .facet-stepper-button::UIStroke"
-local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.facet-appearance-link::UIStroke"
+local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.facet-appearance-link::UIStroke, "
+	.. ".facet-button.facet-toggle-row::UIStroke, .facet-button.facet-toggle-plain::UIStroke"
 local UTILITY = ".facet-button.facet-appearance-utility::UIStroke"
 local DISABLED_EDGE = 0.6
 local SHADOW = "finish"
@@ -22,7 +23,7 @@ local LOOKS: { [string]: { edge: Table, depth: Table } } = {
 	flat = { edge = { width = 0 }, depth = { lift = 0, glow = 0, sheen = 0 } },
 	raised = {
 		edge = { width = 1, transparency = 0.5 },
-		depth = { lift = 8, blur = 24, glow = 0, sheen = 0.2, strength = 0.55, controls = true },
+		depth = { lift = 8, blur = 24, glow = 0, sheen = 0.2, strength = 0.55, controls = { lift = 3 } },
 	},
 	glow = {
 		edge = { width = 2, role = "accent", transparency = 0.1, controls = { width = 1, transparency = 0.4 } },
@@ -49,7 +50,7 @@ local function amount(value: unknown): number?
 end
 
 local function color(palette: ThemeTypes.Palette, role: string): ThemeTypes.RGB?
-	local found: unknown = palette.colors[role]
+	local found: unknown = if palette.colors then palette.colors[role] else nil
 	if found == nil and palette.extra then
 		found = (palette.extra :: Table)[role]
 	end
@@ -98,6 +99,14 @@ local function apply(
 			if type(named) == "table" and type(own) == "table" then
 				(part[3] :: Table).controls = over(named :: Table, own)
 			end
+		end
+		local low: unknown, rest = look.depth.controls, amount(look.depth.lift) or 0
+		local given: Table = if type(stated.depth) == "table" then stated.depth :: Table else {}
+		local raisedTo = amount(given.lift)
+		if type(low) == "table" and given.controls == nil and raisedTo and rest > 0 then
+			local scaled = table.clone(low :: Table)
+			scaled.lift = (amount(scaled.lift) or 0) * raisedTo / rest
+			depth.controls = scaled
 		end
 	end
 	if look and type(stated.depth) == "table" then

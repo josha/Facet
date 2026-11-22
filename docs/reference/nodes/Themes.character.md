@@ -20,7 +20,7 @@ assert(theme, report.errors[1] and report.errors[1].message)
 | `finish.look` | What shows | Fits |
 | --- | --- | --- |
 | `flat` | No line and no shadow. Color and type carry the plates. | A quiet tool, a serious or minimal game |
-| `raised` | A soft shadow under the plates and the controls, a faint line, and a wash of the content color from the top. | Cozy, casual, farm, shop; most light palettes |
+| `raised` | A soft shadow under the plates, a short one under the controls, a faint line, and a wash of the content color from the top. | Cozy, casual, farm, shop; most light palettes |
 | `glow` | A line and a halo in the accent color, with an accent wash. | Sci-fi, neon, night, racing, magic; a dark palette |
 | `hard` | A thick line in the content color and a solid shadow with no blur, on the plates and the controls. | Cartoon, arcade, comic, pixel, party |
 
