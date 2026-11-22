@@ -711,6 +711,24 @@ return function(verifyHarness: Verify.Harness)
 				expect(lip.transparency):toBeCloseTo(0.45, 5)
 				expect(lifted.chrome.control.shadow):toBe("finishControl")
 				expect(themeSupport.plateReach(lifted)):toBe(32)
+				for lift, lip in { [0] = 0, [2] = 0.75, [16] = 6 } do
+					local stated: Facet.ThemeDefinition =
+						{ identity = { id = "stated" }, finish = { look = "raised", depth = { lift = lift } } }
+					local scaled: any = assert((themes.define(stated)))
+					local near = (scaled.style.shadows or {}).finishControl
+					if lip == 0 then
+						expect(near):toBeNil()
+						expect(scaled.chrome.control == nil or scaled.chrome.control.shadow == nil):toBe(true)
+						expect(themeSupport.plateReach(scaled)):toBe(1)
+					else
+						expect(near.offset.y.offset):toBeCloseTo(lip, 5)
+						expect(near.blurRadius.offset):toBeCloseTo(9, 5)
+					end
+				end
+				local flatKeys: Facet.ThemeDefinition =
+					{ identity = { id = "flat-hard" }, finish = { look = "hard", depth = { lift = 0 } } }
+				local unkeyed: any = assert((themes.define(flatKeys)))
+				expect((unkeyed.style.shadows or {}).finishControl):toBeNil()
 				local full: Facet.ThemeDefinition =
 					{ identity = { id = "full" }, finish = { look = "raised", depth = { controls = true } } }
 				local heavy: any = assert((themes.define(full)))
@@ -721,20 +739,35 @@ return function(verifyHarness: Verify.Harness)
 					finish = { look = "raised" },
 				}
 				local both: any = assert((themes.define(named)))
-				local source = themes.neutralPackage().style.themes
+				local source: any = themes.neutralPackage().style.themes
 				expect(#both.style.themes):toBe(2)
 				for index, palette in both.style.themes do
 					expect(palette.name):toBe(source[index].name)
-					expect(palette.colors.surface.r):toBe(source[index].colors.surface.r)
+					expect(palette.colors):toEqual(source[index].colors)
+					expect(palette.extra.control):toEqual(source[index].extra.control)
 				end
+				local tinted = {
+					identity = { id = "tinted" },
+					style = { themes = { { name = "Dark", extra = { brand = { r = 1, g = 0, b = 0 } } } } },
+				}
+				local marked: any = assert((themes.define(tinted :: any)))
+				expect(marked.style.themes[1].extra.brand):toEqual({ r = 1, g = 0, b = 0 })
+				expect(marked.style.themes[1].extra.control):toEqual(source[1].extra.control)
+				expect(marked.style.themes[1].extra.contentSecondary):toEqual(source[1].extra.contentSecondary)
 				local unknown: Facet.ThemeDefinition = {
 					identity = { id = "unknown" },
 					style = { themes = { { name = "Dark" }, { name = "Aurora" } } },
 					finish = { look = "raised" },
 				}
-				local fresh, freshReport = themes.define(unknown)
+				local fresh: any, freshReport = themes.define(unknown)
 				expect(fresh ~= nil):toBe(true)
 				expect(#freshReport.errors):toBe(0)
+				expect(fresh.style.themes[2].colors):toBeNil()
+				local bare: any = themes.neutralPackage()
+				bare.style = nil
+				local partial =
+					{ identity = { id = "partial" }, base = bare, style = { themes = { { name = "Dark" } } } }
+				expect((pcall(themes.define, partial :: any))):toBe(true)
 				local tuned: Facet.ThemeDefinition =
 					{ identity = { id = "tuned" }, finish = { look = "glow", depth = { glow = 12 } } }
 				local glowing: any = assert((themes.define(tuned)))
@@ -1038,6 +1071,8 @@ return function(verifyHarness: Verify.Harness)
 				expect(control.Thickness):toBe(4)
 				expect(control.BorderStrokePosition):toBe(Inner)
 				expect(authored(".facet-button.facet-appearance-bare::UIStroke").Transparency):toBe(1)
+				expect(authored(".facet-button.facet-toggle-row::UIStroke").Transparency):toBe(1)
+				expect(authored(".facet-button.facet-toggle-plain::UIStroke").Transparency):toBe(1)
 				expect(authored(".facet-button.facet-appearance-utility::UIStroke").Transparency):toBe(1)
 				expect(authored(".facet-button::UIStroke").Thickness):toBe(4)
 				expect(authored(".facet-button.facet-disabled::UIStroke").Transparency):toBe(0.6)

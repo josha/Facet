@@ -17,7 +17,6 @@ type Kit = {
 	GAP: Axis,
 	DEFAULT: string,
 	NONE: Properties,
-	fixed: (number, number?) -> Properties,
 	plate: (Context, string, number, number) -> Frame,
 	properties: (Properties) -> Properties,
 	stackDemo: (Context, Properties) -> Properties,
@@ -30,7 +29,7 @@ type Kit = {
 
 return function(pages: { [string]: PageDefinition }, kit: Kit)
 	local ALIGN, DISTRIBUTE, GAP, DEFAULT, NONE = kit.ALIGN, kit.DISTRIBUTE, kit.GAP, kit.DEFAULT, kit.NONE
-	local fixed, plate, properties, stackDemo = kit.fixed, kit.plate, kit.properties, kit.stackDemo
+	local plate, properties, stackDemo = kit.plate, kit.properties, kit.stackDemo
 	local stacked, strips = kit.stacked, kit.strips
 	local Color3, Enum, UDim2 = kit.Color3, kit.Enum, kit.UDim2
 	local layout: { [string]: PageDefinition } = {
@@ -213,8 +212,8 @@ return function(pages: { [string]: PageDefinition }, kit: Kit)
 					across = false,
 				},
 				{
-					name = "hug, max height 96",
-					props = properties { height = "hug", maxHeight = 96 },
+					name = "height 240 held to max height 180",
+					props = properties { maxHeight = 180 },
 					across = false,
 				},
 				{
@@ -466,8 +465,8 @@ return function(pages: { [string]: PageDefinition }, kit: Kit)
 				{ name = "distribute spaceBetween", props = properties { distribute = "spaceBetween" } },
 				{ name = "height 160", props = properties { height = 160 } },
 				{
-					name = "column, max height 96",
-					props = properties { axis = "y", maxHeight = 96 },
+					name = "column, height 400 held to max height 240",
+					props = properties { axis = "y", height = 400, maxHeight = 240 },
 					across = false,
 				},
 			},
@@ -676,10 +675,9 @@ return function(pages: { [string]: PageDefinition }, kit: Kit)
 				{ name = "trailing", props = properties { zone = "topbar", trailing = true } },
 				{
 					name = "label and icon on the mark of a hidden region",
-					props = properties { mayDrop = true, label = "Map", icon = "flag", room = 200 },
+					props = properties { mayDrop = true, label = "Map", icon = "flag", room = 120 },
 					across = false,
 				},
-				{ name = "no plate under the region", props = properties { plate = false } },
 			},
 			make = function(UI: FacetControls, p: Properties, c: Context): Instance
 				local form = c.cell("form", 1)
@@ -700,7 +698,6 @@ return function(pages: { [string]: PageDefinition }, kit: Kit)
 						reveal = p.reveal,
 						label = p.label,
 						icon = p.icon,
-						plate = p.plate,
 						form = form,
 						expand = function(): Instance
 							return UI.Text { text = "Region under test — the full form, disclosed in place" }

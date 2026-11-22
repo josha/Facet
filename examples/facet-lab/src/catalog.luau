@@ -808,6 +808,12 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			},
 			{ name = "centre passes presses through", props = properties { centerPassThrough = true } },
+			{
+				name = "captions below the buttons",
+				props = properties { appearance = "buttons", captions = true, captionPlacement = "below" },
+				across = false,
+			},
+			{ name = "icon size 32", props = properties { iconSize = 32 } },
 			{ name = "clearance 40", props = properties { clearance = 40 } },
 			{ name = "no motion", props = properties { transition = false } },
 			{
@@ -883,6 +889,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 		states = {
+			{ name = "min height 64", props = properties { minHeight = 64 } },
 			DISABLED,
 			{ name = "disabled (alias)", props = properties { disabled = true } },
 			{ name = "read only", props = properties { readOnly = true } },
@@ -984,6 +991,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { FIELD_APPEARANCE, SIZES },
 		states = {
+			{ name = "min height 64", props = properties { minHeight = 64 } },
 			DISABLED,
 			{ name = "step buttons", props = properties { stepButtons = true } },
 			{ name = "prefix/suffix", props = properties { prefix = "$", suffix = "km/h" } },
@@ -2618,7 +2626,22 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 			{ name = "hero", props = properties { hero = { image = ART, aspectRatio = 2, scaleMode = "crop" } } },
 			{ name = "action label", props = properties { actionLabel = "Choose carefully: this cannot be undone." } },
-			{ name = "inset, body height 160", props = properties { presentation = "inset", bodyHeight = 160 } },
+			{
+				name = "inset, a scrolling body 160 high",
+				props = function(c: Context): Properties
+					return {
+						presentation = "inset",
+						bodyHeight = 160,
+						content = function(): Instance
+							local rows: Properties = { width = "fill", height = "fill", gap = "xs" }
+							for index = 1, 12 do
+								table.insert(rows, c.UI.Text { text = `Player {index} is in the lobby` })
+							end
+							return c.UI.ScrollView(rows)
+						end,
+					}
+				end,
+			},
 			{
 				name = "long rich body (selectable)",
 				props = function(c: Context)
@@ -3679,6 +3702,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 		end,
 		axes = { { key = "selectionMode", values = { "none", "single", "multiple" }, matrix = false } },
 		states = {
+			{ name = "no focus restore", props = properties { restoreFocus = false } },
 			{ name = "copy rows by dragging into this collection", props = transferState },
 			{
 				name = "custom cell render",
@@ -3960,6 +3984,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "mode", values = { "windowed", "all" }, matrix = false },
 		},
 		states = {
+			{ name = "no focus restore", props = properties { restoreFocus = false } },
 			{ name = "content clipped", props = properties { contentOverflow = "clip" } },
 			{ name = "content visible", props = properties { contentOverflow = "visible" } },
 			{ name = "copy rows by dragging into this collection", props = transferState },
@@ -4108,6 +4133,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			{ key = "snap", values = { "none", "item" }, matrix = false },
 		},
 		states = {
+			{ name = "no focus restore", props = properties { restoreFocus = false } },
 			{ name = "rebuilt rows", props = properties { recycle = false } },
 			{ name = "content clipped", props = properties { contentOverflow = "clip" } },
 			{ name = "content visible", props = properties { contentOverflow = "visible" } },

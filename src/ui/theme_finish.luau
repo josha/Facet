@@ -4,7 +4,8 @@ local support = require("./theme_support")
 
 local PLATES = ".facet-panel::UIStroke, .facet-sheet::UIStroke"
 local CONTROLS = ".facet-button::UIStroke, .facet-stepper-button::UIStroke"
-local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.facet-appearance-link::UIStroke"
+local PLAIN = ".facet-button.facet-appearance-bare::UIStroke, .facet-button.facet-appearance-link::UIStroke, "
+	.. ".facet-button.facet-toggle-row::UIStroke, .facet-button.facet-toggle-plain::UIStroke"
 local UTILITY = ".facet-button.facet-appearance-utility::UIStroke"
 local DISABLED_EDGE = 0.6
 local SHADOW = "finish"
@@ -98,6 +99,14 @@ local function apply(
 			if type(named) == "table" and type(own) == "table" then
 				(part[3] :: Table).controls = over(named :: Table, own)
 			end
+		end
+		local low: unknown, rest = look.depth.controls, amount(look.depth.lift) or 0
+		local given: Table = if type(stated.depth) == "table" then stated.depth :: Table else {}
+		local raisedTo = amount(given.lift)
+		if type(low) == "table" and given.controls == nil and raisedTo and rest > 0 then
+			local scaled = table.clone(low :: Table)
+			scaled.lift = (amount(scaled.lift) or 0) * raisedTo / rest
+			depth.controls = scaled
 		end
 	end
 	if look and type(stated.depth) == "table" then

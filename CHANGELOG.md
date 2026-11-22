@@ -2,14 +2,21 @@
 
 The `raised` look gives the controls a short shadow (3 pixels of lift) in
 place of the shadow of the panels. Before, a padded stack that held a Button
-grew about 40 pixels to hold that shadow, so rows under `raised` were much
-taller than under the other looks. `depth = { controls = true }` beside
-the look gives the controls the shadow of the panels again.
+grew 48 pixels to hold that shadow, so a row under `raised` was 108 pixels
+high; it is now 78. `depth = { controls = true }` beside the look gives the
+controls the shadow of the panels again. A `lift` stated beside `raised` or
+`hard` scales the control shadow of the look with it, so `lift = 0` leaves
+the controls with no shadow.
 
-A palette stated with a `name` and no `colors` takes the colors of the base
-palette with that name, so `themes = { { name = "Dark" }, { name = "Light" } }`
-keeps both Neutral palettes. Before, `define` raised an error for such a
-palette when the definition had a finish.
+A finish with a line on the controls draws no line around a switch row or
+a checkbox row. Before, the line ran around the label and covered its last
+letter.
+
+A palette stated with a `name` and no `colors` takes the colors and the
+`extra` roles of the base palette with that name, so
+`themes = { { name = "Dark" }, { name = "Light" } }` keeps both Neutral
+palettes. Before, such a palette read the Neutral Dark colors whatever its
+name, and `define` raised an error for it when the definition had a finish.
 
 `UI.Card` accepts `plate`, as a panel stack does: the Card takes the line
 and the shadow of a plate that the theme names, also when it has

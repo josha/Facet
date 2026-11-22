@@ -107,12 +107,23 @@ return function(
 		},
 		states = {
 			{ name = "padding s", props = properties { padding = "s" } },
-			{ name = "12 px corners", props = properties { corners = 12 } },
-			{ name = "hug, max height 60", props = properties { height = "hug", maxHeight = 60 } },
+			{ name = "height 200 held to max height 120", props = properties { height = 200, maxHeight = 120 } },
 			{
 				name = "ground behind the layers",
 				props = function(c: Context): Types.Properties
-					return { ground = plate(c, "facet-status-info", 10, 10) }
+					return { width = 180, height = 130, ground = plate(c, "facet-status-info", 10, 10) }
+				end,
+			},
+			{
+				name = "12 px corners on a filled box",
+				props = function(c: Context): Types.Properties
+					return {
+						width = 180,
+						height = 130,
+						corners = 12,
+						BackgroundTransparency = 0,
+						BackgroundColor3 = c.types.Color3.fromRGB(60, 94, 246),
+					}
 				end,
 			},
 		},

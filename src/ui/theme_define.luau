@@ -308,20 +308,22 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 		local package = merge(base, definition);
 		(package :: { motion: unknown? }).motion = nil
 		local origin = definition.base or neutral
+		local sources: { ThemeTypes.Palette } = if type(origin.style) == "table"
+				and type(origin.style.themes) == "table"
+			then origin.style.themes
+			else {}
 		if type(package.style) == "table" and type(package.style.themes) == "table" then
 			for _, palette in package.style.themes :: { { name: unknown, colors: unknown, extra: unknown } } do
 				if type(palette) == "table" and palette.colors == nil then
 					local same: ThemeTypes.Palette? = nil
-					for _, candidate in origin.style.themes do
-						if candidate.name == palette.name then
+					for _, candidate in sources do
+						if type(candidate) == "table" and candidate.name == palette.name then
 							same = candidate
 						end
 					end
 					if same then
 						palette.colors = copy(same.colors)
-						if palette.extra == nil then
-							palette.extra = copy(same.extra)
-						end
+						palette.extra = merge(same.extra or {}, palette.extra)
 					end
 				end
 			end
