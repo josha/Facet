@@ -15,7 +15,7 @@ type Lab = {
 	configure: (string) -> { ok: boolean },
 	report: () -> { errors: { [string]: string }, missing: { string }, values: { [string]: string } },
 }
-type BuiltCatalog = { pages: { [string]: { data: { base: unknown, make: unknown } } } }
+type BuiltCatalog = { pages: { [string]: { data: { base: unknown, make: unknown } } }, stale: { string } }
 type Catalog = { build: (Facet.Controls) -> BuiltCatalog }
 type Settings = { new: (unknown, unknown) -> unknown }
 type Browser = { mount: (unknown) -> Lab }
@@ -156,6 +156,8 @@ return function(harness: Verify.Harness)
 		end)
 		local pages = lab.pageIds()
 		Verify.expect(#pages >= 75):toBe(true)
+		Verify.expect(#built.stale):toBe(0)
+		Verify.expect(table.find(pages, "themeFinish") ~= nil):toBe(true)
 		Verify.expect(#lab.report().missing):toBe(0)
 		local refusals: { [string]: string } = {}
 		for _, id in pages do

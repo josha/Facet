@@ -90,6 +90,21 @@
         "$className": "Folder",
         "foundation": {
           "$path": "themes/foundation.luau"
+        },
+        "looks": {
+          "$path": "themes/looks.luau"
+        },
+        "look_flat": {
+          "$path": "themes/look_flat.luau"
+        },
+        "look_raised": {
+          "$path": "themes/look_raised.luau"
+        },
+        "look_glow": {
+          "$path": "themes/look_glow.luau"
+        },
+        "look_hard": {
+          "$path": "themes/look_hard.luau"
         }
       },
       "Lab": {

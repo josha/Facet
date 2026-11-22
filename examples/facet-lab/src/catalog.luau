@@ -3259,42 +3259,6 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 			},
 		},
 	},
-	Pagination = {
-		family = "navigation",
-		cellWidth = 360,
-		alias = "Pagination",
-		purpose = "Moves between numbered result pages, or next/previous for unknown counts.",
-		alternatives = "PageView for swiped content.",
-		scenarios = { "paging" },
-		snippet = "UI.Pagination { page = page, pageCount = 12, onChange = function(n) page:set(n) end }",
-		base = function(c: Context)
-			local page = c.cell("page", 4)
-			return {
-				page = page,
-				pageCount = 12,
-				onChange = function(n)
-					page:set(n)
-					c.log("onChange")(n)
-				end,
-			}
-		end,
-		axes = {
-			{ key = "form", values = { "numbers", "arrows", "label" } },
-			SIZES,
-			{ key = "direction", values = { "ltr", "rtl" } },
-		},
-		states = {
-			{
-				name = "two siblings, two at each end",
-				props = properties { siblingCount = 2, boundaryCount = 2, pageCount = 20 },
-			},
-			DISABLED,
-			{ name = "first/last", props = properties { showFirstLast = true } },
-			{ name = "unknown total", props = properties { pageCount = NONE, hasNext = true, hasPrevious = true } },
-			{ name = "no pages", props = properties { pageCount = 0 } },
-			{ name = "diagnostics table", props = properties { controls = {} } },
-		},
-	},
 	StepIndicator = {
 		family = "navigation",
 		cellWidth = 420,
@@ -3522,6 +3486,18 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				end,
 			},
 			{ name = "controls table", props = properties { controls = {} } },
+			{ name = "row layout", props = properties { layout = "row", menu = NONE }, cellWidth = 420 },
+			{
+				name = "row layout, action beside the title",
+				props = properties { layout = "row", reveal = "always", menu = NONE, onActivate = NONE },
+				across = false,
+				cellWidth = 420,
+			},
+			{
+				name = "row layout, glyph for the picture",
+				props = properties { image = NONE, glyph = "star", layout = "row", menu = NONE },
+				cellWidth = 420,
+			},
 
 			{ name = "row of cards", props = properties { row = true }, across = false, cellWidth = 740 },
 		},
@@ -5444,6 +5420,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 
 	environment = require("./environment_page"),
+	themeFinish = require("./finish_page"),
 	worldAnchor = {
 		host = "RadialMenu",
 		family = "facet",
@@ -6057,7 +6034,7 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 	},
 }
 
-require("./catalog_groups")(PAGE_DATA, plate, properties, ART)
+require("./catalog_groups")(PAGE_DATA, plate, properties, ART, { sizes = SIZES, disabled = DISABLED, none = NONE })
 local outlines = require("./catalog_outline")(PAGE_DATA, NONE, properties)
 PAGE_DATA.Outline = outlines.outline
 local rewardPage: PageDefinition = outlines.rewardSequence
