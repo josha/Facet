@@ -1,158 +1,158 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="752" viewBox="0 0 720 752" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
 <rect width="720" height="752" rx="8" fill="#ffffff" stroke="#d0d7de"/>
 <text x="16" y="28" font-size="16" font-weight="600" fill="#1f2328">Facet performance</text>
-<text x="16" y="48" fill="#59636e">ac801ac401d1 · 2026-11-21T233729Z · CI Ubuntu runner, paired pr arm, ms per frame</text>
+<text x="16" y="48" fill="#59636e">467de531638d · 2026-11-22T004928Z · CI Ubuntu runner, paired pr arm, ms per frame</text>
 <text x="16" y="80" font-weight="600" fill="#59636e">Scene</text>
 <text x="400" y="80" font-weight="600" fill="#59636e" text-anchor="end">p50 ms</text>
 <text x="490" y="80" font-weight="600" fill="#59636e" text-anchor="end">p95 ms</text>
 <text x="600" y="80" font-weight="600" fill="#59636e" text-anchor="end">Retained KiB</text>
 <text x="700" y="80" font-weight="600" fill="#59636e" text-anchor="end">Change</text>
 <text x="16" y="104" fill="#1f2328">adaptive-navigation-images</text>
-<text x="400" y="104" fill="#1f2328" text-anchor="end">0.7532</text>
-<text x="490" y="104" fill="#1f2328" text-anchor="end">0.8224</text>
-<text x="600" y="104" fill="#1f2328" text-anchor="end">4042</text>
-<text x="700" y="104" fill="#cf222e" text-anchor="end">+4.2%</text>
+<text x="400" y="104" fill="#1f2328" text-anchor="end">0.6203</text>
+<text x="490" y="104" fill="#1f2328" text-anchor="end">0.8463</text>
+<text x="600" y="104" fill="#1f2328" text-anchor="end">4050</text>
+<text x="700" y="104" fill="#1a7f37" text-anchor="end">-0.5%</text>
 <rect x="8" y="112" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="128" fill="#1f2328">alert-present-dismiss</text>
-<text x="400" y="128" fill="#1f2328" text-anchor="end">2.4099</text>
-<text x="490" y="128" fill="#1f2328" text-anchor="end">3.4627</text>
-<text x="600" y="128" fill="#1f2328" text-anchor="end">585</text>
-<text x="700" y="128" fill="#cf222e" text-anchor="end">+2.6%</text>
+<text x="400" y="128" fill="#1f2328" text-anchor="end">2.4796</text>
+<text x="490" y="128" fill="#1f2328" text-anchor="end">3.5151</text>
+<text x="600" y="128" fill="#1f2328" text-anchor="end">601</text>
+<text x="700" y="128" fill="#cf222e" text-anchor="end">+4.2%</text>
 <text x="16" y="152" fill="#1f2328">animation-interruption</text>
-<text x="400" y="152" fill="#1f2328" text-anchor="end">0.0216</text>
-<text x="490" y="152" fill="#1f2328" text-anchor="end">0.0236</text>
-<text x="600" y="152" fill="#1f2328" text-anchor="end">388</text>
-<text x="700" y="152" fill="#1a7f37" text-anchor="end">-1.0%</text>
+<text x="400" y="152" fill="#1f2328" text-anchor="end">0.0285</text>
+<text x="490" y="152" fill="#1f2328" text-anchor="end">0.0304</text>
+<text x="600" y="152" fill="#1f2328" text-anchor="end">383</text>
+<text x="700" y="152" fill="#cf222e" text-anchor="end">+1.8%</text>
 <rect x="8" y="160" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="176" fill="#1f2328">async-image-burst</text>
-<text x="400" y="176" fill="#1f2328" text-anchor="end">0.0212</text>
-<text x="490" y="176" fill="#1f2328" text-anchor="end">0.0259</text>
-<text x="600" y="176" fill="#1f2328" text-anchor="end">506</text>
-<text x="700" y="176" fill="#1a7f37" text-anchor="end">-3.8%</text>
+<text x="400" y="176" fill="#1f2328" text-anchor="end">0.0220</text>
+<text x="490" y="176" fill="#1f2328" text-anchor="end">0.0262</text>
+<text x="600" y="176" fill="#1f2328" text-anchor="end">482</text>
+<text x="700" y="176" fill="#1a7f37" text-anchor="end">-8.3%</text>
 <text x="16" y="200" fill="#1f2328">async-image-grid</text>
-<text x="400" y="200" fill="#1f2328" text-anchor="end">1.7140</text>
-<text x="490" y="200" fill="#1f2328" text-anchor="end">2.8998</text>
-<text x="600" y="200" fill="#1f2328" text-anchor="end">689</text>
-<text x="700" y="200" fill="#cf222e" text-anchor="end">+0.1%</text>
+<text x="400" y="200" fill="#1f2328" text-anchor="end">2.3260</text>
+<text x="490" y="200" fill="#1f2328" text-anchor="end">3.6290</text>
+<text x="600" y="200" fill="#1f2328" text-anchor="end">690</text>
+<text x="700" y="200" fill="#cf222e" text-anchor="end">+0.3%</text>
 <rect x="8" y="208" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="224" fill="#1f2328">collection-mutation</text>
-<text x="400" y="224" fill="#1f2328" text-anchor="end">0.2514</text>
-<text x="490" y="224" fill="#1f2328" text-anchor="end">0.2759</text>
+<text x="400" y="224" fill="#1f2328" text-anchor="end">0.2555</text>
+<text x="490" y="224" fill="#1f2328" text-anchor="end">0.2816</text>
 <text x="600" y="224" fill="#1f2328" text-anchor="end">2794</text>
-<text x="700" y="224" fill="#1a7f37" text-anchor="end">-1.1%</text>
+<text x="700" y="224" fill="#cf222e" text-anchor="end">+0.8%</text>
 <text x="16" y="248" fill="#1f2328">control-motion</text>
-<text x="400" y="248" fill="#1f2328" text-anchor="end">0.1351</text>
-<text x="490" y="248" fill="#1f2328" text-anchor="end">0.5517</text>
-<text x="600" y="248" fill="#1f2328" text-anchor="end">1749</text>
-<text x="700" y="248" fill="#1a7f37" text-anchor="end">-1.6%</text>
+<text x="400" y="248" fill="#1f2328" text-anchor="end">0.1346</text>
+<text x="490" y="248" fill="#1f2328" text-anchor="end">0.4622</text>
+<text x="600" y="248" fill="#1f2328" text-anchor="end">1757</text>
+<text x="700" y="248" fill="#1a7f37" text-anchor="end">-1.2%</text>
 <rect x="8" y="256" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="272" fill="#1f2328">dense-hud</text>
-<text x="400" y="272" fill="#1f2328" text-anchor="end">0.0863</text>
-<text x="490" y="272" fill="#1f2328" text-anchor="end">0.0960</text>
+<text x="400" y="272" fill="#1f2328" text-anchor="end">0.0883</text>
+<text x="490" y="272" fill="#1f2328" text-anchor="end">0.0984</text>
 <text x="600" y="272" fill="#1f2328" text-anchor="end">749</text>
-<text x="700" y="272" fill="#1a7f37" text-anchor="end">-1.2%</text>
+<text x="700" y="272" fill="#cf222e" text-anchor="end">+5.1%</text>
 <text x="16" y="296" fill="#1f2328">dense-motion</text>
-<text x="400" y="296" fill="#1f2328" text-anchor="end">0.5869</text>
-<text x="490" y="296" fill="#1f2328" text-anchor="end">0.9358</text>
-<text x="600" y="296" fill="#1f2328" text-anchor="end">1554</text>
-<text x="700" y="296" fill="#cf222e" text-anchor="end">+2.2%</text>
+<text x="400" y="296" fill="#1f2328" text-anchor="end">0.7688</text>
+<text x="490" y="296" fill="#1f2328" text-anchor="end">1.2160</text>
+<text x="600" y="296" fill="#1f2328" text-anchor="end">1562</text>
+<text x="700" y="296" fill="#1a7f37" text-anchor="end">-0.6%</text>
 <rect x="8" y="304" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="320" fill="#1f2328">hud-binding-storm</text>
-<text x="400" y="320" fill="#1f2328" text-anchor="end">0.1699</text>
-<text x="490" y="320" fill="#1f2328" text-anchor="end">0.1819</text>
+<text x="400" y="320" fill="#1f2328" text-anchor="end">0.2259</text>
+<text x="490" y="320" fill="#1f2328" text-anchor="end">0.2377</text>
 <text x="600" y="320" fill="#1f2328" text-anchor="end">476</text>
-<text x="700" y="320" fill="#1a7f37" text-anchor="end">-0.4%</text>
+<text x="700" y="320" fill="#1a7f37" text-anchor="end">-0.0%</text>
 <text x="16" y="344" fill="#1f2328">lab-collection-churn</text>
-<text x="400" y="344" fill="#1f2328" text-anchor="end">0.2378</text>
-<text x="490" y="344" fill="#1f2328" text-anchor="end">0.3602</text>
-<text x="600" y="344" fill="#1f2328" text-anchor="end">4832</text>
-<text x="700" y="344" fill="#cf222e" text-anchor="end">+0.3%</text>
+<text x="400" y="344" fill="#1f2328" text-anchor="end">0.3118</text>
+<text x="490" y="344" fill="#1f2328" text-anchor="end">0.4633</text>
+<text x="600" y="344" fill="#1f2328" text-anchor="end">4840</text>
+<text x="700" y="344" fill="#1a7f37" text-anchor="end">-0.3%</text>
 <rect x="8" y="352" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="368" fill="#1f2328">lab-dense-scroll</text>
-<text x="400" y="368" fill="#1f2328" text-anchor="end">0.1334</text>
-<text x="490" y="368" fill="#1f2328" text-anchor="end">0.2025</text>
+<text x="400" y="368" fill="#1f2328" text-anchor="end">0.1296</text>
+<text x="490" y="368" fill="#1f2328" text-anchor="end">0.1998</text>
 <text x="600" y="368" fill="#1f2328" text-anchor="end">5880</text>
-<text x="700" y="368" fill="#cf222e" text-anchor="end">+3.2%</text>
+<text x="700" y="368" fill="#cf222e" text-anchor="end">+1.5%</text>
 <text x="16" y="392" fill="#1f2328">locale-textsize-change</text>
-<text x="400" y="392" fill="#1f2328" text-anchor="end">0.0196</text>
-<text x="490" y="392" fill="#1f2328" text-anchor="end">0.0239</text>
-<text x="600" y="392" fill="#1f2328" text-anchor="end">551</text>
-<text x="700" y="392" fill="#1a7f37" text-anchor="end">-0.2%</text>
+<text x="400" y="392" fill="#1f2328" text-anchor="end">0.0210</text>
+<text x="490" y="392" fill="#1f2328" text-anchor="end">0.0247</text>
+<text x="600" y="392" fill="#1f2328" text-anchor="end">535</text>
+<text x="700" y="392" fill="#1a7f37" text-anchor="end">-1.5%</text>
 <rect x="8" y="400" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="416" fill="#1f2328">native-scroll-drag</text>
-<text x="400" y="416" fill="#1f2328" text-anchor="end">0.0423</text>
-<text x="490" y="416" fill="#1f2328" text-anchor="end">0.0546</text>
-<text x="600" y="416" fill="#1f2328" text-anchor="end">1921</text>
-<text x="700" y="416" fill="#cf222e" text-anchor="end">+0.3%</text>
+<text x="400" y="416" fill="#1f2328" text-anchor="end">0.0403</text>
+<text x="490" y="416" fill="#1f2328" text-anchor="end">0.0544</text>
+<text x="600" y="416" fill="#1f2328" text-anchor="end">1929</text>
+<text x="700" y="416" fill="#cf222e" text-anchor="end">+1.0%</text>
 <text x="16" y="440" fill="#1f2328">navigation-customization</text>
-<text x="400" y="440" fill="#1f2328" text-anchor="end">0.0318</text>
-<text x="490" y="440" fill="#1f2328" text-anchor="end">0.0357</text>
+<text x="400" y="440" fill="#1f2328" text-anchor="end">0.0331</text>
+<text x="490" y="440" fill="#1f2328" text-anchor="end">0.0375</text>
 <text x="600" y="440" fill="#1f2328" text-anchor="end">3972</text>
-<text x="700" y="440" fill="#1a7f37" text-anchor="end">-3.6%</text>
+<text x="700" y="440" fill="#1a7f37" text-anchor="end">-5.5%</text>
 <rect x="8" y="448" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="464" fill="#1f2328">picker-menu-open-close</text>
-<text x="400" y="464" fill="#1f2328" text-anchor="end">4.3902</text>
-<text x="490" y="464" fill="#1f2328" text-anchor="end">7.1427</text>
-<text x="600" y="464" fill="#1f2328" text-anchor="end">763</text>
-<text x="700" y="464" fill="#cf222e" text-anchor="end">+1.3%</text>
+<text x="400" y="464" fill="#1f2328" text-anchor="end">5.8724</text>
+<text x="490" y="464" fill="#1f2328" text-anchor="end">9.0422</text>
+<text x="600" y="464" fill="#1f2328" text-anchor="end">753</text>
+<text x="700" y="464" fill="#cf222e" text-anchor="end">+0.8%</text>
 <text x="16" y="488" fill="#1f2328">picker-segmented-textsize</text>
-<text x="400" y="488" fill="#1f2328" text-anchor="end">0.0495</text>
-<text x="490" y="488" fill="#1f2328" text-anchor="end">0.0585</text>
+<text x="400" y="488" fill="#1f2328" text-anchor="end">0.0518</text>
+<text x="490" y="488" fill="#1f2328" text-anchor="end">0.0617</text>
 <text x="600" y="488" fill="#1f2328" text-anchor="end">931</text>
-<text x="700" y="488" fill="#1a7f37" text-anchor="end">-3.4%</text>
+<text x="700" y="488" fill="#cf222e" text-anchor="end">+3.4%</text>
 <rect x="8" y="496" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="512" fill="#1f2328">radial-menu-open-close</text>
-<text x="400" y="512" fill="#1f2328" text-anchor="end">1.9839</text>
-<text x="490" y="512" fill="#1f2328" text-anchor="end">2.5453</text>
-<text x="600" y="512" fill="#1f2328" text-anchor="end">2193</text>
-<text x="700" y="512" fill="#1a7f37" text-anchor="end">-0.5%</text>
+<text x="400" y="512" fill="#1f2328" text-anchor="end">2.0645</text>
+<text x="490" y="512" fill="#1f2328" text-anchor="end">2.6403</text>
+<text x="600" y="512" fill="#1f2328" text-anchor="end">2186</text>
+<text x="700" y="512" fill="#1a7f37" text-anchor="end">-1.6%</text>
 <text x="16" y="536" fill="#1f2328">screen-lifecycle-churn</text>
-<text x="400" y="536" fill="#1f2328" text-anchor="end">12.3513</text>
-<text x="490" y="536" fill="#1f2328" text-anchor="end">17.5261</text>
-<text x="600" y="536" fill="#1f2328" text-anchor="end">700</text>
-<text x="700" y="536" fill="#cf222e" text-anchor="end">+3.1%</text>
+<text x="400" y="536" fill="#1f2328" text-anchor="end">11.2214</text>
+<text x="490" y="536" fill="#1f2328" text-anchor="end">15.5537</text>
+<text x="600" y="536" fill="#1f2328" text-anchor="end">708</text>
+<text x="700" y="536" fill="#cf222e" text-anchor="end">+2.1%</text>
 <rect x="8" y="544" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="560" fill="#1f2328">scroll-focus-traversal</text>
-<text x="400" y="560" fill="#1f2328" text-anchor="end">0.2077</text>
-<text x="490" y="560" fill="#1f2328" text-anchor="end">0.3696</text>
-<text x="600" y="560" fill="#1f2328" text-anchor="end">1243</text>
-<text x="700" y="560" fill="#1a7f37" text-anchor="end">-0.3%</text>
+<text x="400" y="560" fill="#1f2328" text-anchor="end">0.2156</text>
+<text x="490" y="560" fill="#1f2328" text-anchor="end">0.4105</text>
+<text x="600" y="560" fill="#1f2328" text-anchor="end">1252</text>
+<text x="700" y="560" fill="#cf222e" text-anchor="end">+1.5%</text>
 <text x="16" y="584" fill="#1f2328">settings-churn</text>
-<text x="400" y="584" fill="#1f2328" text-anchor="end">2.9899</text>
-<text x="490" y="584" fill="#1f2328" text-anchor="end">4.9820</text>
-<text x="600" y="584" fill="#1f2328" text-anchor="end">529</text>
-<text x="700" y="584" fill="#1a7f37" text-anchor="end">-0.1%</text>
+<text x="400" y="584" fill="#1f2328" text-anchor="end">2.8294</text>
+<text x="490" y="584" fill="#1f2328" text-anchor="end">4.4747</text>
+<text x="600" y="584" fill="#1f2328" text-anchor="end">553</text>
+<text x="700" y="584" fill="#cf222e" text-anchor="end">+0.7%</text>
 <rect x="8" y="592" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="608" fill="#1f2328">shadow-storm</text>
 <text x="400" y="608" fill="#1f2328" text-anchor="end">0.0005</text>
 <text x="490" y="608" fill="#1f2328" text-anchor="end">0.0005</text>
 <text x="600" y="608" fill="#1f2328" text-anchor="end">2003</text>
-<text x="700" y="608" fill="#1a7f37" text-anchor="end">-1.9%</text>
+<text x="700" y="608" fill="#1a7f37" text-anchor="end">-2.2%</text>
 <text x="16" y="632" fill="#1f2328">stylesheet-state-churn</text>
-<text x="400" y="632" fill="#1f2328" text-anchor="end">0.2630</text>
-<text x="490" y="632" fill="#1f2328" text-anchor="end">0.2991</text>
+<text x="400" y="632" fill="#1f2328" text-anchor="end">0.2627</text>
+<text x="490" y="632" fill="#1f2328" text-anchor="end">0.3524</text>
 <text x="600" y="632" fill="#1f2328" text-anchor="end">2519</text>
-<text x="700" y="632" fill="#cf222e" text-anchor="end">+2.1%</text>
+<text x="700" y="632" fill="#cf222e" text-anchor="end">+2.5%</text>
 <rect x="8" y="640" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="656" fill="#1f2328">theme-swap-assets</text>
-<text x="400" y="656" fill="#1f2328" text-anchor="end">1.6144</text>
-<text x="490" y="656" fill="#1f2328" text-anchor="end">2.0160</text>
+<text x="400" y="656" fill="#1f2328" text-anchor="end">1.6513</text>
+<text x="490" y="656" fill="#1f2328" text-anchor="end">2.0997</text>
 <text x="600" y="656" fill="#1f2328" text-anchor="end">6074</text>
-<text x="700" y="656" fill="#cf222e" text-anchor="end">+0.2%</text>
+<text x="700" y="656" fill="#1a7f37" text-anchor="end">-3.7%</text>
 <text x="16" y="680" fill="#1f2328">theme-swap-flat</text>
-<text x="400" y="680" fill="#1f2328" text-anchor="end">0.8819</text>
-<text x="490" y="680" fill="#1f2328" text-anchor="end">1.1293</text>
-<text x="600" y="680" fill="#1f2328" text-anchor="end">4246</text>
-<text x="700" y="680" fill="#1a7f37" text-anchor="end">-0.1%</text>
+<text x="400" y="680" fill="#1f2328" text-anchor="end">0.9030</text>
+<text x="490" y="680" fill="#1f2328" text-anchor="end">1.1358</text>
+<text x="600" y="680" fill="#1f2328" text-anchor="end">4238</text>
+<text x="700" y="680" fill="#1a7f37" text-anchor="end">-5.1%</text>
 <rect x="8" y="688" width="704" height="24" fill="#f6f8fa"/>
 <text x="16" y="704" fill="#1f2328">theme-swap-metrics</text>
-<text x="400" y="704" fill="#1f2328" text-anchor="end">2.0775</text>
-<text x="490" y="704" fill="#1f2328" text-anchor="end">2.5054</text>
-<text x="600" y="704" fill="#1f2328" text-anchor="end">5888</text>
-<text x="700" y="704" fill="#1a7f37" text-anchor="end">-1.6%</text>
+<text x="400" y="704" fill="#1f2328" text-anchor="end">2.0842</text>
+<text x="490" y="704" fill="#1f2328" text-anchor="end">2.6001</text>
+<text x="600" y="704" fill="#1f2328" text-anchor="end">5905</text>
+<text x="700" y="704" fill="#1a7f37" text-anchor="end">-0.7%</text>
 <text x="16" y="728" fill="#1f2328">virtual-list-scroll</text>
-<text x="400" y="728" fill="#1f2328" text-anchor="end">0.1127</text>
-<text x="490" y="728" fill="#1f2328" text-anchor="end">0.1705</text>
-<text x="600" y="728" fill="#1f2328" text-anchor="end">3921</text>
-<text x="700" y="728" fill="#cf222e" text-anchor="end">+1.0%</text>
+<text x="400" y="728" fill="#1f2328" text-anchor="end">0.1502</text>
+<text x="490" y="728" fill="#1f2328" text-anchor="end">0.2171</text>
+<text x="600" y="728" fill="#1f2328" text-anchor="end">3929</text>
+<text x="700" y="728" fill="#cf222e" text-anchor="end">+2.2%</text>
 </svg>
