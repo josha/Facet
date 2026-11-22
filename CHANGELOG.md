@@ -1,5 +1,16 @@
 # Current package
 
+`UI.Card` accepts `plate`, as a panel stack does: the Card takes the line
+and the shadow of a plate that the theme names, also when it has
+`onActivate`. A disabled plate has a faint line. Before, an author
+who wanted the rows of a shop in a second panel style built each row from
+a stack, and lost the picture, the inline action and the row height of a
+row Card.
+
+A Card with no picture has one line when the theme draws a line on its
+panels or its controls. Before, the Card and its body each had the line,
+so the Card showed two.
+
 A theme can name plates: `finish.plates = { row = { edge = { width = 2 },
 depth = { lift = 4 } } }`, and a VStack or an HStack with `surface = "panel"`
 takes one with `plate = "row"`. Before, every panel had the one line and the

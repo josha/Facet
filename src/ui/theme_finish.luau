@@ -376,6 +376,12 @@ local function apply(
 				LineJoinMode = if package.metrics.radii.panel == 0 then "Miter" else nil,
 			},
 		})
+		if variant.width > 0 then
+			table.insert(rules, {
+				selector = `.facet-plate-{variant.name}.facet-disabled::UIStroke`,
+				properties = { Transparency = math.max(variant.faint, DISABLED_EDGE) },
+			})
+		end
 		local key = PLATE_SHADOW .. variant.name
 		shadows[key] = variant.shadow
 		table.insert(pending, { variant = variant, key = key })

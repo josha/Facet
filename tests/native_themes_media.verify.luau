@@ -854,6 +854,8 @@ return function(verifyHarness: Verify.Harness)
 				expect(rowLine.Transparency):toBe(0)
 				local _, quietLine = at(".facet-plate-quiet::UIStroke")
 				expect(quietLine.Transparency):toBe(1)
+				local _, restLine = at(".facet-plate-row.facet-disabled::UIStroke")
+				expect(restLine.Transparency):toBe(0.6)
 
 				local same: Facet.ThemeDefinition = {
 					identity = { id = "same" },
@@ -1033,6 +1035,11 @@ return function(verifyHarness: Verify.Harness)
 				expect(styleRules.resolve(sheet, tip, "Thickness")):toBe(1)
 				expect(authored(".facet-outlined::UIStroke").Transparency):toBe(1)
 				expect(order(".facet-outlined::UIStroke") > order(".facet-panel::UIStroke")):toBe(true)
+				local inner = ".facet-card-text > .facet-card-body::UIStroke"
+				expect(authored(inner).Transparency):toBe(1)
+				expect(order(inner) > order(".facet-panel::UIStroke")):toBe(true)
+				expect(order(inner) > order(".facet-button::UIStroke")):toBe(true)
+				expect(authored(".facet-card-text >> .facet-card-inflow::UIStroke").Transparency):toBe(1)
 				stop()
 				runtime:dispose()
 			end,

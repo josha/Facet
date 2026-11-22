@@ -253,6 +253,96 @@ return function(verifyHarness: Verify.Harness)
 	end
 
 	describe("native Card", function()
+		it("takes the line and the shadow of a plate that the theme names", {
+			id = "native_card::native Card::takes the line and the shadow of a plate that the theme names",
+			run = function()
+				local definition: Facet.ThemeDefinition = {
+					identity = { id = "plated-cards" },
+					finish = { look = "hard", plates = { row = { edge = { width = 2 }, depth = { lift = 3 } } } },
+				}
+				local package = assert((Facet.themes.define(definition)))
+				local options = { motionLevel = "none", theme = package }
+				local function line(world: worlds.World, node: any, property: string): any
+					local _, sheet = world.runtime.mount(function()
+						return Facet.themes.createStyleSheet(world.runtime, package, { types = world.engine.types })
+					end, world.engine.new("Folder"))
+					return styleRules.resolve(sheet, node, property, "UIStroke")
+				end
+				local function drop(node: any): number?
+					local shadow = node:FindFirstChild("ChromeShadow") :: any
+					return if shadow then shadow.Offset.Y.Offset else nil
+				end
+
+				local still, stillCard =
+					mount({ glyph = "star", title = "Taro Milk", layout = "row", plate = "row" }, options)
+				local stillBody = stillCard:FindFirstChild("Body") :: any
+				expect(line(still, stillBody, "Thickness")):toBe(2)
+				expect(line(still, stillBody, "Transparency")):toBe(0)
+				expect(drop(stillBody)):toBe(3)
+				still.stop()
+
+				local words, wordsCard = mount({ title = "Notes", plate = "row" }, options)
+				expect(line(words, wordsCard, "Thickness")):toBe(2)
+				expect(line(words, wordsCard:FindFirstChild("Body"), "Transparency")):toBe(1)
+				expect(drop(wordsCard)):toBe(3)
+				local paddings = 0
+				for _, child in wordsCard:GetChildren() do
+					paddings += if child:IsA("UIPadding") then 1 else 0
+				end
+				expect(paddings):toBe(1)
+				words.stop()
+
+				local pressed, pressedCard = mount({
+					glyph = "star",
+					title = "Mango Pop",
+					layout = "row",
+					plate = "row",
+					onActivate = function() end,
+				}, options)
+				local pressedBody = pressedCard:FindFirstChild("Body") :: any
+				expect(pressedBody.ClassName):toBe("TextButton")
+				expect(line(pressed, pressedBody, "Thickness")):toBe(2)
+				expect(line(pressed, pressedBody, "Transparency")):toBe(0)
+				expect(drop(pressedBody)):toBe(3)
+				pressed.stop()
+
+				local off, offCard = mount({
+					glyph = "star",
+					title = "Sold out",
+					layout = "row",
+					plate = "row",
+					enabled = false,
+					onActivate = function() end,
+				}, options)
+				expect(line(off, offCard:FindFirstChild("Body"), "Transparency")):toBe(0.6)
+				off.stop()
+
+				local tap, tapCard = mount({ title = "Tap me", onActivate = function() end }, options)
+				expect(line(tap, tapCard, "Thickness")):toBe(3)
+				expect(line(tap, tapCard:FindFirstChild("Body"), "Transparency")):toBe(1)
+				tap.stop()
+
+				local plain, plainCard = mount({ glyph = "star", title = "Plain", layout = "row" }, options)
+				local plainBody = plainCard:FindFirstChild("Body") :: any
+				expect(line(plain, plainBody, "Thickness")):toBe(3)
+				expect(drop(plainBody)):toBeNil()
+				plain.stop()
+
+				local ok, problem = pcall(function()
+					mount({ title = "Wrong", plate = "card" }, options)
+				end)
+				expect(ok):toBe(false)
+				expect(
+					string.find(
+						tostring(problem),
+						"Facet UI.Card: the theme has no plate named card. It has: row",
+						1,
+						true
+					) ~= nil
+				):toBe(true)
+			end,
+		})
+
 		it("clears a reactive badge icon while its label stays visible", {
 			id = "native_card::native Card::clears a reactive badge icon while its label stays visible",
 			run = function()

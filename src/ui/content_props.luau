@@ -561,6 +561,7 @@ export type CardSpec = {
 	controls: Content.CardControls?,
 	ringTarget: ("card" | "media")?,
 	badges: Content.CardBadges?,
+	plate: string?,
 	[number]: Compose.Child?,
 }
 export type CardSpecInput = {
@@ -647,6 +648,7 @@ export type CardSpecInput = {
 	read controls: Content.CardControls?,
 	read ringTarget: ("card" | "media")?,
 	read badges: Content.CardBadges?,
+	read plate: string?,
 	read [number]: Compose.Child?,
 }
 

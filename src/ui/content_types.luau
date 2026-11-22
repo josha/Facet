@@ -96,6 +96,7 @@ export type CardOptions = {
 	controls: CardControls?,
 	ringTarget: ("card" | "media")?,
 	badges: CardBadges?,
+	plate: string?,
 }
 export type BadgeValue = string | number | boolean
 export type BadgedOptions = { direction: ("ltr" | "rtl")?, status: Input<Media.Status>? }
