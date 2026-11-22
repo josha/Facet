@@ -162,6 +162,55 @@ return function(verifyHarness: Verify.Harness)
 				end
 			end,
 		})
+		verifyHarness:case("Theme finish rows take the plate of a look theme and the panel finish without one", {
+			id = "native_lab_audit::native lab audit: drag and drop::Theme finish rows take the plate of a look theme and the panel finish without one",
+			run = function()
+				type Page = { make: (FacetControls, { [string]: unknown }, { [string]: unknown }) -> Instance }
+				local looks = require("../examples/facet-lab/themes/looks")
+				local plated = looks.make(themes, "hard")
+				local plain = assert((themes.define(themes.neutralPackage())))
+				for _, rows in { "cards", "stacks" } do
+					local selected = Compose.cell(plated)
+					local w = worlds.new(function(UI, Host, engine, runtime)
+						local environment: { [string]: unknown } = {}
+						for key, value in record(engine.types) do
+							environment[key] = value
+						end
+						environment.require = function(path: string): unknown
+							local name = assert(string.match(path, "^%./([%w_]+)$"))
+							return loadSource(`examples/facet-lab/src/{name}.luau`, environment)
+						end
+						local page = loadSource("examples/facet-lab/src/finish_page.luau", environment) :: Page
+						return page.make(UI, { rows = rows }, {
+							UI = UI,
+							Host = Host,
+							Compose = Compose,
+							Facet = Facet,
+							app = { runtime = runtime },
+							types = engine.types,
+							ctx = { theme = selected },
+							log = function(_name: string)
+								return function(...: unknown) end
+							end,
+						})
+					end, { theme = selected, motionLevel = "none" })
+					local function row(): any
+						local found = w.find("TaroMilk")
+						return if rows == "cards" then found:FindFirstChild("Body") else found
+					end
+					Verify.expect(row():HasTag("facet-plate-row")):toBe(true)
+					Verify.expect(row():FindFirstChild("ChromeShadow").Offset.Y.Offset):toBe(3)
+					selected:set(plain)
+					Verify.expect(row():HasTag("facet-plate-row")):toBe(false)
+					selected:set(plated)
+					Verify.expect(row():HasTag("facet-plate-row")):toBe(true)
+					w.stop()
+				end
+				for _, name in { "flat", "raised", "glow" } do
+					Verify.expect(assert(looks.make(themes, name).chrome)["plate-row"] ~= nil):toBe(true)
+				end
+			end,
+		})
 		verifyHarness:case("mounts catalog controls at the smoke viewports", {
 			id = "native_lab_audit::native lab audit: drag and drop::mounts catalog controls at the smoke viewports",
 			run = function(context)
