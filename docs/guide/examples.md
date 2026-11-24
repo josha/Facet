@@ -70,14 +70,6 @@ regression work. Verify these behaviors:
 - keyboard and gamepad access,
 - teardown.
 
-## Made with Facet
-
-[Made with Facet](made-with-facet.md) shows how a public game uses Facet.
-[Word Amigos](made-with-facet.md#word-amigos) is a two-player word game. It
-builds its screens as Facet designs over the stock controls and keeps its look
-in a Facet theme. The page lists each control and mechanism that the game uses,
-and the task that each one does.
-
 ## What to copy
 
 Copy the state flow and the native composition of a component. Keep the keys
