@@ -134,6 +134,11 @@ return function<V, K>(
 		end
 	end
 	local positionEditor = rowEditor or (if spec.reorderable or spec.drag then editor else nil)
+	local placementReduced: Types.ValueBoolean? = if tree
+		then Compose.formula(function(use: ComposeTypes.Use): boolean
+			return read(spec.reducedMotion, use) == true or not use(tree.settled)
+		end)
+		else spec.reducedMotion
 	local recycling = spec.recycle ~= false
 		and spec.slots == nil
 		and tree == nil
@@ -402,7 +407,9 @@ return function<V, K>(
 				sample = function(values: { number })
 					position:set(V2.new(values[1], values[2]))
 				end,
-				reduced = reduced,
+				reduced = function(): boolean
+					return reduced() or (tree ~= nil and not tree.settled:peek())
+				end,
 				motion = "spring",
 				duration = ctx.metric("motion.durations.travel"),
 				ease = ctx.motionEase("travel"),
@@ -501,7 +508,7 @@ return function<V, K>(
 								then D2.fromOffset(main, value.X)
 								else D2.fromOffset(value.X, main)
 						end
-					end, spec.reducedMotion)
+					end, placementReduced)
 					else nil
 				local function apply(at: ComposeTypes.Placement, use: ComposeTypes.Use?)
 					local main, cross = at.offset + glideOffset, at.crossOffset
