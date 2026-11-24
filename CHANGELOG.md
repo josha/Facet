@@ -8,6 +8,15 @@ Compose and Verify are development dependencies locked in `pkg.lock.luau`.
 Verify is no longer vendored and tests reach it through the `@verify` alias.
 Compose moves to `fe52814`, whose shipped source matches `2694de7`.
 
+A theme can set the margin of a centered Sheet. `controls.sheet.edgeMargin`
+is the margin from each edge of the safe area, and
+`controls.sheet.shortEdgeMargin` is the margin above and below when the safe
+area is less than 600 pixels tall. Without them the margins stay `space.m`
+and `space.s`. With `edgeMargin = 0` a centered Sheet fills a phone screen,
+and the short margin follows a smaller `edgeMargin` unless the theme sets it.
+`define` refuses a value that is not a number of 0 or more. Before, no theme
+value controlled the margin, and a phone lost twice `space.m` of width.
+
 The `raised` look gives the controls a short shadow (3 pixels of lift) in
 place of the shadow of the panels. Before, a padded stack that held a Button
 grew 48 pixels to hold that shadow, so a row under `raised` was 108 pixels

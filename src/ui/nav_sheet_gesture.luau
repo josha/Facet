@@ -1,5 +1,6 @@
 --!strict
 local ControlTypes = require("./control_types")
+local ThemeTypes = require("./theme_types")
 local Types = require("./types")
 local Nav = require("./navigation_types")
 local ComposeTypes = require("../vendor/compose/core")
@@ -128,14 +129,33 @@ return function(
 			return if declared == "automatic" then "bottom" else declared
 		end)
 
+		local function sheetMetric(name: string, use: ComposeTypes.Use?): number?
+			local package = ctx.read<<ThemeTypes.ReadOnlyThemePackage?>>(ctx.config.theme, use)
+			local controls = if package then package.metrics.controls else nil
+			local family = if controls then controls.sheet else nil
+			local value = if family then family[name] else nil
+			return if type(value) == "number" and value >= 0 then value else nil
+		end
+		local function edgeMargin(use: ComposeTypes.Use?): number
+			return sheetMetric("edgeMargin", use) or ctx.metric("space.m", use)
+		end
 		local function gutter(use: ComposeTypes.Use?): number
-			return if ctx.readSource(placed, use) == "center" then ctx.metric("space.m", use) else 0
+			return if ctx.readSource(placed, use) == "center" then edgeMargin(use) else 0
 		end
 		local function rim(use: ComposeTypes.Use?): number
 			if ctx.readSource(placed, use) ~= "center" then
 				return 0
 			end
-			return ctx.metric(if ctx.readSource(extent, use).Y < SHORT then "space.s" else "space.m", use)
+			if ctx.readSource(extent, use).Y >= SHORT then
+				return edgeMargin(use)
+			end
+			local short = sheetMetric("shortEdgeMargin", use)
+			if short then
+				return short
+			end
+			local authored = sheetMetric("edgeMargin", use)
+			local compact = ctx.metric("space.s", use)
+			return if authored then math.min(authored, compact) else compact
 		end
 		local function across(use: ComposeTypes.Use?): number
 			return math.max(0, ctx.readSource(extent, use).X - 2 * gutter(use))

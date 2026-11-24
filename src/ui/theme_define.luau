@@ -464,6 +464,23 @@ return function(neutral: ThemeTypes.ThemePackage, schema: string, typeRoles: { s
 				})
 			end
 		end
+		local controlFamilies = (package.metrics :: { controls: unknown }).controls
+		local sheetControls = if type(controlFamilies) == "table"
+			then (controlFamilies :: { [string]: unknown }).sheet
+			else nil
+		if sheetControls ~= nil and type(sheetControls) ~= "table" then
+			table.insert(errors, { field = "metrics.controls.sheet", message = "controls.sheet must be a table" })
+		elseif type(sheetControls) == "table" then
+			for _, name in { "edgeMargin", "shortEdgeMargin" } do
+				local value = (sheetControls :: { [string]: unknown })[name]
+				if value ~= nil and (type(value) ~= "number" or value ~= value or value < 0 or value == math.huge) then
+					table.insert(errors, {
+						field = "metrics.controls.sheet." .. name,
+						message = `controls.sheet.{name} must be a number of pixels, 0 or more`,
+					})
+				end
+			end
+		end
 		local motion = (package.metrics :: { motion: unknown }).motion
 		if type(motion) ~= "table" then
 			table.insert(errors, { field = "metrics.motion", message = "Motion tokens must be a table" })

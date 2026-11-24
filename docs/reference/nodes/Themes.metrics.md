@@ -5,6 +5,13 @@ Optional theme metrics for tabs, control sizes, targets and shortcuts.
 - `controls.typography.minimumSize`: the smallest text role size. Facet
   Neutral uses 16. A theme can set it down to 14. `define` raises smaller
   sizes and preserves the order of distinct sizes. The resolved scale then follows viewing distance and preferred text size.
+- `controls.sheet.edgeMargin`: the margin in pixels between a centered Sheet
+  and each edge of the safe area. Without it, the margin is `space.m`. A value
+  of 0 makes the Sheet fill the safe area.
+- `controls.sheet.shortEdgeMargin`: the margin above and below a centered
+  Sheet when the safe area is less than 600 pixels tall. Without it, the margin
+  is `space.s`, or `edgeMargin` when the theme sets a smaller `edgeMargin`.
+  `define` refuses either value when it is not a number of 0 or more.
 
 - `radii.tab`: the corner radius for filled top tabs. Their track adds 2 pixels
   to a positive radius. A value of 0 makes both square. Facet Neutral uses 999
