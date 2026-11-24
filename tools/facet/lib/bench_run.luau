@@ -58,8 +58,6 @@ local BASELINE = "bench/baseline.json"
 local ARTIFACT = "artifacts/bench.json"
 
 return function(shard: { index: number, count: number }?, cases: { string }?): number
-	-- A paired performance arm measures the Compose copy its own commit carries, which may
-	-- predate the installed package; only the paired runner sets FACET_PAIRED_ARM.
 	if Run.env("FACET_PAIRED_ARM") == nil then
 		local synced = Run.inherit({ Run.lute(), "run", "tools/facet", "sync", "compose", "--check", "--content" })
 		if not synced.ok then
