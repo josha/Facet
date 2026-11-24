@@ -306,7 +306,7 @@ jobs:
           fi
           cp pkg.lock.luau "$evidence/shared-pkg.lock"
           lute pkg install --vendor --locked
-          cp pkg.luau pkg.lock.luau .luaurc "$base/"
+          cp pkg.luau pkg.lock.luau .luaurc rokit.toml "$base/"
           (cd "$base" && lute pkg install --vendor --locked)
           measurement=(bench tests examples tools)
           if ! diff -rq src/vendor/compose "$base/src/vendor/compose" > /dev/null; then
