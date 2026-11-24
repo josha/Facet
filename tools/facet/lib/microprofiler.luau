@@ -1,6 +1,6 @@
 --!strict
 
-local Base64 = require("../../vendor/verify/src/codec/base64")
+local Base64 = require("@verify/src/codec/base64")
 local Zlib = require("./zlib")
 
 export type Row = {

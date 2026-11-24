@@ -4,9 +4,10 @@ local Cli = require("../lib/cli")
 local fs = require("@std/fs")
 local Json = require("../lib/json")
 local process = require("@std/process")
-local Lute = require("../../vendor/verify/src/lute")
-local Verify = require("../../vendor/verify/src/core")
+local Lute = require("@verify/src/lute")
+local Verify = require("@verify/src/core")
 local LiveProject = require("../lib/live_project")
+local Packages = require("../lib/packages")
 local Zlib = require("../lib/zlib")
 
 local function run(invocation: Cli.Invocation): number
@@ -282,7 +283,7 @@ local function run(invocation: Cli.Invocation): number
 			else Lute.studio.run({
 				place = PLACE,
 				code = code,
-				worker = "tools/vendor/verify/tools/studio-worker.luau",
+				worker = Packages.verify(".") .. "/tools/studio-worker.luau",
 				context = "Client",
 				deadlineSeconds = deadline,
 				progressFile = progressFile,

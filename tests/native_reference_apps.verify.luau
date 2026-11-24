@@ -1,6 +1,6 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
 
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)
@@ -87,7 +87,7 @@ return function(verifyHarness: Verify.Harness)
 		local cartwheel = require("../examples/reference/p2_cartwheel")
 		local sipworks = require("../examples/reference/p3_sipworks")
 		local foyer = require("../examples/reference/p4_foyer")
-		local Lute = require("../tools/vendor/verify/src/lute")
+		local Lute = require("@verify/src/lute")
 		local Compose: ComposeModule = Facet.Compose
 
 		type World = {

@@ -114,7 +114,7 @@
         "$path": "../../tools/studio/live"
       },
       "FacetVerify": {
-        "$path": "../../tools/vendor/verify/src"
+        "$path": "../../.lpm/verify@35c5590efa9fdb9fc12319a7bc9455a81c2d1970/src"
       }
     }
   }

@@ -1,14 +1,14 @@
 --!strict
 
 local fs = require("@std/fs")
-local Audit = require("../../vendor/verify/src/roblox/ui-audit")
+local Audit = require("@verify/src/roblox/ui-audit")
 local HudView = require("../../studio/live/hud_view")
 local Devices = require("../../play/host/devices")
 local Files = require("./files")
 local Encoding = require("./encoding")
 local Play = require("../../play/host/play")
 local QA = require("../../play/host/qa")
-local Wire = require("../../vendor/verify/src/lute/wire")
+local Wire = require("@verify/src/lute/wire")
 local Json = require("./json")
 
 export type Step = { tap: string?, wait: number? }

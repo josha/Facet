@@ -1,7 +1,7 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Roblox = require("../tools/vendor/verify/src/roblox")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Verify = require("@verify/src/core")
+local Roblox = require("@verify/src/roblox")
+local Lute = require("@verify/src/lute")
 local Facet = require("../src")
 local Shared = require("../src/ui/types")
 local CameraRigTypes = require("../src/ui/camera_rig_types")

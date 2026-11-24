@@ -1,6 +1,6 @@
 --!strict
 
-local Audit = require("../../vendor/verify/src/roblox/ui-audit")
+local Audit = require("@verify/src/roblox/ui-audit")
 export type TouchRect = Audit.Rect & { path: string? }
 
 local function intersects(a: Audit.Rect, b: Audit.Rect): boolean

@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local json = require("@std/json")
 local Analyzer = require("../lib/analyzer")

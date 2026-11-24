@@ -22,7 +22,7 @@ function Encoding.normalize(paths: { string }): { string }
 		if Files.isFile(path) then
 			normalize(path)
 		else
-			for _, relative in Files.walk(path, { skip = { vendor = true, [".git"] = true } }) do
+			for _, relative in Files.walk(path, { skip = { vendor = true, [".git"] = true, [".lpm"] = true } }) do
 				normalize(Files.join(path, relative))
 			end
 		end

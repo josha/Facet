@@ -4,44 +4,27 @@ local Cli = require("../lib/cli")
 local Snapshot = require("../lib/snapshot")
 local SnapshotCases = require("../lib/snapshot_cases")
 
-local USAGE =
-	[[usage: lute run tools/facet sync <compose|verify|all> [--check] [--content] [--bump COMMIT] [--source REPOSITORY]
+local USAGE = [[usage: lute run tools/facet sync compose [--check] [--content]
 
-Materialize the exact pinned snapshot of a vendored dependency. The snapshot is tracked, generated and read-only.
-  --check            fail when a file differs from the pin or is not mode 100644; never fetch
-  --content          with --check, check file contents only and ignore file modes
-  --bump COMMIT      move the pin to this full commit and materialize it
-  --source DIRECTORY use a local Git repository that contains the pinned commit]]
+Copy the Compose package that lute pkg installed (.lpm/compose@<locked rev>) into src/vendor/compose and
+its skill guide into skills/compose. The copy is tracked, generated and read-only. Run lute pkg install --vendor first.
+  --check    fail when the copy differs from the installed package or a file is not mode 100644; never write
+  --content  with --check, compare file contents only and ignore file modes]]
 
 local function run(invocation: Cli.Invocation): number
 	local target = invocation.positional[1]
-	if target == "all" and Cli.switch(invocation, "check") and Cli.unknownFlags(invocation, { "check" }) == nil then
-		local function report(name: Snapshot.Name): number
-			local passed, message = Snapshot.check(".", name)
-			print(`vendor {name}: {message}`)
-			return if passed then 0 else 1
-		end
-		return math.max(report("compose"), report("verify"))
-	end
-	if target ~= "compose" and target ~= "verify" then
+	if target ~= "compose" then
 		print(USAGE)
 		return 2
 	end
-	local unknown = Cli.unknownFlags(invocation, { "check", "content", "bump", "source" })
+	local unknown = Cli.unknownFlags(invocation, { "check", "content" })
 	if unknown ~= nil then
 		print("facet sync: unknown option " .. unknown)
-		return 2
-	end
-	local bump = invocation.flags.bump
-	if bump == true then
-		print("facet sync: --bump needs a commit")
 		return 2
 	end
 	local code, message = Snapshot.sync(Snapshot.config(".", target), {
 		check = Cli.switch(invocation, "check"),
 		contentOnly = Cli.switch(invocation, "content"),
-		bump = Cli.flag(invocation, "bump"),
-		source = Cli.flag(invocation, "source"),
 	})
 	print(message)
 	return code
@@ -49,9 +32,8 @@ end
 
 local command: Cli.Command = {
 	name = "sync",
-	summary = "Verify or materialize the pinned Compose and Verify snapshots.",
+	summary = "Copy or check the Compose package that lute pkg installed.",
 	usage = USAGE,
-	values = { "bump", "source" },
 	register = SnapshotCases.register,
 	run = run,
 }

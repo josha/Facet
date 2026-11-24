@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local format = require("../src/ui/format")
 
 return function(harness: Verify.Harness)

@@ -1,12 +1,12 @@
 --!strict
-local Verify = require("../../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Index = require("../../tools/facet/lib/docs_index")
 local DocsQuery = require("../../tools/facet/lib/docs_query")
 local Cli = require("../../tools/facet/lib/cli")
 local Files = require("../../tools/facet/lib/files")
 local Props = require("../../tools/facet/lib/docs_props")
 local Run = require("../../tools/facet/lib/run")
-local Lute = require("../../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 local function node(path: string, kind: string, body: string, children: { string }?): Index.Node
 	return {

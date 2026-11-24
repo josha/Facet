@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local model = require("../examples/gallery/examples/skill_tree/model")
 local copy = require("../examples/gallery/examples/skill_tree/copy")
 

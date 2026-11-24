@@ -1,6 +1,6 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
-local Verify = require("../tools/vendor/verify/src/core")
+local FixtureRoblox = require("@verify/src/roblox")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local context = require("../src/ui/context")
 local Environment = require("../src/ui/environment_types")
@@ -1394,7 +1394,7 @@ return function(harness: Verify.Harness)
 				motionLevel = "normal",
 			})
 			local Host = Facet.host(runtime)
-			local fs, Lute = require("@std/fs"), require("../tools/vendor/verify/src/lute")
+			local fs, Lute = require("@std/fs"), require("@verify/src/lute")
 			local source = "examples/facet-lab/src/container_transfer_demo.luau"
 			local demo = Lute.chunk.load(fs.readFileToString(source), { name = source })() :: (
 				typeof(UI),

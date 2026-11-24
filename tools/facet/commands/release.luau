@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local process = require("@std/process")
 local Cli = require("../lib/cli")
@@ -198,6 +198,10 @@ local function publish(version: string, commit: string, assetId: string, extra: 
 	print(`release: Facet {version} at {fullCommit}`)
 	print(`release: worktree {work}`)
 	if not Run.git({ "worktree", "add", "--detach", work, fullCommit }).ok then
+		return finish(1)
+	end
+	print("release: install = lute pkg install --vendor --locked")
+	if not Run.inherit({ Run.lute(), "pkg", "install", "--vendor", "--locked" }, { cwd = work }).ok then
 		return finish(1)
 	end
 	print("release: gate = lute run tools/facet gate release")

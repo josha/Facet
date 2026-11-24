@@ -1,18 +1,19 @@
 --!strict
 local Gate = require("../lib/gate")
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local fs = require("@std/fs")
 local system = require("@std/system")
-local Base64 = require("../../vendor/verify/src/codec/base64")
+local Base64 = require("@verify/src/codec/base64")
 local Cli = require("../lib/cli")
 local Evidence = require("../lib/perf_evidence")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Microprofiler = require("../lib/microprofiler")
 local Memory = require("../checks/perf_memory")
 local Footprint = require("../checks/perf_footprint")
+local Packages = require("../lib/packages")
 local Paired = require("../lib/perf_paired")
 local Retained = require("../lib/perf_retained")
 local Inputs = require("../lib/perf_inputs")
@@ -573,8 +574,16 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 				Files.write(target, Files.read(source))
 			end
 		end
-		local verify = Files.absolute("tools/vendor/verify")
-		local measured = Files.join(entry.tree, "tools/vendor/verify")
+		for _, path in { "pkg.luau", "pkg.lock.luau", ".luaurc" } do
+			local source = Files.absolute(path)
+			local target = Files.join(entry.tree, path)
+			if not samePath(target, source) then
+				Files.write(target, Files.read(source))
+			end
+		end
+		local installed = Packages.verify(".")
+		local verify = Files.absolute(installed)
+		local measured = Files.join(entry.tree, installed)
 		if not samePath(measured, verify) then
 			Files.remove(measured)
 			Files.copyTree(verify, measured)
@@ -1133,8 +1142,9 @@ local function pairedRunFixture(test: Verify.Context, mode: string): ()
 	local final = if failed or mode == "flaky" then "FAIL" else "PASS"
 	Verify.expect(status):toBe(if invalid then 2 elseif failed then 1 else 0)
 	for _, label in { "base", "cand" } do
-		local measured = Files.join(root, label, "tools/vendor/verify/UPSTREAM.lock")
-		Verify.expect(Files.read(measured)):toBe(Files.read(Files.absolute("tools/vendor/verify/UPSTREAM.lock")))
+		local measured = Files.join(root, label, "pkg.lock.luau")
+		Verify.expect(Files.read(measured)):toBe(Files.read(Files.absolute("pkg.lock.luau")))
+		Verify.expect(Files.isFile(Files.join(root, label, Packages.verify("."), "LICENSE"))):toBe(true)
 	end
 	Verify.expect(summaryCount):toBe(
 		if mode == "manual" or invalid
@@ -2073,7 +2083,8 @@ REGISTRATIONS.affected = function(harness: Verify.Harness, prefix: string)
 				"examples/themes/data.json",
 				"tests/lib/native_engine.luau",
 				"tests/behavior.verify.luau",
-				"tools/vendor/verify/src/lute/memory.luau",
+				"pkg.lock.luau",
+				"pkg.luau",
 				"tools/facet/lib/perf_retained.luau",
 				"tools/engine/retained_memory_proof.luau",
 				"eval/data.json",

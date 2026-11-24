@@ -1,6 +1,6 @@
 --!strict
 local Gate = require("../lib/gate")
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local stringext = require("@std/stringext")
 local Assets = require("../lib/assets")
@@ -745,13 +745,7 @@ end
 
 local function approvedVendorPaths(root: string): { [string]: boolean }
 	local approved: { [string]: boolean } = { ["Facet/vendor"] = true, ["Facet/vendor/compose"] = true }
-	local lock = Files.join(root, "src/vendor/compose/UPSTREAM.lock")
-	local decoded = if Files.isFile(lock) then Json.tryDecode(Files.read(lock)) else nil
-	local hashes = Json.objectField(decoded, "sha256")
-	if hashes == nil then
-		return approved
-	end
-	for _, name in Json.keys(hashes) do
+	for _, name in Files.walk(Files.join(root, "src/vendor/compose")) do
 		if string.sub(name, -5) ~= ".luau" then
 			continue
 		end

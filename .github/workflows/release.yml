@@ -85,6 +85,11 @@ jobs:
           done
           exit 1
 
+      - name: Install the lute pkg dependencies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: lute pkg install --vendor --locked
+
       - name: Prepare all local gate dependencies
         run: lute run tools/facet types prepare
 
@@ -149,6 +154,11 @@ jobs:
           rojo --version
           lute --version
           stylua --version
+
+      - name: Install the lute pkg dependencies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: lute pkg install --vendor --locked
 
       # EVERY INPUT ARRIVES AS AN ENVIRONMENT VARIABLE, never as `${{ }}` inside
       # the script. GitHub substitutes those expressions into the shell source

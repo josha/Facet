@@ -20,7 +20,12 @@ return {
 		if directory == nil or Files.absolute(directory) == Files.cwd() then
 			print(Project.report())
 		elseif Files.isDirectory(directory) then
-			print(table.concat(Files.walk(directory, { skip = { vendor = true, [".git"] = true } }), "\n"))
+			print(
+				table.concat(
+					Files.walk(directory, { skip = { vendor = true, [".git"] = true, [".lpm"] = true } }),
+					"\n"
+				)
+			)
 		else
 			print("facet project: no directory at " .. directory)
 			return 1

@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local stringext = require("@std/stringext")
 local Allowlist = require("../lib/allowlist")
@@ -8,7 +8,7 @@ local Markdown = require("../lib/markdown")
 local Rule = require("../lib/rule")
 
 local ALLOWLIST = "tools/public_allowlist.txt"
-local VENDOR = "tools/vendor/"
+local VENDOR = ".lpm/"
 local REFERENCE = "docs/reference/"
 local EM_DASH = "\u{2014}"
 

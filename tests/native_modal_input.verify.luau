@@ -1,6 +1,6 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local Verify = require("@verify/src/core")
+local VerifyRoblox = require("@verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)
@@ -63,7 +63,7 @@ return function(verifyHarness: Verify.Harness)
 			function()
 				local Facet = require("../src")
 				local engines = require("./lib/native_engine")
-				local Lute = require("../tools/vendor/verify/src/lute")
+				local Lute = require("@verify/src/lute")
 				local roots: { VerifyRoblox.Instance } = {}
 				local engine, bridge = engines.new({
 					layout = {

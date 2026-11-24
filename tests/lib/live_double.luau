@@ -1,7 +1,7 @@
 --!strict
-local Verify = require("../../tools/vendor/verify/src/core")
-local Roblox = require("../../tools/vendor/verify/src/roblox")
-local Lute = require("../../tools/vendor/verify/src/lute")
+local Verify = require("@verify/src/core")
+local Roblox = require("@verify/src/roblox")
+local Lute = require("@verify/src/lute")
 local Project = require("../../tools/facet/lib/live_project")
 
 export type Descriptor = { id: string, automatic: boolean, interactive: boolean, probe: boolean }

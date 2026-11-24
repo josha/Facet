@@ -1,8 +1,8 @@
 --!strict
 local fs = require("@std/fs")
 local process = require("@std/process")
-local Lute = require("../../../tools/vendor/verify/src/lute")
-local roblox = require("../../../tools/vendor/verify/src/roblox").datatypes
+local Lute = require("@verify/src/lute")
+local roblox = require("@verify/src/roblox").datatypes
 
 local FACET = "../../src/ui/"
 local ControlProps = require("../../../tools/facet/lib/control_props")

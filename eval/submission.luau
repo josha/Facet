@@ -1,12 +1,12 @@
 --!strict
 
-local Core = require("../tools/vendor/verify/src/core")
-local Lute = require("../tools/vendor/verify/src/lute")
-local Evidence = require("../tools/vendor/verify/src/evidence")
+local Core = require("@verify/src/core")
+local Lute = require("@verify/src/lute")
+local Evidence = require("@verify/src/evidence")
 local Files = require("../tools/facet/lib/files")
 local Hash = require("../tools/facet/lib/hash")
 local Json = require("../tools/facet/lib/json")
-local PowerShell = require("../tools/vendor/verify/src/lute/powershell")
+local PowerShell = require("@verify/src/lute/powershell")
 local Run = require("../tools/facet/lib/run")
 local system = require("@std/system")
 

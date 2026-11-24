@@ -1,11 +1,11 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 	local Facet = require("../src")
-	local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+	local VerifyRoblox = require("@verify/src/roblox")
 	local ThemeTypes = require("../src/ui/theme_types")
 	local context = require("../src/ui/context")
 	local engineLib = require("./lib/native_engine")

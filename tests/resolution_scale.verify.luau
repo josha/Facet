@@ -1,6 +1,6 @@
 --!strict
 
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 
 local function theme(): Facet.ThemePackage

@@ -1,8 +1,8 @@
 --!strict
 local Facet = require("../../src")
 local Compose = require("../../src/vendor/compose/core")
-local Roblox = require("../../tools/vendor/verify/src/roblox")
-local Lute = require("../../tools/vendor/verify/src/lute")
+local Roblox = require("@verify/src/roblox")
+local Lute = require("@verify/src/lute")
 local engines = require("./native_engine")
 
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)

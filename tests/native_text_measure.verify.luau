@@ -1,6 +1,6 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local Verify = require("@verify/src/core")
+local VerifyRoblox = require("@verify/src/roblox")
 local Facet = require("../src")
 local context = require("../src/ui/context")
 local measure = require("../src/ui/text_measure")

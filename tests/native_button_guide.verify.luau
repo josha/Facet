@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)
@@ -12,7 +12,7 @@ return function(verifyHarness: Verify.Harness)
 	local Compose = require("../src/vendor/compose/core")
 	local overlay = require("./lib/overlay_world")
 	local engines = require("./lib/native_engine")
-	local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+	local VerifyRoblox = require("@verify/src/roblox")
 	type Engine = engines.Engine
 
 	local function selectables(root: Instance): { string }

@@ -1,8 +1,8 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
+local VerifyRoblox = require("@verify/src/roblox")
+local Lute = require("@verify/src/lute")
 local Facet = require("../src")
 local engines = require("./lib/native_engine")
 local Navigation = require("../src/ui/navigation_types")

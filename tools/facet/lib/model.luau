@@ -5,7 +5,7 @@ local process = require("@std/process")
 local Files = require("./files")
 local Hash = require("./hash")
 local Json = require("./json")
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Run = require("./run")
 local Snapshot = require("./snapshot")
 

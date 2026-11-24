@@ -1,5 +1,5 @@
 --!strict
-local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
+local VerifyRoblox = require("@verify/src/roblox")
 local active: any = nil
 local api = {}
 

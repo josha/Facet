@@ -2,9 +2,9 @@
 
 local fs = require("@std/fs")
 local process = require("@std/process")
-local Audit = require("../../../../tools/vendor/verify/src/roblox/ui-audit")
-local Core = require("../../../../tools/vendor/verify/src/core")
-local Lute = require("../../../../tools/vendor/verify/src/lute")
+local Audit = require("@verify/src/roblox/ui-audit")
+local Core = require("@verify/src/core")
+local Lute = require("@verify/src/lute")
 local Actions = require("../../../../tools/play/host/actions")
 local Check = require("../../../../tools/play/host/check")
 local Play = require("../../../../tools/play/host/play")

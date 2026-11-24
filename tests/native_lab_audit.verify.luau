@@ -1,6 +1,6 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
-local Verify = require("../tools/vendor/verify/src/core")
+local FixtureRoblox = require("@verify/src/roblox")
+local Verify = require("@verify/src/core")
 local styleProperties = require("./lib/style_properties")
 
 local function record(value: unknown): { [string]: unknown }
@@ -30,7 +30,7 @@ return function(verifyHarness: Verify.Harness)
 	local Compose: ComposeModule = Facet.Compose
 	local themes = Facet.themes
 	local fs = require("@std/fs")
-	local Lute = require("../tools/vendor/verify/src/lute")
+	local Lute = require("@verify/src/lute")
 
 	local function loadSource(path: string, environment: unknown): any
 		return Lute.chunk.load(

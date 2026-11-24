@@ -585,9 +585,7 @@ add("sibling-order-and-hit-testing", {}, function(t)
 end)
 
 add("native-fixture-preserves-xml-codec", {}, function(t)
-	local xml = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/verify/src/codec/xml")))(
-		storage.FacetVerify.codec.xml
-	)
+	local xml = (require :: (ModuleScript) -> typeof(require("@verify/src/codec/xml")))(storage.FacetVerify.codec.xml)
 	local ending = "]]" .. ">"
 	local root = xml.parse("<root><![CDATA[left" .. ending .. "<![CDATA[>right" .. ending .. "</root>")
 	t.check("the native fixture preserves the complete XML codec source", root.text == "left>right", root.text)

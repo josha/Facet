@@ -1,6 +1,6 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
 local Facet = require("../src")
 
 return function(verifyHarness: Verify.Harness)

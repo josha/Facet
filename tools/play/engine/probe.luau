@@ -6,7 +6,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local Collect = require("../../../tools/vendor/verify/src/roblox/ui-audit-collect")
+local Collect = require("@verify/src/roblox/ui-audit-collect")
 local scrollTarget = require("./scroll_target")
 local racingDrive = require("./racing_drive")
 local Mount = require("./mount")

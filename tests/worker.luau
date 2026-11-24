@@ -1,6 +1,6 @@
 --!strict
 local system = require("@std/system")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Loader = require("./lib/loader")
 
 local LARGE_HOST_BYTES = 60 * 1024 ^ 3

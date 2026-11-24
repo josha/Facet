@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local Cli = require("../lib/cli")
 local Encoding = require("../lib/encoding")

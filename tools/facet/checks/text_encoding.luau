@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local Files = require("../lib/files")
 local Rule = require("../lib/rule")
@@ -17,6 +17,7 @@ local SUFFIXES: { [string]: boolean } = {
 }
 local SKIP: { [string]: boolean } = {
 	[".git"] = true,
+	[".lpm"] = true,
 	artifacts = true,
 	build = true,
 	vendor = true,

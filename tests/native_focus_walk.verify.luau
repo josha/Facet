@@ -1,11 +1,11 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local fs = require("@std/fs")
 	local process = require("@std/process")
 	local json = require("@std/json")
-	local Lute = require("../tools/vendor/verify/src/lute")
+	local Lute = require("@verify/src/lute")
 	local Zlib = require("../tools/facet/lib/zlib")
 
 	local DIR = process.env.FACET_FOCUS_ATLAS or "tests/fixtures/focus_atlas"

@@ -3,8 +3,8 @@
 local Files = require("./files")
 local Json = require("./json")
 local Run = require("./run")
-local Benchmark = require("../../vendor/verify/src/benchmark")
-local Verify = require("../../vendor/verify/src/core")
+local Benchmark = require("@verify/src/benchmark")
+local Verify = require("@verify/src/core")
 local Loader = require("../../../tests/lib/loader")
 
 type Scenario = {

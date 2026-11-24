@@ -1,7 +1,7 @@
 --!strict
 
-local Verify = require("../../tools/vendor/verify/src/core")
-local Audit = require("../../tools/vendor/verify/src/roblox/ui-audit")
+local Verify = require("@verify/src/core")
+local Audit = require("@verify/src/roblox/ui-audit")
 local RaceSpace = require("../../tools/play/host/space")
 local Play = require("../../tools/play/host/play")
 local Setup = require("../../tools/facet/lib/facetbench_setup")

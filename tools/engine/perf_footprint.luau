@@ -4,7 +4,7 @@ local process = require("@std/process")
 local Loader = require("../../tests/lib/loader")
 local Json = require("../facet/lib/json")
 local Files = require("../facet/lib/files")
-local VerifyRoblox = require("../vendor/verify/src/roblox")
+local VerifyRoblox = require("@verify/src/roblox")
 
 local loader = Loader.new()
 local nativeApp = loader.require("bench/native_app.luau") :: typeof(require("../../bench/native_app"))

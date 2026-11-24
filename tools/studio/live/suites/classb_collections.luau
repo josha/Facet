@@ -15,7 +15,7 @@ type TableColumn = typeof(require("@repo/tools/typecheck/aliases").TableColumn)
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendor/verify/src/roblox")))(
+local VerifyRoblox = (require :: (Instance) -> typeof(require("@verify/src/roblox")))(
 	game:GetService("ReplicatedStorage"):WaitForChild("FacetVerify"):WaitForChild("roblox")
 )
 

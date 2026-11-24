@@ -1,6 +1,6 @@
 --!strict
 
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Mount = require("../tools/play/engine/mount")
 local MemoryReady = require("../tools/play/engine/memory_ready")
 local Play = require("../tools/play/host/play")

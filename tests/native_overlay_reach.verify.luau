@@ -1,7 +1,7 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
-local Verify = require("../tools/vendor/verify/src/core")
+local FixtureRoblox = require("@verify/src/roblox")
+local VerifyRoblox = require("@verify/src/roblox")
+local Verify = require("@verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type FacetControls = typeof(require("@repo/tools/typecheck/aliases").FacetControls)

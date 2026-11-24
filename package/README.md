@@ -154,8 +154,8 @@ artifact hash with the newest receipt. It reports:
    release metadata and the MIT text are required. *Nothing else* can be in
    the model. Anything unexpected fails. A path with the segment `tests`,
    `examples`, `vendor`, `bench` or `spikes` fails by name. The exception is
-   the approved Compose vendor paths that `src/vendor/compose/UPSTREAM.lock`
-   lists. A path that contains `fusion_adapter`, `imperative` or `.spec` also
+   the Compose files in `src/vendor/compose`, which
+   `lute run tools/facet sync compose --check` keeps equal to the installed package. A path that contains `fusion_adapter`, `imperative` or `.spec` also
    fails by name.
 2. **Distribution notices.** The check reports if `LICENSE` or
    `THIRD_PARTY_NOTICES` fell back to placeholder text.

@@ -19,7 +19,7 @@ type DateTimePickerProps = typeof(require("@repo/tools/typecheck/aliases").DateT
 type TextInputCellProps = typeof(require("@repo/tools/typecheck/aliases").TextInputCellProps)
 type StringPickerOption = typeof(require("@repo/tools/typecheck/aliases").StringPickerOption)
 local GuiService = game:GetService("GuiService")
-local Verify = (require :: (ModuleScript) -> typeof(require("@repo/tools/vendor/verify/src/core")))(
+local Verify = (require :: (ModuleScript) -> typeof(require("@verify/src/core")))(
 	game.ReplicatedStorage.FacetVerify.core
 )
 

@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Native = require("./lib/native_engine")
 
 return function(harness: Verify.Harness)

@@ -28,7 +28,9 @@ end
 mountAndDispose()
 for _ = 1, 2 do
 	local cycle = setmetatable({ [{}] = true }, { __mode = "k" })
-	while next(cycle) do
+	local rounds = 0
+	while next(cycle) and rounds < 100000 do
+		rounds += 1
 		table.clear(table.create(4096, {}))
 	end
 end

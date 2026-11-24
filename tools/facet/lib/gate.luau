@@ -3,9 +3,9 @@
 local fs = require("@std/fs")
 local process = require("@std/process")
 local system = require("@std/system")
-local Gate = require("../../vendor/verify/src/gate")
-local Lute = require("../../vendor/verify/src/lute")
-local Verify = require("../../vendor/verify/src/core")
+local Gate = require("@verify/src/gate")
+local Lute = require("@verify/src/lute")
+local Verify = require("@verify/src/core")
 local Model = require("./model")
 
 export type Kind = "tests" | "command" | "build" | "native"

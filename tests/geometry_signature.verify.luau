@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local Types = require("../src/ui/types")
 local geometrySignature = require("../src/ui/geometry_signature")

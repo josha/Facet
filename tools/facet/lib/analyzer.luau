@@ -42,13 +42,15 @@ Analyzer.LUTE_RUNTIME = {
 	"tests/tools/",
 	"tests/lute/",
 	"tools/lute/",
-	"tools/vendor/verify/src/lute/",
-	"tools/vendor/verify/tools/",
 }
 
-Analyzer.LUTE_PATTERNS = { "^eval/tasks/[^/]+/hidden/" }
+Analyzer.LUTE_PATTERNS = {
+	"^eval/tasks/[^/]+/hidden/",
+	"^%.lpm/verify@[^/]+/src/lute/",
+	"^%.lpm/verify@[^/]+/tools/",
+}
 
-Analyzer.VENDOR = { "src/vendor/", "tools/vendor/" }
+Analyzer.VENDOR = { "src/vendor/", ".lpm/" }
 
 Analyzer.KINDS = { TypeError = true, SyntaxError = true }
 

@@ -1,9 +1,9 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
 local LayoutProps = require("../src/ui/layout_props")
-local Roblox = require("../tools/vendor/verify/src/roblox")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Roblox = require("@verify/src/roblox")
+local Lute = require("@verify/src/lute")
 
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)

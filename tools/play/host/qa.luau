@@ -4,10 +4,10 @@ local fs = require("@std/fs")
 local task = require("@std/task")
 
 local AssistantSandbox = require("../../../tools/facet/lib/assistant_sandbox")
-local Audit = require("../../../tools/vendor/verify/src/roblox/ui-audit")
+local Audit = require("@verify/src/roblox/ui-audit")
 local Capture = require("./capture")
 local Devices = require("./devices")
-local Lute = require("../../../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 export type Rect = { x: number, y: number, width: number, height: number }
 

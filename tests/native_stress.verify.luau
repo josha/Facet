@@ -1,10 +1,10 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
 local InputProps = require("../src/ui/input_props")
 local CollectionProps = require("../src/ui/collection_props")
 local NavProps = require("../src/ui/navigation_props")
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
+local FixtureRoblox = require("@verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	local test = Bdd.create(verifyHarness)

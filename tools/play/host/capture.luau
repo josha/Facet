@@ -3,7 +3,7 @@
 local fs = require("@std/fs")
 
 local Jpeg = require("../../facet/lib/raster/jpeg")
-local Media = require("../../../tools/vendor/verify/src/codec/image")
+local Media = require("@verify/src/codec/image")
 local Png = require("../../facet/lib/raster/png")
 
 export type Raster = Jpeg.Raster

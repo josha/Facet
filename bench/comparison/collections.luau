@@ -3,7 +3,7 @@
 local Facet = require("../../src")
 local Types = require("./types")
 local S = require("./support")
-local Roblox = require("../../tools/vendor/verify/src/roblox")
+local Roblox = require("@verify/src/roblox")
 
 local workloads: { Types.Workload } = {}
 

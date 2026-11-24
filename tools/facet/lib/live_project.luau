@@ -3,6 +3,7 @@
 local fs = require("@std/fs")
 local process = require("@std/process")
 local Json = require("./json")
+local Packages = require("./packages")
 
 type Node = Json.Object
 export type Project = Json.Object
@@ -21,7 +22,7 @@ local function build(suites: { string }): Project
 	}
 	local storage = assert(Json.objectField(tree, "ReplicatedStorage"))
 	storage.FacetLive = { ["$path"] = "../tools/studio/live" }
-	storage.FacetVerify = { ["$path"] = "../tools/vendor/verify/src" }
+	storage.FacetVerify = { ["$path"] = "../" .. Packages.verify(".") .. "/src" }
 	storage.FacetDialogDesign = { ["$path"] = "blocks/navigable_dialog_design.luau" }
 	storage.FacetConsumerScreen = { ["$path"] = "consumer/src/screen.luau" }
 	storage.Lab = {

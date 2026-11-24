@@ -1,5 +1,5 @@
 --!strict
-local Audit = require("../../vendor/verify/src/roblox/ui-audit")
+local Audit = require("@verify/src/roblox/ui-audit")
 local Rules = require("../../../src/ui/review_rules")
 
 export type Report = Rules.ReviewReport

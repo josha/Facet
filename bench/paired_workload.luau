@@ -2,7 +2,7 @@
 
 local json = require("@std/json")
 local process = require("@std/process")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Json = require("../tools/facet/lib/json")
 local Retained = require("../tools/facet/lib/perf_retained")
 local perf_runner = require("./perf_runner")

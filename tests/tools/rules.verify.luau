@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local rules = require("../../tools/facet/checks")
 local Rule = require("../../tools/facet/lib/rule")
 local Files = require("../../tools/facet/lib/files")

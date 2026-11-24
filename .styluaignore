@@ -1,3 +1,2 @@
-# Preserve the pinned upstream source bytes; see vendor integrity gate.
+# Preserve the bytes copied from the installed Compose package; see the vendor check.
 src/vendor/compose/**
-tools/vendor/verify/**
