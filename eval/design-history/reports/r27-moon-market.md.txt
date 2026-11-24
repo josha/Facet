@@ -68,8 +68,8 @@ One fresh avatar trial is directional evidence, not a general success-rate estim
 
 ## Final images
 
-![Desktop](/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/desktop.jpg)
+![Desktop](<home>/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/desktop.jpg)
 
-![Phone portrait and short landscape](/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/phones.png)
+![Phone portrait and short landscape](<home>/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/phones.png)
 
-![Console with restored focus](/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/console.jpg)
+![Console with restored focus](<home>/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet/artifacts/theme-evaluation/forward-r27-avatar-customizer/final-screens/console.jpg)
