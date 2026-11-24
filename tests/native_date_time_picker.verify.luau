@@ -321,8 +321,36 @@ return function(verifyHarness: Verify.Harness)
 				local surface = must(w.screen, "CalendarSurface")
 				w.engine.environment.poke(panel, "AbsoluteSize", w.V2.new(340, 413))
 				expect(surface.Size):toBe(w.engine.types.UDim2.fromOffset(7 * 44 + 32 + 48, 413 + 48))
+				local carved = must(surface, "CalendarScroll"):FindFirstChildWhichIsA("UIPadding")
+				expect(
+					`{carved.PaddingLeft.Offset} {carved.PaddingRight.Offset} {carved.PaddingTop.Offset} {carved.PaddingBottom.Offset}`
+				):toBe("24 24 24 24")
 				w.engine.environment.poke(surface, "AbsoluteSize", w.V2.new(388, 461))
 				expect(surface.Position):toBe(w.engine.types.UDim2.fromOffset(100, 700 - 461 - 4))
+				w.stop()
+			end,
+		})
+
+		verifyHarness:case("a themed panel without art pads the calendar surface by its carve alone", {
+			id = "native_date_time_picker::DateTimePicker: a single date::a themed panel without art pads the calendar surface by its carve alone",
+			run = function()
+				local cell, _, change = caller(D(2026, 9, 5))
+				local w = mount(
+					{ value = cell, onChange = change },
+					{ theme = StandardIcons.apply(Facet.themes.neutralPackage()) }
+				)
+				local plate = must(w.picker(), "Field")
+				w.engine.environment.poke(plate, "AbsolutePosition", w.V2.new(100, 100))
+				w.engine.environment.poke(plate, "AbsoluteSize", w.V2.new(400, 44))
+				w.open()
+				local panel = w.panel()
+				local surface = must(w.screen, "CalendarSurface")
+				w.engine.environment.poke(panel, "AbsoluteSize", w.V2.new(340, 413))
+				expect(surface.Size):toBe(w.engine.types.UDim2.fromOffset(7 * 44 + 32, 413))
+				local padding = must(surface, "CalendarScroll"):FindFirstChildWhichIsA("UIPadding")
+				expect(
+					`{padding.PaddingLeft.Offset} {padding.PaddingRight.Offset} {padding.PaddingTop.Offset} {padding.PaddingBottom.Offset}`
+				):toBe("0 0 0 0")
 				w.stop()
 			end,
 		})
