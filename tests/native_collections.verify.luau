@@ -7127,6 +7127,44 @@ return function(verifyHarness: Verify.Harness)
 				runtime:dispose()
 			end,
 		})
+		it("widens the disclosure probe only for columns that give width to the disclosure", {
+			id = "native_collections::Table compact width::widens the disclosure probe only for columns that give width to the disclosure",
+			run = function()
+				local engine, runtime, UI, target = setup()
+				local stop, node: any = runtime.mount(function()
+					local tableSpec: FixtureCollectionProps.KeyedTableSpec<{ id: number, name: string, kind: string }, number> =
+						{
+							from = { { id = 1, name = "Environments", kind = "Material" } },
+							key = key,
+							columns = {
+								{ id = "name", label = "File", minWidth = 90 } :: FixtureCollectionTypes.TableColumn<any, any>,
+								{ id = "kind", label = "Kind", width = 120 } :: FixtureCollectionTypes.TableColumn<any, any>,
+							},
+						}
+					return UI.Table(tableSpec)
+				end, target)
+				local body = node:FindFirstChild("Body")
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body),
+					"AbsoluteWindowSize",
+					engine.types.Vector2.new(400, 200)
+				)
+				engine.environment.poke(
+					VerifyRoblox.assertInstance(body.Parent),
+					"AbsoluteSize",
+					body.AbsoluteWindowSize
+				)
+				local row = body:FindFirstChild("1", true)
+				local kindProbe = row:FindFirstChild("kind", true):FindFirstChild("Undisclosed", true)
+				local nameProbe = row:FindFirstChild("name", true):FindFirstChild("Undisclosed", true)
+				engine.environment.poke(VerifyRoblox.assertInstance(kindProbe), "TextFits", false)
+				expect((row:FindFirstChild("Details", true)) ~= nil):toBe(true)
+				expect(kindProbe.Size.X.Offset):toBe(0)
+				expect(nameProbe.Size.X.Offset):toBe(48)
+				stop()
+				runtime:dispose()
+			end,
+		})
 	end)
 
 	describe("Table under a scaled ancestor", function()

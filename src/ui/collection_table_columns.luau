@@ -10,7 +10,7 @@ export type Columns<V, K> = {
 	minimumOf: (CollectionTypes.TableColumn<V, K>) -> number,
 	collapsed: ComposeTypes.Value<{ [string]: boolean }>,
 	disclosureWidth: ComposeTypes.Value<number>,
-	disclosureShare: ComposeTypes.Value<number>,
+	disclosureShares: ComposeTypes.Value<{ [string]: number }>,
 	narrowest: ComposeTypes.Value<number>,
 	textWrap: (CollectionTypes.TableColumn<V, K>, ComposeTypes.Use) -> boolean,
 	columnFrame: (
@@ -190,17 +190,37 @@ return function<V, K>(
 		end
 		return 0
 	end)
-	local disclosureShare = Compose.formula(function(use: ComposeTypes.Use): number
+	local disclosureShares = Compose.formula(function(use: ComposeTypes.Use): { [string]: number }
+		local shares: { [string]: number } = {}
 		if next(use(collapsed)) ~= nil then
-			return 0
+			return shares
 		end
-		local hidden, resized, flexible = use(collapsed), readSource(widths, use), 0
+		local resized, flexible = readSource(widths, use), {}
 		for _, column in readColumns(spec.columns, use) do
-			if not hidden[column.id] and resized[column.id] == nil and column.width == nil then
-				flexible += 1
+			if resized[column.id] == nil and column.width == nil then
+				table.insert(flexible, column.id)
 			end
 		end
-		return if flexible > 0 then use(disclosureWidth) / flexible else 0
+		local width = use(disclosureWidth)
+		for _, id in flexible do
+			shares[id] = width / #flexible
+		end
+		return shares
+	end, function(current: { [string]: number }?, incoming: { [string]: number }): boolean
+		if current == nil then
+			return false
+		end
+		for id, share in current do
+			if incoming[id] ~= share then
+				return false
+			end
+		end
+		for id, share in incoming do
+			if current[id] ~= share then
+				return false
+			end
+		end
+		return true
 	end)
 	local narrowest = Compose.formula(function(use: ComposeTypes.Use): number
 		local hidden, resized, total = use(collapsed), readSource(widths, use), 0
@@ -384,7 +404,7 @@ return function<V, K>(
 		minimumOf = minimumOf,
 		collapsed = collapsed,
 		disclosureWidth = disclosureWidth,
-		disclosureShare = disclosureShare,
+		disclosureShares = disclosureShares,
 		narrowest = narrowest,
 		textWrap = textWrap,
 		columnFrame = columnFrame,
