@@ -231,11 +231,15 @@ and in the median. Run `lute run tools/facet perf prove-retained-memory` to chec
 unchanged scenes and a retained allocation of 4 MiB. This proof covers every
 paired scene and keeps its raw measurements in the output directory.
 The `prove-retained-memory` producer belongs to the release tier. CI also runs
-the proof when the collector, scene adapter or comparison policy changes.
+the proof when the proof, the scene adapter or a file that they require changes.
 
 `lute run tools/facet perf affected BASE` checks paired performance inputs.
-It covers code, workload data, fixtures, the toolchain and the CI workflow.
-Exit 0 requires paired measurements. Exit 3 means that these inputs did not change.
+Every changed path counts except documents: Markdown outside the measured
+directories, `docs/`, `skills/` and the licence.
+Exit 0 requires paired measurements. Exit 3 means that only documents changed.
+With `--retained`, it follows the requires of the retained heap proof and the
+scene adapter, stopping at the measured `src/` and `examples/`, and adds the
+package lock and toolchain files.
 
 ## How this page stays true
 

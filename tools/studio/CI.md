@@ -44,23 +44,31 @@ producers remain outside the full tier. Missing input capabilities remain in the
 Verify report and fail complete mode. Native CI cannot pass while absolute timing
 producers are deferred.
 
-The **CI** workflow runs the full tier in four Linux shards and the Linux paired
-performance check in three shards on free GitHub-hosted runners for each pull request and push
+The **CI** workflow runs the full tier in eight Linux shards and the Linux paired
+performance check in eight shards on free GitHub-hosted runners for each pull request and push
 to main. The final **Verify** job requires every shard and the performance check
 to succeed. The **release** workflow runs the full tier on macOS and Windows
-before it publishes. Each performance shard takes every third paired scene with
-`perf paired run --shard K/3`, compares the base and candidate on one runner and
-gates its own scenes and every third microbenchmark (`bench --shard K/3`). A failed,
+before it publishes. `perf paired run --shard K/8` gives each performance shard
+the paired scenes that balance the measured scene seconds in
+`Paired.SCENE_SECONDS`. Each shard compares the base and candidate on one runner,
+gates its own scenes and every eighth microbenchmark (`bench --shard K/8`), and
+runs the retained heap proof for the same scenes when that proof is selected.
+Every scene keeps the same rounds in any shard count. A failed,
 cancelled or skipped required job
 fails Verify. The manual CI dispatch uses its base and candidate revisions for
 the performance comparison and checks the candidate.
 
-Paired performance runs when its code, workload data, fixtures, toolchain or
-workflow changes. `lute run tools/facet perf affected BASE` owns this selection.
+Paired performance runs unless every changed file is a document: Markdown outside
+the measured directories, `docs/`, `skills/` or the licence. A path that the
+selector cannot prove irrelevant runs it. `lute run tools/facet perf affected BASE`
+owns this selection.
 The retained heap comparison runs in the same job and report as latency.
 It uses a separate measurement pass for mounted and teardown heap estimates.
-When its collector, scene adapter or policy changes, the job first checks
+When the proof, the scene adapter or any file that they require changes, outside
+the measured `src/` and `examples/`, the job first checks
 unchanged scenes and a retained allocation of 4 MiB across three paired rounds.
+`lute run tools/facet perf affected --retained BASE` traces those requires and
+owns this selection.
 The proof records all measurements and uses Verify to judge the cases.
 Both arms use the same benchmark code, workloads, fixtures, maintainer tooling
 and Verify snapshot. The workflow records the shared archive hash and checks

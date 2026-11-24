@@ -229,6 +229,67 @@ Paired.SCENES = {
 	"radial-menu-open-close",
 }
 
+local SCENE_SECONDS: { [string]: number } = {
+	["hud-binding-storm"] = 1.3,
+	["settings-churn"] = 5.0,
+	["scroll-focus-traversal"] = 2.8,
+	["collection-mutation"] = 1.9,
+	["animation-interruption"] = 1.2,
+	["locale-textsize-change"] = 1.3,
+	["async-image-burst"] = 1.2,
+	["shadow-storm"] = 1.2,
+	["virtual-list-scroll"] = 1.4,
+	["native-scroll-drag"] = 1.3,
+	["dense-hud"] = 1.3,
+	["stylesheet-state-churn"] = 1.3,
+	["async-image-grid"] = 5.4,
+	["screen-lifecycle-churn"] = 8.1,
+	["theme-swap-flat"] = 2.2,
+	["theme-swap-metrics"] = 2.9,
+	["dense-motion"] = 1.7,
+	["control-motion"] = 1.4,
+	["theme-swap-assets"] = 3.1,
+	["lab-dense-scroll"] = 1.4,
+	["lab-collection-churn"] = 2.0,
+	["adaptive-navigation-images"] = 1.7,
+	["navigation-customization"] = 1.4,
+	["alert-present-dismiss"] = 3.1,
+	["picker-menu-open-close"] = 4.6,
+	["picker-segmented-textsize"] = 1.2,
+	["radial-menu-open-close"] = 3.5,
+}
+Paired.SCENE_SECONDS = table.freeze(SCENE_SECONDS)
+
+function Paired.shard(index: number, count: number): { string }
+	local order = table.clone(Paired.SCENES)
+	table.sort(order, function(left: string, right: string): boolean
+		local a, b = Paired.SCENE_SECONDS[left] or math.huge, Paired.SCENE_SECONDS[right] or math.huge
+		if a ~= b then
+			return a > b
+		end
+		return (table.find(Paired.SCENES, left) :: number) < (table.find(Paired.SCENES, right) :: number)
+	end)
+	local loads = table.create(count, 0)
+	local owner: { [string]: number } = {}
+	for _, scene in order do
+		local lightest = 1
+		for candidate = 2, count do
+			if loads[candidate] < loads[lightest] then
+				lightest = candidate
+			end
+		end
+		owner[scene] = lightest
+		loads[lightest] += Paired.SCENE_SECONDS[scene] or math.huge
+	end
+	local share: { string } = {}
+	for _, scene in Paired.SCENES do
+		if owner[scene] == index then
+			table.insert(share, scene)
+		end
+	end
+	return share
+end
+
 function Paired.median(values: { number }): number?
 	if #values == 0 then
 		return nil
