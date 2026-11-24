@@ -1,5 +1,7 @@
 --!strict
 
+local Packages = require("./packages")
+
 export type FileSystem = {
 	isFile: (path: string) -> boolean,
 	isDir: (path: string) -> boolean,
@@ -81,7 +83,10 @@ end
 function StudioTree.entries(fs: FileSystem, root: string?, mode: string?): { FileEntry }
 	local entries: { FileEntry } = {}
 	addTree(fs, root, entries, "src", "ReplicatedStorage.Facet", "ModuleScript")
-	addTree(fs, root, entries, "tools/vendor/verify/src", "ReplicatedStorage.FacetVerify", "Folder")
+	local verify = Packages.locked(if root == nil or root == "" then "." else root, "verify")
+	if verify ~= nil then
+		addTree(fs, root, entries, verify.directory .. "/src", "ReplicatedStorage.FacetVerify", "Folder")
+	end
 	addTree(fs, root, entries, "examples/themes", "ReplicatedStorage.FacetThemes", "Folder")
 	if fs.isFile(located(root, "examples/standard_icons.luau")) then
 		table.insert(entries, {

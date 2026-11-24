@@ -4,7 +4,7 @@ type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRun
 type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 local Facet = require("../../src")
 local engineLib = require("./native_engine")
-local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
+local VerifyRoblox = require("@verify/src/roblox")
 
 export type World = {
 	layout: VerifyRoblox.UiLayoutController?,

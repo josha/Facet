@@ -1,8 +1,8 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local FixtureRoblox = require("@verify/src/roblox")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
+local VerifyRoblox = require("@verify/src/roblox")
 local Facet = require("../src")
 local StandardIcons = require("../examples/standard_icons")
 

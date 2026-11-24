@@ -4,7 +4,7 @@ Verify supplies shared engine test mechanisms: clone allocation and reference
 remapping, tags, class and ancestor lookup, focus state, style maps, path
 storage, reflection registration, and datatype validation. Facet keeps
 control-specific cases and fixture configuration in `tests/lib/native_engine.luau`.
-The dependency pin and hashes are in `tools/vendor/verify/UPSTREAM.lock`.
+The dependency pin is the `verify` entry in `pkg.lock.luau`.
 
 ## Adapter boundary
 

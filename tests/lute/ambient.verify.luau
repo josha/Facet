@@ -1,6 +1,6 @@
 --!strict
-local Verify = require("../../tools/vendor/verify/src/core")
-local Lute = require("../../tools/vendor/verify/src/lute")
+local Verify = require("@verify/src/core")
+local Lute = require("@verify/src/lute")
 
 return function(harness: Verify.Harness)
 	harness:case("ambient lookup reads the game global without environment access", function()

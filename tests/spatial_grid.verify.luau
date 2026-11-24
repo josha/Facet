@@ -1,6 +1,6 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
-local Verify = require("../tools/vendor/verify/src/core")
+local FixtureRoblox = require("@verify/src/roblox")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local context = require("../src/ui/context")
 local registerDrag = require("../src/ui/drag")

@@ -21,6 +21,9 @@ stylua.toml
 # ^ Luau formatting configuration and the exclusion preserving pinned vendor bytes.
 .luaurc
 # ^ Strict Luau mode and repository aliases used by the comprehensive type checker.
+pkg.luau
+pkg.lock.luau
+# ^ The lute pkg manifest and lock: consumers install Facet from them, and they pin the development dependencies.
 src/
 assets/
 examples/

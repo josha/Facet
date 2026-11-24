@@ -1,8 +1,8 @@
 --!strict
 
-local Verify = require("../tools/vendor/verify/src/core")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Verify = require("@verify/src/core")
+local VerifyRoblox = require("@verify/src/roblox")
+local Lute = require("@verify/src/lute")
 
 return function(harness: Verify.Harness)
 	local Facet = require("../src")

@@ -1,7 +1,7 @@
 --!strict
 
 local json = require("@std/json")
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Gate = require("./gate")
 
 export type Flags = { [string]: string | boolean }

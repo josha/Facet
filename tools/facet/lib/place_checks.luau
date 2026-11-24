@@ -1,7 +1,7 @@
 --!strict
 
 local Files = require("./files")
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 export type Node = { class: string, properties: { [string]: string }, children: { [string]: Node } }
 

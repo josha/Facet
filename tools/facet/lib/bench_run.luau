@@ -3,8 +3,8 @@
 local Files = require("./files")
 local Json = require("./json")
 local Run = require("./run")
-local Benchmark = require("../../vendor/verify/src/benchmark")
-local Verify = require("../../vendor/verify/src/core")
+local Benchmark = require("@verify/src/benchmark")
+local Verify = require("@verify/src/core")
 local Loader = require("../../../tests/lib/loader")
 
 type Scenario = {
@@ -58,9 +58,11 @@ local BASELINE = "bench/baseline.json"
 local ARTIFACT = "artifacts/bench.json"
 
 return function(shard: { index: number, count: number }?, cases: { string }?): number
-	local synced = Run.inherit({ Run.lute(), "run", "tools/facet", "sync", "compose", "--check", "--content" })
-	if not synced.ok then
-		return 1
+	if Run.env("FACET_PAIRED_ARM") == nil then
+		local synced = Run.inherit({ Run.lute(), "run", "tools/facet", "sync", "compose", "--check", "--content" })
+		if not synced.ok then
+			return 1
+		end
 	end
 
 	local scenarios = Loader.new().require("bench/scenarios.luau") :: { Scenario }

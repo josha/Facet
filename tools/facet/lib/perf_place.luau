@@ -1,6 +1,6 @@
 --!strict
 
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 export type Entry = { class: string, source: string }
 

@@ -1,7 +1,7 @@
 --!strict
 
-local Lute = require("../../tools/vendor/verify/src/lute")
-local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
+local Lute = require("@verify/src/lute")
+local VerifyRoblox = require("@verify/src/roblox")
 local Shared = require("../../src/ui/types")
 local ComposeRoblox = require("../../src/vendor/compose/roblox")
 export type Signal<A... = ...unknown> = ComposeRoblox.Signal<A...> & {

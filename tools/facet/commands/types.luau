@@ -1,6 +1,6 @@
 --!strict
 local Gate = require("../lib/gate")
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local stringext = require("@std/stringext")
 local luau = require("@lute/luau")
@@ -145,7 +145,13 @@ local function repositoryFiles(): { string }
 	if not listed.ok then
 		fail("git ls-files failed: " .. stringext.trim(listed.stderr))
 	end
-	return Analyzer.inventory(listed.stdout, Files.isFile)
+	local files: { string } = {}
+	for _, file in Analyzer.inventory(listed.stdout, Files.isFile) do
+		if file ~= "pkg.lock.luau" then
+			table.insert(files, file)
+		end
+	end
+	return files
 end
 
 local function scratchDirectory(): string
@@ -1294,47 +1300,47 @@ return {}
 				"tools/facet/commands/studio.luau",
 				"tools/facet/lib/studio_docs_search.luau",
 				"bench/perf_runner.luau",
-				"tools/vendor/verify/src/lute/host.luau",
-				"tools/vendor/verify/src/core/init.luau",
-				"tools/vendor/verify/tools/studio-worker.luau",
+				".lpm/verify@fixture/src/lute/host.luau",
+				".lpm/verify@fixture/src/core/init.luau",
+				".lpm/verify@fixture/tools/studio-worker.luau",
 			})
 			Verify.expect(roblox):toEqual({
 				"src/a.luau",
 				"tests/a.verify.luau",
 				"tools/facet/lib/studio_docs_search.luau",
 				"bench/perf_runner.luau",
-				"tools/vendor/verify/src/core/init.luau",
+				".lpm/verify@fixture/src/core/init.luau",
 			})
 			Verify.expect(lute):toEqual({
 				"tools/facet/init.luau",
 				"tests/lute/worker.luau",
 				"tools/facet/commands/studio.luau",
-				"tools/vendor/verify/src/lute/host.luau",
-				"tools/vendor/verify/tools/studio-worker.luau",
+				".lpm/verify@fixture/src/lute/host.luau",
+				".lpm/verify@fixture/tools/studio-worker.luau",
 			})
 		end,
 	})
 	harness:case(prefix .. "the Lute context blocks only first-party diagnostics", {
 		id = idPrefix .. "the Lute context blocks only first-party diagnostics",
 		run = function(test: Verify.Context): ()
-			local lute = luteRun({ "tools/facet/init.luau", "tools/vendor/verify/src/lute/host.luau" })
+			local lute = luteRun({ "tools/facet/init.luau", ".lpm/verify@fixture/src/lute/host.luau" })
 			local diagnostics = {
 				diagnostic("tools/facet/init.luau"),
-				diagnostic("tools/vendor/verify/src/lute/host.luau"),
-				diagnostic("tools/vendor/verify/src/core/execution.luau"),
+				diagnostic(".lpm/verify@fixture/src/lute/host.luau"),
+				diagnostic(".lpm/verify@fixture/src/core/execution.luau"),
 				diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
 				diagnostic("/home/runner/.lute/typedefs/1.0.1/lute/time.luau"),
 			}
 			local public = Analyzer.classify(lute, diagnostics, true, {})
 			local focused =
-				Analyzer.classify(lute, diagnostics, false, { ["tools/vendor/verify/src/lute/host.luau"] = true })
+				Analyzer.classify(lute, diagnostics, false, { [".lpm/verify@fixture/src/lute/host.luau"] = true })
 			local robloxPublic = Analyzer.classify(robloxRun({}), {
 				diagnostic("src/vendor/x.luau"),
 				diagnostic("C:/Users/someone/.lute/typedefs/1.0.1/std/path/win32/init.luau"),
 			}, true, {})
 			Verify.expect(fileList(public.owned)):toEqual({ "tools/facet/init.luau:2" })
 			Verify.expect(#public.external):toBe(4)
-			Verify.expect(fileList(focused.owned)):toEqual({ "tools/vendor/verify/src/lute/host.luau:2" })
+			Verify.expect(fileList(focused.owned)):toEqual({ ".lpm/verify@fixture/src/lute/host.luau:2" })
 			Verify.expect(#robloxPublic.owned):toBe(1)
 			Verify.expect(#robloxPublic.external):toBe(1)
 		end,
@@ -1342,12 +1348,12 @@ return {}
 	harness:case(prefix .. "a diagnostic owned in one context is not also a dependency diagnostic", {
 		id = idPrefix .. "a diagnostic owned in one context is not also a dependency diagnostic",
 		run = function(test: Verify.Context): ()
-			local shared = diagnostic("tools/vendor/verify/src/core/execution.luau")
+			local shared = diagnostic(".lpm/verify@fixture/src/core/execution.luau")
 			local merged = Analyzer.merge({
 				{ owned = {}, external = { shared, diagnostic("C:/x.luau") } },
 				{ owned = { shared, shared }, external = {} },
 			})
-			Verify.expect(fileList(merged.owned)):toEqual({ "tools/vendor/verify/src/core/execution.luau:2" })
+			Verify.expect(fileList(merged.owned)):toEqual({ ".lpm/verify@fixture/src/core/execution.luau:2" })
 			Verify.expect(fileList(merged.external)):toEqual({ "C:/x.luau:2" })
 		end,
 	})
@@ -1358,8 +1364,8 @@ return {}
 			Verify.expect(Analyzer.relative("tools\\facet\\init.luau", root)):toBe("tools/facet/init.luau")
 			Verify.expect(Analyzer.relative("c:\\git\\Facet\\worktree\\src\\a.luau", root)):toBe("src/a.luau")
 			Verify.expect(Analyzer.relative("\\\\?\\C:\\git\\Facet\\worktree\\src\\a.luau", root)):toBe("src/a.luau")
-			Verify.expect(Analyzer.relative("../../../Users/bacon/.lute/typedefs/1.0.1/std/fs.luau", root))
-				:toBe("C:/Users/bacon/.lute/typedefs/1.0.1/std/fs.luau")
+			Verify.expect(Analyzer.relative("../../../Users/user/.lute/typedefs/1.0.1/std/fs.luau", root))
+				:toBe("C:/Users/user/.lute/typedefs/1.0.1/std/fs.luau")
 			Verify.expect(Analyzer.relative("../../../../t:/fixture/samples/a.luau", root))
 				:toBe("t:/fixture/samples/a.luau")
 			Verify.expect(Analyzer.relative("/repo/src/a.luau", "/repo")):toBe("src/a.luau")
@@ -1367,7 +1373,7 @@ return {}
 			Verify.expect(Analyzer.withoutVerbatimPrefix("\\\\?\\C:\\repo\\src\\init.luau"))
 				:toBe("C:\\repo\\src\\init.luau")
 			Verify.expect(Analyzer.withoutVerbatimPrefix("/repo/src/init.luau")):toBe("/repo/src/init.luau")
-			Verify.expect(Analyzer.isFirstParty("C:/Users/bacon/x.luau")):toBe(false)
+			Verify.expect(Analyzer.isFirstParty("C:/Users/user/x.luau")):toBe(false)
 			Verify.expect(Analyzer.isFirstParty("tools/facet/x.luau")):toBe(true)
 		end,
 	})

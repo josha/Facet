@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local json = require("@std/json")
 local Path = require("@std/path")
@@ -9,8 +9,9 @@ local Props = require("../lib/docs_props")
 local Files = require("../lib/files")
 local Hash = require("../lib/hash")
 local Json = require("../lib/json")
+local Packages = require("../lib/packages")
 local Run = require("../lib/run")
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Markdown = require("../lib/markdown")
 
 local USAGE = [[usage: lute run tools/facet kit --out DIR [--force] [--json]
@@ -24,7 +25,7 @@ agent can run the author commands there:
   tools/facet/                     the author commands: info, docs, lint, preview, audit and critique,
                                    and kit.json with the source commit of the kit
   tools/play/                      the Studio play host that preview and audit use
-  tools/vendor/verify/             Verify (MIT), which the play host and audit use
+  tools/vendor/verify/             Verify (MIT), copied from Facet's lute pkg install, which the play host and audit use
   tools/typecheck/roblox.d.luau    the pinned Roblox definitions for lint --types
   rokit.toml                      pinned tools, when no Rokit or Aftman manifest exists
   .agents/skills/                  the use-facet, compose and critique-ui skills
@@ -41,6 +42,7 @@ local AUTHOR_COMMANDS = { "info", "docs", "project", "lint", "preview", "audit",
 local DEFINITIONS_LOCK = "tools/typecheck/roblox.lock.json"
 local DEFINITIONS_CACHE = "artifacts/verify/types/roblox.d.luau"
 local AUTHOR_MANIFEST = "tools/facet/rokit.toml"
+local KIT_VERIFY = "tools/vendor/verify"
 local OWNED = {
 	"StudioDocs",
 	"examples/themes",
@@ -119,6 +121,16 @@ local function closure(roots: { string }): ({ string }, { string })
 	return order, missing
 end
 
+local function withVerifyCopy(contents: string, target: string): string
+	local depth = #string.split(Files.parent(target), "/")
+	if Files.name(target) == "init.luau" then
+		depth -= 1
+	end
+	local prefix = if depth <= 0 then "./" else string.rep("../", depth)
+	local rewritten = string.gsub(contents, '(require%(%s*")@verify/', "%1" .. prefix .. KIT_VERIFY .. "/")
+	return rewritten
+end
+
 local function commandsInit(names: { string }): string
 	local lines = { "--!strict", "", 'local Cli = require("./lib/cli")', "", "local commands: { Cli.Command } = {" }
 	for _, name in names do
@@ -181,7 +193,7 @@ local function plan(): Plan
 		table.insert(result.problems, problem)
 	end
 	for _, file in files do
-		if string.sub(file, 1, 20) ~= "tools/vendor/verify/" and string.sub(file, 1, 4) ~= "src/" then
+		if string.sub(file, 1, 4) ~= "src/" then
 			result.copies[file] = file
 		end
 	end
@@ -226,8 +238,24 @@ to have a fresh reviewer judge how a screen looks.
 	if Files.isDirectory("tools/play") then
 		tree(result, "tools/play", "tools/play")
 	end
-	tree(result, "tools/vendor/verify/src", "tools/vendor/verify/src")
-	result.copies["tools/vendor/verify/LICENSE"] = "tools/vendor/verify/LICENSE"
+	local verify = Packages.verify(".")
+	tree(result, verify .. "/src", KIT_VERIFY .. "/src")
+	result.copies[KIT_VERIFY .. "/LICENSE"] = verify .. "/LICENSE"
+	for target, source in table.clone(result.copies) do
+		if Files.extension(source) == ".luau" and string.sub(target, 1, #KIT_VERIFY + 1) ~= KIT_VERIFY .. "/" then
+			local contents = Files.text(source)
+			local rewritten = withVerifyCopy(contents, target)
+			if rewritten ~= contents then
+				result.copies[target] = nil
+				result.writes[target] = rewritten
+			end
+		end
+	end
+	for target, contents in table.clone(result.writes) do
+		if Files.extension(target) == ".luau" then
+			result.writes[target] = withVerifyCopy(contents, target)
+		end
+	end
 	definitions(result)
 	tree(result, "skills/use-facet", ".agents/skills/use-facet")
 	tree(result, "skills/compose", ".agents/skills/compose")

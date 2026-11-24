@@ -35,7 +35,7 @@ local loadStandardIcons: (ModuleScript) -> typeof(require("@repo/examples/standa
 local StandardIcons = loadStandardIcons(storage:WaitForChild("FacetStandardIcons") :: ModuleScript)
 
 local Verify = (require :: any)(storage:WaitForChild("FacetVerify"):WaitForChild("core"))
-local VerifyRoblox: typeof(require("@repo/tools/vendor/verify/src/roblox")) = (require :: any)(
+local VerifyRoblox: typeof(require("@verify/src/roblox")) = (require :: any)(
 	storage:WaitForChild("FacetVerify"):WaitForChild("roblox")
 )
 

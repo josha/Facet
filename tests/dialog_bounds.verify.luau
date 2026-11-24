@@ -1,12 +1,12 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local world = require("./lib/overlay_world")
 local Vector2 = require("./lib/native_engine").types.Vector2
 
 return function(harness: Verify.Harness)
 	local fs = require("@std/fs")
-	local Lute = require("../tools/vendor/verify/src/lute")
+	local Lute = require("@verify/src/lute")
 	local Compose = Facet.Compose
 	local source = fs.readFileToString("examples/blocks/navigable_dialog_design.luau")
 	type Props = {

@@ -17,7 +17,7 @@ type Tab = typeof(require("@repo/tools/typecheck/aliases").Tab)
 type AlertAction = typeof(require("@repo/tools/typecheck/aliases").AlertAction)
 type Use = typeof(require("@repo/tools/typecheck/aliases").Use)
 local storage = game:GetService("ReplicatedStorage")
-local VerifyRoblox = (require :: (Instance) -> typeof(require("@repo/tools/vendor/verify/src/roblox")))(
+local VerifyRoblox = (require :: (Instance) -> typeof(require("@verify/src/roblox")))(
 	storage:WaitForChild("FacetVerify"):WaitForChild("roblox")
 )
 local HudView = (require :: (Instance) -> typeof(require("../hud_view")))(

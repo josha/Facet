@@ -1,9 +1,9 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Contracts = require("./lib/live_contracts")
 local Double = require("./lib/live_double")
 local Exclusions = require("./lib/live_exclusions")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 local excluded: { [string]: string } = {}
 for reason, names in Exclusions do

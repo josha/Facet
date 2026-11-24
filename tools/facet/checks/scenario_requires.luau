@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local Files = require("../lib/files")
 local Rule = require("../lib/rule")
@@ -36,7 +36,8 @@ local function fixture(): { [string]: string }
 	return {
 		["src/init.luau"] = "return {}\n",
 		["src/tokens/chrome_slots.luau"] = "return {}\n",
-		["tools/vendor/verify/src/core.luau"] = "return {}\n",
+		["pkg.lock.luau"] = 'return { version = 5, dependencies = {}, devDependencies = { verify = "verify@fixture" }, packages = { ["verify@fixture"] = { name = "verify", rev = "fixture", source = "https://github.com/voidmeld/verify", sourceKind = "github", installPath = "@pkg/fixture/.", dependencies = {} } } }\n',
+		[".lpm/verify@fixture/src/core.luau"] = "return {}\n",
 		["examples/themes/noir.luau"] = "return {}\n",
 		["examples/gallery/scenarios/init.luau"] = 'local common = require("@self/common")\nreturn common\n',
 		["examples/gallery/scenarios/common.luau"] = "return {}\n",

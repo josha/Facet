@@ -1,10 +1,10 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local fs = require("@std/fs")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local NativeEngine = require("./lib/native_engine")
 local Roblox = NativeEngine.types
-local datatypeName = require("../tools/vendor/verify/src/roblox").datatypes.typeof
+local datatypeName = require("@verify/src/roblox").datatypes.typeof
 local function scope(fields: { [string]: unknown }): { [string]: unknown }
 	return fields
 end

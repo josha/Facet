@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local styleProperties = require("./lib/style_properties")
 
 return function(verifyHarness: Verify.Harness)

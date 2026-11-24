@@ -1,11 +1,11 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
 local Rule = require("../lib/rule")
-local VerifyLute = require("../../vendor/verify/src/lute")
+local VerifyLute = require("@verify/src/lute")
 
 local BUDGET = "tools/typecheck/any_budget.json"
 local DIRECTORIES = { "src", "eval", "examples", "tools", "tests", "bench" }

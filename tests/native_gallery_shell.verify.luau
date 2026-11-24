@@ -1,7 +1,7 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local task = require("@std/task")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local VerifyRoblox = require("@verify/src/roblox")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeModule = typeof(require("@repo/tools/typecheck/aliases").ComposeModule)

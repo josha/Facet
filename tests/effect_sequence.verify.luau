@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local EffectTypes = require("../src/ui/effect_types")
 local Shared = require("../src/ui/types")

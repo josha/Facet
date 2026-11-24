@@ -1,6 +1,6 @@
 --!strict
 
-local Eval = require("../tools/vendor/verify/src/agent-eval")
+local Eval = require("@verify/src/agent-eval")
 
 export type Configuration = { model: string, effort: string }
 export type Options = {

@@ -1,5 +1,13 @@
 # Current package
 
+Facet is a `lute pkg` package: `pkg.luau` names it, and consumers install it
+with `lute pkg install --vendor` on Lute `1.0.1-nightly.20261120` or newer.
+Compose and Verify are development dependencies locked in `pkg.lock.luau`.
+`lute run tools/facet sync compose` copies the installed Compose into
+`src/vendor/compose`, which the shipped library still requires relatively;
+Verify is no longer vendored and tests reach it through the `@verify` alias.
+Compose moves to `fe52814`, whose shipped source matches `2694de7`.
+
 The `raised` look gives the controls a short shadow (3 pixels of lift) in
 place of the shadow of the panels. Before, a padded stack that held a Button
 grew 48 pixels to hold that shadow, so a row under `raised` was 108 pixels

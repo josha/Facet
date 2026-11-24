@@ -1,7 +1,7 @@
 --!strict
 
 local Json = require("./json")
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 export type Reading = { mounted: number, teardown: number }
 export type Comparison = {

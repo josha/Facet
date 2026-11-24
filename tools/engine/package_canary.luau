@@ -6,8 +6,8 @@ type RobloxHost = typeof(require("@repo/tools/typecheck/aliases").RobloxHost)
 
 local fs = require("@std/fs")
 local process = require("@std/process")
-local Lute = require("../vendor/verify/src/lute")
-local Base64 = require("../vendor/verify/src/codec/base64")
+local Lute = require("@verify/src/lute")
+local Base64 = require("@verify/src/codec/base64")
 local Files = require("../facet/lib/files")
 local Loader = require("../../tests/lib/loader")
 
@@ -216,16 +216,23 @@ for _, problem in nameProblems do
 end
 
 local FORBIDDEN = { "fusion_adapter", "imperative", ".verify" }
-local APPROVED_VENDOR = {}
-for path in (Lute.parse(fs.readFileToString("src/vendor/compose/UPSTREAM.lock")) :: any).sha256 do
-	if string.match(path, "%.luau$") then
-		APPROVED_VENDOR["vendor/compose/" .. path] = true
+local APPROVED_VENDOR: { [string]: boolean } = {}
+local function approveVendor(directory: string, relative: string)
+	for _, entry in fs.listDirectory(directory) do
+		local child = if relative == "" then entry.name else `{relative}/{entry.name}`
+		if entry.type == "dir" then
+			approveVendor(`{directory}/{entry.name}`, child)
+		elseif string.match(entry.name, "%.luau$") then
+			APPROVED_VENDOR["vendor/compose/" .. child] = true
+		end
 	end
 end
+approveVendor("src/vendor/compose", "")
 local strays: { string } = {}
 for _, path in extracted do
 	local lowered = string.lower(path)
-	if string.find(lowered, "/vendor/", 1, true) and not APPROVED_VENDOR[string.match(path, "/Facet/(.+)$")] then
+	local shipped = string.match(path, "/Facet/(.+)$")
+	if string.find(lowered, "/vendor/", 1, true) and not (shipped ~= nil and APPROVED_VENDOR[shipped]) then
 		table.insert(strays, path .. " (unapproved vendor)")
 	end
 	for _, needle in FORBIDDEN do

@@ -271,6 +271,11 @@ return function(ctx: Shared.Context, config: Shared.Config, services: Shared.Ser
 		Compose.cleanup(function()
 			live = false
 			queued[run] = nil
+			local stop = stopQueue
+			if stop ~= nil and next(queued) == nil then
+				stopQueue = nil
+				stop()
+			end
 		end)
 		return function()
 			if not live or queued[run] then

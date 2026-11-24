@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local arbitration = require("../src/ui/gesture_arbitration")
 local engineLib = require("./lib/native_engine")
 

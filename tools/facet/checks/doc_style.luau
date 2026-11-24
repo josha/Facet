@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local stringext = require("@std/stringext")
 local Cli = require("../lib/cli")

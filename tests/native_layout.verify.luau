@@ -1,8 +1,8 @@
 --!strict
 type Sides = typeof(require("@repo/tools/typecheck/aliases").Sides)
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
+local VerifyRoblox = require("@verify/src/roblox")
 local ThemeTypes = require("../src/ui/theme_types")
 local EnvironmentTypes = require("../src/ui/environment_types")
 local SharedTypes = require("../src/ui/types")

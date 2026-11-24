@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local ConsumerTypes = require("../lib/consumer_types")
 local Analyzer = require("../lib/analyzer")

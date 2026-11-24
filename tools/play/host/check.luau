@@ -2,7 +2,7 @@
 
 local task = require("@std/task")
 
-local Core = require("../../../tools/vendor/verify/src/core")
+local Core = require("@verify/src/core")
 local QA = require("./qa")
 local Actions = require("./actions")
 

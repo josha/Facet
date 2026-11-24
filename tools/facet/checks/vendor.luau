@@ -1,21 +1,16 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local Files = require("../lib/files")
-local Hash = require("../lib/hash")
-local Json = require("../lib/json")
+local Packages = require("../lib/packages")
 local Rule = require("../lib/rule")
 local Snapshot = require("../lib/snapshot")
 
 local APPROVED: { [string]: { string } } = {
 	["src/vendor"] = { "compose" },
-	["tools/vendor"] = { "verify" },
 }
 
-local LOCKS: { [string]: string } = {
-	compose = "src/vendor/compose/UPSTREAM.lock",
-	verify = "tools/vendor/verify/UPSTREAM.lock",
-}
+local PINNED = { "compose", "verify" }
 
 local function check(context: Rule.Context): { string }
 	local findings: { string } = {}
@@ -23,21 +18,20 @@ local function check(context: Rule.Context): { string }
 	if not composeOk then
 		table.insert(findings, composeMessage)
 	end
-	local verifyOk, verifyMessage = Snapshot.check(context.root, "verify")
-	if not verifyOk then
-		table.insert(findings, verifyMessage)
-	end
 	local notices = if Files.exists(context.path("THIRD_PARTY_NOTICES.md"))
 		then Files.read(context.path("THIRD_PARTY_NOTICES.md"))
 		else ""
-	for name, lock in LOCKS do
-		local commit: string? = if Files.exists(context.path(lock))
-			then Json.stringField(Json.decode(Files.read(context.path(lock))), "commit")
-			else nil
-		if commit ~= nil and string.find(notices, commit, 1, true) == nil then
+	for _, name in PINNED do
+		local locked, problem = Packages.locked(context.root, name)
+		if locked == nil then
+			table.insert(findings, problem or ("pkg.lock.luau does not pin %s"):format(name))
+			continue
+		end
+		local commit = locked.rev
+		if string.find(notices, commit, 1, true) == nil then
 			table.insert(findings, ("THIRD_PARTY_NOTICES.md: name the pinned %s commit %s"):format(name, commit))
 		end
-		if name == "compose" and commit ~= nil and Files.exists(context.path("src/init.luau")) then
+		if name == "compose" and Files.exists(context.path("src/init.luau")) then
 			if
 				string.find(Files.read(context.path("src/init.luau")), `COMPOSE_COMMIT = "{commit}"`, 1, true) == nil
 			then
@@ -59,47 +53,59 @@ local function check(context: Rule.Context): { string }
 			end
 		end
 	end
+	if Files.exists(context.path("tools/vendor")) then
+		table.insert(findings, "tools/vendor: development dependencies come from lute pkg, not a vendored copy")
+	end
 	table.sort(findings)
 	return findings
 end
 
-local function pinned(files: { [string]: string }, docs: { [string]: string }): string
-	local hashes = Json.object()
-	for name, data in files do
-		Json.set(hashes, name, Hash.sha256(data))
+local COMPOSE = string.rep("c", 40)
+local VERIFY = string.rep("d", 40)
+
+local function lock(): string
+	local function entry(name: string, commit: string): string
+		return ('["%s@%s"] = { name = "%s", rev = "%s", source = "https://github.com/voidmeld/%s", sourceKind = "github", installPath = "@pkg/fixture-%s/.", dependencies = {} }'):format(
+			name,
+			commit,
+			name,
+			commit,
+			name,
+			name
+		)
 	end
-	local guides = Json.object()
-	for name, data in docs do
-		Json.set(guides, name, Hash.sha256(data))
-	end
-	return Json.encode({
-		repository = "https://github.com/voidmeld/fixture",
-		commit = string.rep("c", 40),
-		sha256 = hashes,
-		docs = guides,
-	})
+	return ('return { version = 5, dependencies = {}, devDependencies = { compose = "compose@%s", verify = "verify@%s" }, packages = { %s, %s } }\n'):format(
+		COMPOSE,
+		VERIFY,
+		entry("compose", COMPOSE),
+		entry("verify", VERIFY)
+	)
 end
 
 local function tree(): { [string]: string }
-	local composeFiles = { ["core/init.luau"] = "return {}\n", LICENSE = "MIT\n" }
-	local verifyFiles = { ["src/core/init.luau"] = "return {}\n" }
-	local verifyDocs = { ["SKILL.md"] = "Guide\n" }
-	return {
-		["src/vendor/compose/core/init.luau"] = composeFiles["core/init.luau"],
-		["src/vendor/compose/LICENSE"] = composeFiles.LICENSE,
-		["src/vendor/compose/UPSTREAM.lock"] = pinned(composeFiles, { ["SKILL.md"] = "Compose\n" }),
+	local installed = ".lpm/compose@" .. COMPOSE .. "/"
+	local files: { [string]: string } = {
+		["pkg.lock.luau"] = lock(),
+		["THIRD_PARTY_NOTICES.md"] = ("Compose at commit `%s` and Verify at commit `%s`.\n"):format(COMPOSE, VERIFY),
+		["src/init.luau"] = ('local COMPOSE_COMMIT = "%s"\n'):format(COMPOSE),
 		["skills/compose/SKILL.md"] = "Compose\n",
-		["tools/vendor/verify/src/core/init.luau"] = verifyFiles["src/core/init.luau"],
-		["tools/vendor/verify/.agents/skills/verify/SKILL.md"] = verifyDocs["SKILL.md"],
-		["tools/vendor/verify/UPSTREAM.lock"] = pinned(verifyFiles, verifyDocs),
-		["THIRD_PARTY_NOTICES.md"] = ("Compose and Verify at commit `%s`.\n"):format(string.rep("c", 40)),
-		["src/init.luau"] = ('local COMPOSE_COMMIT = "%s"\n'):format(string.rep("c", 40)),
+		["src/vendor/compose/LICENSE"] = "MIT\n",
+		["src/vendor/compose/license.luau"] = "--!strict\nreturn [=[\nMIT\n\n]=]\n",
+		["src/vendor/compose/README.md"] = "Generated.\n",
+		[installed .. "LICENSE"] = "MIT\n",
+		[installed .. ".agents/skills/compose/SKILL.md"] = "Compose\n",
+		[".lpm/verify@" .. VERIFY .. "/src/core/init.luau"] = "return {}\n",
 	}
+	for _, member in { "core", "roblox", "design", "design-editor" } do
+		files[installed .. "src/" .. member .. "/init.luau"] = "return {}\n"
+		files["src/vendor/compose/" .. member .. "/init.luau"] = "return {}\n"
+	end
+	return files
 end
 
 local function register(harness: Verify.Harness, prefix: string): ()
-	harness:case(prefix .. "a notice or COMPOSE_COMMIT that differs from the pin fails", {
-		id = prefix .. "a notice or COMPOSE_COMMIT that differs from the pin fails",
+	harness:case(prefix .. "a notice or COMPOSE_COMMIT that differs from the lock fails", {
+		id = prefix .. "a notice or COMPOSE_COMMIT that differs from the lock fails",
 		run = function(test: Verify.Context)
 			local files = tree()
 			files["THIRD_PARTY_NOTICES.md"] = "Compose and Verify at an older commit.\n"
@@ -117,8 +123,8 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			end)
 		end,
 	})
-	harness:case(prefix .. "intact pinned snapshots pass", {
-		id = prefix .. "intact pinned snapshots pass",
+	harness:case(prefix .. "a copy that matches the installed package passes", {
+		id = prefix .. "a copy that matches the installed package passes",
 		run = function(test: Verify.Context)
 			Rule.within(test, tree(), function(context)
 				local findings = check(context)
@@ -131,17 +137,17 @@ local function register(harness: Verify.Harness, prefix: string): ()
 		run = function(test: Verify.Context)
 			Rule.within(test, tree(), function(context)
 				Files.write(context.path("src/vendor/compose/core/init.luau"), "return { changed = true }\n")
-				Verify.expect(Rule.contains(check(context), "Compose: missing or modified"))
+				Verify.expect(Rule.contains(check(context), "Compose: src/vendor/compose/core/init.luau differs"))
 					:toBeTrueWith("the change passed")
 			end)
 		end,
 	})
-	harness:case(prefix .. "a modified nested guide fails", {
-		id = prefix .. "a modified nested guide fails",
+	harness:case(prefix .. "a modified copied guide fails", {
+		id = prefix .. "a modified copied guide fails",
 		run = function(test: Verify.Context)
 			Rule.within(test, tree(), function(context)
-				Files.write(context.path("tools/vendor/verify/.agents/skills/verify/SKILL.md"), "Changed\n")
-				Verify.expect(Rule.contains(check(context), "Verify: missing or modified"))
+				Files.write(context.path("skills/compose/SKILL.md"), "Changed\n")
+				Verify.expect(Rule.contains(check(context), "Compose: skills/compose/SKILL.md differs"))
 					:toBeTrueWith("the change passed")
 			end)
 		end,
@@ -151,8 +157,11 @@ local function register(harness: Verify.Harness, prefix: string): ()
 		run = function(test: Verify.Context)
 			local files = tree()
 			files["src/vendor/other/init.luau"] = "return {}\n"
+			files["tools/vendor/verify/src/core/init.luau"] = "return {}\n"
 			Rule.within(test, files, function(context)
-				Verify.expect(Rule.contains(check(context), "src/vendor/other")):toBeTrueWith("the extra vendor passed")
+				local findings = check(context)
+				Verify.expect(Rule.contains(findings, "src/vendor/other")):toBeTrueWith("the extra vendor passed")
+				Verify.expect(Rule.contains(findings, "tools/vendor:")):toBeTrueWith("a vendored Verify passed")
 			end)
 		end,
 	})
@@ -160,7 +169,7 @@ end
 
 local rule: Rule.Rule = {
 	name = "vendor",
-	summary = "The vendored Compose and Verify snapshots match their pins, and no other vendor exists.",
+	summary = "The Compose copy matches the package lute pkg installed, the notices name the locked commits, and no other vendor exists.",
 	check = check,
 	register = register,
 }

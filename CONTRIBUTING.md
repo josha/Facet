@@ -83,11 +83,12 @@ enums, brick colors and fonts from Verify's bundled Studio capture through
 to adopt a new capture. Keep Facet-specific service defaults and method doubles
 in the fixture.
 
-Verify is pinned under `tools/vendor/verify`. It is a generated, read-only test
-dependency and is not part of the Facet model. Run
-`lute run tools/facet sync verify --check` to check its files. Change shared testing
-mechanisms in `voidmeld/verify`, then update the pin. The consumer guide is
-[Verify's skill](tools/vendor/verify/.agents/skills/verify/SKILL.md).
+Verify is a development dependency pinned in `pkg.luau` and `pkg.lock.luau`.
+`lute pkg install --vendor` installs it into the untracked `.lpm/`, and `.luaurc`
+aliases it as `@verify`. It is not part of the Facet model. Change shared testing
+mechanisms in `voidmeld/verify`, then move the revision in `pkg.luau` and the
+alias. The consumer guide is
+[Verify's skill](https://github.com/voidmeld/verify/blob/35c5590efa9fdb9fc12319a7bc9455a81c2d1970/.agents/skills/verify/SKILL.md).
 [Verify integration](tools/verify-adoption.md) lists what Verify owns and what
 Facet keeps. [Verify UI fixtures](tools/verify-ui-adoption.md) describes the
 engine fixture boundary.

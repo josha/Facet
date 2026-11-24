@@ -1,7 +1,7 @@
 --!strict
 
-local Core = require("../../tools/vendor/verify/src/core")
-local Eval = require("../../tools/vendor/verify/src/agent-eval")
+local Core = require("@verify/src/core")
+local Eval = require("@verify/src/agent-eval")
 local Compare = require("../../eval/compare")
 local Judge = require("../../eval/judge")
 local Play = require("../../tools/play/host/play")

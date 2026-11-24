@@ -1,7 +1,7 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
-local Eval = require("../../vendor/verify/src/agent-eval")
+local Eval = require("@verify/src/agent-eval")
 local Files = require("../lib/files")
 local Json = require("../lib/json")
 local Rule = require("../lib/rule")

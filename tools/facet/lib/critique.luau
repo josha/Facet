@@ -1,5 +1,5 @@
 --!strict
-local Audit = require("../../vendor/verify/src/roblox/ui-audit")
+local Audit = require("@verify/src/roblox/ui-audit")
 local Files = require("./files")
 local Json = require("./json")
 local Look = require("./look")

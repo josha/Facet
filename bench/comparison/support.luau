@@ -1,7 +1,7 @@
 --!strict
 
 local Types = require("./types")
-local Roblox = require("../../tools/vendor/verify/src/roblox")
+local Roblox = require("@verify/src/roblox")
 local Facet = require("../../src")
 type ScreenProps = typeof(require("@repo/tools/typecheck/aliases").ScreenGuiNativeProps)
 

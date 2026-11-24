@@ -1,9 +1,9 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Index = require("../tools/facet/lib/docs_index")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Loader = require("./lib/loader")
-local Roblox = require("../tools/vendor/verify/src/roblox")
+local Roblox = require("@verify/src/roblox")
 type FacetModule = typeof(require("@repo/tools/typecheck/aliases").FacetModule)
 type EngineLibrary = typeof(require("./lib/native_engine"))
 type Runtime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)

@@ -3,21 +3,22 @@ local fs = require("@std/fs")
 local json = require("@std/json")
 local process = require("@std/process")
 local task = require("@std/task")
-local Lute = require("../vendor/verify/src/lute")
-local Verify = require("../vendor/verify/src/core")
-local Gate = require("../vendor/verify/src/gate")
+local Lute = require("@verify/src/lute")
+local Verify = require("@verify/src/core")
+local Gate = require("@verify/src/gate")
 local Files = require("../facet/lib/files")
 local Run = require("../facet/lib/run")
 local gate = require("../facet/lib/gate")
 local AssistantSandbox = require("../facet/lib/assistant_sandbox")
 local Cli = require("../facet/lib/cli")
 local Json = require("../facet/lib/json")
+local Packages = require("../facet/lib/packages")
 
 local harness = Verify.createHarness({ source = "facet-verify-integration", now = os.clock })
 local directory = `artifacts/verify/integration-{os.time()}-{math.random(1, 1e9)}`
 assert(not Files.isDirectory(directory), "the integration scratch directory already exists: " .. directory)
 Files.makeDirectory(directory)
-local VERIFY = "../../../tools/vendor/verify/src"
+local VERIFY = "@verify/src"
 local LUTE = Run.lute()
 
 local function source(name: string, text: string): string
@@ -375,9 +376,11 @@ harness:suite("Facet live CI policy", function()
 					return json
 				elseif module == "../lib/json" or module == "./json" then
 					return Json
-				elseif module == "../../vendor/verify/src/lute" then
+				elseif module == "./packages" or module == "../lib/packages" then
+					return Packages
+				elseif module == "@verify/src/lute" then
 					return native
-				elseif module == "../../vendor/verify/src/core" then
+				elseif module == "@verify/src/core" then
 					return Verify
 				elseif module == "../lib/live_project" then
 					return (

@@ -1,10 +1,12 @@
 --!strict
-local Lute = require("../../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
+local Packages = require("../../tools/facet/lib/packages")
 local fs = require("@std/fs")
 
 local requireHost = (require :: unknown) :: (string) -> unknown
 local ROOTS: { [string]: boolean } = { src = true, examples = true, tests = true, bench = true, tools = true }
 local sources: { [string]: string }? = nil
+local VERIFY = assert(Packages.fromLock(require("../../pkg.lock"), "verify")).directory
 
 local function sourceFiles(): { [string]: string }
 	if sources then
@@ -19,7 +21,7 @@ local function sourceFiles(): { [string]: string }
 					rules = { { root = root, pattern = "%.luau$" } },
 				})
 			do
-				local hosted = string.sub(path, 1, 13) == "tools/vendor/" or string.sub(path, 1, 12) == "tools/facet/"
+				local hosted = string.sub(path, 1, 12) == "tools/facet/"
 				loaded[path] = if hosted then "" else fs.readFileToString(path)
 			end
 		end
@@ -55,8 +57,8 @@ local function new(preload: string?): Lute.Loader
 				return files[path] or fs.readFileToString(path)
 			end,
 		},
-		aliases = { repo = "" },
-		hostPaths = { "tools/vendor/", "tools/facet/" },
+		aliases = { repo = "", verify = VERIFY },
+		hostPaths = { VERIFY .. "/", "tools/facet/" },
 		requireHost = function(module: string): unknown
 			return requireHost("../../" .. module)
 		end,

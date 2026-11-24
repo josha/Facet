@@ -3,10 +3,10 @@
 local Audit = require("./lab_audit")
 local Visible = require("./audit_visible")
 type ReservedKeys = typeof(require("@repo/src/ui/reserved_keys"))
-type VerifyCore = typeof(require("@repo/tools/vendor/verify/src/core"))
-type VerifyRoblox = typeof(require("@repo/tools/vendor/verify/src/roblox"))
-type InputHostModule = typeof(require("@repo/tools/vendor/verify/src/roblox").inputHost)
-type InputBackend = typeof(require("@repo/tools/vendor/verify/src/roblox").inputHost.native())
+type VerifyCore = typeof(require("@verify/src/core"))
+type VerifyRoblox = typeof(require("@verify/src/roblox"))
+type InputHostModule = typeof(require("@verify/src/roblox").inputHost)
+type InputBackend = typeof(require("@verify/src/roblox").inputHost.native())
 local loadCore: (Instance?) -> VerifyCore = require
 local loadRoblox: (Instance?) -> VerifyRoblox = require
 export type Dependencies = {

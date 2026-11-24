@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local Roblox = require("../src/vendor/compose/roblox")
 local Hud = require("../src/ui/hud_types")

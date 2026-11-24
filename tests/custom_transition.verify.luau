@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Facet = require("../src")
 local worlds = require("./lib/content_world")
 local fade = require("./lib/fade")
@@ -8,7 +8,7 @@ local context = require("../src/ui/context")
 local pageLayers = require("../src/ui/nav_page_layers")
 local engines = require("./lib/native_engine")
 local overlay = require("./lib/overlay_world")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local VerifyRoblox = require("@verify/src/roblox")
 
 local function stack(UI: Facet.Controls, spec: Facet.NavigationStackSpec<string>): Frame
 	return UI.NavigationStack(spec)

@@ -1,6 +1,6 @@
 --!strict
 
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Cli = require("./cli")
 local Files = require("./files")
 

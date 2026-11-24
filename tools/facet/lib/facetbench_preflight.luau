@@ -1,6 +1,6 @@
 --!strict
 
-local Core = require("../../vendor/verify/src/core")
+local Core = require("@verify/src/core")
 
 export type Generation = { ok: boolean, file: string?, bytes: number?, at: number? }
 export type Upload = { ok: boolean, tool: string?, assetId: string?, loaded: boolean?, at: number? }

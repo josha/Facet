@@ -1,7 +1,7 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
+local FixtureRoblox = require("@verify/src/roblox")
 
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local engineLib = require("./lib/native_engine")
 local scrollTarget = require("../tools/play/engine/scroll_target")
 

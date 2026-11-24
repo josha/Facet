@@ -5,7 +5,7 @@ local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
-local Verify: typeof(require("@repo/tools/vendor/verify/src/core")) =
+local Verify: typeof(require("@verify/src/core")) =
 	require(game.ReplicatedStorage:WaitForChild("FacetVerify"):WaitForChild("core"))
 
 type Options = {

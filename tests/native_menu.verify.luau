@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local NativeTypes = require("../src/ui/types")
 
 return function(verifyHarness: Verify.Harness)

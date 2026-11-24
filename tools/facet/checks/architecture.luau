@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local stringext = require("@std/stringext")
 local Files = require("../lib/files")
@@ -8,7 +8,7 @@ local Luau = require("../lib/luau")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
 
-local EXTERNAL = { "@std/", "@lute/" }
+local EXTERNAL = { "@std/", "@lute/", "@verify/" }
 local SCANNED = { "src", "examples", "bench" }
 local PUBLIC = { "examples", "bench" }
 local DEPENDENCY_ROOTS = { "src", "examples", "bench", "tests", "tools" }
@@ -28,10 +28,11 @@ local REMOVED_FILES = {
 local FORBIDDEN_DEPENDENCIES = {
 	{ name = "Fusion", needle = "fusion", reason = "Fusion is retired; Compose is the only reactive runtime" },
 }
-local APPROVED_VENDORS: { [string]: boolean } = { ["src/vendor"] = true, ["tools/vendor"] = true }
+local APPROVED_VENDORS: { [string]: boolean } = { ["src/vendor"] = true }
 local SKIPPED_DIRECTORIES: { [string]: boolean } = {
 	[".git"] = true,
 	[".claude"] = true,
+	[".lpm"] = true,
 	node_modules = true,
 	__pycache__ = true,
 	build = true,
@@ -609,8 +610,8 @@ local function register(harness: Verify.Harness, prefix: string): ()
 			)
 		end,
 	})
-	harness:case(prefix .. "a vendor directory is found by name outside the approved pins", {
-		id = prefix .. "a vendor directory is found by name outside the approved pins",
+	harness:case(prefix .. "a vendor directory is found by name outside the approved copy", {
+		id = prefix .. "a vendor directory is found by name outside the approved copy",
 		run = function(test: Verify.Context)
 			Rule.within(
 				test,
@@ -631,7 +632,7 @@ local function register(harness: Verify.Harness, prefix: string): ()
 					end
 					Verify.expect(
 						not Rule.contains(findings, "artifacts/verify/tmp")
-							and not Rule.contains(findings, "tools/vendor:")
+							and Rule.contains(findings, "tools/vendor: unexpected")
 					):toBeTrueWith(Rule.describe(findings))
 				end
 			)

@@ -26,7 +26,8 @@ Most screens of the game are generated designs.
 1. Each screen starts as a design document. The game has 44 of them.
 2. A design kit from `Facet.design()` describes the controls that a document
    can use. It adds game design kinds for the letter tile, a word of tiles,
-   the navigation glyphs, the reward preview and the Sparks balance. The kit
+   the new-game button, the navigation and spotlight glyphs, the tile style
+   preview, the reward preview and the Sparks balance. The kit
    reads the spacing, colors and fonts from one design token table.
 3. A tool emits each document as a view module: a function of
    `(UI, props)` with a `_design` table. The table holds the contract
@@ -45,10 +46,10 @@ header, Friends, How to play and the 3D room views.
 
 | Mechanism | Use in Word Amigos |
 | --- | --- |
-| `Facet.bind` and a direct Compose mount | The client root mounts the tree with the bound runtime. `UI.provide` gives the controls to the screens. |
-| Three ScreenGuis | A backdrop layer with the palette gradient, the main `WordAmigos` layer with `CoreUISafeInsets`, the focus ring and the StyleSheet, and an `Overlays` layer. Sheets, menus and dialogs go to the overlay layer through the `overlayParent` option. |
-| [Theme definition](../reference/nodes/Themes.definition.md) | `Facet.themes.define` extends `Facet.themes.neutralPackage` and checks the definition report. Light, dark and seasonal palettes change with the player preferences. A regular variant with larger type and spacing applies when the screen is not compact or short. |
-| [StyleSheet](../reference/nodes/Themes.stylesheet.md) | `Facet.themes.createStyleSheet` with `tenFoot` makes the StyleSheet for each layer. |
+| [Facet.app](../reference/nodes/Mounting.Facet.app.md) | One app mounts the interface in the `WordAmigos` ScreenGui with `CoreUISafeInsets`. It sets the reactive theme, `motionLevel`, the `translator` and the environment facts. `Facet.bind` makes the runtime. |
+| Three ScreenGuis | A backdrop layer with the palette gradient, the app layer with the focus ring, and an `Overlays` layer. Sheets, menus and dialogs go to the overlay layer through the `overlayParent` option. |
+| [Theme definition](../reference/nodes/Themes.definition.md) | `Facet.themes.define` extends `Facet.themes.neutralPackage` and checks the definition report. It adds icons for the new-game choices and style rules for the board square states. Light, dark and seasonal palettes change with the player preferences. In 2D mode, a regular variant with larger type and spacing applies when the screen is not compact or short. |
+| [StyleSheet](../reference/nodes/Themes.stylesheet.md) | The app makes the StyleSheet of the app layer, and the overlay layer links it. `Facet.themes.createStyleSheet` with `tenFoot` makes the StyleSheet of the room HUD layer. The designs add game style tags with `Facet.tag`, and the theme rules style them. |
 | [Skin](../reference/nodes/Themes.skin.md) | `Facet.themes.skin` with the `fab` skin draws the new-game button. |
 | [environment](../reference/nodes/environment.environment.md) | The controls take `preferredTextSize` and the measured `viewportSize`. |
 
@@ -56,12 +57,12 @@ header, Friends, How to play and the 3D room views.
 
 | Control | Use in Word Amigos |
 | --- | --- |
-| [TabView](../reference/nodes/TabView.card.md) | `style = "sidebarAdaptable"` holds Games, Leaderboard, Profile and Achievements. It shows a rail on wide screens and a bottom bar on phones, with icon-only tabs in the compact size class. The tabs hide while a match is open on a short or compact screen. A second TabView with `placement = "none"` switches between the Games and Settings pages. The navigation menu selects the page. |
-| [NavigationSplitView](../reference/nodes/NavigationSplitView.card.md) | The games list is the sidebar. The open match is the detail. On a compact screen one column shows, and Back returns to Games. |
-| [NavigationStack](../reference/nodes/NavigationStack.card.md) | The detail column of the split view. It has hidden chrome and a scale transition. Its root page asks the player to choose a game. |
+| [TabView](../reference/nodes/TabView.card.md) | `style = "sidebarAdaptable"` holds Games, Leaderboard, Profile and Achievements. It shows a rail on wide screens and a bottom bar on phones, with icon-only tabs in the compact size class. The tabs hide while a match is open on a short or compact screen. A second TabView with `placement = "none"` switches between the Games and Settings pages, with a slide in the direction of travel. The navigation menu selects the page. |
+| [NavigationSplitView](../reference/nodes/NavigationSplitView.card.md) | The games list is the sidebar. The open match is the detail, and it fades in. On a compact screen one column shows, and Back returns to Games. |
+| [NavigationStack](../reference/nodes/NavigationStack.card.md) | The detail column of the split view, with hidden chrome. Its root page asks the player to choose a game. |
 | [NavBar](../reference/nodes/NavBar.card.md) | The match title bar, with Back to Games and trailing match commands. |
 | [Composition](../reference/nodes/Composition.card.md) and [Region](../reference/nodes/Region.card.md) | The top bar. The wordmark is the leading region. The Sparks balance, the 2D and 3D mode switch and the menu button are the trailing region. |
-| [Screen](../reference/nodes/Screen.card.md) | The safe-area page for Games, Settings, Leaderboard, Profile and Achievements. |
+| [Screen](../reference/nodes/Screen.card.md) | The safe-area page for Games, Leaderboard, Profile and Achievements. |
 | [ErrorBoundary](../reference/nodes/ErrorBoundary.card.md) | Each page has a boundary. A failed page shows a failure view with Retry. |
 | [Sheet](../reference/nodes/Sheet.card.md) | `placement = "side"` on the right edge holds the navigation menu. |
 
@@ -70,9 +71,10 @@ header, Friends, How to play and the 3D room views.
 | Control | Use in Word Amigos |
 | --- | --- |
 | [ScrollView](../reference/nodes/ScrollView.card.md) | The games home and its list of matches. |
+| [Skeleton](../reference/nodes/Skeleton.card.md) | Placeholder rows while the games list loads. |
 | [PageView](../reference/nodes/PageView.card.md) | The home spotlight: word of the day, Lucky Tile, weekly quest, tip of the day and achievements. It advances automatically, except when the player reduces motion. A second PageView shows the three How to play pages. |
-| [RadialMenu](../reference/nodes/RadialMenu.card.md) | The new-game button opens four choices: Computer, Pass and play, Friend and Online. The menu anchors to the bottom-right button. |
-| [Path](../reference/nodes/Path.card.md) | `Facet.pathShapes.needle` draws the strokes of the new-game button glyph. Other paths draw the navigation glyphs. |
+| [RadialMenu](../reference/nodes/RadialMenu.card.md) | The new-game button opens four choices: AmigoBot, Pass and play, Friend and Online. Online is disabled until online play is available. The menu anchors to the bottom-right button. |
+| [Path](../reference/nodes/Path.card.md) | `Facet.pathShapes.needle` draws the strokes of the new-game button glyph. Other paths draw the navigation glyphs, the spotlight glyphs and the Sparks mark. |
 | [StatusIndicator](../reference/nodes/StatusIndicator.card.md) | Shows if it is your turn or the opponent's turn in each match row. |
 | [Badge](../reference/nodes/Badge.card.md) | The turn label in each match row and the count of matches in each section. |
 | [Label](../reference/nodes/Label.card.md) and [Travel](../reference/nodes/Travel.card.md) | The Sparks balance on the home page. Earned Sparks fly to it. |
@@ -90,7 +92,7 @@ header, Friends, How to play and the 3D room views.
 | [draggable and dropTarget](../reference/nodes/draggable-and-dropTarget.md) | A placed tile can be dragged back. Each board square is a drop target that accepts or refuses a tile. The rack is a drop target for returned tiles. |
 | [Travel](../reference/nodes/Travel.card.md) | Tiles fly on an arc between the rack and the board, refill from the bag and return on recall. Word points fly to the score. Sparks fly to the balance. |
 | [commandScope](../reference/nodes/Focus-and-command-scopes.md) | With a keyboard, a letter key puts a matching rack tile on the focused square. Backspace returns the tile. |
-| [Menu](../reference/nodes/Menu.card.md) | A long press, secondary click, keyboard or gamepad on a played square opens a menu to define its words. The More menu holds the match powers. Both menus open as a sheet in the compact size class. |
+| [Menu](../reference/nodes/Menu.card.md) | A long press, secondary click, keyboard or gamepad on a played square opens a menu to define its words. The More menu holds the match history, the tile bag, the match powers and Resign. On compact screens both menus open as a sheet. |
 | [Path](../reference/nodes/Path.card.md) | An outline and a shadow around the tiles of each played word. |
 | [VirtualGrid](../reference/nodes/VirtualGrid.card.md) | The letters left in the tile bag, the tiles to swap and the letter choice for a blank tile. |
 | [Avatar](../reference/nodes/Avatar.card.md) and [Badge](../reference/nodes/Badge.card.md) | The two players, the turn mark and the Sparks count in the match header. |
@@ -119,7 +121,7 @@ header, Friends, How to play and the 3D room views.
 
 | Control | Use in Word Amigos |
 | --- | --- |
-| [ProgressView](../reference/nodes/ProgressView.card.md) | Rings for the win rate and for wins, draws and losses. Bars for the weekly quest and for each achievement. |
+| [ProgressView](../reference/nodes/ProgressView.card.md) | A ring for the win rate. Bars for wins, draws and losses, for the weekly quest and for each achievement. |
 | [Toggle](../reference/nodes/Toggle.card.md) | Seasonal themes on the Achievements page. |
 | [Toast](../reference/nodes/Toast.card.md) | "Choice saved" after a player selects a reward style. |
 | [Divider](../reference/nodes/Divider.card.md) | Separates sections of the record and the achievements. |
@@ -131,9 +133,9 @@ header, Friends, How to play and the 3D room views.
 | --- | --- |
 | [TextInput](../reference/nodes/TextInput.card.md) | `presentation = "search"` finds a Roblox username. A trailing Find button submits it. |
 | [Picker](../reference/nodes/Picker.card.md) | A menu picker with a query chooses a friend. A cards picker chooses the game format. In Settings, menu pickers set appearance and text size; the Device appearance option is disabled with a description. The New game sheet picks the word language, the opponent, the difficulty and the table mode. Profile and Leaderboard also pick the word language. |
-| [Toggle](../reference/nodes/Toggle.card.md) | Friend invitations, 3D mode as a button, seasonal themes, sound effects, music, mute, haptics and reduced motion. |
+| [Toggle](../reference/nodes/Toggle.card.md) | Friend invitations, 3D mode, seasonal themes, sound effects, music, mute, haptics and reduced motion. |
 | [DisclosureGroup](../reference/nodes/DisclosureGroup.card.md) | The Appearance and Credits sections of Settings. |
-| [Notice](../reference/nodes/Notice.card.md) | No invitations yet, sent invitations and the match history status. |
+| [Notice](../reference/nodes/Notice.card.md) | No invitations yet, sent invitations, the rematch status and an empty match history. |
 | [VirtualList](../reference/nodes/VirtualList.card.md) | Friend invitations and the turns in the match history. |
 | [AdaptiveStack](../reference/nodes/AdaptiveStack.card.md) | The Decline and Block player actions on an invitation, the Settings actions and the Profile columns. |
 
@@ -141,17 +143,17 @@ header, Friends, How to play and the 3D room views.
 
 | Control | Use in Word Amigos |
 | --- | --- |
-| [Sheet](../reference/nodes/Sheet.card.md) | Word definition, new game, friends, matchmaking, rematch, report player, opponent profile, match history and tile bag. On compact screens the game result, the blank letter choice and the swap also use a sheet. The game result uses the `hug` and `large` detents. |
-| [Dialog](../reference/nodes/Dialog.card.md) | On regular screens the game result, the blank letter choice and the swap use a dialog. In Pass and play, a dialog asks the next player to take the device. |
+| [Sheet](../reference/nodes/Sheet.card.md) | Word definition, new game, friends, matchmaking, rematch, report player, opponent profile, match history, tile bag, Lucky Tile and How to play. On compact or short screens the game result uses a sheet with the `hug` and `large` detents. On short screens the blank letter choice and the swap also use a sheet. |
+| [Dialog](../reference/nodes/Dialog.card.md) | On other screens the game result, the blank letter choice and the swap use a dialog. In Pass and play, a dialog asks the next player to take the device. |
 | [Alert](../reference/nodes/Alert.card.md) | Confirms Pass, Resign and Block player. Offers Retry when the server did not confirm a turn. |
-| [Popover](../reference/nodes/Popover.card.md) | The game panel in the 3D room. |
+| [Popover](../reference/nodes/Popover.card.md) | The game panel in the 3D room. It also shows the game result there. |
 | [Menu](../reference/nodes/Menu.card.md) | The More menu in the 3D room heads-up display (HUD). |
 
 ### Room and 3D surfaces
 
 | Control | Use in Word Amigos |
 | --- | --- |
-| [DiegeticScreen](../reference/nodes/DiegeticScreen.reference.md) | In 3D mode the app layers move onto a tablet surface on a table in the room. The player can still use them. |
+| [DiegeticScreen](../reference/nodes/DiegeticScreen.reference.md) | In 3D mode the app layers move onto a tablet surface on a table in the room. The tablet only shows them; the room HUD takes the input. |
 | [cameraRig](../reference/nodes/cameraRig.reference.md) | The room camera, with home, play and tall play presets and bounds for focus, distance and pitch. |
 | [draggable and dropTarget](../reference/nodes/draggable-and-dropTarget.world.md) | `world` drag on a plane lifts the 3D tiles from the rack to the board. The board cells and the rack are drop targets. |
 | [Grid](../reference/nodes/Grid.card.md) and [Menu](../reference/nodes/Menu.card.md) | The input cells over the 3D board, and the define-word menu on each cell. |
@@ -168,8 +170,8 @@ The room HUD gets its own `Facet.controls` table and StyleSheet for its layer.
 | [focusRing](../reference/nodes/focusRing.md) | One focus ring for the player GUI. |
 | [commandScope](../reference/nodes/Focus-and-command-scopes.md) | Letter and Backspace keys on the board. |
 | [environment](../reference/nodes/environment.md) | `isCompact`, `isShort`, `isWide` and `sizeClass` select the layout. `scaled`, `metricScale` and `thumbTarget` size the controls. `viewportSize` selects the camera framing in the room. |
-| [layoutSize](../reference/nodes/layoutSize.md) | Measures the match header, the dock and the leaderboard week column. |
-| [Adaptive facts](../reference/nodes/Facet-adaptive.md) | `Facet.adaptive.sizeClass` selects the board zoom for wide screens. |
+| [layoutSize](../reference/nodes/layoutSize.md) | Measures the home spotlight, the games list, the match header, the dock and the leaderboard week column. |
+| [Adaptive facts](../reference/nodes/Facet-adaptive.md) | When a placed tile is too small to touch, the board zooms to it. `Facet.adaptive.sizeClass` turns this off on wide screens. |
 
 ### Motion
 
@@ -184,69 +186,70 @@ The room HUD gets its own `Facet.controls` table and StyleSheet for its layer.
 `Facet.Roblox.cleanup` cancels deferred tasks when their owner ends. The
 `translator` option localizes the control text.
 
-
 ## Realms of Artinel
 
-[Realms of Artinel](https://www.roblox.com/share?code=59f659534e7a01429cad08b7f2c75bb8&type=ExperienceDetails) is an online role-playing game for Roblox. Its whole
-client interface uses Facet: the heads-up display (HUD), the game windows,
-character creation, dialogue and the markers over the world. The game supports
-phone, tablet, desktop and console, and switches the HUD for touch and for
-ten-foot viewing.
+[Realms of Artinel](https://www.roblox.com/share?code=59f659534e7a01429cad08b7f2c75bb8&type=ExperienceDetails) is an online role-playing game for Roblox. Its client
+interface uses Facet: the heads-up display (HUD), the game windows, character
+creation, dialogue and the markers over the world. The game supports phone,
+tablet, desktop and console, and switches the HUD for touch and for ten-foot
+viewing.
 
 ### How the screens are built
 
-The interface is a library of 159 Facet designs. Each design declares a
-`_design` table with a typed contract (inputs of kind value, readable or cell,
-and outputs) and an editor root that names the stock control it stands on. For
+The interface is a library of 154 Facet designs. Each design declares a
+`_design` table with a typed contract: inputs of kind value, readable or cell,
+and outputs. Some designs also name the stock control at their editor root. For
 example, the shared meter design stands on ProgressView and the window design
-stands on Sheet. A design catalog and a design library register the designs
-and the game design kinds, built with the `Facet.design()` kit. Each design has
-sample data and a build check, so a screen renders from samples in tests and
-from live game state in play. HUD bindings connect the game state to the HUD
-designs. An in-game design editor and a live design tool, which runs its own
-`Facet.app`, render the designs during development.
+stands on Sheet. A design catalog and a design library register the designs and
+the game design kinds, built with the `Facet.design()` kit. Each design has
+sample data, so a screen renders from samples in tests and from live game state
+in play. HUD bindings connect the game state to the HUD designs.
 
 The game names its windows, tabs and meters as designs over the stock
 controls, and keeps the game look in the theme:
 
 - The window design calls a game control, `UI.WindowSheet`, that wraps
   `UI.Sheet` with named detent plans for windows, trainers, the compendium and
-  crafting.
-- A game control wraps `UI.TabView` and adds the TabOverflow design, which
-  draws a fade over the overflowing tabs. The character sheet and the
-  compendium use `UI.TabView` directly.
-- The shared meter design returns `UI.ProgressView`. The HUD meter design
-  returns `UI.VitalsBar`, a game control that wraps a ProgressView track.
+  crafting. Dialogue, the book reader and the talent panel use `UI.Sheet`
+  directly.
+- Two game controls wrap `UI.TabView` for the character sheet and the
+  compendium. Each adds the TabOverflow design, which draws a fade over the
+  overflowing tabs.
+- The shared meter design returns `UI.ProgressView`. The HUD meter design puts
+  a ProgressView track in `UI.VitalsBar`, a game control that paints the meter
+  frame.
 
 ### App shell and theming
 
 | Mechanism | Use in Realms of Artinel |
 | --- | --- |
-| [Facet.app](../reference/nodes/Mounting.Facet.app.md) | One app mounts the client interface in one ScreenGui with `CoreUISafeInsets`. It sets `suspendGameplay`, a reactive theme, `motionLevel` and the `preferredTextSize` environment fact. Most screens call `Facet.controls(runtime)` with no options and inherit the app controls through `UI.provide`; some read the app controls directly. |
-| [Theme definition](../reference/nodes/Themes.definition.md) | `Facet.themes.define` extends `Facet.themes.neutralPackage` with the game colors, typography, metrics, motion, focus chrome and StyleSheet rules. Each realm has its own theme on that base. The player's allegiance selects the realm theme. |
-| [Theme resolution](../reference/nodes/Themes.resolution.md) | `Facet.themes.forResolution` adapts the selected realm theme to the viewport size. |
-| [StyleSheet](../reference/nodes/Themes.stylesheet.md) | The front-door scene, the war zone and each character window surface (wares, talents, the spellbook bar, quest entries and trainers) get their own themed controls and StyleSheet. The window surfaces adapt their theme with `forResolution`. The theme also adds game style rules, such as the tab fade, that `Facet.tag` applies. |
+| [Facet.app](../reference/nodes/Mounting.Facet.app.md) | One app mounts the client interface in one ScreenGui with `CoreUISafeInsets`. It sets `suspendGameplay`, a reactive theme, `motionLevel` and the `preferredTextSize` environment fact. Its toast host shows one toast at a time. Most screens call `Facet.controls(runtime)` with no options and inherit the app controls through `UI.provide`. |
+| [Theme definition](../reference/nodes/Themes.definition.md) | `Facet.themes.define` extends `Facet.themes.neutralPackage` with the game colors, typography, metrics, motion, focus chrome and StyleSheet rules. Each realm has its own theme on that base. The player's allegiance selects the realm theme. Character creation previews a realm theme while the player chooses a realm. |
+| [Theme resolution](../reference/nodes/Themes.resolution.md) | `Facet.themes.forResolution` adapts the selected realm theme to the viewport size, for the app and for the character windows such as wares and trainers. |
+| [StyleSheet](../reference/nodes/Themes.stylesheet.md) | The front-door scene gets its own themed controls and StyleSheet. The theme also adds game style rules, such as the tab fade, that `Facet.tag` applies. |
 
 ### Player-facing surfaces
 
 | Surface | Facet controls |
 | --- | --- |
-| Battle HUD | Unit frames, the action bar, the cast bar, the minimap and the quest tracker are HUD designs. [ProgressView](../reference/nodes/ProgressView.card.md) draws the health and resource meters, the cast bar, the experience bar and the party rows. [Composition](../reference/nodes/Composition.card.md) and [Region](../reference/nodes/Region.card.md) lay out the HUD lanes. [Button](../reference/nodes/Button.card.md) draws the action bar slots and the touch combat actions. |
-| Game windows | The compendium, the character sheet, shops and trainers open in the window design over [Sheet](../reference/nodes/Sheet.card.md), with [TabView](../reference/nodes/TabView.card.md) pages. [AdaptiveStack](../reference/nodes/AdaptiveStack.card.md) and [ScrollView](../reference/nodes/ScrollView.card.md) lay out the character sheet, the spellbook and the market, trade, bank, mail and guild lists. |
-| Bag and items | [VirtualGrid](../reference/nodes/VirtualGrid.card.md) holds the bag slots. [AsyncImage](../reference/nodes/AsyncImage.card.md) draws the item icons. The Button `help` option shows the inspection text of equipped items. [Stage](../reference/nodes/Stage.card.md) shows 3D previews of the character, weapons and banners. |
+| Battle HUD | Unit frames, the action bar, the cast bar, the minimap and the quest tracker are HUD designs. [ProgressView](../reference/nodes/ProgressView.card.md) draws the health and resource meters, the cast bar, the experience bar and the party rows. [Button](../reference/nodes/Button.card.md) draws the action bar slots and the touch combat actions. [Path](../reference/nodes/Path.card.md) draws the minimap roads, the map pins and the target mark. |
+| Notices and arrival | [Toast](../reference/nodes/Toast.card.md) shows rewards, loot, level-ups and war news. [Composition](../reference/nodes/Composition.card.md) and [Region](../reference/nodes/Region.card.md) lay out the captions and the realm arrival screen. A [Notice](../reference/nodes/Notice.card.md) shows the gear status on arrival. |
+| Game windows | The compendium, the character sheet, shops, trainers and crafting open in the window design over [Sheet](../reference/nodes/Sheet.card.md), with [TabView](../reference/nodes/TabView.card.md) pages. [AdaptiveStack](../reference/nodes/AdaptiveStack.card.md) and [ScrollView](../reference/nodes/ScrollView.card.md) lay out the character sheet, the spellbook and the market, trade, bank, mail and guild lists. A segmented [Picker](../reference/nodes/Picker.card.md) switches between professions. |
+| Bag and items | [VirtualGrid](../reference/nodes/VirtualGrid.card.md) holds the bag slots. [AsyncImage](../reference/nodes/AsyncImage.card.md) draws the item icons. The Button `help` option shows the inspection text of items, abilities, stats and talents. [Stage](../reference/nodes/Stage.card.md) shows 3D previews of the character, weapons, banners and garments. |
 | Abilities | Players drag abilities from the spellbook to the action bar with [draggable and dropTarget](../reference/nodes/draggable-and-dropTarget.md), and swap or clear slots. |
-| Character creation | [NavigationStack](../reference/nodes/NavigationStack.card.md) and [TabView](../reference/nodes/TabView.card.md) hold the steps. Each step fades in with [sequence](../reference/nodes/Effect-sequences.md) and puts first focus on its controls with [focusSection](../reference/nodes/focusSection.md). |
-| Quests and dialogue | [Badge](../reference/nodes/Badge.card.md) shows objective counts and the tracked mark in the quest journal. Dialogue and the book reader open in a [Sheet](../reference/nodes/Sheet.card.md). Side-docked dialogue shows a Stage portrait of the speaker. |
+| Character creation | [NavigationStack](../reference/nodes/NavigationStack.card.md) holds the front door, and [Screen](../reference/nodes/Screen.card.md) holds the character selection hall. [TabView](../reference/nodes/TabView.card.md) holds the appearance categories. Each step fades in with [sequence](../reference/nodes/Effect-sequences.md) and puts first focus on its controls with [focusSection](../reference/nodes/focusSection.md). |
+| Quests and dialogue | [Badge](../reference/nodes/Badge.card.md) shows objective counts, new quests and the tracked mark in the quest journal. A [DisclosureGroup](../reference/nodes/DisclosureGroup.card.md) collapses the frontier quest panel. Dialogue and the book reader open in a [Sheet](../reference/nodes/Sheet.card.md). [Typewriter](../reference/nodes/Typewriter.card.md) reveals the dialogue text. In the bottom dialogue sheet, a Stage portrait shows the speaker. |
 | Chat | [TextInput](../reference/nodes/TextInput.card.md) is the composer. [scrollTo](../reference/nodes/scrollTo-and-scrollToVisible.md) keeps the log at its last message. A Button `shortcut` with the Slash key opens the chat. |
-| World markers | [worldAnchor](../reference/nodes/worldAnchor.md) places screen markers that follow parts in the world, hide offscreen and respect occlusion. [WorldMarker](../reference/nodes/WorldMarker.card.md) marks a used gathering node. Nameplates and combat labels in BillboardGuis get the app controls through `UI.provide`. |
-| Settings and modal moments | [Toggle](../reference/nodes/Toggle.card.md) sets the accessibility options, such as reduced motion and high contrast. [Dialog](../reference/nodes/Dialog.card.md) shows the death screen and the return to character selection. |
+| World markers | [worldAnchor](../reference/nodes/worldAnchor.md) places the party markers, which follow players in the world, hide offscreen and respect occlusion. [WorldMarker](../reference/nodes/WorldMarker.card.md) marks a used gathering node. Nameplates and combat labels in BillboardGuis get the app controls through `UI.provide`. |
+| Settings and modal moments | [Toggle](../reference/nodes/Toggle.card.md) sets the options, such as reduced motion, high contrast and sticky target. [Dialog](../reference/nodes/Dialog.card.md) shows the death screen and the return to character selection. |
 
 ### Input, devices and motion
 
 | Mechanism | Use in Realms of Artinel |
 | --- | --- |
 | `Facet.inputPriority.belowControls` | The InputContexts of the game sit below the Facet controls, so a control gets its input first. |
-| [environment](../reference/nodes/environment.environment.md) | `gameplaySuspended` pauses the game while the interface is modal. `interactionClasses.touch` selects the touch HUD, the slot size and the map size. `isTenFoot` enlarges the HUD text on a television. `effectiveInput` selects the input hints. |
+| [environment](../reference/nodes/environment.environment.md) | `gameplaySuspended` pauses the game while the interface is modal. `interactionClasses.touch` selects the touch HUD, the slot size and the map size. `isTenFoot` enlarges the HUD text on a television. `effectiveInput` selects the input hints and the talent and settings layouts. |
+| [layoutSize](../reference/nodes/layoutSize.md) | Fits the talent tree and the tooltips to their room. |
 | [motionLevel](../reference/nodes/Motion.motionLevel.md) | The press scale and the ready pulse play only at the normal motion level. Reduced motion in the game settings sets the level. |
 
 The item tooltip layer uses a Facet Popover, the movement thumbstick uses the

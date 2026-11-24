@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	local spatial = require("../examples/virtual_monitors/spatial")

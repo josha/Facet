@@ -2,7 +2,7 @@
 local Compose = require("../src").Compose
 
 local system = require("@std/system")
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local perf_runner = {}
 

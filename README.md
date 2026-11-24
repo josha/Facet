@@ -101,12 +101,33 @@ of the routes below. After that, take new versions with **Get Latest Package**,
 and leave `AutoUpdate` off for a production game.
 [`package/README.md`](package/README.md) has the full policy.
 
+### Lute package
+
+Facet is a `lute pkg` package and needs Lute `1.0.1-nightly.20261120` or newer.
+Pin an exact commit in your `pkg.luau`:
+
+```luau
+return {
+	package = {
+		dependencies = {
+			facet = { sourceKind = "github", source = "https://github.com/josha/Facet", rev = "<commit>" },
+		},
+	},
+}
+```
+
+Run `lute pkg install --vendor`, which writes `pkg.lock.luau` and copies Facet into
+`.lpm/facet@<commit>` (ignore `.lpm/` in git). Alias it in `.config.luau` with
+`facet = "./.lpm/facet@<commit>"`, require `@facet/src`, and map
+`.lpm/facet@<commit>/src` in your Rojo project. Compose ships inside `src/vendor/compose`,
+so the package has no runtime dependencies.
+
 ### Git and Rojo
 
 Clone the repository and map `src/` into your place with
 [Rojo](https://rojo.space/) 7.7.0 or newer. The pinned Compose snapshot is part of
 `src/vendor/compose`; `lute run tools/facet sync compose --check` confirms that it
-matches its lock. A project file needs two things:
+matches the Compose package locked in `pkg.lock.luau`. A project file needs two things:
 
 ```json
 {

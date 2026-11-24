@@ -1,6 +1,6 @@
 --!strict
 
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Workloads = require("../bench/comparison")
 local Parity = require("../bench/comparison/parity")
 local Types = require("../bench/comparison/types")

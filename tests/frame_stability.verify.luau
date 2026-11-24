@@ -1,10 +1,10 @@
 --!strict
-local FixtureRoblox = require("../tools/vendor/verify/src/roblox")
-local Verify = require("../tools/vendor/verify/src/core")
+local FixtureRoblox = require("@verify/src/roblox")
+local Verify = require("@verify/src/core")
 local stability = require("../tools/studio/live/frame_stability")
 local clipping = require("../tools/studio/live/text_clipping")
 local engineLib = require("./lib/native_engine")
-local Lute = require("../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 
 local function inspector(engine: engineLib.Engine): typeof(clipping)
 	local globals: { [string]: unknown } = { Vector2 = engine.types.Vector2, Enum = engine.types.Enum }

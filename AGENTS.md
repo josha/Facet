@@ -39,7 +39,8 @@ chapters as reference, not as a second required reading path.
      `skills/compose/references/api.md`). Use what it
      already provides. When Compose is the right home for a missing general
      mechanism, add it upstream in [Compose](https://github.com/voidmeld/compose)
-     with a pull request, then re-pin with `lute run tools/facet sync compose`.
+     with a pull request, then move the `compose` revision in `pkg.luau`, run
+     `lute pkg install --vendor` and `lute run tools/facet sync compose`.
   3. Only when neither fits, write custom code in Facet.
   Name the Roblox and Compose APIs you checked and why they did not fit in the
   commit message or receipt.
@@ -57,20 +58,25 @@ chapters as reference, not as a second required reading path.
   legally required notices.
 - Current examples, types, snippets and scaffolding must use the current API.
   There are no deprecated aliases and no compatibility runtime.
-- `src/vendor/compose` is a generated, read-only snapshot. Do not edit it.
-  Change Compose upstream and re-pin instead.
-  `lute run tools/facet sync compose --check` verifies the pin and the file hashes.
+- `src/vendor/compose` is a generated, read-only copy of the Compose package
+  that `lute pkg install --vendor` installs from `pkg.lock.luau`. Roblox
+  require-by-string resolves only relative paths, `@self` and `@game`, so the
+  shipped library keeps this relative copy. Do not edit it. Change Compose
+  upstream and move the pin instead.
+  `lute run tools/facet sync compose --check` compares the copy byte for byte
+  with the installed package.
 - `Facet.VERSION` is set only in `src/init.luau`. Package publication is a
   separate maintainer release operation. A local build does not publish.
 
 ## Rules for evidence
 
 - Default to [Verify](https://github.com/voidmeld/verify) when adding or changing
-  tests. Use its public APIs from `tools/vendor/verify` for registration,
+  tests. Use its public APIs through the `@verify` alias for registration,
   assertions, fixtures, execution and reports. Do not add a Facet test harness.
 - Before writing custom testing infrastructure, check Verify's public API and
   consumer skill. If a capability is missing, add it upstream in Verify and
-  re-pin with `lute run tools/facet sync verify` before using it here. Keep only
+  move the `verify` revision in `pkg.luau` and the `.luaurc` alias before using
+  it here. Keep only
   Facet-specific cases and integration policy in this repository.
 - Declare each producer in `tools/facet/producers.json`. The Verify gate in
   `tools/facet/lib/gate.luau` runs it. Do not add a Facet runner, receipt or verdict.
@@ -78,16 +84,17 @@ chapters as reference, not as a second required reading path.
   sources. Each spec file on disk must appear exactly once. The `plan` producer
   checks this rule. There is no committed case list. The full gate uses the
   committed plan. A focused run is not full evidence.
-- `tools/vendor/verify` is a generated, read-only test dependency. Change shared
-  testing mechanisms upstream in `voidmeld/verify`, then re-pin with
-  `lute run tools/facet sync verify`. Keep Verify out of the consumer model.
+- Verify is a development dependency in `pkg.luau`. `lute pkg install --vendor`
+  installs it into the untracked `.lpm/`, and `.luaurc` aliases it as `@verify`.
+  Change shared testing mechanisms upstream in `voidmeld/verify`, then move the
+  pin. Keep Verify out of the consumer model.
 
 - Verify behavior with meaningful tests. Geometry and input also need live
   Studio evidence. A native engine double does not prove engine behavior.
 - Before you propose a completed change, run `lute run tools/facet gate full`,
   `lute run tools/facet bench`, `lute run tools/facet package build` and `lute run tools/facet package status`.
-- Before the full gate, run `rokit install --no-trust-check` and
-  `lute run tools/facet types prepare`. Fix missing tools, network access or
+- Before the full gate, run `rokit install --no-trust-check`,
+  `lute pkg install --vendor` and `lute run tools/facet types prepare`. Fix missing tools, network access or
   typedef write access before running the gate. Do not leave these checks to CI.
 - Report baseline failures separately from regressions. Do not call a targeted
   run full evidence.

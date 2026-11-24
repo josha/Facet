@@ -4,9 +4,9 @@ local fs = require("@std/fs")
 local process = require("@std/process")
 local task = require("@std/task")
 
-local AgentEval = require("../../../tools/vendor/verify/src/agent-eval")
-local Core = require("../../../tools/vendor/verify/src/core")
-local Lute = require("../../../tools/vendor/verify/src/lute")
+local AgentEval = require("@verify/src/agent-eval")
+local Core = require("@verify/src/core")
+local Lute = require("@verify/src/lute")
 
 local Devices = require("./devices")
 local Actions = require("./actions")

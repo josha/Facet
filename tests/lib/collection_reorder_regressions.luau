@@ -1,6 +1,6 @@
 --!strict
-local Bdd = require("../../tools/vendor/verify/src/bdd")
-local VerifyRoblox = require("../../tools/vendor/verify/src/roblox")
+local Bdd = require("@verify/src/bdd")
+local VerifyRoblox = require("@verify/src/roblox")
 local Compose = require("../../src/vendor/compose/core")
 local FixtureCollectionProps = require("../../src/ui/collection_props")
 local FixtureEnvironmentTypes = require("../../src/ui/environment_types")

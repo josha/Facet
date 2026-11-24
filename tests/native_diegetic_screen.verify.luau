@@ -1,6 +1,6 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Roblox = require("../tools/vendor/verify/src/roblox")
+local Verify = require("@verify/src/core")
+local Roblox = require("@verify/src/roblox")
 return function(harness: Verify.Harness)
 	local Facet = require("../src")
 	local engines = require("./lib/native_engine")

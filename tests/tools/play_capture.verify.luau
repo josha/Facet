@@ -1,6 +1,6 @@
 --!strict
 
-local Verify = require("../../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Capture = require("../../tools/play/host/capture")
 local QA = require("../../tools/play/host/qa")
 local Devices = require("../../tools/play/host/devices")

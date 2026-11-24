@@ -2,7 +2,7 @@
 
 local fs = require("@std/fs")
 local process = require("@std/process")
-local Media = require("../../vendor/verify/src/codec/image")
+local Media = require("@verify/src/codec/image")
 local Assets = require("../lib/assets")
 local Cli = require("../lib/cli")
 local Hash = require("../lib/hash")

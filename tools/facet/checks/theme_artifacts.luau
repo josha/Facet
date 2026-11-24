@@ -1,11 +1,12 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local stringext = require("@std/stringext")
 local Cli = require("../lib/cli")
 local Files = require("../lib/files")
+local Packages = require("../lib/packages")
 local Json = require("../lib/json")
-local Lute = require("../../vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local Rule = require("../lib/rule")
 local Run = require("../lib/run")
 local Strip = require("../lib/strip")
@@ -26,9 +27,13 @@ type Options = {
 	quiet: boolean?,
 }
 
-local COPIED_TREES = { "src", "tools/vendor/verify" }
+local COPIED_TREES = { "src" }
 local COPIED_FILES = {
 	"rokit.toml",
+	".luaurc",
+	"pkg.lock.luau",
+	"tools/facet/lib/files.luau",
+	"tools/facet/lib/packages.luau",
 	"tests/lib/native_engine.luau",
 	"tests/lib/loader.luau",
 	"tools/engine/theme_artifact_probe.luau",
@@ -193,6 +198,8 @@ local function isolate(context: Rule.Context, work: string)
 	for _, tree in COPIED_TREES do
 		Files.copyTree(context.path(tree), Files.join(work, tree))
 	end
+	local verify = Packages.verify(context.root)
+	Files.copyTree(context.path(verify), Files.join(work, verify))
 	for _, relative in COPIED_FILES do
 		Files.copy(context.path(relative), Files.join(work, relative))
 	end

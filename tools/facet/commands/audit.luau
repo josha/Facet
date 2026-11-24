@@ -1,9 +1,9 @@
 --!strict
-local Verify = require("../../vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 local json = require("@std/json")
 local Cli = require("../lib/cli")
-local Audit = require("../../vendor/verify/src/roblox/ui-audit")
+local Audit = require("@verify/src/roblox/ui-audit")
 local Look = require("../lib/look")
 
 local function designReview()

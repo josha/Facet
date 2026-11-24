@@ -1,6 +1,6 @@
 --!strict
 local process = require("@std/process")
-local Lute = require("../../tools/vendor/verify/src/lute")
+local Lute = require("@verify/src/lute")
 local requireDynamic = (require :: unknown) :: (string) -> unknown
 
 local capabilities = { "local-luau", "lute" }

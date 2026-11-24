@@ -9,11 +9,13 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`2694de7cdf0bbc44c001e1a50f0c2e536e96cd3a`,
-`src/core` and `src/roblox`.
+`fe528148431142c2367af3158984106b67998e99`,
+`src/core`, `src/roblox`, `src/design` and `src/design-editor`.
 
-**Distribution.** `src/vendor/compose` is a generated, read-only snapshot of that
-commit. `UPSTREAM.lock` records the commit and a SHA-256 for every file. There
+**Distribution.** `pkg.lock.luau` pins that commit as a development dependency.
+`src/vendor/compose` is a generated, read-only copy of the package that
+`lute pkg install --vendor` installs, written by `lute run tools/facet sync compose`
+and checked byte for byte by `lute run tools/facet sync compose --check`. There
 are no local patches. `skills/compose` holds the upstream agent skill and API
 reference from the same commit. The complete MIT notice is preserved below and as
 a ModuleScript inside the Roblox model. Compose provides reactive state,
@@ -513,6 +515,7 @@ does not belong in the repository.
 
 The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
-`c0c87c21fce8f9301be391d11e195f28924eb6a3`, under the MIT License.
-Its license is in `tools/vendor/verify/LICENSE`. The generated snapshot is
-checked by `lute run tools/facet sync verify --check`. Verify is not included in the Facet model.
+`35c5590efa9fdb9fc12319a7bc9455a81c2d1970`, under the MIT License. `pkg.lock.luau`
+pins it as a development dependency and `lute pkg install --vendor` installs it
+into `.lpm/`, which is not tracked; its license travels in that package.
+Verify is not included in the Facet model.

@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local function record(value: unknown): { [string]: unknown }
 	assert(type(value) == "table")
 	local result: { [string]: unknown } = {}

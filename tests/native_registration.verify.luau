@@ -1,12 +1,12 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 
 return function(verifyHarness: Verify.Harness)
 	type ComposeRuntime = typeof(require("@repo/tools/typecheck/aliases").ComposeRuntime)
 	local requireDynamic = require :: (any) -> any
 
 	local fs = require("@std/fs")
-	local Lute = require("../tools/vendor/verify/src/lute")
+	local Lute = require("@verify/src/lute")
 	local Facet = require("../src")
 	local engineLib = require("./lib/native_engine")
 	local scaffold = require("../tools/facet/lib/scaffold")

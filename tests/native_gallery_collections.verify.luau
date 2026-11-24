@@ -1,7 +1,7 @@
 --!strict
-local Verify = require("../tools/vendor/verify/src/core")
-local Bdd = require("../tools/vendor/verify/src/bdd")
-local VerifyRoblox = require("../tools/vendor/verify/src/roblox")
+local Verify = require("@verify/src/core")
+local Bdd = require("@verify/src/bdd")
+local VerifyRoblox = require("@verify/src/roblox")
 local ComposeTypes = require("../src/vendor/compose/core")
 
 return function(verifyHarness: Verify.Harness)

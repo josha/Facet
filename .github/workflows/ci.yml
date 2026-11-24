@@ -80,6 +80,11 @@ jobs:
           luau-lsp --version
           stylua --version
 
+      - name: Install the lute pkg dependencies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: lute pkg install --vendor --locked
+
       - name: Prepare all local gate dependencies
         run: lute run tools/facet types prepare
 
@@ -181,6 +186,11 @@ jobs:
         run: |
           rokit authenticate github --token "$GITHUB_TOKEN"
           rokit install --no-trust-check
+
+      - name: Install the lute pkg dependencies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: lute pkg install --vendor --locked
 
       - name: Collect the paired measurements
         uses: actions/download-artifact@v4
@@ -284,25 +294,24 @@ jobs:
           done
 
       - name: Use the same measurement code
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           base="$(cd "$RUNNER_TEMP/base" && pwd)"
           evidence="$GITHUB_WORKSPACE/artifacts/perf-paired-fixtures"
           mkdir -p "$evidence"
           git -C "$base" diff --exit-code HEAD -- src
-          cp "$base/tools/vendor/verify/UPSTREAM.lock" "$evidence/base-verify.lock"
-          cp tools/vendor/verify/UPSTREAM.lock "$evidence/shared-verify.lock"
-          verify_commit="$(sed -n 's/^  "commit": "\([0-9a-f]*\)",$/\1/p' tools/vendor/verify/UPSTREAM.lock)"
-          [[ "$verify_commit" =~ ^[0-9a-f]{40}$ ]]
-          lute run tools/facet sync verify --check
-          if ! cmp -s tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"; then
-            (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --bump "$verify_commit")
+          if [ -f "$base/pkg.lock.luau" ]; then
+            cp "$base/pkg.lock.luau" "$evidence/base-pkg.lock"
           fi
-          cmp tools/vendor/verify/UPSTREAM.lock "$base/tools/vendor/verify/UPSTREAM.lock"
-          (cd "$base" && lute run "$GITHUB_WORKSPACE/tools/facet" sync verify --check --content)
+          cp pkg.lock.luau "$evidence/shared-pkg.lock"
+          lute pkg install --vendor --locked
+          cp pkg.luau pkg.lock.luau .luaurc rokit.toml "$base/"
+          (cd "$base" && lute pkg install --vendor --locked)
           measurement=(bench tests examples tools)
-          if ! cmp -s src/vendor/compose/UPSTREAM.lock "$base/src/vendor/compose/UPSTREAM.lock"; then
+          if ! diff -rq -x README.md -x UPSTREAM.lock src/vendor/compose "$base/src/vendor/compose" > /dev/null; then
             measurement=(bench/paired_scene.luau bench/paired_workload.luau tests examples tools)
-            echo "The Compose pin differs from the base. Each arm runs its own bench scenarios against its own Compose." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "The Compose copy differs from the base. Each arm runs its own bench scenarios against its own Compose." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
           git archive HEAD "${measurement[@]}" > "$RUNNER_TEMP/measurement.tar"
           tar -xf - -C "$base" < "$RUNNER_TEMP/measurement.tar"
@@ -334,7 +343,7 @@ jobs:
         if: steps.paired-inputs.outputs.run == 'true'
         run: |
           base_commit="$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)"
-          if git diff --quiet "$base_commit" HEAD -- bench/paired_scene.luau bench/paired_workload.luau tools/facet/lib/perf_retained.luau tools/engine/retained_memory_proof.luau tools/vendor/verify/src/lute/memory.luau; then
+          if git diff --quiet "$base_commit" HEAD -- bench/paired_scene.luau bench/paired_workload.luau tools/facet/lib/perf_retained.luau tools/engine/retained_memory_proof.luau pkg.lock.luau; then
             echo "The retained heap collector, scene adapter and comparison policy are unchanged."
             exit 0
           fi

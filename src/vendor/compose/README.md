@@ -1,42 +1,28 @@
 # Compose dependency
 
-This directory is a generated, read-only snapshot of upstream Compose.
-`UPSTREAM.lock` is the authority: it records the repository, the exact Git
-commit, and a SHA-256 for every file. `patches` is empty. Do not edit these
-files. `skills/compose/` holds the upstream agent skill and API reference from
-the same commit, under the same lock.
+This directory is a generated, read-only copy of upstream Compose.
+`pkg.luau` pins Compose as a development dependency and `pkg.lock.luau` locks
+the exact commit. `lute pkg install --vendor` installs it into `.lpm/`, and
+`lute run tools/facet sync compose` copies its `src/core`, `src/roblox`,
+`src/design`, `src/design-editor` and `LICENSE` here and its agent skill into
+`skills/compose/`. There are no local patches. Do not edit these files.
+
+Roblox require-by-string resolves only relative paths, `@self` and `@game`, so
+the shipped library and every consumer that copies Facet need this relative copy.
 
 ```sh
-lute run tools/facet sync compose --check   # fail if any file differs from the lock
-lute run tools/facet sync compose           # restore the snapshot from the pin
+lute pkg install --vendor
+lute run tools/facet sync compose --check   # fail if any file differs from the installed package
+lute run tools/facet sync compose           # copy the installed package
 ```
 
-A fresh clone builds and tests without network access. The verify gate runs the
-check, so a local change to the snapshot cannot land.
+The vendor check runs `--check`, so a local change to the copy cannot land.
 
 ## Changing the pin
 
-```sh
-lute run tools/facet sync compose --bump <full 40-character commit>
-```
+Move the `compose` revision in `pkg.luau`, run `lute pkg install --vendor` and
+`lute run tools/facet sync compose`, set `COMPOSE_COMMIT` in `src/init.luau` and
+name the commit in `THIRD_PARTY_NOTICES.md`. Then run `lute run tools/facet gate full`.
 
-`--bump` changes the commit name, both hash inventories and the files together,
-from one archive of that commit. Then update the provenance receipt and run `lute run tools/facet gate full`.
-
-Do not edit `commit` by hand. `--check` compares the files with the lock's
-inventory; it cannot ask, offline, whether that inventory came from the commit
-the lock names. A hand-edited `commit` therefore still verifies, against the old
-files.
-
-To read from a local checkout instead of the network, add
-`--source /path/to/compose` to either command.
-
-## Current upstream provenance
-
-The snapshot source and integrity inventories are recorded in `UPSTREAM.lock`.
-The source files are copied from one archive. Relative links in copied agent
-guides that point outside the guide directory are changed to links to that
-commit on GitHub. The guide inventory records the relocated bytes.
-
-The tracked snapshot verifies without access to upstream Git history. A force
-push or deleted upstream commit does not affect a fresh Facet checkout.
+Relative links in the copied skill that point outside the skill directory are
+changed to links to the locked commit on GitHub.

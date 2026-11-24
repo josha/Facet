@@ -1,8 +1,8 @@
 --!strict
 
 local process = require("@std/process")
-local Verify = require("../vendor/verify/src/core")
-local Lute = require("../vendor/verify/src/lute")
+local Verify = require("@verify/src/core")
+local Lute = require("@verify/src/lute")
 local Paired = require("../facet/lib/perf_paired")
 local Retained = require("../facet/lib/perf_retained")
 local Json = require("../facet/lib/json")

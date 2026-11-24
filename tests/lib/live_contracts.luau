@@ -1,5 +1,5 @@
 --!strict
-local Verify = require("../../tools/vendor/verify/src/core")
+local Verify = require("@verify/src/core")
 local Double = require("./live_double")
 
 local SUITES: { { id: string, cases: { string }, controller: boolean?, touch: boolean? } } = {
