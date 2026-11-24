@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`fe528148431142c2367af3158984106b67998e99`,
+`206648c0becb496919ca7af3855fc775bb96d900`,
 `src/core`, `src/roblox`, `src/design` and `src/design-editor`.
 
 **Distribution.** `pkg.lock.luau` pins that commit as a development dependency.
@@ -515,7 +515,7 @@ does not belong in the repository.
 
 The development tree includes Verify from
 [voidmeld/verify](https://github.com/voidmeld/verify), commit
-`35c5590efa9fdb9fc12319a7bc9455a81c2d1970`, under the MIT License. `pkg.lock.luau`
+`2e8cedeb260dd61d29b6f4be51a5fc250254e80b`, under the MIT License. `pkg.lock.luau`
 pins it as a development dependency and `lute pkg install --vendor` installs it
 into `.lpm/`, which is not tracked; its license travels in that package.
 Verify is not included in the Facet model.

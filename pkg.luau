@@ -28,12 +28,12 @@ return {
 			compose = {
 				sourceKind = "github",
 				source = "https://github.com/voidmeld/compose",
-				rev = "fe528148431142c2367af3158984106b67998e99",
+				rev = "206648c0becb496919ca7af3855fc775bb96d900",
 			},
 			verify = {
 				sourceKind = "github",
 				source = "https://github.com/voidmeld/verify",
-				rev = "35c5590efa9fdb9fc12319a7bc9455a81c2d1970",
+				rev = "2e8cedeb260dd61d29b6f4be51a5fc250254e80b",
 			},
 		},
 	},

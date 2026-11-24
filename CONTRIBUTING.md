@@ -88,7 +88,7 @@ Verify is a development dependency pinned in `pkg.luau` and `pkg.lock.luau`.
 aliases it as `@verify`. It is not part of the Facet model. Change shared testing
 mechanisms in `voidmeld/verify`, then move the revision in `pkg.luau` and the
 alias. The consumer guide is
-[Verify's skill](https://github.com/voidmeld/verify/blob/35c5590efa9fdb9fc12319a7bc9455a81c2d1970/.agents/skills/verify/SKILL.md).
+[Verify's skill](https://github.com/voidmeld/verify/blob/2e8cedeb260dd61d29b6f4be51a5fc250254e80b/.agents/skills/verify/SKILL.md).
 [Verify integration](tools/verify-adoption.md) lists what Verify owns and what
 Facet keeps. [Verify UI fixtures](tools/verify-ui-adoption.md) describes the
 engine fixture boundary.
