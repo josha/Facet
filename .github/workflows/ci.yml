@@ -309,7 +309,7 @@ jobs:
           cp pkg.luau pkg.lock.luau .luaurc rokit.toml "$base/"
           (cd "$base" && lute pkg install --vendor --locked)
           measurement=(bench tests examples tools)
-          if ! diff -rq src/vendor/compose "$base/src/vendor/compose" > /dev/null; then
+          if ! diff -rq -x README.md -x UPSTREAM.lock src/vendor/compose "$base/src/vendor/compose" > /dev/null; then
             measurement=(bench/paired_scene.luau bench/paired_workload.luau tests examples tools)
             echo "The Compose copy differs from the base. Each arm runs its own bench scenarios against its own Compose." | tee -a "$GITHUB_STEP_SUMMARY"
           fi

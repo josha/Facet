@@ -558,6 +558,7 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 	end
 	local execute = capture or Run.capture
 	local environment = toolEnvironment(rokitDirectories(), false)
+	environment.FACET_PAIRED_ARM = "1"
 	local benchCommand = benchmarkCommand(shard, Cli.flag(invocation, "bench-cases"))
 	local log = Files.join(out, "log.txt")
 	local rows = Files.join(out, "scenes.jsonl")
