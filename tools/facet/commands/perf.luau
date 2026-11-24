@@ -35,8 +35,8 @@ subcommands:
                                 capture a built game in owned Studio sessions, without an agent
   profile SCENE [TRACE.json]    sample the unchanged scene with the Lute profiler
   prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
-  prove-retained-memory [--out DIR]
-                                compare unchanged and retained-allocation controls for every paired scene
+  prove-retained-memory [--out DIR] [--shard K/N]
+                                compare unchanged and retained-allocation controls for every paired scene, or one shard's scenes
   affected [--retained] BASE    run paired performance unless only documents changed; exit 3 when unchanged
                                 --retained selects the retained heap proof from the files its entry points require
   scenes [--themes]             check that each production (or theme-swap) scene did its work
@@ -511,6 +511,15 @@ local function pairedReport(invocation: Cli.Invocation, canContinue: boolean?): 
 	return 0
 end
 
+local function shardOf(value: string): (number?, number?)
+	local position, total = string.match(value, "^(%d+)/(%d+)$")
+	local index, count = tonumber(position), tonumber(total)
+	if index == nil or count == nil or index < 1 or index > count then
+		return nil, nil
+	end
+	return index, count
+end
+
 local pairedRun: (invocation: Cli.Invocation, capture: typeof(Run.capture)?) -> number
 
 function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): number
@@ -530,9 +539,8 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 	local shardIndex: number? = nil
 	local shardCount: number? = nil
 	if shard ~= nil then
-		local position, total = string.match(shard, "^(%d+)/(%d+)$")
-		shardIndex, shardCount = tonumber(position), tonumber(total)
-		if shardIndex == nil or shardCount == nil or shardIndex < 1 or shardIndex > shardCount then
+		shardIndex, shardCount = shardOf(shard)
+		if shardIndex == nil or shardCount == nil then
 			print("paired run: --shard needs index/count with 1 <= index <= count")
 			return 2
 		end
@@ -540,13 +548,7 @@ function pairedRun(invocation: Cli.Invocation, capture: typeof(Run.capture)?): n
 			print("paired run: --shard chooses the scenes and the bench; omit --scenes and --skip-bench")
 			return 2
 		end
-		local share: { string } = {}
-		for index, scene in Paired.SCENES do
-			if (index - 1) % shardCount == shardIndex - 1 then
-				table.insert(share, scene)
-			end
-		end
-		invocation.flags.scenes = table.concat(share, ",")
+		invocation.flags.scenes = table.concat(Paired.shard(shardIndex :: number, shardCount :: number), ",")
 	end
 	local selected = Cli.flag(invocation, "scenes")
 	local sceneList = scenesOf(selected)
@@ -1210,8 +1212,9 @@ local function shardedConfirmationFixture(test: Verify.Context): ()
 			confirmed[scene] = true
 		end
 	end
-	for index, scene in Paired.SCENES do
-		Verify.expect(`{scene} {confirmed[scene] == true}`):toBe(`{scene} {(index - 1) % 3 == 0}`)
+	local share = Paired.shard(1, 3)
+	for _, scene in Paired.SCENES do
+		Verify.expect(`{scene} {confirmed[scene] == true}`):toBe(`{scene} {table.find(share, scene) ~= nil}`)
 	end
 	Verify.expect(counts.base):toBe(6)
 	Verify.expect(counts.cand):toBe(6)
@@ -1490,6 +1493,35 @@ end
 REGISTRATIONS.paired = function(harness: Verify.Harness, prefix: string): ()
 	local idPrefix = prefix
 	prefix ..= "paired::"
+	harness:case(prefix .. "shards cover every scene once and balance the measured scene seconds", function(test)
+		local total, heaviest = 0, 0
+		for _, scene in Paired.SCENES do
+			local seconds = Paired.SCENE_SECONDS[scene]
+			test:expect(type(seconds) == "number" and seconds > 0):toBeTrueWith(scene)
+			total += seconds or 0
+			heaviest = math.max(heaviest, seconds or 0)
+		end
+		for count = 1, 10 do
+			local seen: { [string]: number } = {}
+			local loads: { number } = {}
+			for index = 1, count do
+				local share = Paired.shard(index, count)
+				test:expect(#share > 0):toBeTrueWith(`{index}/{count} is empty`)
+				test:expect(Paired.shard(index, count)):toEqual(share)
+				loads[index] = 0
+				for _, scene in share do
+					seen[scene] = (seen[scene] or 0) + 1
+					loads[index] += Paired.SCENE_SECONDS[scene]
+				end
+			end
+			for _, scene in Paired.SCENES do
+				test:expect(seen[scene] == 1):toBeTrueWith(`{scene} in {count} shards`)
+			end
+			local slowest = math.max(table.unpack(loads))
+			test:expect(slowest <= math.max(heaviest, total / count) * 1.25)
+				:toBeTrueWith(`{count} shards: slowest {slowest}s of {total}s`)
+		end
+	end)
 	for _, mode in { "memory", "memory-continue", "memory-invalid" } do
 		harness:case(prefix .. "retained memory checkpoint " .. mode, function(test)
 			pairedRunFixture(test, mode)
@@ -2302,12 +2334,22 @@ local function run(invocation: Cli.Invocation): number
 	if subcommand == "affected" then
 		return Inputs.run(invocation.positional[2], Cli.switch(invocation, "retained"))
 	elseif subcommand == "prove-retained-memory" then
-		return Run.inherit({
+		local argv = {
 			Run.lute(),
 			"run",
 			"tools/engine/retained_memory_proof.luau",
 			Cli.flag(invocation, "out") or "artifacts/perf-paired-retained-calibration",
-		}).code
+		}
+		local shard = Cli.flag(invocation, "shard")
+		if shard ~= nil then
+			local index, count = shardOf(shard)
+			if index == nil or count == nil then
+				print("prove-retained-memory: --shard needs index/count with 1 <= index <= count")
+				return 2
+			end
+			table.insert(argv, table.concat(Paired.shard(index, count), ","))
+		end
+		return Run.inherit(argv).code
 	end
 	if
 		subcommand == "run"

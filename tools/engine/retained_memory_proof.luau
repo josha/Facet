@@ -10,9 +10,13 @@ local Files = require("../facet/lib/files")
 local Run = require("../facet/lib/run")
 
 local out = process.args[2] or "artifacts/perf-paired-retained-calibration"
+local scenes = if process.args[3] ~= nil then string.split(process.args[3], ",") else Paired.SCENES
+for _, scene in scenes do
+	assert(table.find(Paired.SCENES, scene), `unknown paired scene {scene}`)
+end
 Files.makeDirectory(out)
 local harness = Verify.createHarness({ source = "retained-memory-calibration", now = os.clock })
-for _, scene in Paired.SCENES do
+for _, scene in scenes do
 	harness:case(scene, function(context)
 		local reference: { Retained.Reading } = {}
 		local unchanged: { Retained.Reading } = {}
@@ -78,6 +82,6 @@ local report =
 	harness:run({ executor = "lute", environment = { proof = "unchanged-leaking-and-holding-8MiB", rounds = "3" } })
 print(Verify.format(report))
 Lute.gate.writeReport(Files.join(out, "report.json"), `retained-memory-{os.time()}`, report)
-if report.total ~= #Paired.SCENES or report.passed ~= report.total then
+if #scenes == 0 or report.total ~= #scenes or report.passed ~= report.total then
 	process.exit(1)
 end

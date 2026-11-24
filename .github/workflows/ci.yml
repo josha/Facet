@@ -236,7 +236,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
         sample: ${{ inputs.diagnostic && fromJSON('[1,2,3]') || fromJSON('[1]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -349,7 +349,7 @@ jobs:
           elif [ "$status" -ne 0 ]; then
             exit "$status"
           fi
-          lute run tools/facet perf prove-retained-memory --out artifacts/perf-paired-retained-calibration
+          lute run tools/facet perf prove-retained-memory --out artifacts/perf-paired-retained-calibration --shard "${{ matrix.shard }}/8"
 
       - name: Compare the candidate with its base
         if: steps.paired-inputs.outputs.run == 'true'
@@ -367,7 +367,7 @@ jobs:
           output=artifacts/perf-paired
           for attempt in 1 2; do
             status=0
-            lute run tools/facet perf paired run --out "$output" --rounds 6 --shard "${{ matrix.shard }}/4" --gate --summary "$output-summary.md" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE" > "$output-report.txt" 2>&1 || status=$?
+            lute run tools/facet perf paired run --out "$output" --rounds 6 --shard "${{ matrix.shard }}/8" --gate --summary "$output-summary.md" base="$RUNNER_TEMP/base" pr="$GITHUB_WORKSPACE" > "$output-report.txt" 2>&1 || status=$?
             cat "$output-report.txt"
             if [ -f "$output-summary.md" ]; then
               cat "$output-summary.md" >> "$GITHUB_STEP_SUMMARY"
