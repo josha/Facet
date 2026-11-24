@@ -23,6 +23,7 @@ export type Paint<V> = {
 }
 
 local PATH_THICKNESS_LIMIT = 100
+local STROKE_SEAM_OVERLAP = 1
 local REVEAL_FRAMES = 10
 
 return function<V>(
@@ -715,7 +716,8 @@ return function<V>(
 							placed:set({ x = bounds.x, y = bounds.y })
 							shape.Size = D2.fromOffset(bounds.w, bounds.h)
 							local band = math.max(1, fitted.outer - fitted.inner)
-							local strokes = math.max(1, math.ceil(band / PATH_THICKNESS_LIMIT - 1e-6))
+							local strokes =
+								math.max(1, math.ceil(band / (PATH_THICKNESS_LIMIT - STROKE_SEAM_OVERLAP) - 1e-6))
 							local function strokePoints(part: Radial.Paint): { Path2DControlPoint }
 								local points: { Path2DControlPoint } = {}
 								for _, point in part.points do
@@ -744,11 +746,13 @@ return function<V>(
 								if index > strokes then
 									stroke.Visible = false
 								elseif strokes > 1 then
+									local below = if index > 1 then STROKE_SEAM_OVERLAP / 2 else 0
+									local above = if index < strokes then STROKE_SEAM_OVERLAP / 2 else 0
 									local part = table.clone(painted)
-									part.inner = painted.inner + (index - 1) * step
-									part.outer = painted.inner + index * step
+									part.inner = painted.inner + (index - 1) * step - below
+									part.outer = painted.inner + index * step + above
 									stroke.Visible = true
-									stroke.Thickness = band / strokes
+									stroke.Thickness = band / strokes + below + above
 									stroke:SetControlPoints(strokePoints(geometry.paint(part)))
 									if index > 1 and stroke.Parent ~= shape then
 										stroke.Parent = shape
