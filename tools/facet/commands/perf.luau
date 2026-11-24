@@ -37,7 +37,8 @@ subcommands:
   prove-memory-gate             plant native and Compose leaks and prove that the teardown gate fails
   prove-retained-memory [--out DIR]
                                 compare unchanged and retained-allocation controls for every paired scene
-  affected BASE                 run paired performance when its code, fixtures or toolchain change; exit 3 when unchanged
+  affected [--retained] BASE    run paired performance unless only documents changed; exit 3 when unchanged
+                                --retained selects the retained heap proof from the files its entry points require
   scenes [--themes]             check that each production (or theme-swap) scene did its work
   place [--no-build]            build examples/performance.project.json and check the place
   paired run --out DIR [--rounds N] [--scenes a,b | --shard K/N] [--skip-bench] [--gate] [--summary FILE] LABEL=WORKTREE...
@@ -2094,12 +2095,98 @@ REGISTRATIONS.affected = function(harness: Verify.Harness, prefix: string)
 				"default.project.json",
 				".github/workflows/ci.yml",
 				"future/code.luau",
+				"src/vendor/compose/README.md",
 			}
 		do
 			context:expect(Inputs.affects(path)):toBeTrueWith(path)
 		end
 		for _, path in { "README.md", "docs/guide/components.md", "skills/use-facet/SKILL.md", "AGENTS.md" } do
 			context:expect(not Inputs.affects(path)):toBeTrueWith(path)
+		end
+	end)
+	harness:case(prefix .. "a path the selector cannot prove irrelevant runs paired performance", function(context)
+		for _, path in
+			{
+				".gitattributes",
+				"stylua.toml",
+				"assets/themes/pixel-quest/atlas.png",
+				"package/facet-package.json",
+				".github/workflows/release.yml",
+				"future/data.json",
+			}
+		do
+			context:expect(Inputs.affects(path)):toBeTrueWith(path)
+		end
+		for _, path in { "LICENSE", "CHANGELOG.md", ".github/PULL_REQUEST_TEMPLATE.md" } do
+			context:expect(not Inputs.affects(path)):toBeTrueWith(path)
+		end
+	end)
+	harness:case(prefix .. "merged document-only changes still skip paired performance", function(context)
+		local merged: { [string]: { string } } = {
+			["1ad6730a7"] = { "README.md", "docs/performance/facet-vs-bare.md" },
+			["a4ed66638"] = { "docs/guide/README.md", "docs/guide/examples.md", "docs/guide/made-with-facet.md" },
+			["e0620add7"] = {
+				"docs/reference/nodes/Map.md",
+				"docs/reference/nodes/Tasks.collection-detail.md",
+				"skills/use-facet/SKILL.md",
+			},
+			["d657ec8e8"] = { "CHANGELOG.md" },
+		}
+		for name, changed in merged do
+			context:expect(#Inputs.select(changed) == 0):toBeTrueWith(name)
+		end
+	end)
+	harness:case(prefix .. "the retained heap proof follows its entry points' requires", function(context)
+		local sources = Inputs.retainedSources(".")
+		for _, path in
+			{
+				"tools/engine/retained_memory_proof.luau",
+				"bench/paired_scene.luau",
+				"bench/paired_workload.luau",
+				"tools/facet/lib/perf_retained.luau",
+				"tools/facet/lib/perf_paired.luau",
+				"tools/facet/lib/json.luau",
+				"tests/lib/loader.luau",
+				"bench/perf_scenes.luau",
+				"pkg.lock.luau",
+			}
+		do
+			context:expect(table.find(sources, path) ~= nil):toBeTrueWith(path)
+		end
+		for _, path in sources do
+			context
+				:expect(string.sub(path, 1, 4) ~= "src/" and string.sub(path, 1, 9) ~= "examples/")
+				:toBeTrueWith(path)
+		end
+	end)
+	harness:case(prefix .. "merged changes to the retained heap proof's requires run the proof", function(context)
+		local sources = Inputs.retainedSources(".")
+		local merged: { [string]: { changed: { string }, expected: { string } } } = {
+			["#398"] = {
+				changed = { "bench/authoring_motion.luau", "bench/perf_runner.luau", "bench/perf_scenes.luau" },
+				expected = { "bench/perf_runner.luau", "bench/perf_scenes.luau" },
+			},
+			["#314"] = {
+				changed = { "bench/comparison/measure.luau", "bench/native_app.luau", "src/ui/drag_session.luau" },
+				expected = { "bench/native_app.luau" },
+			},
+			["#384"] = {
+				changed = { "CHANGELOG.md", "tests/lib/loader.luau", "src/init.luau" },
+				expected = { "tests/lib/loader.luau" },
+			},
+			["#402"] = {
+				changed = { "tools/facet/lib/cli.luau", "tools/facet/lib/files.luau" },
+				expected = { "tools/facet/lib/files.luau" },
+			},
+			["#407"] = {
+				changed = { "bench/comparison/surfaces.luau", "tools/facet/lib/json.luau", "src/init.luau" },
+				expected = { "tools/facet/lib/json.luau" },
+			},
+			["#564"] = { changed = { "src/ui/nav_radial_sectors.luau" }, expected = {} },
+			["#495"] = { changed = { "docs/guide/examples.md" }, expected = {} },
+		}
+		for name, case in merged do
+			context:expect({ [name] = Inputs.select(case.changed, sources) }):toEqual({ [name] = case.expected })
 		end
 	end)
 end
@@ -2192,6 +2279,7 @@ local KNOWN = {
 	"tap",
 	"gate",
 	"summary",
+	"retained",
 }
 
 local function run(invocation: Cli.Invocation): number
@@ -2212,7 +2300,7 @@ local function run(invocation: Cli.Invocation): number
 		return Gate.selftest("tools/commands", "tools/commands::perf::" .. subcommand .. "::")
 	end
 	if subcommand == "affected" then
-		return Inputs.run(invocation.positional[2])
+		return Inputs.run(invocation.positional[2], Cli.switch(invocation, "retained"))
 	elseif subcommand == "prove-retained-memory" then
 		return Run.inherit({
 			Run.lute(),

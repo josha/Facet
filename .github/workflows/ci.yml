@@ -342,10 +342,12 @@ jobs:
       - name: Validate retained memory measurements
         if: steps.paired-inputs.outputs.run == 'true'
         run: |
-          base_commit="$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)"
-          if git diff --quiet "$base_commit" HEAD -- bench/paired_scene.luau bench/paired_workload.luau tools/facet/lib/perf_retained.luau tools/engine/retained_memory_proof.luau pkg.lock.luau; then
-            echo "The retained heap collector, scene adapter and comparison policy are unchanged."
+          status=0
+          lute run tools/facet perf affected --retained "$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)" || status=$?
+          if [ "$status" -eq 3 ]; then
             exit 0
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
           fi
           lute run tools/facet perf prove-retained-memory --out artifacts/perf-paired-retained-calibration
 
