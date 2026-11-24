@@ -79,20 +79,20 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 	local staticColumns = if type(spec.columns) ~= "function" and not Compose.isValue(spec.columns)
 		then readColumns(spec.columns)
 		else nil
-	local probes = setmetatable({} :: { [TextLabel]: true }, { __mode = "ks" })
-	local probeShare, probeLines = 0, false
+	local probes = setmetatable({} :: { [TextLabel]: string }, { __mode = "ks" })
+	local probeShares: { [string]: number }, probeLines = {}, false
 	local function probeSize(share: number, lines: boolean): UDim2
 		return D2.new(1, share, if lines then 0 else 1, 0)
 	end
 	Compose.watch(function(use: ComposeTypes.Use)
-		local share, lines = use(layout.disclosureShare), metrics.touchRows(use)
-		if share == probeShare and lines == probeLines then
+		local shares, lines = use(layout.disclosureShares), metrics.touchRows(use)
+		if shares == probeShares and lines == probeLines then
 			return
 		end
-		probeShare, probeLines = share, lines
-		local size, automatic = probeSize(share, lines), if lines then E.AutomaticSize.Y else E.AutomaticSize.None
-		for label in probes do
-			label.Size = size
+		probeShares, probeLines = shares, lines
+		local automatic = if lines then E.AutomaticSize.Y else E.AutomaticSize.None
+		for label, id in probes do
+			label.Size = probeSize(shares[id] or 0, lines)
 			label.AutomaticSize = automatic
 		end
 	end)
@@ -245,14 +245,16 @@ return function<V, K>(ctx: Types.Context, UI: ControlTypes.Controls, shared: Row
 						TextWrapped = false,
 						TextTransparency = 1,
 						Interactable = false,
-						Size = if shared then probeSize(probeShare, probeLines) else D2.fromScale(1, 0),
+						Size = if shared
+							then probeSize(probeShares[definition.id] or 0, probeLines)
+							else D2.fromScale(1, 0),
 						AutomaticSize = if shared and not probeLines then E.AutomaticSize.None else E.AutomaticSize.Y,
 						Text = text or "",
 					}),
 					"TableValue"
 				)
 				if shared then
-					probes[label] = true
+					probes[label] = definition.id
 				end
 				return label
 			end
