@@ -650,6 +650,84 @@ return function(verifyHarness: Verify.Harness)
 			end,
 		})
 
+		local function marginTheme(space: { m: number, s: number }, sheet: { [string]: any }?): any
+			local definition = Facet.themes.neutralPackage()
+			definition.metrics.space.m = space.m
+			definition.metrics.space.s = space.s
+			if sheet then
+				definition.metrics.controls.sheet = sheet
+			end
+			local package, report = Facet.themes.define(definition)
+			return assert(package, report and report.errors[1] and report.errors[1].message)
+		end
+		local function centeredPanel(theme: any, room: Vector2): (number, number)
+			local w = mount(
+				{ width = "wide" :: "wide", placement = "center" :: "center" },
+				{ room = room, detent = "large", motionLevel = "none", theme = theme }
+			)
+			local panel = w.find("SheetPanel")
+			local width, height = panel.Size.X.Offset, panel.Size.Y.Offset
+			w.stop()
+			return width, height
+		end
+
+		verifyHarness:case(
+			"a centered sheet keeps a space.m margin at its sides and space.s above a short screen by default",
+			{
+				id = "native_sheet_parts::native Sheet: placement, width, title and close::a centered sheet keeps a space.m margin at its sides and space.s above a short screen by default",
+				run = function()
+					local theme = marginTheme({ m = 12, s = 8 })
+					local shortWidth, shortHeight = centeredPanel(theme, Vector2.new(390, 300))
+					Verify.expect(shortWidth):toBe(390 - 2 * 12)
+					Verify.expect(shortHeight):toBe(math.floor((300 - 2 * 8) * 0.95))
+					local tallWidth, tallHeight = centeredPanel(theme, Vector2.new(390, 700))
+					Verify.expect(tallWidth):toBe(390 - 2 * 12)
+					Verify.expect(tallHeight):toBe(math.floor((700 - 2 * 12) * 0.95))
+				end,
+			}
+		)
+
+		verifyHarness:case("controls.sheet.edgeMargin sets the margin of a centered sheet", {
+			id = "native_sheet_parts::native Sheet: placement, width, title and close::controls.sheet.edgeMargin sets the margin of a centered sheet",
+			run = function()
+				local flush = marginTheme({ m = 12, s = 8 }, { edgeMargin = 0 })
+				local phoneWidth, phoneHeight = centeredPanel(flush, Vector2.new(390, 844))
+				Verify.expect(phoneWidth):toBe(390)
+				Verify.expect(phoneHeight):toBe(math.floor(844 * 0.95))
+				local landscapeWidth, landscapeHeight = centeredPanel(flush, Vector2.new(780, 390))
+				Verify.expect(landscapeWidth):toBe(780)
+				Verify.expect(landscapeHeight):toBe(math.floor(390 * 0.95))
+				local short = marginTheme({ m = 12, s = 8 }, { edgeMargin = 0, shortEdgeMargin = 4 })
+				local shortWidth, shortHeight = centeredPanel(short, Vector2.new(390, 300))
+				Verify.expect(shortWidth):toBe(390)
+				Verify.expect(shortHeight):toBe(math.floor((300 - 2 * 4) * 0.95))
+				local wide = marginTheme({ m = 12, s = 8 }, { edgeMargin = 20 })
+				local wideWidth, wideHeight = centeredPanel(wide, Vector2.new(390, 300))
+				Verify.expect(wideWidth):toBe(390 - 2 * 20)
+				Verify.expect(wideHeight):toBe(math.floor((300 - 2 * 8) * 0.95))
+			end,
+		})
+
+		verifyHarness:case("define refuses a sheet edge margin that is not a number of 0 or more", {
+			id = "native_sheet_parts::native Sheet: placement, width, title and close::define refuses a sheet edge margin that is not a number of 0 or more",
+			run = function()
+				for _, name in { "edgeMargin", "shortEdgeMargin" } do
+					for _, value in { -1, "12", 0 / 0, math.huge } :: { any } do
+						local definition = Facet.themes.neutralPackage()
+						definition.metrics.controls.sheet = { [name] = value }
+						local package, report = Facet.themes.define(definition)
+						Verify.expect(package == nil):toBeTrueWith(`{name} = {tostring(value)} should be refused`)
+						local field = report and report.errors[1] and report.errors[1].field or ""
+						Verify.expect(string.find(field, "metrics.controls.sheet." .. name, 1, true) ~= nil)
+							:toBeTrueWith(`{name} = {tostring(value)} reported {field}`)
+					end
+				end
+				local definition = Facet.themes.neutralPackage()
+				definition.metrics.controls.sheet = { edgeMargin = 0, shortEdgeMargin = 0 }
+				Verify.expect(Facet.themes.define(definition) ~= nil):toBe(true)
+			end,
+		})
+
 		verifyHarness:case("side sheets enter and leave toward their own edge", {
 			id = "native_sheet_parts::native Sheet: placement, width, title and close::side sheets enter and leave toward their own edge",
 			run = function()
