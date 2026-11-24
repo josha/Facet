@@ -291,6 +291,20 @@ return function(
 					ScrollingDirection = E.ScrollingDirection.Y,
 					ScrollBarThickness = 4,
 					VerticalScrollBarInset = E.ScrollBarInset.ScrollBar,
+					Host.UIPadding {
+						PaddingTop = function(use: Use): UDim
+							return D.new(0, carve("top", use))
+						end,
+						PaddingBottom = function(use: Use): UDim
+							return D.new(0, carve("bottom", use))
+						end,
+						PaddingLeft = function(use: Use): UDim
+							return D.new(0, carve("left", use))
+						end,
+						PaddingRight = function(use: Use): UDim
+							return D.new(0, carve("right", use))
+						end,
+					},
 					panel,
 				}
 				surface = ctx.fade {
@@ -305,7 +319,7 @@ return function(
 				ctx.styled(scroll, "panel")
 				ctx.styled(scroll, "calendar-scroll")
 				ctx.styled(scroll, "floating")
-				surfaces.skin(scroll)
+				surfaces.skin(scroll, nil, { padding = false })
 				return surface
 			end, function()
 				close("cancel")
