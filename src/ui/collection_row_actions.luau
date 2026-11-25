@@ -367,6 +367,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		end
 		local root: Frame
 		local contentFrame: Frame
+		local longPress: ({ Vector2 }, Enum.UserInputState) -> ()
 		local activeInput: InputObject?
 		local reveal: () -> ()
 		local listening: { RBXScriptConnection }? = nil
@@ -592,6 +593,11 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				and read(spec.enabled, use) ~= false
 				and (#actions("leading", use) + #actions("trailing", use)) > 0
 		end
+		local function swipeCapable(use: ComposeTypes.Use): boolean
+			return #cellEdits == 0
+				and read(spec.swipeEnabled, use) ~= false
+				and (#actions("leading", use) + #actions("trailing", use)) > 0
+		end
 		local function swipeDetector(use: ComposeTypes.Use): boolean
 			return swipeable(use)
 				and pointer(use)
@@ -637,8 +643,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			Size = D2.new(1, 0, 0, 44),
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
-			tray("leading"),
-			tray("trailing"),
+			Compose.show(traysBuilt, function()
+				return tray("leading")
+			end),
+			Compose.show(traysBuilt, function()
+				return tray("trailing")
+			end),
 			Host.Frame "Content" {
 				Visible = function(use: ComposeTypes.Use): boolean
 					return use(committing) == nil or (not reduced(use) and use(departure.progress) < 0.7)
@@ -663,88 +673,97 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 					end,
 				} :: Types.Attributes,
 				content,
-				Host.TextButton "SwipeGrip" {
-					Size = D2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					Text = "",
-					AutoButtonColor = false,
-					Selectable = false,
-					ZIndex = if content:IsA("GuiButton") then 4 else 0,
-					Visible = swipeable,
-					InputBegan = function(input: InputObject)
-						began(input)
-						pressed = input
-						local host = collectionRow()
-						local hit = if host then host:FindFirstChild("RowHit") else nil
-						if hit then
-							activation.press(hit, input)
-						end
-					end,
-					Activated = function(input: InputObject?)
-						if touchFirst() and not panned and start == nil then
-							tap(input)
-						end
-					end,
-					Host.UIDragDetector {
-						Enabled = swipeDetector,
-						DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
-						DragAxis = V2.new(1, 0),
-						ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
-						DragStart = function(position: Vector2)
-							detectorDrag = true
-							activation.drag(root, "start", position)
-							begin(position)
+				Compose.show(swipeCapable, function()
+					local grip = Host.TextButton "SwipeGrip" {
+						Size = D2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						Text = "",
+						AutoButtonColor = false,
+						Selectable = false,
+						ZIndex = if content:IsA("GuiButton") then 4 else 0,
+						Visible = swipeable,
+						InputBegan = function(input: InputObject)
+							began(input)
+							pressed = input
+							local host = collectionRow()
+							local hit = if host then host:FindFirstChild("RowHit") else nil
+							if hit then
+								activation.press(hit, input)
+							end
 						end,
-						DragContinue = function(position: Vector2)
-							if detectorDrag then
-								if activation.drag(root, "move", position) then
-									return
+						Activated = function(input: InputObject?)
+							if touchFirst() and not panned and start == nil then
+								tap(input)
+							end
+						end,
+						Host.UIDragDetector {
+							Enabled = swipeDetector,
+							DragStyle = E.UIDragDetectorDragStyle.TranslateLine,
+							DragAxis = V2.new(1, 0),
+							ResponseStyle = E.UIDragDetectorResponseStyle.CustomOffset,
+							DragStart = function(position: Vector2)
+								detectorDrag = true
+								activation.drag(root, "start", position)
+								begin(position)
+							end,
+							DragContinue = function(position: Vector2)
+								if detectorDrag then
+									if activation.drag(root, "move", position) then
+										return
+									end
+									move(position)
 								end
-								move(position)
+							end,
+							DragEnd = function()
+								if detectorDrag then
+									detectorDrag = false
+									activation.drag(root, "end", nil)
+									release()
+								end
+							end,
+						},
+					}
+					runtime.connect(grip, "TouchPan", pan)
+					runtime.connect(grip, "TouchLongPress", function(positions: { Vector2 }, state: Enum.UserInputState)
+						longPress(positions, state)
+					end)
+					return grip
+				end),
+				Compose.show(traysBuilt, function()
+					return Host.TextButton "DismissTray" {
+						Size = D2.fromScale(1, 1),
+						BackgroundTransparency = 1,
+						Text = "",
+						Active = true,
+						AutoButtonColor = false,
+						Selectable = false,
+						ZIndex = 5,
+						Visible = function(use: ComposeTypes.Use)
+							return readSource(open, use) ~= nil and use(committing) == nil
+						end,
+						InputBegan = function(input: InputObject)
+							if
+								input.UserInputType ~= E.UserInputType.MouseButton1
+								and input.UserInputType ~= E.UserInputType.Touch
+							then
+								return
+							end
+							local host = collectionRow()
+							local hit = if host then host:FindFirstChild("RowHit") else nil
+							if hit then
+								activation.press(hit, input)
+							end
+							if readSource(open) ~= nil and committing:peek() == nil then
+								setOpen(nil)
 							end
 						end,
-						DragEnd = function()
-							if detectorDrag then
-								detectorDrag = false
-								activation.drag(root, "end", nil)
-								release()
+						Activated = function()
+							if readSource(open) ~= nil and committing:peek() == nil then
+								setOpen(nil)
 							end
 						end,
-					},
-				},
-				Host.TextButton "DismissTray" {
-					Size = D2.fromScale(1, 1),
-					BackgroundTransparency = 1,
-					Text = "",
-					Active = true,
-					AutoButtonColor = false,
-					Selectable = false,
-					ZIndex = 5,
-					Visible = function(use: ComposeTypes.Use)
-						return readSource(open, use) ~= nil and use(committing) == nil
-					end,
-					InputBegan = function(input: InputObject)
-						if
-							input.UserInputType ~= E.UserInputType.MouseButton1
-							and input.UserInputType ~= E.UserInputType.Touch
-						then
-							return
-						end
-						local host = collectionRow()
-						local hit = if host then host:FindFirstChild("RowHit") else nil
-						if hit then
-							activation.press(hit, input)
-						end
-						if readSource(open) ~= nil and committing:peek() == nil then
-							setOpen(nil)
-						end
-					end,
-					Activated = function()
-						if readSource(open) ~= nil and committing:peek() == nil then
-							setOpen(nil)
-						end
-					end,
-				},
+					}
+				end),
 			},
 		}))
 		local menuSpec: NavigationProps.MenuSpec<string> = {
@@ -767,38 +786,42 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		}
 		UI.Menu(menuSpec)
 		if #cellEdits > 0 then
-			runtime.mount(function()
-				local button = UI.Button {
-					Name = "CellActions",
-					icon = "more",
-					label = "",
-					name = "Item actions",
-					appearance = if bottom then "utility" else "plain",
-					shape = if bottom then "circle" :: "circle" else nil,
-					AnchorPoint = V2.new(1, if bottom then 1 else 0.5),
-					Position = D2.fromScale(1, if bottom then 1 else 0.5),
-					Size = function(use)
-						return D2.fromOffset(actionSize(use), actionSize(use))
-					end,
-					Visible = function(use)
+			runtime.mountFragment(function()
+				return {
+					Compose.show(function(use: ComposeTypes.Use): boolean
 						return actionSize(use) > 0
-					end,
-					enabled = spec.enabled,
-					onActivate = function()
-						reveal()
-					end,
-					ZIndex = 5,
+					end, function()
+						local button = UI.Button {
+							Name = "CellActions",
+							icon = "more",
+							label = "",
+							name = "Item actions",
+							appearance = if bottom then "utility" else "plain",
+							shape = if bottom then "circle" :: "circle" else nil,
+							AnchorPoint = V2.new(1, if bottom then 1 else 0.5),
+							Position = D2.fromScale(1, if bottom then 1 else 0.5),
+							Size = function(use)
+								return D2.fromOffset(actionSize(use), actionSize(use))
+							end,
+							Visible = function(use)
+								return actionSize(use) > 0
+							end,
+							enabled = spec.enabled,
+							onActivate = function()
+								reveal()
+							end,
+							ZIndex = 5,
+						}
+						local size, unit = ctx.observe.AbsoluteSize(button), ctx.layoutUnit(root)
+						Compose.watch(function(use: ComposeTypes.Use)
+							measuredActionSize:set(use(size) / use(unit))
+						end)
+						return button
+					end),
 				}
-				local size, unit = ctx.observe.AbsoluteSize(button), ctx.layoutUnit(root)
-				Compose.watch(function(use: ComposeTypes.Use)
-					measuredActionSize:set(use(size) / use(unit))
-				end)
-				return button
 			end, root)
 		end
 		contentFrame = assert(root:FindFirstChild("Content")) :: Frame
-		local grip = assert(contentFrame:FindFirstChild("SwipeGrip"))
-		runtime.connect(grip, "TouchPan", pan)
 		runtime.decorate(root, {
 			Size = function(use: ComposeTypes.Use)
 				local size = if spec.Size == nil then D2.new(1, 0, 0, 44) else readSize(spec.Size, use)
@@ -896,13 +919,12 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 			end)
 			Compose.cleanup(release)
 		end
-		local function longPress(_: { Vector2 }, state: Enum.UserInputState)
+		longPress = function(_: { Vector2 }, state: Enum.UserInputState)
 			if state == E.UserInputState.Begin and #cellEdits == 0 then
 				reveal()
 			end
 		end
 		runtime.connect(root, "TouchLongPress", longPress)
-		runtime.connect(grip, "TouchLongPress", longPress)
 		local gui = ctx.config.guiService
 		local selected: ComposeTypes.ReadOnlyValue<GuiObject?> = if gui
 			then ctx.selection.observe()

@@ -274,81 +274,89 @@ return function<V, K>(
 			return policy.allows(spec.rowDeletable, item) and not policy.disabled(spec.disabled, item)
 		end
 		local minus = if minusShown
-			then UI.Button {
-				Name = "Minus",
-				Archivable = false,
-				label = "−",
-				name = "Delete",
-				shape = "circle",
-				role = "destructive",
-				AnchorPoint = V2.new(0.5, 0.5),
-				Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
-				Size = D2.fromOffset(28, 28),
-				Visible = controlsShown,
-				enabled = deletableRow,
-				onActivate = function()
-					assert(confirming):set(not assert(confirming):peek())
-				end,
-			}
-			else nil
-		local confirm = if minusShown
-			then UI.Button {
-				Name = "Delete",
-				Archivable = false,
-				label = "Delete",
-				role = "destructive",
-				AnchorPoint = V2.new(1, 0),
-				Position = D2.fromScale(1, 0),
-				Size = if grid then D2.fromOffset(88, 44) else D2.new(0, 88, 1, 0),
-				AutomaticSize = E.AutomaticSize.None,
-				Visible = function(use: ComposeTypes.Use)
-					return use(controlsShown) and confirming ~= nil and use(confirming)
-				end,
-				enabled = deletableRow,
-				onActivate = function()
-					assert(confirming):set(false)
-					if spec.onDelete then
-						spec.onDelete({ key })
-					end
-				end,
-			}
-			else nil
-		local mark = if shared.marked
-			then ctx.styled(
-				Host.Frame "SelectMark" {
+			then Compose.show(controlsShown, function()
+				return UI.Button {
+					Name = "Minus",
 					Archivable = false,
+					label = "−",
+					name = "Delete",
+					shape = "circle",
+					role = "destructive",
 					AnchorPoint = V2.new(0.5, 0.5),
 					Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
-					Size = D2.fromOffset(18, 18),
-					BackgroundTransparency = 1,
-					Selectable = false,
-					Visible = shared.markShown,
-					ctx.corner(if mode == "multiple" then 3 else 9),
-					(if mode == "multiple"
-						then ctx.icon("checkmark", {
-							Name = "Check",
-							AnchorPoint = V2.new(0.5, 0.5),
-							Position = D2.fromScale(0.5, 0.5),
-							Size = D2.fromOffset(14, 14),
-							Visible = function(use: ComposeTypes.Use)
-								return use(selection)[key] == true
-							end,
-						})
-						else ctx.styled(
-							Host.Frame "Dot" {
+					Size = D2.fromOffset(28, 28),
+					Visible = controlsShown,
+					enabled = deletableRow,
+					onActivate = function()
+						assert(confirming):set(not assert(confirming):peek())
+					end,
+				}
+			end)
+			else nil
+		local confirm = if minusShown
+			then Compose.show(function(use: ComposeTypes.Use): boolean
+				return use(controlsShown) and confirming ~= nil and use(confirming)
+			end, function()
+				return UI.Button {
+					Name = "Delete",
+					Archivable = false,
+					label = "Delete",
+					role = "destructive",
+					AnchorPoint = V2.new(1, 0),
+					Position = D2.fromScale(1, 0),
+					Size = if grid then D2.fromOffset(88, 44) else D2.new(0, 88, 1, 0),
+					AutomaticSize = E.AutomaticSize.None,
+					Visible = function(use: ComposeTypes.Use)
+						return use(controlsShown) and confirming ~= nil and use(confirming)
+					end,
+					enabled = deletableRow,
+					onActivate = function()
+						assert(confirming):set(false)
+						if spec.onDelete then
+							spec.onDelete({ key })
+						end
+					end,
+				}
+			end)
+			else nil
+		local mark = if shared.marked
+			then Compose.show(shared.markShown, function()
+				return ctx.styled(
+					Host.Frame "SelectMark" {
+						Archivable = false,
+						AnchorPoint = V2.new(0.5, 0.5),
+						Position = if grid then D2.fromOffset(22, 22) else D2.new(0, 22, 0.5, 0),
+						Size = D2.fromOffset(18, 18),
+						BackgroundTransparency = 1,
+						Selectable = false,
+						Visible = shared.markShown,
+						ctx.corner(if mode == "multiple" then 3 else 9),
+						(if mode == "multiple"
+							then ctx.icon("checkmark", {
+								Name = "Check",
 								AnchorPoint = V2.new(0.5, 0.5),
 								Position = D2.fromScale(0.5, 0.5),
-								Size = D2.fromOffset(8, 8),
+								Size = D2.fromOffset(14, 14),
 								Visible = function(use: ComposeTypes.Use)
 									return use(selection)[key] == true
 								end,
-								ctx.corner(4),
-							},
-							"fill"
-						)),
-				},
-				"radio-mark"
-			)
+							})
+							else ctx.styled(
+								Host.Frame "Dot" {
+									AnchorPoint = V2.new(0.5, 0.5),
+									Position = D2.fromScale(0.5, 0.5),
+									Size = D2.fromOffset(8, 8),
+									Visible = function(use: ComposeTypes.Use)
+										return use(selection)[key] == true
+									end,
+									ctx.corner(4),
+								},
+								"fill"
+							)),
+					},
+					"radio-mark"
+				)
+			end)
 			else nil
 		local function rightOf(use: ComposeTypes.Use): number
 			return if confirming and use(confirming) then 88 else use(trailing)

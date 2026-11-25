@@ -4087,7 +4087,7 @@ return function(verifyHarness: Verify.Harness)
 				expect(mark(1):FindFirstChild("Check").Visible):toBe(true)
 				expect(mark(2):FindFirstChild("Check").Visible):toBe(false)
 				editing:set(false)
-				expect(mark(1).Visible):toBe(false)
+				expect(mark(1)):toBeNil()
 				stop()
 				runtime:dispose()
 			end,
@@ -5622,8 +5622,9 @@ return function(verifyHarness: Verify.Harness)
 						trailing = { { id = "erase", label = "Erase" } :: FixtureCollectionTypes.RowAction },
 					}
 				end, target)
-				expect(#node:FindFirstChild("leading"):GetChildren() <= 1):toBe(true)
-				expect(node:FindFirstChild("trailing"):FindFirstChild("erase")):toBeNil()
+				expect((node:FindFirstChild("leading"))):toBeNil()
+				expect((node:FindFirstChild("trailing"))):toBeNil()
+				expect((node:FindFirstChild("DismissTray", true))):toBeNil()
 				open:set("trailing")
 				expect(node:FindFirstChild("trailing"):FindFirstChild("erase") ~= nil):toBe(true)
 				expect(node:FindFirstChild("leading"):FindFirstChild("read") ~= nil):toBe(true)
@@ -7395,9 +7396,9 @@ return function(verifyHarness: Verify.Harness)
 				)
 				local edit = node:FindFirstChild("Edit", true)
 				edit.Activated:Fire()
-				expect(grip.Visible):toBe(false)
+				expect((row:FindFirstChild("SwipeGrip", true))):toBeNil()
 				edit.Activated:Fire()
-				expect(grip.Visible):toBe(true)
+				expect(row:FindFirstChild("SwipeGrip", true).Visible):toBe(true)
 				stop()
 				runtime:dispose()
 			end,
@@ -8043,7 +8044,7 @@ return function(verifyHarness: Verify.Harness)
 					expect((edit:HasTag("facet-appearance-utility"))):toBe(false)
 					expect((w.row(1):FindFirstChild("Move", true))):toBeNil()
 					expect((w.row(1):FindFirstChild("Minus", true))):toBeNil()
-					expect(w.row(1):FindFirstChild("SelectMark", true).Visible):toBe(false)
+					expect((w.row(1):FindFirstChild("SelectMark", true))):toBeNil()
 					edit.Activated:Fire()
 					expect(edit.Text):toBe("Done")
 					local move, mark =
@@ -8074,7 +8075,7 @@ return function(verifyHarness: Verify.Harness)
 					end
 					expect(w.deletes):toEqual({ { 1, 4 } })
 					edit.Activated:Fire()
-					expect(mark.Visible):toBe(false)
+					expect(mark.Parent):toBeNil()
 					w.row(2):FindFirstChild("RowHit", true).Activated:Fire(press, 1)
 					expect(activated):toEqual({ 2 })
 					w.stop()
@@ -10137,13 +10138,13 @@ return function(verifyHarness: Verify.Harness)
 					)
 					expect(actions.AnchorPoint.Y):toBe(if kind == "VirtualGrid" then 1 else 0.5)
 
-					expect(row:FindFirstChild("SwipeGrip", true).Visible):toBe(false)
+					expect((row:FindFirstChild("SwipeGrip", true))):toBeNil()
 					engine.environment.poke(
 						VerifyRoblox.assertInstance(assert(ctx.config.userInputService)),
 						"PreferredInput",
 						E.PreferredInput.KeyboardAndMouse
 					)
-					expect(row:FindFirstChild("CellActions", true).Visible):toBe(false)
+					expect((row:FindFirstChild("CellActions", true))):toBeNil()
 					stop()
 				end
 			end,

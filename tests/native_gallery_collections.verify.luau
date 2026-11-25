@@ -474,7 +474,7 @@ return function(verifyHarness: Verify.Harness)
 				engine.environment.poke(tableNode, "AbsoluteSize", engine.types.Vector2.new(800, 440))
 				viewport(body, engine, 800, 400)
 				nativeDrag.measure(body, engine.environment)
-				expect(find(find(body, "m2"), "SelectMark").Visible):toBe(false)
+				expect((find(body, "m2"):FindFirstChild("SelectMark", true))):toBeNil()
 				engine.environment.poke(world.input, "PreferredInput", engine.types.Enum.PreferredInput.Touch)
 				find(page, "Edit").Activated:Fire()
 				expect(find(find(body, "m2"), "SelectMark").Visible):toBe(true)
@@ -500,7 +500,7 @@ return function(verifyHarness: Verify.Harness)
 					order[index] = item.id
 				end
 				local row = find(find(body, "m1"), "Row_m1")
-				expect(find(row, "trailing").Visible):toBe(false)
+				expect(find(row, "trailing")):toBeNil()
 				engine.environment.poke(row, "AbsoluteSize", engine.types.Vector2.new(800, 100))
 				local detector = row:FindFirstChild("SwipeGrip", true):FindFirstChildWhichIsA("UIDragDetector")
 				detector.DragStart:Fire(engine.types.Vector2.new(700, 50))
@@ -655,11 +655,11 @@ return function(verifyHarness: Verify.Harness)
 						expect(find(collection, "Rename"):FindFirstChildWhichIsA("TextBox", true).TextEditable):toBe(
 							false
 						)
-						expect(find(collection, "CellActions").Visible):toBe(false)
+						expect(find(collection, "CellActions")):toBeNil()
 						expect(find(node, "Create").Interactable):toBe(false)
 						expect(find(node, "LabelGreen").Interactable):toBe(false)
 						find(node, "EnableEditing").Activated:Fire()
-						expect(find(collection, "CellActions").Visible):toBe(coarse)
+						expect(find(collection, "CellActions") ~= nil):toBe(coarse)
 						if coarse then
 							find(node, "Edit").Activated:Fire()
 						end
