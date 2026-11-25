@@ -24,8 +24,12 @@ return function(harness: Verify.Harness)
 				}
 			end)
 			local sweep = w.find("CooldownSweep")
+			local cover = w.find("Cooldown")
+			Verify.expect(cover.Parent.Name):toBe("CooldownBounds")
+			Verify.expect(cover.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
 			Verify.expect(sweep.Size.Y.Scale):toBe(0.5)
-			Verify.expect(sweep:HasTag("facet-scrim")):toBe(true)
+			Verify.expect(w.find("CooldownShade"):HasTag("facet-scrim")):toBe(true)
+			Verify.expect(sweep.ClipsDescendants):toBe(true)
 			Verify.expect(sweep.Selectable):toBe(false)
 			remaining:set(0)
 			w.advance(0.01)
@@ -117,7 +121,7 @@ return function(harness: Verify.Harness)
 				state.dispose()
 				Verify.expect(state.engine.census().connections):toBe(0)
 			end
-			Verify.expect(counts[2] - counts[1]):toBe(4)
+			Verify.expect(counts[2] - counts[1]):toBe(9)
 		end,
 	})
 	harness:case("rich help shares hover focus and long press placement", {
