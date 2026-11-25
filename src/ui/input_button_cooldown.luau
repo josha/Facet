@@ -1,7 +1,9 @@
 --!strict
 local Shared = require("./types")
 local Inputs = require("./input_types")
+local ComposeTypes = require("../vendor/compose/core")
 local reduced = require("./motion").reduced
+local decoration = require("./native_decoration")
 
 return function(ctx: Shared.Context, button: TextButton, cooldown: Inputs.Cooldown?, charges: Shared.ValueNumber?)
 	local Compose, runtime, Host = ctx.Compose, ctx.runtime, ctx.Host
@@ -28,23 +30,47 @@ return function(ctx: Shared.Context, button: TextButton, cooldown: Inputs.Cooldo
 				ease = ctx.motionEase("trail"),
 				reducedMotion = Compose.formula(reduced(ctx)),
 			})
-			local sweep = Host.Frame "CooldownSweep" {
+			local authored = button:FindFirstChildWhichIsA("UICorner")
+			local shade = Host.Frame "CooldownShade" {
 				AnchorPoint = V2.new(0, 1),
 				Position = D2.fromScale(0, 1),
 				Size = function(use: Shared.Use): UDim2
-					return D2.fromScale(1, use(shown))
-				end,
-				Visible = function(use: Shared.Use): boolean
-					return use(shown) > 0
+					local level = use(shown)
+					return D2.fromScale(1, if level > 0 then 1 / level else 1)
 				end,
 				BorderSizePixel = 0,
-				ZIndex = button.ZIndex + 1,
 				Active = false,
 				Selectable = false,
+				if authored
+					then Host.UICorner {
+						CornerRadius = (
+								runtime.observe(authored, "CornerRadius") :: unknown
+							) :: ComposeTypes.ReadOnlyValue<UDim>,
+					}
+					else nil,
 			}
-			sweep:AddTag("facet-cooldown")
-			sweep:AddTag("facet-scrim")
-			table.insert(children, sweep)
+			shade:AddTag("facet-cooldown")
+			shade:AddTag("facet-scrim")
+			table.insert(
+				children,
+				Host.Frame "CooldownSweep" {
+					AnchorPoint = V2.new(0, 1),
+					Position = D2.fromScale(0, 1),
+					Size = function(use: Shared.Use): UDim2
+						return D2.fromScale(1, use(shown))
+					end,
+					Visible = function(use: Shared.Use): boolean
+						return use(shown) > 0
+					end,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ClipsDescendants = true,
+					ZIndex = button.ZIndex + 1,
+					Active = false,
+					Selectable = false,
+					shade,
+				}
+			)
 		end
 		if charges ~= nil then
 			local source = charges
@@ -67,6 +93,15 @@ return function(ctx: Shared.Context, button: TextButton, cooldown: Inputs.Cooldo
 			label:AddTag("facet-charges")
 			table.insert(children, label)
 		end
-		return children
+		local cover = Host.Frame "Cooldown" {
+			Size = D2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = button.ZIndex + 1,
+			Active = false,
+			Selectable = false,
+			table.unpack(children),
+		}
+		return { decoration(Compose, runtime, ctx.types, button, cover) }
 	end, button)
 end
