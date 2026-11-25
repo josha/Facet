@@ -269,7 +269,33 @@ return function(ctx: Types.Context, presence: overlayPresence.Presence): Portal
 			end
 			destination:set(parent(anchor))
 		end
-		local enabled = available(anchor, locate)
+		local enabled = Compose.cell(false)
+		local tracking: ComposeTypes.Owner? = nil
+		local function untrack()
+			if tracking then
+				ComposeTypes.owner.dispose(tracking)
+				tracking = nil
+			end
+		end
+		Compose.watch(function(use: ComposeTypes.Use)
+			if not ctx.read<<boolean>>(presented, use) then
+				untrack()
+				enabled:set(false)
+				return
+			end
+			if tracking then
+				return
+			end
+			local scope = ComposeTypes.owner.createChild(owner)
+			tracking = scope
+			Compose.withOwner(scope, function()
+				local source = available(anchor, locate)
+				Compose.watch(function(inner: ComposeTypes.Use)
+					enabled:set(inner(source))
+				end)
+			end)
+		end)
+		Compose.cleanup(untrack)
 		local condition = function(use: ComposeTypes.Use): boolean
 			return use(enabled) and ctx.read<<boolean>>(presented, use)
 		end

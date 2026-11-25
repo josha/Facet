@@ -61,6 +61,9 @@ return function(ctx: Types.Context, roots: { GuiObject }): ComposeTypes.ReadOnly
 						and (not child:IsA("CanvasGroup") or child.GroupTransparency < 1)
 				end
 				local shown = visible and (not child:IsA("GuiObject") or child.Visible)
+				if visible and not shown then
+					continue
+				end
 				record(child, shown)
 				visit(child, shown)
 			end

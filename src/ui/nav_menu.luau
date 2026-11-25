@@ -199,17 +199,39 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, surfaces: Nav.Sur
 				runtime.connect(trigger, "Activated", open)
 			end
 		end
-		local available = surfaces.available(root)
-		local mounted = false
+		local menuOwner = assert(Compose.currentOwner())
+		local guard: ComposeTypes.Owner? = nil
+		local function release()
+			if guard then
+				ComposeTypes.owner.dispose(guard)
+				guard = nil
+			end
+		end
 		Compose.watch(function(use: ComposeTypes.Use)
-			local active = use(available)
-			if active then
-				mounted = true
+			if not use(opened) then
+				release()
+				return
 			end
-			if mounted and (not active or read(spec.enabled, use) == false) then
-				close()
+			if guard then
+				return
 			end
+			local scope = ComposeTypes.owner.createChild(menuOwner)
+			guard = scope
+			Compose.withOwner(scope, function()
+				local available = surfaces.available(root)
+				local mounted = false
+				Compose.watch(function(inner: ComposeTypes.Use)
+					local active = inner(available)
+					if active then
+						mounted = true
+					end
+					if mounted and (not active or read(spec.enabled, inner) == false) then
+						close()
+					end
+				end)
+			end)
 		end)
+		Compose.cleanup(release)
 		if allows("secondary") then
 			local function secondary(input: InputObject)
 				if read(spec.enabled) == false then

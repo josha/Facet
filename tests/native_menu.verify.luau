@@ -134,6 +134,25 @@ return function(verifyHarness: Verify.Harness)
 				return node
 			end, world.screen)
 		end)
+		verifyHarness:case("a menu watches its trigger's surroundings only while it is open", {
+			id = "native_menu::native menu parity with main::a menu watches its trigger's surroundings only while it is open",
+			run = function()
+				local shown = Compose.cell(false)
+				local world = labelled({ items = items(2), isPresented = shown })
+				local root = world.find("M")
+				local count = world.engine.environment.connectionsOfInstance
+				local closed = count(root)
+				shown:set(true)
+				Verify.expect(panelOf(world) ~= nil):toBe(true)
+				Verify.expect(count(root) > closed):toBe(true)
+				shown:set(false)
+				for _ = 1, 30 do
+					world.engine.heartbeat:Fire(FRAME)
+				end
+				Verify.expect(count(root)):toBe(closed)
+				world.stop()
+			end,
+		})
 		verifyHarness:case("menu width follows icon content instead of the stretched row", {
 			id = "native_menu::native menu parity with main::menu width follows icon content instead of the stretched row",
 			run = function()
