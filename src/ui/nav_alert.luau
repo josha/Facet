@@ -147,14 +147,18 @@ return function(
 				end
 				local offer = Compose.cell(V2.new(720, 720))
 				local padding = spec.padding or 20
-				local labelWidths = Compose.cell(0)
-				local form = parts.stackedForm(ctx)
-				local stacked = Compose.formula(function(use: ComposeTypes.Use)
-					return #actions > 2
-						or form(use)
-						or use(offer).X < 480
-						or use(labelWidths) > math.min(use(offer).X - 32, spec.maxWidth or 440) - padding * 2
-				end)
+				local labelWidths = if #actions <= 2 then Compose.cell(0) else nil
+				local stacked: ComposeTypes.ReadOnlyValue<boolean>
+				if labelWidths then
+					local form = parts.stackedForm(ctx)
+					stacked = Compose.formula(function(use: ComposeTypes.Use)
+						return form(use)
+							or use(offer).X < 480
+							or use(labelWidths) > math.min(use(offer).X - 32, spec.maxWidth or 440) - padding * 2
+					end)
+				else
+					stacked = Compose.cell(true)
+				end
 				local contents: { Types.Child } = {}
 				if spec.icon or spec.severity == "critical" or spec.error then
 					table.insert(
@@ -254,15 +258,19 @@ return function(
 						end,
 					}
 					actionProps[#actionProps + 1] = button
-					table.insert(textBounds, ctx.observe.TextBounds(button))
-				end
-				Compose.watch(function(use: ComposeTypes.Use)
-					local total = (#actions - 1) * 8
-					for _, bounds in textBounds do
-						total += use(bounds).X + 24
+					if labelWidths then
+						table.insert(textBounds, ctx.observe.TextBounds(button))
 					end
-					labelWidths:set(total)
-				end)
+				end
+				if labelWidths then
+					Compose.watch(function(use: ComposeTypes.Use)
+						local total = (#actions - 1) * 8
+						for _, bounds in textBounds do
+							total += use(bounds).X + 24
+						end
+						labelWidths:set(total)
+					end)
+				end
 				local actionBar: GuiObject = Host.Frame(actionProps)
 				if spec.suppression then
 					actionBar = ctx.column({

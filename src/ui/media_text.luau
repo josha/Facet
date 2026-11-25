@@ -37,14 +37,18 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls, shared: MediaShar
 		end)
 		local settled: string? = nil
 		local function evaluate()
-			if label.Parent == nil or textFit.eligible(ctx, label) == nil or not fills() then
+			if not fills() or label.Parent == nil then
 				return
 			end
 			local own = textFit.current(label)
+			local fits = label.TextFits
+			if (fits and own >= 1) or textFit.eligible(ctx, label) == nil then
+				return
+			end
 			local chain = textFit.chainScale(label.Parent)
 			local room = label.AbsoluteSize.X / chain
 			local key = `{math.round(room)}|{label.Text}|{label.FontFace.Family}|{label.TextSize}`
-			if label.TextFits and (own >= 1 or key == settled) then
+			if fits and key == settled then
 				return
 			end
 			settled = key

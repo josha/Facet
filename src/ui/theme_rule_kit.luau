@@ -222,7 +222,6 @@ return function(
 			selector = selector,
 			properties = properties,
 			priority = #rules * 10,
-			tokens = tokens,
 		})
 	end
 	local function rule(selector: string, properties: ThemeTypes.RuleProperties, authored: boolean?)
@@ -370,6 +369,7 @@ return function(
 		for index, definition in compact do
 			definition.priority = (index - 1) * 10
 		end
+		compact[1].tokens = tokens
 		return compact
 	end
 	return {
