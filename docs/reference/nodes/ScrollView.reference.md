@@ -62,6 +62,14 @@ bounds arrive. This also applies to virtual collections. After the engine
 accepts the requested offset, later layout changes do not restore it. Touch,
 mouse press or mouse wheel input cancels a pending initial request.
 
+On a vertical axis, content above the window can change height without moving
+what the player is reading. When the ScrollView is scrolled away from the top
+and a change above the window shifts the first visible element, Facet moves
+`CanvasPosition` by the same amount, as browsers do with scroll anchoring. A
+log that grows, an image that loads or a section that expands above the window
+leaves the visible rows in place. At the top of the canvas, new content above
+pushes the rest down as before.
+
 A ScrollView is a gamepad selection stop only while it holds no visible
 selectable descendant, so a directional move from a control inside it goes to
 the next control. A ScrollView of read-only content stays selectable so a

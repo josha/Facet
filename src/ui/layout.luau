@@ -9,6 +9,7 @@ local Layout = require("./layout_types")
 local layoutKit = require("./layout_kit")
 local scrollLock = require("./scroll_lock")
 local initialScroll = require("./scroll_initial")
+local scrollAnchor = require("./scroll_anchor")
 local glass = require("./glass")
 local artGround = require("./art_ground")
 local ControlTypes = require("./control_types")
@@ -964,6 +965,9 @@ return function(ctx: Types.Context, controls: ControlTypes.Controls?): ControlTy
 			kit.plain(Host.ScrollingFrame(kit.assemble(native, properties, { layout, insets }, children)), properties)
 		scrollLock.own(frame, ctx)
 		initialScroll(ctx, frame, spec.CanvasPosition)
+		if axis ~= "x" then
+			scrollAnchor(ctx, frame)
+		end
 		if properties.Selectable == nil then
 			local later = runtime.scheduler()
 			local pending = false

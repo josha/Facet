@@ -703,6 +703,13 @@
       ]
     },
     {
+      "id": "native_scroll_anchor",
+      "locator": "tests/native_scroll_anchor.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "native_sheet_parts",
       "locator": "tests/native_sheet_parts.verify.luau",
       "requires": [
