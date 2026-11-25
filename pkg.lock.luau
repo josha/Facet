@@ -2,14 +2,14 @@ return {
   version = 5,
   dependencies = {},
   devDependencies = {
-    compose = "compose@206648c0becb496919ca7af3855fc775bb96d900",
+    compose = "compose@8defb0582d9ba136ba21736fef9a4ec36c537118",
     verify = "verify@2e8cedeb260dd61d29b6f4be51a5fc250254e80b",
   },
   packages = {
-    ["compose@206648c0becb496919ca7af3855fc775bb96d900"] = {
-      installPath = "@pkg/compose--github-a04f32d297dd9cf9c6e1182bab94cee63dc6e2138951f625c4f86ec371008fee@897dafedf40b97d2e342720ae94f8451a7952adce2aa8b04f3d98f745af8f929/.",
+    ["compose@8defb0582d9ba136ba21736fef9a4ec36c537118"] = {
+      installPath = "@pkg/compose--github-a04f32d297dd9cf9c6e1182bab94cee63dc6e2138951f625c4f86ec371008fee@32fc396548bb8d1c9e02872a103efaac73dde6a9757db557ff78f12b7aaa2cb6/.",
       name = "compose",
-      rev = "206648c0becb496919ca7af3855fc775bb96d900",
+      rev = "8defb0582d9ba136ba21736fef9a4ec36c537118",
       source = "https://github.com/voidmeld/compose",
       sourceKind = "github",
       dependencies = {},

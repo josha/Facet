@@ -229,6 +229,10 @@ local function attachDependent(node: Node, dispose: () -> ()): () -> ()
 		local index = table.find(current, dispose)
 		if index ~= nil then
 			table.remove(current, index)
+			if #current == 0 then
+				dependents[node] = nil
+				tracked.dependents -= 1
+			end
 		end
 	end
 end
