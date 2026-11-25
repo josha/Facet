@@ -651,7 +651,7 @@ local function makeListener(reactor: Types.Reactor, producer: Node): Node
 		update(producer)
 	end
 	local class = if update ~= nil and producer.refresh ~= nil then LISTENER else CELL_LISTENER
-	local edge: Node = { producer, nil, nil, nil, version = producer.version, reactor = reactor }
+	local edge: Node = { producer, version = producer.version, reactor = reactor }
 	Nodes.classify(edge, class)
 	return edge
 end

@@ -9,7 +9,7 @@ copy.
 ## Compose
 
 **Origin.** [voidmeld/compose](https://github.com/voidmeld/compose), commit
-`206648c0becb496919ca7af3855fc775bb96d900`,
+`8defb0582d9ba136ba21736fef9a4ec36c537118`,
 `src/core`, `src/roblox`, `src/design` and `src/design-editor`.
 
 **Distribution.** `pkg.lock.luau` pins that commit as a development dependency.

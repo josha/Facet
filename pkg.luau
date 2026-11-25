@@ -28,7 +28,7 @@ return {
 			compose = {
 				sourceKind = "github",
 				source = "https://github.com/voidmeld/compose",
-				rev = "206648c0becb496919ca7af3855fc775bb96d900",
+				rev = "8defb0582d9ba136ba21736fef9a4ec36c537118",
 			},
 			verify = {
 				sourceKind = "github",
