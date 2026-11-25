@@ -65,6 +65,7 @@ return function(verifyHarness: Verify.Harness)
 				place(320, 120)
 				poke(log, "AbsoluteSize", V2.new(400, 110))
 				poke(rows, "AbsolutePosition", V2.new(0, -210))
+				poke(frame, "AbsoluteCanvasSize", V2.new(400, 1010))
 				expect(frame.CanvasPosition):toBe(V2.new(0, 310))
 
 				place(310, 110)

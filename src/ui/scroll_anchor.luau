@@ -11,7 +11,6 @@ return function(ctx: Types.Context, frame: ScrollingFrame)
 	local origin = assert(if container then container:FindFirstChild("LayoutUnit") else nil) :: GuiObject
 	local anchor: GuiObject? = nil
 	local distance = 0
-	local watching: RBXScriptConnection? = nil
 
 	local function first(parent: Instance, line: number): GuiObject?
 		local best: GuiObject? = nil
@@ -41,8 +40,6 @@ return function(ctx: Types.Context, frame: ScrollingFrame)
 		return node
 	end
 
-	local settle: () -> ()
-
 	local function record()
 		local line = frame.AbsolutePosition.Y
 		local current = anchor
@@ -54,21 +51,12 @@ return function(ctx: Types.Context, frame: ScrollingFrame)
 			or top + current.AbsoluteSize.Y <= line
 		then
 			current = if frame.CanvasPosition.Y > 0 then pick(line) else nil
-			if current ~= anchor then
-				if watching then
-					watching:Disconnect()
-					watching = nil
-				end
-				anchor = current
-				if current then
-					watching = current:GetPropertyChangedSignal("AbsolutePosition"):Connect(settle)
-				end
-			end
+			anchor = current
 			distance = if current then current.AbsolutePosition.Y - origin.AbsolutePosition.Y else 0
 		end
 	end
 
-	settle = function()
+	local function settle()
 		local current = anchor
 		if current ~= nil and frame.CanvasPosition.Y > 0 and current:IsDescendantOf(frame) then
 			local drift = current.AbsolutePosition.Y - origin.AbsolutePosition.Y - distance
@@ -83,12 +71,6 @@ return function(ctx: Types.Context, frame: ScrollingFrame)
 		record()
 	end
 
-	ctx.Compose.cleanup(function()
-		if watching then
-			watching:Disconnect()
-			watching = nil
-		end
-	end)
 	local observation = assert(runtime.host.observation)
 	ctx.Compose.cleanup(observation.observeProperty(frame, "CanvasPosition", record))
 	ctx.Compose.cleanup(observation.observeProperty(frame, "AbsoluteCanvasSize", settle))
