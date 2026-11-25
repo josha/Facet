@@ -184,13 +184,14 @@ table.insert(cases, {
 				details:GetAttribute("label") == "Show details"
 			)
 			local actions = t.find(linked, "CellActions")
+			local host = actions.Parent
 			model.editingEnabled:set(false)
 			t.settle(10)
-			t.check(theme.name .. " read-only rows hide editing actions", not actions.Visible)
+			t.check(theme.name .. " read-only rows hide editing actions", actions.Parent == nil or not actions.Visible)
 			t.near(
 				theme.name .. " read-only rows reclaim action space",
-				actions.Parent.Content.AbsoluteSize.X,
-				actions.Parent.AbsoluteSize.X
+				host.Content.AbsoluteSize.X,
+				host.AbsoluteSize.X
 			)
 			t.check(theme.name .. " read-only rows retain information", t.visible(details))
 			model.editingEnabled:set(true)

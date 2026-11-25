@@ -969,15 +969,15 @@ add("plate-decoration-stays-inside-the-band", {}, function(t)
 			}
 		end, { size = Vector2.new(700, 300), theme = entry.package, motionLevel = "normal", frames = 20 })
 		local row = t.find(stage, "Row")
-		local tray = row:FindFirstChild("trailing")
 		local worst, narrowest, sampled, overhang, plateWidth = 0, math.huge, 0, 0, math.huge
 		local function sample()
-			if not tray.Visible or tray.AbsoluteSize.X < 0.5 then
+			local found = row:FindFirstChild("trailing")
+			if not found or not found.Visible or found.AbsoluteSize.X < 0.5 then
 				return
 			end
-			local band = t.rect(tray)
+			local band = t.rect(found)
 			for _, id in { "flag", "delete" } do
-				local plate = tray:FindFirstChild(id)
+				local plate = found:FindFirstChild(id)
 				if plate and plate.AbsoluteSize.X > 0 then
 					sampled += 1
 					narrowest = math.min(narrowest, band.w)
