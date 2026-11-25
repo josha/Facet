@@ -145,10 +145,6 @@ local compiledFor: { [Engine.RobloxTypes]: { [ThemeTypes.ReadOnlyThemePackage]: 
 	{},
 	{ __mode = "k" }
 )
-local internedFor: { [Engine.RobloxTypes]: { [string]: ThemeTypes.RuleProperties } } = setmetatable(
-	{},
-	{ __mode = "k" }
-)
 type TimingMemo = { [boolean]: { [string]: TweenInfo } }
 type MotionCache = { defaults: { [string]: TweenInfo }, packages: { [ThemeTypes.ReadOnlyThemePackage]: TimingMemo } }
 local timingsFor: { [Engine.RobloxTypes]: MotionCache } = setmetatable({}, { __mode = "k" })
@@ -482,23 +478,23 @@ return function(
 		end
 		local compiled = sized(rulesFor(package, palette, types))
 		local result = compiled.rules
-		local interned = internedFor[types]
-		if interned == nil then
-			interned = {}
-			internedFor[types] = interned
-		end
-		for _, definition in result do
-			local previous = interned[definition.id]
-			if previous and sameProperties(previous, definition.properties) then
-				definition.properties = previous
-			else
-				interned[definition.id] = definition.properties
-			end
-		end
-		byPalette[key] = compiled
-		indexById(result)
 		local previous = lastCompiled[types]
+		byPalette[key] = compiled
 		if previous ~= nil then
+			local byId = indexById(previous)
+			for index, definition in result do
+				local prior = byId[definition.id]
+				if prior and sameProperties(prior.properties, definition.properties) then
+					definition.properties = prior.properties
+					if
+						index > 1
+						and prior.selector == definition.selector
+						and prior.priority == definition.priority
+					then
+						result[index] = prior
+					end
+				end
+			end
 			changesBetween(previous, result)
 			local before, after = previous[1] and previous[1].tokens, result[1] and result[1].tokens
 			if before and after then
@@ -506,6 +502,7 @@ return function(
 				tokenChanges(after, before)
 			end
 		end
+		indexById(result)
 		lastCompiled[types] = result
 		return compiled
 	end
