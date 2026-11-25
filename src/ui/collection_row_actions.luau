@@ -369,9 +369,21 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local contentFrame: Frame
 		local activeInput: InputObject?
 		local reveal: () -> ()
+		local listening: { RBXScriptConnection }? = nil
+		local function unlisten(): ()
+			if listening then
+				for _, connection in listening do
+					connection:Disconnect()
+				end
+				listening = nil
+			end
+		end
+		Compose.cleanup(unlisten)
+		local listen: () -> ()
 		local function began(input: InputObject): ()
 			if input.UserInputType == E.UserInputType.Touch or input.UserInputType == E.UserInputType.MouseButton1 then
 				activeInput = input
+				listen()
 			end
 		end
 		local start: Vector2? = nil
@@ -379,6 +391,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 		local axis: ("horizontal" | "vertical")? = nil
 		local function cancelDrag()
 			start, axis, activeInput = nil, nil, nil
+			unlisten()
 			drag:set(nil)
 		end
 		local previousX, previousTime, velocity = 0, 0, 0
@@ -471,6 +484,7 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 				end
 			end
 			start, axis = nil, nil
+			unlisten()
 			drag:set(nil)
 			if value ~= nil and committing:peek() == nil then
 				rowSettle.launch(value, fling)
@@ -820,15 +834,26 @@ return function(ctx: Types.Context, UI: ControlTypes.Controls): ()
 
 		runtime.connect(root, "InputBegan", began)
 		local inputService = ctx.config.userInputService
-		if inputService then
-			local function cancelInput(input: InputObject): ()
-				if activeInput == input and input.UserInputState == E.UserInputState.Cancel then
-					cancelDrag()
-				end
+		local function cancelInput(input: InputObject): ()
+			if activeInput ~= input then
+				return
 			end
-			runtime.connect(inputService, "InputChanged", cancelInput)
-			runtime.connect(inputService, "InputEnded", cancelInput)
-			runtime.connect(inputService, "WindowFocusReleased", cancelDrag)
+			if input.UserInputState == E.UserInputState.Cancel then
+				cancelDrag()
+			elseif input.UserInputState == E.UserInputState.End and start == nil then
+				unlisten()
+			end
+		end
+		listen = function()
+			local service = inputService
+			if listening or service == nil then
+				return
+			end
+			listening = {
+				service.InputChanged:Connect(cancelInput),
+				service.InputEnded:Connect(cancelInput),
+				service.WindowFocusReleased:Connect(cancelDrag),
+			}
 		end
 		if inputService then
 			local service = inputService

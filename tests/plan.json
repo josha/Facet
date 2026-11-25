@@ -689,6 +689,13 @@
       ]
     },
     {
+      "id": "native_row_action_input",
+      "locator": "tests/native_row_action_input.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "native_sheet_parts",
       "locator": "tests/native_sheet_parts.verify.luau",
       "requires": [
