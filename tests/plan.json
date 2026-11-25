@@ -227,6 +227,13 @@
       ]
     },
     {
+      "id": "native_outline_motion",
+      "locator": "tests/native_outline_motion.verify.luau",
+      "requires": [
+        "local-luau"
+      ]
+    },
+    {
       "id": "native_color_picker",
       "locator": "tests/native_color_picker.verify.luau",
       "requires": [

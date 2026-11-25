@@ -22,6 +22,7 @@ export type Tree<V, K> = {
 	columnar: boolean?,
 	read preparing: ComposeTypes.Value<boolean>,
 	read preview: ComposeTypes.Value<number>,
+	read settled: ComposeTypes.ReadOnlyValue<boolean>,
 	read resume: () -> (),
 	read visible: (K, ComposeTypes.Use?) -> boolean,
 	read ancestor: (K) -> K?,
@@ -153,7 +154,7 @@ return function<V, K>(
 					table.insert(groups, nextGroup)
 				end
 				table.insert(assert(group), node)
-			else
+			elseif node.visible then
 				group = nil
 			end
 		end
@@ -204,6 +205,7 @@ return function<V, K>(
 	local result: Tree<V, K> = {
 		preparing = preparing,
 		preview = preview,
+		settled = settled,
 		resume = function()
 			if preparing:peek() then
 				preparing:set(false)
