@@ -396,6 +396,20 @@ local function rulesFor(
 		rule(".facet-" .. role .. "::UICorner", { CornerRadius = types.UDim.new(0, radius) })
 	end
 	rule(".facet-cooldown::UICorner", { CornerRadius = types.UDim.new(0, package.metrics.radii.control) })
+	rule(
+		".facet-cooldown-track",
+		{ BackgroundColor3 = c("content"), BackgroundTransparency = 0.75, BorderSizePixel = 0 }
+	)
+	rule(".facet-cooldown-bar", { BackgroundColor3 = c("accent"), BackgroundTransparency = 0, BorderSizePixel = 0 })
+	rule(
+		".facet-cooldown-track::UICorner, .facet-cooldown-bar::UICorner",
+		{ CornerRadius = types.UDim.new(0, package.metrics.radii.pill) }
+	)
+	rule(
+		".facet-accent >> .facet-cooldown-track, .facet-accent >> .facet-cooldown-bar",
+		{ BackgroundColor3 = c("onAccent") }
+	)
+	rule(".facet-appearance-inverse >> .facet-cooldown-track", { BackgroundColor3 = c("onInverse") })
 	rule(".facet-button", {
 		TextColor3 = c("content"),
 		FontFace = f(package.metrics.typography.control.font),
@@ -1317,6 +1331,10 @@ local function rulesFor(
 	end
 	if extra.dimDisabledPlates ~= true and extra.dimDisabledPlates ~= false then
 		rule(".facet-button.facet-disabled", { BackgroundTransparency = 0.6 })
+		rule(
+			".facet-appearance-utility.facet-disabled, .facet-appearance-link.facet-disabled, .facet-appearance-bare.facet-disabled",
+			{ BackgroundTransparency = 1 }
+		)
 	end
 	if extra.dimDisabledPlates == true then
 		local dim = extra.disabledContentOpacity or 0.4
@@ -1399,6 +1417,11 @@ local function rulesFor(
 			)
 		end
 	end
+	rule(
+		".facet-charges, .facet-button >> .facet-charges",
+		{ BackgroundColor3 = c("inverseSurface"), BackgroundTransparency = 0, TextColor3 = c("onInverse") }
+	)
+	rule(".facet-charges::UIStroke", { Color = c("surface"), Thickness = 2, Transparency = 0 })
 	rule(".facet-button-captioned.facet-disabled", { TextTransparency = 1 })
 	return kit.finish()
 end

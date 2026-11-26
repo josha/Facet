@@ -23,27 +23,32 @@ return function(harness: Verify.Harness)
 					end,
 				}
 			end)
-			local sweep = w.find("CooldownSweep")
 			local cover = w.find("Cooldown")
+			local action, track, bar = w.find("Action"), w.find("CooldownTrack"), w.find("CooldownBar")
 			Verify.expect(cover.Parent.Name):toBe("CooldownBounds")
 			Verify.expect(cover.Size):toBe(w.engine.types.UDim2.fromScale(1, 1))
-			Verify.expect(sweep.Size.Y.Scale):toBe(0.5)
-			Verify.expect(w.find("CooldownShade"):HasTag("facet-scrim")):toBe(true)
-			Verify.expect(sweep.ClipsDescendants):toBe(true)
-			Verify.expect(sweep.Selectable):toBe(false)
+			Verify.expect(track:HasTag("facet-cooldown-track")):toBe(true)
+			Verify.expect(bar:HasTag("facet-cooldown-bar")):toBe(true)
+			Verify.expect(bar.Size.X.Scale):toBe(0.5)
+			Verify.expect(track.Selectable):toBe(false)
+			Verify.expect(action:HasTag("facet-disabled")):toBe(false)
+			Verify.expect(w.find("CooldownWipe")):toBeNil()
 			remaining:set(0)
 			w.advance(0.01)
-			Verify.expect(sweep.Size.Y.Scale > 0 and sweep.Size.Y.Scale < 0.5):toBe(true)
+			Verify.expect(bar.Size.X.Scale > 0.5 and bar.Size.X.Scale < 1):toBe(true)
 			w.advance(1)
-			Verify.expect(sweep.Visible):toBe(false)
+			Verify.expect(track.Visible):toBe(false)
 			remaining:set(24)
 			w.advance(1)
-			Verify.expect(sweep.Size.Y.Scale):toBe(1)
+			Verify.expect(bar.Size.X.Scale):toBe(0)
 			total:set(48)
 			w.advance(1)
-			Verify.expect(sweep.Size.Y.Scale):toBe(0.5)
+			Verify.expect(bar.Size.X.Scale):toBe(0.5)
 			charges:set(0)
 			Verify.expect(w.find("Charges").Text):toBe("0")
+			Verify.expect(action:HasTag("facet-disabled")):toBe(true)
+			remaining:set(0)
+			Verify.expect(action:HasTag("facet-disabled")):toBe(false)
 			for _, mode in
 				{ w.Enum.PreferredInput.KeyboardAndMouse, w.Enum.PreferredInput.Gamepad, w.Enum.PreferredInput.Touch }
 			do
@@ -51,6 +56,34 @@ return function(harness: Verify.Harness)
 				w.find("Action").Activated:Fire(nil, 1)
 			end
 			Verify.expect(count):toBe(3)
+			w.stop()
+		end,
+	})
+	harness:case("an icon-only cooldown sweeps the remaining time clockwise from the top", {
+		id = "native_game_hud::cooldown-wipe",
+		run = function()
+			local remaining = Facet.Compose.cell(3)
+			local w = overlay.new(function(UI: Facet.Controls)
+				return UI.Button "Action" {
+					icon = "bolt",
+					shape = "circle",
+					name = "Use",
+					cooldown = { remaining = remaining, total = 8 },
+				}
+			end, { motionLevel = "none" })
+			local right, left = w.find("CooldownRight"), w.find("CooldownLeft")
+			Verify.expect(w.find("CooldownTrack")):toBeNil()
+			Verify.expect(w.find("Action"):HasTag("facet-disabled")):toBe(false)
+			Verify.expect(right.Visible):toBe(false)
+			Verify.expect(left.Visible):toBe(true)
+			Verify.expect(left:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("UIGradient").Rotation):toBe(225)
+			Verify.expect(left:FindFirstChildWhichIsA("Frame"):HasTag("facet-scrim")):toBe(true)
+			remaining:set(6)
+			Verify.expect(right.Visible):toBe(true)
+			Verify.expect(right:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("UIGradient").Rotation):toBe(90)
+			Verify.expect(left:FindFirstChildWhichIsA("Frame"):FindFirstChildWhichIsA("UIGradient").Rotation):toBe(180)
+			remaining:set(0)
+			Verify.expect(right.Visible or left.Visible):toBe(false)
 			w.stop()
 		end,
 	})
@@ -66,10 +99,10 @@ return function(harness: Verify.Harness)
 				end, { theme = theme, motionLevel = motion })
 				remaining:set(0)
 				w.advance(0.4)
-				local fraction = w.find("CooldownSweep").Size.Y.Scale
+				local fraction = 1 - w.find("CooldownBar").Size.X.Scale
 				Verify.expect(if motion == "none" then fraction == 0 else math.abs(fraction - 0.5) < 1e-6):toBe(true)
 				w.advance(0.4)
-				Verify.expect(w.find("CooldownSweep").Size.Y.Scale):toBe(0)
+				Verify.expect(w.find("CooldownBar").Size.X.Scale):toBe(1)
 				w.stop()
 			end
 		end,
@@ -121,7 +154,7 @@ return function(harness: Verify.Harness)
 				state.dispose()
 				Verify.expect(state.engine.census().connections):toBe(0)
 			end
-			Verify.expect(counts[2] - counts[1]):toBe(9)
+			Verify.expect(counts[2] - counts[1]):toBe(10)
 		end,
 	})
 	harness:case("rich help shares hover focus and long press placement", {
