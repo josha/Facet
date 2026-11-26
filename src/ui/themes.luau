@@ -1227,6 +1227,11 @@ local function rulesFor(
 	rule(".facet-segment-current >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-text", { TextColor3 = c("onAccent") })
 	rule(".facet-accent >> .facet-icon", { ImageColor3 = c("onAccent") })
+	rule(
+		".facet-charges, .facet-button >> .facet-charges",
+		{ BackgroundColor3 = c("inverseSurface"), BackgroundTransparency = 0, TextColor3 = c("onInverse") }
+	)
+	rule(".facet-charges::UIStroke", { Color = c("surface"), Thickness = 2, Transparency = 0 })
 	local bareGlyph = " >> .facet-shortcut-hint-bare >> .facet-shortcut-glyph"
 	rule(".facet-role-destructive" .. bareGlyph, { ImageColor3 = c("onDanger") })
 	rule(".facet-appearance-inverse" .. bareGlyph, { ImageColor3 = c("onInverse") })
@@ -1417,11 +1422,7 @@ local function rulesFor(
 			)
 		end
 	end
-	rule(
-		".facet-charges, .facet-button >> .facet-charges",
-		{ BackgroundColor3 = c("inverseSurface"), BackgroundTransparency = 0, TextColor3 = c("onInverse") }
-	)
-	rule(".facet-charges::UIStroke", { Color = c("surface"), Thickness = 2, Transparency = 0 })
+	rule(".facet-button >> .facet-charges", { TextColor3 = c("onInverse") })
 	rule(".facet-button-captioned.facet-disabled", { TextTransparency = 1 })
 	return kit.finish()
 end
