@@ -371,6 +371,13 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 					)
 				)
 		end
+		local function recharging(use: ComposeTypes.Use?): boolean
+			local pending = spec.cooldown
+			if pending == nil or read<<number>>(pending.remaining, use) <= 0 then
+				return false
+			end
+			return (spec.charges == nil or read<<number>>(spec.charges, use) <= 0) and worded(use)
+		end
 		local function touching(use: ComposeTypes.Use?): boolean
 			return effective ~= nil and effective(use) == "Touch"
 		end
@@ -995,7 +1002,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 		end
 		local function updateState(use)
 			local selected, busy = read(spec.selected, use) == true, read(spec.busy, use) == true
-			local available = isEnabled(use)
+			local available = isEnabled(use) and not recharging(use)
 			local role, appearance =
 				read<<InputTypes.ButtonRole?>>(spec.role, use) or "default",
 				read<<string?>>(spec.appearance, use) or "standard"
@@ -1067,6 +1074,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			or dynamic(spec.controlSize)
 			or dynamic(spec.name)
 			or dynamic(spec.label)
+			or (spec.cooldown ~= nil and (dynamic(spec.cooldown.remaining) or dynamic(spec.charges)))
 		if stateIsDynamic then
 			Compose.watch(updateState)
 		else
@@ -1351,7 +1359,7 @@ return function(ctx: Shared.Context, UI: ControlTypes.Controls, kit: inputKit.Ki
 			)
 		end
 		if spec.cooldown ~= nil or spec.charges ~= nil then
-			require("./input_button_cooldown")(ctx, node, spec.cooldown, spec.charges)
+			require("./input_button_cooldown")(ctx, UI, node, spec.cooldown, spec.charges, worded)
 		end
 		return node
 	end)

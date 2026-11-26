@@ -200,14 +200,17 @@ rule, and `Facet.ThemeRuleProperties` types the properties of that rule.
 
 For an action slot, use `UI.Button` with `cooldown = { remaining, total }` and
 optional `charges`. `Facet.Cooldown` accepts bound numbers. `total` must be
-finite and positive; `remaining` must be finite. The bottom-to-top sweep shows
-the clamped remaining fraction. It follows model updates with `motion.fast`
-and `motion.easing.trail`, and snaps with reduced motion. It does not run a
-game timer or disable the action. Bind `enabled` to the game's availability
-rule. `charges` accepts a bound nonnegative integer, including zero. Use
-`icon`, `glyph`, and `shortcutHint` for the subject and native InputAction hint.
-The sweep uses the theme's scrim paint. Theme rules can target
-`.facet-cooldown` and `.facet-charges` for separate paint.
+finite and positive; `remaining` must be finite. A button with a label shows
+a recharge bar along its bottom edge and takes the theme's disabled look while
+it recharges with no charge left. An icon-only button shows a clockwise wipe
+of the remaining fraction in the theme's scrim paint. Both follow model
+updates with `motion.fast` and `motion.easing.trail`, and snap with reduced
+motion. The button does not run a game timer or block the action. Bind
+`enabled` to the game's availability rule. `charges` accepts a bound
+nonnegative integer, including zero, and shows as a corner badge. Use `icon`,
+`glyph`, and `shortcutHint` for the subject and native InputAction hint. Theme
+rules can target `.facet-cooldown-track`, `.facet-cooldown-bar`,
+`.facet-cooldown` (the wipe) and `.facet-charges` for separate paint.
 
 `Facet.HelpSpec` adds optional `rows = { { label, value, tone } }`, `cost`,
 `cooldown`, `flavour` and `titleTone` to the existing `title`, required `body`,

@@ -455,6 +455,25 @@ local PAGE_DATA: { [string]: PageDefinition } = {
 				name = "cooldown with 2 charges",
 				props = properties { cooldown = { remaining = 3, total = 8 }, charges = 2 },
 			},
+			{
+				name = "icon cooldown (3 of 8 left)",
+				props = properties {
+					icon = "settings",
+					shape = "circle",
+					name = "Settings",
+					cooldown = { remaining = 3, total = 8 },
+				},
+			},
+			{
+				name = "icon cooldown with 2 charges",
+				props = properties {
+					icon = "settings",
+					shape = "circle",
+					name = "Settings",
+					cooldown = { remaining = 6, total = 8 },
+					charges = 2,
+				},
+			},
 			{ name = "haptic", props = properties { haptic = true } },
 			{ name = "hold repeats", props = properties { repeatDelay = 0.4, repeatInterval = 0.1 } },
 			{ name = "shortcut S", props = properties { shortcut = { keyCode = "S" } } },
